@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.appimagecontrol.AppImageControl</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>AppImage Control</name>
+  <summary>Manage AppImage installs, instances, backup and restore</summary>
+  <description>
+    <p>
+      AppImage Control manages catalog-backed AppImage installations with multi-instance
+      support, update checks, migration of legacy portable directories, and deterministic
+      backup/restore of manager-owned state.
+    </p>
+    <p>
+      The application is designed for users who manage multiple AppImage applications and
+      need repeatable instance orchestration, launcher repair, cache control, and safe
+      state migration/restore flows.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.github.appimagecontrol.AppImageControl.desktop</launchable>
+  <provides>
+    <binary>appimage-control</binary>
+  </provides>
+  <developer id="io.github.appimagecontrol">
+    <name>AppImage Control Contributors</name>
+  </developer>
+  <url type="homepage">https://github.com</url>
+  <url type="bugtracker">https://github.com</url>
+  <url type="vcs-browser">https://github.com</url>
+  <content_rating type="oars-1.1"/>
+</component>

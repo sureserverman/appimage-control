@@ -1,0 +1,17 @@
+{
+  "apps": [
+    {
+      "id": "example",
+      "display_name": "Example App",
+      "homepage": "https://example.org/",
+      "download_url": "https://example.org/releases/Example-1.0.0.AppImage",
+      "appimage_filename": "Example.AppImage",
+      "instance_exec_args_template": "--profile {instance_name}",
+      "instance_name_template": "profile-{index}",
+      "desktop_name_template": "Example (#{index})",
+      "reset_config_dirs": [],
+      "reset_cache_dirs": [],
+      "reset_data_dirs": []
+    }
+  ]
+}

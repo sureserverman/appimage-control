@@ -1,0 +1,26 @@
+[package]
+name = "appimage_control_core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Core logic for AppImage Control (install, list, uninstall, update, reset)"
+
+[dependencies]
+blake3 = "1.8.4"
+dirs = "6"
+image = { version = "0.25", default-features = false, features = ["png"] }
+regex = "1"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+semver = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.11.0"
+tar = "0.4.45"
+thiserror = "2"
+uuid = { version = "1", features = ["v4"] }
+zstd = "0.13.3"
+
+[dev-dependencies]
+assert_fs = "1"
+predicates = "3"
+tempfile = "3"

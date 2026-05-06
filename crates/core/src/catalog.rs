@@ -1,0 +1,504 @@
+//! Catalog: apps with optional download URL, multi-instance exec templates, reset hints.
+
+use std::collections::HashMap;
+use std::fs;
+use std::path::{Path, PathBuf};
+
+use serde::Deserialize;
+
+use crate::desktop::sanitize_app_id;
+use crate::error::Result;
+
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum InstanceStrategy {
+    /// No special runtime flags beyond `instance_exec_args_template`.
+    #[default]
+    None,
+    /// Electron apps that accept Chromium `--class` (Session, Standard Notes, …): launcher unsets
+    /// `WAYLAND_DISPLAY`, sets Ozone/X11, passes `--no-sandbox --ozone-platform=x11 --class={wm_class}`,
+    /// `xprop` WM_CLASS; `Icon=` is absolute path to the 256×256 PNG (128×128 also installed).
+    ElectronClass,
+    /// Joplin: portable dirs per instance; launcher unsets `WAYLAND_DISPLAY`, sets Ozone/X11, passes `--ozone-platform=x11`, `xprop` WM_CLASS; `Icon=` is absolute path to 256×256 PNG (128×128 also installed); embedded PNG if fetch fails.
+    JoplinAltInstance,
+    /// Cryptomator (jpackage): extract `--appimage-extract` and patch `lib/app/Cryptomator.cfg` so each
+    /// instance uses its own IPC socket and config under the portable `.config`/`.home` dirs (the
+    /// embedded AppImage cfg always points at the real `user.home`, so a second launch exits as IPC client).
+    CryptomatorExtract,
+    /// Qt apps (e.g. Feather): launcher unsets `WAYLAND_DISPLAY`, sets `QT_QPA_PLATFORM=xcb`, then
+    /// `xprop` WM_CLASS; `Icon=` basename matches `StartupWMClass=` (256×256 absolute path like Electron).
+    QtX11,
+    /// KeePassXC: bypass single-instance lock by isolating Qt `TempLocation` via `TMPDIR`, and
+    /// isolate config/state via `HOME` + `XDG_*` into the per-instance `.home`/`.config` dirs.
+    KeepassxcIsolated,
+    /// Electron apps (Jan, AnythingLLM, Mattermost, LM Studio): like `electron_class` but also
+    /// isolates `HOME`/`XDG_*`/`TMPDIR` so multiple instances can run concurrently.
+    ElectronClassIsolated,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct Catalog {
+    #[serde(default)]
+    pub apps: Vec<CatalogApp>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CatalogApp {
+    pub id: String,
+    #[serde(default)]
+    pub display_name: Option<String>,
+    #[serde(default)]
+    pub homepage: Option<String>,
+    /// Direct URL to the x86_64 (amd64) `.AppImage` (used on `x86_64` / `x86` hosts).
+    #[serde(default)]
+    pub download_url: Option<String>,
+    /// Optional URL to the aarch64 `.AppImage` (used on `aarch64` hosts).
+    #[serde(default)]
+    pub download_url_aarch64: Option<String>,
+    /// Filename inside each instance dir (default: last segment of URL or `{id}.AppImage`).
+    #[serde(default)]
+    pub appimage_filename: Option<String>,
+    /// Optional per-app runtime strategy for launching multiple concurrent instances.
+    ///
+    /// This is preferred over injecting raw flags into `instance_exec_args_template` for apps that
+    /// have their own instance-lock/IPC mechanisms (e.g. Joplin), for Electron/Chromium `--class`,
+    /// or for Qt on GNOME Wayland (`qt_x11`: XCB + `xprop` for per-instance dock icons).
+    #[serde(default)]
+    pub instance_strategy: InstanceStrategy,
+    /// Extra arguments after the AppImage path, e.g. `--name {instance_name}` (Feather-style).
+    /// Placeholders: `{instance_name}`, `{index}`, `{id}`, `{Id}`, `{wm_class}` (per-instance unique string, same as `StartupWMClass=`; e.g. `--class={wm_class}` on Electron when it starts reliably).
+    /// Skip `--class` if the AppImage exits immediately (seen with some Electron builds). Multi-instance Electron apps should use [`InstanceStrategy::ElectronClassIsolated`] (empty template) instead of relying on a shared profile.
+    #[serde(default)]
+    pub instance_exec_args_template: Option<String>,
+    /// Value passed into `instance_exec_args_template` as `{instance_name}` (default `{Id}{index}`).
+    #[serde(default)]
+    pub instance_name_template: Option<String>,
+    /// `.desktop` Name= field (default `{display_name} (#{index})`).
+    #[serde(default)]
+    pub desktop_name_template: Option<String>,
+    /// Relative segments under `~/.config`, `~/.cache`, `~/.local/share` to remove on reset (legacy single-dir).
+    #[serde(default)]
+    pub reset_config_dirs: Vec<String>,
+    #[serde(default)]
+    pub reset_cache_dirs: Vec<String>,
+    #[serde(default)]
+    pub reset_data_dirs: Vec<String>,
+    /// Direct URL to a small PNG (or other image format GDK can load). If unset, the app tries GitHub repo owner avatar, then a homepage favicon.
+    #[serde(default)]
+    pub icon_url: Option<String>,
+    /// Optional override for Wayland `app_id` / shell matching.
+    ///
+    /// On Wayland, GNOME (and other shells) match running windows to `.desktop` entries primarily
+    /// using the Wayland `xdg_toplevel.set_app_id()` value. For many apps (notably Electron), this
+    /// value is not controllable from the outside at runtime and may not match our per-instance
+    /// generated WM class.
+    ///
+    /// When set, AppImage Control uses this for `StartupWMClass=` only for [`InstanceStrategy::None`].
+    /// Electron uses per-instance `StartupWMClass` with Chromium `--class`; Joplin uses per-instance
+    /// class with X11 + `xprop` in the launcher; Cryptomator and QtX11 use `xprop` after forcing X11.
+    #[serde(default)]
+    pub wayland_app_id: Option<String>,
+    /// When `false`, omit the ` %U` suffix on `Exec=` so the desktop does not pass URL/file args.
+    /// Electrum treats unknown argv as CLI subcommands and fails on `file://…` from the session.
+    #[serde(default)]
+    pub desktop_pass_file_urls: Option<bool>,
+    /// Directory name under `apps/` (default: sanitized catalog [`CatalogApp::id`]).
+    ///
+    /// Electrum’s daemon Unix socket lives under the portable `*.AppImage.home` tree; the full path
+    /// must stay within the kernel `AF_UNIX` path limit (~108 bytes). Use a short slug (e.g. `ebtc`)
+    /// plus a short [`CatalogApp::appimage_filename`] (e.g. `eb.AppImage`) for those apps.
+    #[serde(default)]
+    pub instance_subdir: Option<String>,
+    /// Linux: run the AppImage under `dbus-run-session` so Tauri `tauri_plugin_single_instance` can
+    /// register `{app-identifier}.SingleInstance` on a **private** session bus. Without this, every
+    /// instance shares the user session bus and the second process hits `NameTaken` and exits.
+    #[serde(default)]
+    pub isolate_dbus_session: Option<bool>,
+    /// Maximum installed instances for this app (spin upper bound and [`crate::instances::reconcile_instance_count`]).
+    /// Omitted or higher than the global cap uses [`crate::instances::MAX_INSTANCES_PER_APP`].
+    #[serde(default)]
+    pub max_instances: Option<u32>,
+    /// Shown when the user hits the instance limit (e.g. GTK spin “+” at max). If unset, a generic
+    /// message is built from [`CatalogApp::display_name_resolved`].
+    #[serde(default)]
+    pub max_instances_tooltip: Option<String>,
+}
+
+fn nonempty_url(s: &Option<String>) -> Option<&str> {
+    s.as_deref().filter(|u| !u.is_empty())
+}
+
+impl CatalogApp {
+    /// Whether `.desktop` `Exec=` should end with ` %U` (freedesktop URL list). Default: true.
+    pub fn desktop_pass_file_urls(&self) -> bool {
+        self.desktop_pass_file_urls.unwrap_or(true)
+    }
+
+    /// `apps/<this>/<n>/` on disk (sanitized); defaults to sanitized [`CatalogApp::id`].
+    pub fn instance_filesystem_dirname(&self) -> String {
+        self.instance_subdir
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(sanitize_app_id)
+            .unwrap_or_else(|| sanitize_app_id(&self.id))
+    }
+
+    pub fn display_name_resolved(&self) -> String {
+        self.display_name
+            .clone()
+            .unwrap_or_else(|| self.id.replace('-', " "))
+    }
+
+    /// True if the catalog lists at least one download URL (any architecture).
+    pub fn has_any_download_url(&self) -> bool {
+        nonempty_url(&self.download_url).is_some()
+            || nonempty_url(&self.download_url_aarch64).is_some()
+    }
+
+    /// Picks `download_url` vs `download_url_aarch64` based on `std::env::consts::ARCH`.
+    pub fn resolved_download_url(&self) -> crate::error::Result<&str> {
+        match std::env::consts::ARCH {
+            "aarch64" => nonempty_url(&self.download_url_aarch64).ok_or(
+                crate::error::Error::NoDownloadUrlForArch(std::env::consts::ARCH),
+            ),
+            "x86_64" | "x86" => {
+                nonempty_url(&self.download_url).ok_or(crate::error::Error::NoDownloadUrl)
+            }
+            _ => nonempty_url(&self.download_url)
+                .or_else(|| nonempty_url(&self.download_url_aarch64))
+                .ok_or(crate::error::Error::NoDownloadUrlForArch(
+                    std::env::consts::ARCH,
+                )),
+        }
+    }
+
+    pub fn resolved_appimage_filename(&self) -> String {
+        if let Some(ref f) = self.appimage_filename {
+            return f.clone();
+        }
+        self.resolved_download_url()
+            .ok()
+            .and_then(|u| {
+                let path = u.split('?').next().unwrap_or(u);
+                Path::new(path)
+                    .file_name()
+                    .and_then(|s| s.to_str())
+                    .map(String::from)
+            })
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| format!("{}.AppImage", self.id))
+    }
+
+    pub fn download_url_required(&self) -> crate::error::Result<&str> {
+        self.resolved_download_url()
+    }
+
+    /// Upper bound for instance count (catalog `max_instances`, capped by the global maximum).
+    pub fn max_instances_allowed(&self) -> u32 {
+        let cap = crate::instances::MAX_INSTANCES_PER_APP;
+        match self.max_instances {
+            None => cap,
+            Some(0) => cap,
+            Some(n) => n.min(cap),
+        }
+    }
+
+    /// Tooltip text when this app’s instance limit is below the global default (hover + “+” at max).
+    pub fn instance_limit_tooltip_message(&self) -> Option<String> {
+        let max = self.max_instances_allowed();
+        if max >= crate::instances::MAX_INSTANCES_PER_APP {
+            return None;
+        }
+        if let Some(ref t) = self.max_instances_tooltip {
+            return Some(t.clone());
+        }
+        Some(if max == 1 {
+            format!(
+                "You can't use more than one instance of {}.",
+                self.display_name_resolved()
+            )
+        } else {
+            format!(
+                "You can't use more than {max} instances of {}.",
+                self.display_name_resolved()
+            )
+        })
+    }
+}
+
+/// Walk `start` and its ancestors (bounded depth); return the first successfully parsed
+/// `data/catalog.json` on that chain. Used so the app works when the process cwd is a repo
+/// subdirectory (e.g. `crates/gui`) or when only the executable path points at a checkout
+/// under `target/debug/`.
+/// JSON shipped with the workspace (also baked into Flatpak). Used only when no catalog file is
+/// found on disk so a misconfigured `.desktop` (`Exec=appimage-control` on the host) or an empty
+/// `APPIMAGE_CONTROL_CATALOG` still yields a usable catalog.
+const SHIPPED_CATALOG_JSON: &str =
+    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../data/catalog.json"));
+
+/// Loads `path` only if it parses and lists at least one app. Empty `{"apps":[]}` files are ignored
+/// so a stray `…/data/catalog.json` on an ancestor chain (e.g. under `$HOME`) cannot shadow the
+/// real Flatpak or shipped catalog.
+fn try_nonempty_catalog_file(path: &Path) -> Option<Catalog> {
+    if !path.is_file() {
+        return None;
+    }
+    Catalog::load_from_path(path)
+        .ok()
+        .filter(|c| !c.apps.is_empty())
+}
+
+fn try_load_catalog_from_data_json_ancestors(start: &Path) -> Option<Catalog> {
+    const MAX_DEPTH: usize = 32;
+    let mut dir = start;
+    for _ in 0..MAX_DEPTH {
+        let candidate = dir.join("data").join("catalog.json");
+        if let Some(c) = try_nonempty_catalog_file(&candidate) {
+            return Some(c);
+        }
+        dir = dir.parent()?;
+    }
+    None
+}
+
+impl Catalog {
+    pub fn load_from_path(path: &Path) -> Result<Self> {
+        let raw = fs::read_to_string(path)?;
+        let c: Catalog = serde_json::from_str(&raw)?;
+        Ok(c)
+    }
+
+    /// Resolve catalog JSON: `explicit` path (must load if present), else non-empty
+    /// `APPIMAGE_CONTROL_CATALOG` when it points to a readable file, then `data/catalog.json` on
+    /// the current directory or any ancestor, then the same walk from the executable’s directory,
+    /// then `/app/share/appimage-control/catalog.json` (Flatpak) and `/usr/share/appimage-control/catalog.json`,
+    /// then the catalog JSON that was compiled into this crate (same as repo `data/catalog.json`).
+    pub fn discover_load(explicit: Option<&Path>) -> crate::error::Result<Self> {
+        if let Some(p) = explicit {
+            if !p.is_file() {
+                return Err(crate::error::Error::InvalidPath(format!(
+                    "catalog is not a file: {}",
+                    p.display()
+                )));
+            }
+            return Self::load_from_path(p);
+        }
+        if let Ok(s) = std::env::var("APPIMAGE_CONTROL_CATALOG") {
+            let s = s.trim();
+            if !s.is_empty() {
+                let p = PathBuf::from(s);
+                if p.is_file() {
+                    if let Ok(c) = Self::load_from_path(&p) {
+                        return Ok(c);
+                    }
+                }
+            }
+        }
+        if let Ok(cwd) = std::env::current_dir() {
+            if let Some(c) = try_load_catalog_from_data_json_ancestors(&cwd) {
+                return Ok(c);
+            }
+        }
+        if let Ok(exe) = std::env::current_exe() {
+            if let Some(dir) = exe.parent() {
+                if let Some(c) = try_load_catalog_from_data_json_ancestors(dir) {
+                    return Ok(c);
+                }
+            }
+        }
+        for p in [
+            PathBuf::from("/app/share/appimage-control/catalog.json"),
+            PathBuf::from("/usr/share/appimage-control/catalog.json"),
+        ] {
+            if let Some(c) = try_nonempty_catalog_file(&p) {
+                return Ok(c);
+            }
+        }
+        serde_json::from_str::<Catalog>(SHIPPED_CATALOG_JSON).map_err(|e| {
+            crate::error::Error::InvalidPath(format!(
+                "built-in catalog failed to parse (report as a bug): {e}"
+            ))
+        })
+    }
+
+    pub fn by_id(&self) -> HashMap<String, &CatalogApp> {
+        self.apps.iter().map(|a| (a.id.clone(), a)).collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use super::{Catalog, CatalogApp, InstanceStrategy};
+
+    fn app_urls(amd: Option<&str>, arm: Option<&str>) -> CatalogApp {
+        CatalogApp {
+            id: "t".into(),
+            display_name: None,
+            homepage: None,
+            download_url: amd.map(String::from),
+            download_url_aarch64: arm.map(String::from),
+            appimage_filename: Some("t.AppImage".into()),
+            instance_strategy: InstanceStrategy::None,
+            instance_exec_args_template: None,
+            instance_name_template: None,
+            desktop_name_template: None,
+            reset_config_dirs: vec![],
+            reset_cache_dirs: vec![],
+            reset_data_dirs: vec![],
+            icon_url: None,
+            wayland_app_id: None,
+            desktop_pass_file_urls: None,
+            instance_subdir: None,
+            isolate_dbus_session: None,
+            max_instances: None,
+            max_instances_tooltip: None,
+        }
+    }
+
+    #[test]
+    fn electrum_compact_layout_keeps_daemon_socket_path_short() {
+        let app = CatalogApp {
+            id: "electrum-btc".into(),
+            display_name: None,
+            homepage: None,
+            download_url: None,
+            download_url_aarch64: None,
+            appimage_filename: Some("eb.AppImage".into()),
+            instance_strategy: InstanceStrategy::None,
+            instance_exec_args_template: None,
+            instance_name_template: None,
+            desktop_name_template: None,
+            reset_config_dirs: vec![],
+            reset_cache_dirs: vec![],
+            reset_data_dirs: vec![],
+            icon_url: None,
+            wayland_app_id: None,
+            desktop_pass_file_urls: None,
+            instance_subdir: Some("ebtc".into()),
+            isolate_dbus_session: None,
+            max_instances: None,
+            max_instances_tooltip: None,
+        };
+        let paths = crate::paths::AppPaths::new(std::path::PathBuf::from("/home/user")).unwrap();
+        let sock = paths
+            .instance_dir_for(&app, 1)
+            .join("eb.AppImage.home")
+            .join(".electrum")
+            .join("daemon_rpc_socket");
+        assert!(
+            sock.as_os_str().len() <= 108,
+            "AF_UNIX path too long ({}): {}",
+            sock.as_os_str().len(),
+            sock.display()
+        );
+    }
+
+    #[test]
+    fn resolved_url_matches_host_amd64_catalog() {
+        if !matches!(std::env::consts::ARCH, "x86_64" | "x86") {
+            return;
+        }
+        let a = app_urls(Some("https://x.example/a.AppImage"), None);
+        assert_eq!(
+            a.resolved_download_url().unwrap(),
+            "https://x.example/a.AppImage"
+        );
+    }
+
+    #[test]
+    fn aarch64_url_used_on_aarch64() {
+        if std::env::consts::ARCH != "aarch64" {
+            return;
+        }
+        let a = app_urls(
+            Some("https://x.example/x86.AppImage"),
+            Some("https://x.example/arm.AppImage"),
+        );
+        assert_eq!(
+            a.resolved_download_url().unwrap(),
+            "https://x.example/arm.AppImage"
+        );
+    }
+
+    #[test]
+    fn x86_requires_download_url_not_only_arm() {
+        if !matches!(std::env::consts::ARCH, "x86_64" | "x86") {
+            return;
+        }
+        let a = app_urls(None, Some("https://x.example/arm.AppImage"));
+        assert!(a.resolved_download_url().is_err());
+    }
+
+    #[test]
+    fn max_instances_allowed_respects_catalog_and_global_cap() {
+        let mut a = app_urls(Some("https://x.example/a.AppImage"), None);
+        assert_eq!(
+            a.max_instances_allowed(),
+            crate::instances::MAX_INSTANCES_PER_APP
+        );
+        a.max_instances = Some(1);
+        assert_eq!(a.max_instances_allowed(), 1);
+        a.max_instances = Some(999);
+        assert_eq!(
+            a.max_instances_allowed(),
+            crate::instances::MAX_INSTANCES_PER_APP
+        );
+    }
+
+    #[test]
+    fn discover_load_explicit_file() {
+        let tmp = tempfile::tempdir().unwrap();
+        let p = tmp.path().join("catalog.json");
+        fs::write(&p, r#"{"apps":[]}"#).unwrap();
+        let c = Catalog::discover_load(Some(p.as_path())).unwrap();
+        assert!(c.apps.is_empty());
+    }
+
+    #[test]
+    fn shipped_catalog_embed_constant_parses() {
+        let c: Catalog = serde_json::from_str(super::SHIPPED_CATALOG_JSON).expect("embed parse");
+        assert!(!c.apps.is_empty(), "shipped catalog should list apps");
+    }
+
+    #[test]
+    fn ancestor_walk_finds_nonempty_data_catalog_json() {
+        let tmp = tempfile::tempdir().unwrap();
+        let deep = tmp.path().join("crates/gui/src");
+        fs::create_dir_all(&deep).unwrap();
+        let catalog_path = tmp.path().join("data/catalog.json");
+        fs::create_dir_all(catalog_path.parent().unwrap()).unwrap();
+        fs::write(
+            &catalog_path,
+            r#"{"apps":[{"id":"stub-app","download_url":"https://example.com/x.AppImage","appimage_filename":"x.AppImage"}]}"#,
+        )
+        .unwrap();
+        let c = super::try_load_catalog_from_data_json_ancestors(&deep).expect("catalog");
+        assert_eq!(c.apps.len(), 1);
+        assert_eq!(c.apps[0].id, "stub-app");
+    }
+
+    #[test]
+    fn ancestor_walk_skips_empty_apps_catalog_json() {
+        let tmp = tempfile::tempdir().unwrap();
+        let deep = tmp.path().join("a/b");
+        fs::create_dir_all(&deep).unwrap();
+        let catalog_path = tmp.path().join("data/catalog.json");
+        fs::create_dir_all(catalog_path.parent().unwrap()).unwrap();
+        fs::write(&catalog_path, r#"{"apps":[]}"#).unwrap();
+        assert!(super::try_load_catalog_from_data_json_ancestors(&deep).is_none());
+    }
+
+    #[test]
+    fn instance_limit_tooltip_prefers_catalog_string() {
+        let mut a = app_urls(Some("https://x.example/a.AppImage"), None);
+        a.max_instances = Some(1);
+        a.max_instances_tooltip = Some("Custom limit message.".into());
+        assert_eq!(
+            a.instance_limit_tooltip_message().as_deref(),
+            Some("Custom limit message.")
+        );
+    }
+}

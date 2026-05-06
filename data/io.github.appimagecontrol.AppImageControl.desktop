@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=AppImage Control
+Comment=Install and manage AppImage applications
+Exec=appimage-control
+Icon=io.github.appimagecontrol.AppImageControl
+Terminal=false
+Categories=Utility;PackageManager;Settings;
+StartupNotify=true
+StartupWMClass=io.github.appimagecontrol.AppImageControl

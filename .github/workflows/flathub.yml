@@ -1,0 +1,70 @@
+name: Flathub
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "flatpak/**"
+      - "data/**"
+      - "crates/core/**"
+      - "crates/gui/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/flathub.yml"
+  push:
+    branches: [main, master]
+    paths:
+      - "flatpak/**"
+      - "data/**"
+      - "crates/core/**"
+      - "crates/gui/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/flathub.yml"
+    tags:
+      - "v*"
+
+jobs:
+  flatpak:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Flatpak tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder desktop-file-utils appstream
+      - name: Configure Flathub remote
+        run: |
+          sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+      - name: Install required runtimes
+        run: |
+          sudo flatpak install -y flathub org.gnome.Platform//47 org.gnome.Sdk//47 org.freedesktop.Sdk.Extension.rust-stable//24.08
+      - name: Validate desktop metadata
+        run: |
+          desktop-file-validate data/io.github.appimagecontrol.AppImageControl.desktop
+          appstreamcli validate data/io.github.appimagecontrol.AppImageControl.metainfo.xml
+      - name: Validate Flatpak manifest
+        run: |
+          flatpak-builder --show-manifest flatpak/io.github.appimagecontrol.AppImageControl.yml >/dev/null
+      - name: Build Flatpak bundle
+        run: |
+          flatpak-builder --force-clean build-flatpak flatpak/io.github.appimagecontrol.AppImageControl.yml
+      - name: Run Flatpak smoke test
+        run: |
+          flatpak-builder --run build-flatpak flatpak/io.github.appimagecontrol.AppImageControl.yml appimage-control --help >/dev/null
+          flatpak-builder --run build-flatpak flatpak/io.github.appimagecontrol.AppImageControl.yml sh -lc '
+            set -eux
+            export HOME=/tmp/aic-ci-smoke
+            export XDG_DATA_HOME=$HOME/.local/share
+            export XDG_CONFIG_HOME=$HOME/.config
+            mkdir -p "$XDG_DATA_HOME/appimages/apps/smoke/1" "$XDG_DATA_HOME/applications" "$XDG_DATA_HOME/icons/hicolor/64x64/apps"
+            printf test-appimage > "$XDG_DATA_HOME/appimages/apps/smoke/1/smoke.AppImage"
+            printf "[Desktop Entry]\nType=Application\nName=Smoke\nExec=true\n" > "$XDG_DATA_HOME/applications/appimage-control-smoke-1.desktop"
+            printf fakepng > "$XDG_DATA_HOME/icons/hicolor/64x64/apps/appimage-control-smoke-1.png"
+            appimage-control --backup /tmp/aic-ci-smoke.tar.zst
+            appimage-control --restore-backup /tmp/aic-ci-smoke.tar.zst || true
+            appimage-control --restore-backup /tmp/aic-ci-smoke.tar.zst --force
+            test -f "$XDG_DATA_HOME/appimages/apps/smoke/1/smoke.AppImage"
+            test -f "$XDG_DATA_HOME/applications/appimage-control-smoke-1.desktop"
+            test -f "$XDG_DATA_HOME/icons/hicolor/64x64/apps/appimage-control-smoke-1.png"
+          '

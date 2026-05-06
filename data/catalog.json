@@ -1,0 +1,210 @@
+{
+  "apps": [
+    {
+      "id": "feather",
+      "display_name": "Feather Wallet",
+      "homepage": "https://featherwallet.org/",
+      "download_url": "https://github.com/feather-wallet/feather/releases/download/2.8.1/feather-2.8.1.AppImage",
+      "download_url_aarch64": "https://github.com/feather-wallet/feather/releases/download/2.8.1/feather-2.8.1-arm64.AppImage",
+      "appimage_filename": "feather.AppImage",
+      "instance_strategy": "qt_x11",
+      "desktop_name_template": "Feather Wallet (#{index})",
+      "reset_config_dirs": [
+        "feather"
+      ],
+      "reset_cache_dirs": [
+        "feather"
+      ],
+      "reset_data_dirs": []
+    },
+    {
+      "id": "session",
+      "display_name": "Session",
+      "icon_url": "https://raw.githubusercontent.com/session-foundation/session-desktop/dev/build/icons/icon_128x128.png",
+      "homepage": "https://getsession.org/",
+      "download_url": "https://github.com/session-foundation/session-desktop/releases/download/v1.17.17/session-desktop-linux-x86_64-1.17.17.AppImage",
+      "appimage_filename": "session.AppImage",
+      "instance_strategy": "electron_class",
+      "instance_name_template": "{Id}{index}",
+      "desktop_name_template": "Session (#{index})",
+      "reset_config_dirs": [
+        "session"
+      ],
+      "reset_cache_dirs": [
+        "session"
+      ],
+      "reset_data_dirs": []
+    },
+    {
+      "id": "keepassxc",
+      "display_name": "KeePassXC",
+      "homepage": "https://keepassxc.org/",
+      "download_url": "https://github.com/keepassxreboot/keepassxc/releases/download/2.7.12/KeePassXC-2.7.12-x86_64.AppImage",
+      "appimage_filename": "KeePassXC.AppImage",
+      "reset_config_dirs": [
+        "keepassxc"
+      ],
+      "reset_cache_dirs": [
+        "keepassxc"
+      ],
+      "reset_data_dirs": [],
+      "instance_strategy": "keepassxc_isolated"
+    },
+    {
+      "id": "mattermost",
+      "display_name": "Mattermost",
+      "homepage": "https://mattermost.com/",
+      "icon_url": "https://raw.githubusercontent.com/mattermost/desktop/v6.0.4/src/assets/linux/app_icon.png",
+      "download_url": "https://releases.mattermost.com/desktop/6.0.4/mattermost-desktop-6.0.4-linux-x86_64.AppImage",
+      "download_url_aarch64": "https://releases.mattermost.com/desktop/6.0.4/mattermost-desktop-6.0.4-linux-arm64.AppImage",
+      "appimage_filename": "Mattermost.AppImage",
+      "instance_strategy": "electron_class_isolated",
+      "reset_config_dirs": [
+        "Mattermost"
+      ],
+      "reset_cache_dirs": [
+        "Mattermost"
+      ],
+      "reset_data_dirs": []
+    },
+    {
+      "id": "anythingllm",
+      "display_name": "AnythingLLM",
+      "homepage": "https://anythingllm.com/",
+      "download_url": "https://cdn.anythingllm.com/latest/AnythingLLMDesktop.AppImage",
+      "download_url_aarch64": "https://cdn.anythingllm.com/latest/AnythingLLMDesktop-Arm64.AppImage",
+      "appimage_filename": "AnythingLLMDesktop.AppImage",
+      "instance_strategy": "electron_class_isolated",
+      "reset_config_dirs": [
+        "AnythingLLM"
+      ],
+      "reset_cache_dirs": [
+        "AnythingLLM"
+      ],
+      "reset_data_dirs": []
+    },
+    {
+      "id": "jan",
+      "display_name": "Jan",
+      "homepage": "https://jan.ai/",
+      "download_url": "https://github.com/janhq/jan/releases/download/v0.7.9/Jan_0.7.9_amd64.AppImage",
+      "appimage_filename": "Jan.AppImage",
+      "instance_strategy": "electron_class_isolated",
+      "isolate_dbus_session": true,
+      "reset_config_dirs": [
+        "Jan"
+      ],
+      "reset_cache_dirs": [
+        "Jan"
+      ],
+      "reset_data_dirs": []
+    },
+    {
+      "id": "lm-studio",
+      "display_name": "LM Studio",
+      "homepage": "https://lmstudio.ai/",
+      "download_url": "https://lmstudio.ai/download/latest/linux/x64",
+      "download_url_aarch64": "https://lmstudio.ai/download/latest/linux/arm64",
+      "appimage_filename": "LMStudio.AppImage",
+      "instance_strategy": "electron_class_isolated",
+      "max_instances": 1,
+      "max_instances_tooltip": "You can't use more than one instance of LM Studio",
+      "isolate_dbus_session": true,
+      "reset_config_dirs": [],
+      "reset_cache_dirs": [],
+      "reset_data_dirs": [],
+      "icon_url": "https://api.everydev.ai/storage/v1/object/public/tool-media/tools/lm-studio/icons/icon.png"
+    },
+    {
+      "id": "electrum-btc",
+      "display_name": "Electrum-BTC",
+      "homepage": "https://electrum.org/",
+      "download_url": "https://download.electrum.org/4.7.2/electrum-4.7.2-x86_64.AppImage",
+      "appimage_filename": "eb.AppImage",
+      "instance_subdir": "ebtc",
+      "desktop_pass_file_urls": false,
+      "reset_config_dirs": [],
+      "reset_cache_dirs": [],
+      "reset_data_dirs": []
+    },
+    {
+      "id": "electrum-ltc",
+      "display_name": "Electrum-LTC",
+      "homepage": "https://electrum-ltc.org/",
+      "download_url": "https://electrum-ltc.org/download/electrum-ltc-4.2.2.1-x86_64.AppImage",
+      "appimage_filename": "el.AppImage",
+      "instance_subdir": "eltc",
+      "desktop_pass_file_urls": false,
+      "reset_config_dirs": [],
+      "reset_cache_dirs": [],
+      "reset_data_dirs": []
+    },
+    {
+      "id": "cryptomator",
+      "display_name": "Cryptomator",
+      "icon_url": "https://raw.githubusercontent.com/cryptomator/cryptomator/main/dist/linux/resources/cryptomator.png",
+      "homepage": "https://cryptomator.org/",
+      "download_url": "https://github.com/cryptomator/cryptomator/releases/download/1.19.2/cryptomator-1.19.2-x86_64.AppImage",
+      "download_url_aarch64": "https://github.com/cryptomator/cryptomator/releases/download/1.19.2/cryptomator-1.19.2-aarch64.AppImage",
+      "appimage_filename": "cryptomator.AppImage",
+      "instance_strategy": "cryptomator_extract",
+      "reset_config_dirs": [
+        "Cryptomator"
+      ],
+      "reset_cache_dirs": [
+        "Cryptomator"
+      ],
+      "reset_data_dirs": [
+        "Cryptomator"
+      ]
+    },
+    {
+      "id": "joplin",
+      "display_name": "Joplin",
+      "homepage": "https://joplinapp.org/",
+      "download_url": "https://github.com/laurent22/joplin/releases/download/v3.5.13/Joplin-3.5.13.AppImage",
+      "appimage_filename": "Joplin.AppImage",
+      "instance_strategy": "joplin_alt_instance",
+      "reset_config_dirs": [
+        "joplin-desktop"
+      ],
+      "reset_cache_dirs": [
+        "joplin-desktop"
+      ],
+      "reset_data_dirs": []
+    },
+    {
+      "id": "standard-notes",
+      "display_name": "Standard Notes",
+      "homepage": "https://standardnotes.com/",
+      "icon_url": "https://raw.githubusercontent.com/standardnotes/app/%40standardnotes%2Fdesktop%403.201.21/packages/web/src/favicon/android-chrome-512x512.png",
+      "download_url": "https://github.com/standardnotes/app/releases/download/%40standardnotes/desktop%403.201.21/standard-notes-3.201.21-linux-x86_64.AppImage",
+      "download_url_aarch64": "https://github.com/standardnotes/app/releases/download/%40standardnotes/desktop%403.201.21/standard-notes-3.201.21-linux-arm64.AppImage",
+      "appimage_filename": "standard-notes.AppImage",
+      "instance_strategy": "electron_class",
+      "reset_config_dirs": [
+        "Standard Notes"
+      ],
+      "reset_cache_dirs": [
+        "Standard Notes"
+      ],
+      "reset_data_dirs": []
+    },
+    {
+      "id": "zulip",
+      "display_name": "Zulip",
+      "homepage": "https://zulip.com/",
+      "icon_url": "https://raw.githubusercontent.com/zulip/zulip-desktop/v5.12.3/build/zulip.png",
+      "download_url": "https://github.com/zulip/zulip-desktop/releases/download/v5.12.3/Zulip-5.12.3-x86_64.AppImage",
+      "appimage_filename": "Zulip.AppImage",
+      "instance_strategy": "electron_class_isolated",
+      "reset_config_dirs": [
+        "Zulip"
+      ],
+      "reset_cache_dirs": [
+        "Zulip"
+      ],
+      "reset_data_dirs": []
+    }
+  ]
+}

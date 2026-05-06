@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - name: Install GTK4
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev libadwaita-1-dev pkg-config desktop-file-utils appstream
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --workspace
+      - name: Format check
+        run: cargo fmt --all -- --check
+      - name: Desktop file validate
+        run: desktop-file-validate data/io.github.appimagecontrol.AppImageControl.desktop
+      - name: AppStream validate
+        run: appstreamcli validate data/io.github.appimagecontrol.AppImageControl.metainfo.xml
