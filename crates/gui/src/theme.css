@@ -1,1 +1,30 @@
-/* Keep CSS minimal so active theme controls visual styling. */
+/* Keep CSS minimal so active theme controls visual styling.
+ * Only custom rules are the small status pills that flag pending changes
+ * and update-available rows; everything else uses libadwaita defaults. */
+
+.row-pill {
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
+.row-pill.pending {
+    background: alpha(@accent_bg_color, 0.13);
+    color: @accent_color;
+}
+
+.row-pill.update {
+    background: alpha(@warning_bg_color, 0.18);
+    color: @warning_color;
+}
+
+.row-pill.success {
+    background: alpha(@success_bg_color, 0.18);
+    color: @success_color;
+}
+
+.row-pill.error {
+    background: alpha(@error_bg_color, 0.18);
+    color: @error_color;
+}

@@ -16,56 +16,91 @@ use std::sync::mpsc;
 use crate::catalog_icons::batch_catalog_icons;
 use crate::dialogs::{
     ask_confirmation, choose_open_path, choose_save_path, choose_seed_settings,
-    present_activity_log_dialog, present_message_window,
+    present_activity_log_dialog, present_message_window, ConfirmKind,
 };
+use adw::prelude::*;
 use appimage_control_core::{
     catalog_row_latest_version_label, clean_catalog_download_cache,
     clean_installed_catalog_apps_keep_cache, create_backup_archive, discover_migration_candidates,
     fetch_github_release_hints, installed_version_fleet_display, instance_count,
-    list_managed_instance_indices, purge_appimage_control_state, reconcile_catalog_install_version_metadata,
-    reconcile_instance_count_with_report, repair_instance_launchers,
-    restore_backup_archive, run_portable_dir_migration, seed_instance_settings, SeedPreset,
-    SupportedSeedApp, update_all_installed_instances, AppPaths, BackupOptions, Catalog, CatalogApp,
-    GithubReleaseHint, MigrationResolution, UpdateAllReport, MAX_INSTANCES_PER_APP,
+    list_managed_instance_indices, purge_appimage_control_state,
+    reconcile_catalog_install_version_metadata, reconcile_instance_count_with_report,
+    repair_instance_launchers, restore_backup_archive, run_portable_dir_migration,
+    seed_instance_settings, update_all_installed_instances, AppPaths, BackupOptions, Catalog,
+    CatalogApp, GithubReleaseHint, MigrationResolution, SeedPreset, SupportedSeedApp,
+    UpdateAllReport, MAX_INSTANCES_PER_APP,
 };
-use adw::prelude::*;
 use cli::{has_cli_ops, print_help, run_cli_ops, want_help};
 use gtk::glib;
 use status_text::{catalog_row_hint, format_seed_status_summary, format_update_status_summary};
 
 use gtk::{
-    gdk::Texture, Box as GtkBox, Button, GestureClick, Image, Label, ListBox, ListBoxRow,
+    gdk::Texture, Box as GtkBox, Button, CssProvider, GestureClick, Image, Label, ListBox,
     Orientation, ProgressBar, ScrolledWindow, SpinButton,
 };
 
 const APP_ID: &str = "io.github.appimagecontrol.AppImageControl";
+const THEME_CSS: &str = include_str!("theme.css");
 
 struct RowHandles {
     app_index: usize,
     icon: Image,
-    meta: Label,
+    row: adw::ActionRow,
     spin: SpinButton,
+    pending_pill: Label,
+    update_pill: Label,
     /// Resolved URL exists for this process CPU architecture.
     can_install: bool,
+    /// Mirror of `instance_count` at last refresh — used for purely-client-side
+    /// pending detection on every spin change.
+    last_applied: u32,
 }
 
-/// One-line status + versions. `remote_latest` is the GitHub `releases/latest` tag when known.
+/// Renders the row's subtitle/meta string and updates the per-row "Update available" pill.
+/// Called on row creation, after Apply/Update/Refresh, on remote-latest fetch completion,
+/// and on every spin value change (so the count phrase tracks the spinner).
+#[allow(clippy::too_many_arguments)]
 fn apply_row_meta(
     paths: &AppPaths,
     app: &CatalogApp,
     instance_count_n: u32,
+    spin_value: u32,
+    last_applied: u32,
     remote_latest: Option<&str>,
-    meta: &Label,
+    row: &adw::ActionRow,
+    update_pill: &Label,
+    pending_pill: &Label,
     hint: Option<&str>,
 ) {
     let inst_display = installed_version_fleet_display(paths, app).ok();
-
     let latest_raw = catalog_row_latest_version_label(paths, app, remote_latest)
         .unwrap_or_else(|_| "—".to_string());
     let latest_esc = glib::markup_escape_text(&latest_raw);
-    let st = ui::status_text(instance_count_n);
-    let st_esc = glib::markup_escape_text(&st);
 
+    let count_for_phrase = spin_value;
+
+    let subtitle_markup = if instance_count_n > 0 {
+        let installed_text = inst_display
+            .as_ref()
+            .map(|d| d.label.as_str())
+            .unwrap_or("installed unknown");
+        let installed_esc = glib::markup_escape_text(installed_text);
+        format!(
+            "<b>{} instance{}</b> · Latest {} · {}",
+            count_for_phrase,
+            if count_for_phrase == 1 { "" } else { "s" },
+            latest_esc,
+            installed_esc
+        )
+    } else {
+        format!(
+            r#"<span alpha="55%">Not installed · Latest {}</span>"#,
+            latest_esc
+        )
+    };
+    row.set_subtitle(&subtitle_markup);
+
+    // Tooltip stays rich (it explains where "Latest" comes from + per-instance breakdown).
     let mut tooltip = String::new();
     tooltip.push_str(
         "Latest: highest semver among the catalog URL pin, GitHub releases/latest (when loaded), and each instance’s .appimage-control-version.\n",
@@ -75,20 +110,7 @@ fn apply_row_meta(
     } else {
         tooltip.push_str("GitHub tag was not loaded yet or unavailable for this app.\n");
     }
-
     if instance_count_n > 0 {
-        let installed_text = inst_display
-            .as_ref()
-            .map(|d| d.label.as_str())
-            .unwrap_or("installed unknown");
-        let installed_esc = glib::markup_escape_text(installed_text);
-        meta.set_markup(&format!(
-            "{} · {} {} · Latest: {}",
-            st_esc,
-            glib::markup_escape_text(&app.display_name_resolved()),
-            installed_esc,
-            latest_esc
-        ));
         tooltip.push_str("Installed: derived from instance version metadata; hash appears when version metadata is missing.\n");
         if instance_count_n > 1 {
             if let Some(d) = inst_display.as_ref() {
@@ -99,17 +121,36 @@ fn apply_row_meta(
                 }
             }
         }
-    } else {
-        meta.set_markup(&format!(
-            r#"<span alpha="55%">{} · Latest: {}</span>"#,
-            st_esc, latest_esc
-        ));
     }
     if let Some(h) = hint {
         tooltip.push_str("\n\n");
         tooltip.push_str(h);
     }
-    meta.set_tooltip_text(Some(tooltip.trim()));
+    row.set_tooltip_text(Some(tooltip.trim()));
+
+    // Pending pill: spin diverges from the last-applied count.
+    let is_pending = spin_value != last_applied;
+    pending_pill.set_visible(is_pending);
+
+    // Update-available pill: a remote tag exists and beats every installed instance.
+    let update_available = !is_pending
+        && instance_count_n > 0
+        && remote_latest
+            .map(|tag| version_is_newer(tag, inst_display.as_ref().map(|d| d.label.as_str())))
+            .unwrap_or(false);
+    update_pill.set_visible(update_available);
+}
+
+/// Best-effort "remote tag is newer than any installed version" compare. Strict
+/// semver comparison would need pulling in a parser; we degrade to !equal so the
+/// pill never lies aggressively. Equal strings → no update.
+fn version_is_newer(remote_tag: &str, installed_label: Option<&str>) -> bool {
+    let Some(installed) = installed_label else {
+        return false;
+    };
+    let r = remote_tag.trim_start_matches('v');
+    let i = installed.trim();
+    !r.is_empty() && !i.is_empty() && r != i && !i.contains(r)
 }
 
 fn main() -> glib::ExitCode {
@@ -124,9 +165,24 @@ fn main() -> glib::ExitCode {
         }
     }
     adw::init().expect("adw init");
+    install_theme_css();
     let app = adw::Application::builder().application_id(APP_ID).build();
     app.connect_activate(build_ui);
     app.run()
+}
+
+/// Loads the small `theme.css` chunk into the default display so the pill rules
+/// in the boxed-list rows can use libadwaita named colors.
+fn install_theme_css() {
+    let provider = CssProvider::new();
+    provider.load_from_data(THEME_CSS);
+    if let Some(display) = gtk::gdk::Display::default() {
+        gtk::style_context_add_provider_for_display(
+            &display,
+            &provider,
+            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+        );
+    }
 }
 
 fn build_ui(app: &adw::Application) {
@@ -144,23 +200,6 @@ fn build_ui(app: &adw::Application) {
         }
     };
 
-    let catalog = match Catalog::discover_load(None) {
-        Ok(c) => Rc::new(c),
-        Err(e) => {
-            present_message_window(
-                app,
-                "No catalog",
-                "The application catalog could not be loaded.",
-                Some(&format!(
-                    "{e}\n\nSearch order: APPIMAGE_CONTROL_CATALOG (non-empty), then non-empty data/catalog.json on cwd or parents and on the binary path, then /app/share/ and /usr/share/appimage-control/catalog.json, then the catalog compiled into this program.\n\nTip: a stray empty data/catalog.json (apps array empty) on an ancestor path is skipped. Unset a bad APPIMAGE_CONTROL_CATALOG or reinstall this app."
-                )),
-            );
-            return;
-        }
-    };
-    // GitHub `releases/latest` results (same order as `catalog.apps`), filled after background fetch.
-    let remote_latest_cache: Rc<RefCell<Vec<Option<GithubReleaseHint>>>> =
-        Rc::new(RefCell::new(Vec::new()));
     let window = adw::ApplicationWindow::builder()
         .application(app)
         .title("AppImage Control")
@@ -168,8 +207,196 @@ fn build_ui(app: &adw::Application) {
         .default_height(620)
         .build();
 
-    // Best-effort: repair missing per-instance launchers/icons so dock icons can resolve.
-    // Keep this quiet unless we actually repaired something (we show it in Activity log then).
+    // Catalog icons cache — populated in background once, reused by the catalog
+    // view AND by the seed-settings dialog.
+    let icons_cache: Rc<RefCell<Vec<Option<Vec<u8>>>>> = Rc::new(RefCell::new(Vec::new()));
+
+    // Closures that re-mount the window content. Held in a RefCell so they can
+    // call each other (Reload re-runs discover_load and dispatches).
+    type Mounter = Rc<dyn Fn()>;
+    let try_mount: Rc<RefCell<Option<Mounter>>> = Rc::new(RefCell::new(None));
+
+    let try_mount_setter = Rc::clone(&try_mount);
+    let try_mount_inner: Mounter = {
+        let app = app.clone();
+        let window = window.clone();
+        let paths = Rc::clone(&paths);
+        let icons_cache = Rc::clone(&icons_cache);
+        Rc::new(move || match Catalog::discover_load(None) {
+            Ok(c) => mount_catalog_view(
+                &app,
+                &window,
+                Rc::clone(&paths),
+                Rc::new(c),
+                Rc::clone(&icons_cache),
+                || {},
+            ),
+            Err(e) => {
+                let try_mount_for_reload = try_mount_setter
+                    .borrow()
+                    .as_ref()
+                    .cloned()
+                    .expect("try_mount installed before first call");
+                mount_empty_state(
+                    &app,
+                    &window,
+                    Rc::clone(&paths),
+                    Rc::clone(&icons_cache),
+                    e.to_string(),
+                    try_mount_for_reload,
+                );
+            }
+        })
+    };
+    *try_mount.borrow_mut() = Some(Rc::clone(&try_mount_inner));
+
+    (try_mount_inner)();
+    window.present();
+}
+
+/// Replaces the window content with the empty/no-catalog state — `AdwStatusPage`
+/// inside the same toolbar view. Header bar carries only the primary menu.
+fn mount_empty_state(
+    app: &adw::Application,
+    window: &adw::ApplicationWindow,
+    paths: Rc<AppPaths>,
+    icons_cache: Rc<RefCell<Vec<Option<Vec<u8>>>>>,
+    error_msg: String,
+    try_mount: Rc<dyn Fn()>,
+) {
+    let header = adw::HeaderBar::builder().show_title(true).build();
+    header.set_title_widget(Some(&adw::WindowTitle::new("AppImage Control", "")));
+    let menu_btn = actions::build_actions_menu_button();
+    menu_btn.set_tooltip_text(Some("Main Menu"));
+    header.pack_end(&menu_btn);
+
+    // No-catalog disables most window actions; install a minimal hook set so the
+    // primary menu doesn't crash when items get clicked.
+    let app_for_actions = app.clone();
+    let window_for_actions: gtk::ApplicationWindow = window.clone().upcast();
+    let try_mount_for_refresh = Rc::clone(&try_mount);
+    let unavailable: Rc<dyn Fn()> = {
+        let win = window_for_actions.clone();
+        Rc::new(move || {
+            present_activity_log_dialog(
+                &win,
+                "No catalog loaded — load one first.\nUse the empty-state Reload button or Open Catalog… to recover.\n",
+            );
+        })
+    };
+    let hooks = actions::ActionHooks {
+        apply: Rc::clone(&unavailable),
+        update: Rc::clone(&unavailable),
+        seed_settings: Rc::clone(&unavailable),
+        refresh: try_mount_for_refresh,
+        clean_cache: Rc::clone(&unavailable),
+        clean: Rc::clone(&unavailable),
+        purge: Rc::clone(&unavailable),
+        migrate: Rc::clone(&unavailable),
+        backup: Rc::clone(&unavailable),
+        restore_backup: Rc::clone(&unavailable),
+    };
+    actions::install_window_actions(&window_for_actions, hooks);
+    let _ = (app_for_actions, error_msg);
+
+    let status = adw::StatusPage::new();
+    status.set_icon_name(Some("package-x-generic-symbolic"));
+    status.set_title("No catalog loaded");
+    status.set_description(Some(
+        "AppImage Control couldn’t find an application catalog. Set APPIMAGE_CONTROL_CATALOG, or run from a directory that contains data/catalog.json.",
+    ));
+
+    let body = GtkBox::new(Orientation::Vertical, 18);
+    body.set_halign(gtk::Align::Center);
+
+    let detail_card = GtkBox::new(Orientation::Vertical, 4);
+    detail_card.set_margin_top(0);
+    detail_card.add_css_class("card");
+    detail_card.set_margin_top(0);
+
+    let detail_label = Label::builder()
+        .label(
+            "Search order:\n  1. APPIMAGE_CONTROL_CATALOG environment variable\n  2. ./data/catalog.json (cwd and parents)\n  3. /app/share/, /usr/share/appimage-control/catalog.json\n  4. catalog compiled into this build",
+        )
+        .halign(gtk::Align::Start)
+        .xalign(0.0)
+        .wrap(false)
+        .build();
+    detail_label.add_css_class("monospace");
+    detail_label.add_css_class("caption");
+    detail_label.set_margin_top(10);
+    detail_label.set_margin_bottom(10);
+    detail_label.set_margin_start(14);
+    detail_label.set_margin_end(14);
+    detail_card.append(&detail_label);
+
+    let actions_box = GtkBox::new(Orientation::Horizontal, 8);
+    actions_box.set_halign(gtk::Align::Center);
+
+    let open_btn = Button::with_label("Open Catalog…");
+    let reload_btn = Button::with_label("Reload");
+    reload_btn.add_css_class("suggested-action");
+
+    {
+        let try_mount = Rc::clone(&try_mount);
+        reload_btn.connect_clicked(move |_| (try_mount)());
+    }
+    {
+        let app = app.clone();
+        let window = window.clone();
+        let paths = Rc::clone(&paths);
+        let icons_cache = Rc::clone(&icons_cache);
+        let try_mount_outer = Rc::clone(&try_mount);
+        open_btn.connect_clicked(move |_| {
+            let win_for_chooser: gtk::ApplicationWindow = window.clone().upcast();
+            let Some(path) = choose_open_path(&win_for_chooser, "Choose catalog.json") else {
+                return;
+            };
+            match Catalog::discover_load(Some(&path)) {
+                Ok(c) => {
+                    mount_catalog_view(
+                        &app,
+                        &window,
+                        Rc::clone(&paths),
+                        Rc::new(c),
+                        Rc::clone(&icons_cache),
+                        || {},
+                    );
+                }
+                Err(_) => (try_mount_outer)(),
+            }
+        });
+    }
+
+    actions_box.append(&open_btn);
+    actions_box.append(&reload_btn);
+
+    body.append(&detail_card);
+    body.append(&actions_box);
+    status.set_child(Some(&body));
+
+    let toolbar = adw::ToolbarView::new();
+    toolbar.add_top_bar(&header);
+    toolbar.set_content(Some(&status));
+    window.set_content(Some(&toolbar));
+}
+
+/// Mounts the full catalog view (header bar with Apply/Update/menu, AdwClamp body
+/// with intro caption, AdwBanner for pending changes, boxed-list of AdwActionRows,
+/// progress bar, footer status row).
+fn mount_catalog_view(
+    app: &adw::Application,
+    window: &adw::ApplicationWindow,
+    paths: Rc<AppPaths>,
+    catalog: Rc<Catalog>,
+    icons_cache: Rc<RefCell<Vec<Option<Vec<u8>>>>>,
+    _on_remount_done: impl FnOnce(),
+) {
+    let _ = app; // kept in signature for future Open/Reload re-mount paths
+    let remote_latest_cache: Rc<RefCell<Vec<Option<GithubReleaseHint>>>> =
+        Rc::new(RefCell::new(Vec::new()));
+
+    // Best-effort: repair missing per-instance launchers/icons (silent if nothing changed).
     {
         let paths_t = (*paths).clone();
         let catalog_t = (*catalog).clone();
@@ -178,7 +405,6 @@ fn build_ui(app: &adw::Application) {
         glib::idle_add_local(move || match rx.try_recv() {
             Ok(log) => {
                 if !log.trim().is_empty() {
-                    // Only show if something actually happened.
                     present_activity_log_dialog(&window_idle, &log);
                 }
                 glib::ControlFlow::Break
@@ -192,7 +418,6 @@ fn build_ui(app: &adw::Application) {
                 log.push_str(m);
                 log.push('\n');
             });
-            // Only report when we likely repaired something.
             if log.contains("launcher repaired") || log.contains("reconciled install metadata") {
                 let _ = tx.send(log);
             } else {
@@ -202,43 +427,41 @@ fn build_ui(app: &adw::Application) {
     }
 
     let header = adw::HeaderBar::builder().show_title(true).build();
-    let update_installed = Button::builder()
-        .icon_name("software-update-available-symbolic")
-        .tooltip_text("Update installed instances")
-        .valign(gtk::Align::Center)
-        .tooltip_text(
-            "Update instances: skips when the install is already at the newest known version (catalog and GitHub releases/latest). Otherwise runs appimageupdatetool, then downloads the catalog AppImage or—if GitHub’s latest tag is newer than the catalog URL—a matching .AppImage from that release.",
-        )
-        .build();
+    header.set_title_widget(Some(&adw::WindowTitle::new("AppImage Control", "")));
+
     let apply = Button::builder()
-        .icon_name("document-save-symbolic")
-        .tooltip_text("Apply instance count changes")
+        .label("Apply")
+        .tooltip_text("Apply pending instance count changes")
         .valign(gtk::Align::Center)
         .build();
     apply.add_css_class("suggested-action");
+    apply.set_sensitive(false);
+
+    let update_installed = Button::builder()
+        .icon_name("software-update-available-symbolic")
+        .valign(gtk::Align::Center)
+        .tooltip_text(
+            "Update installed instances: skips when already at the newest known version (catalog and GitHub releases/latest). Otherwise runs appimageupdatetool, then downloads the catalog AppImage or—if GitHub’s latest tag is newer than the catalog URL—a matching .AppImage from that release.",
+        )
+        .build();
     let menu_btn = actions::build_actions_menu_button();
     menu_btn.set_tooltip_text(Some("Main Menu"));
-    let header_left = GtkBox::new(Orientation::Horizontal, 6);
-    header_left.set_margin_start(10);
-    header_left.set_margin_top(10);
-    header_left.append(&apply);
-    header_left.append(&update_installed);
-    header.pack_start(&header_left);
+
+    header.pack_start(&apply);
+    header.pack_start(&update_installed);
     header.pack_end(&menu_btn);
+
     let apply_weak = apply.downgrade();
     let update_weak = update_installed.downgrade();
 
-    let outer = GtkBox::new(Orientation::Vertical, 12);
-    outer.set_hexpand(true);
-    outer.set_vexpand(true);
-
-    let content = GtkBox::new(Orientation::Vertical, 12);
-    content.set_hexpand(true);
-    content.set_vexpand(true);
-    content.set_margin_top(24);
-    content.set_margin_bottom(12);
-    content.set_margin_start(12);
-    content.set_margin_end(12);
+    // Body: AdwClamp wrapping intro + banner + list + progress.
+    let body = GtkBox::new(Orientation::Vertical, 0);
+    body.set_hexpand(true);
+    body.set_vexpand(true);
+    body.set_margin_top(24);
+    body.set_margin_bottom(0);
+    body.set_margin_start(12);
+    body.set_margin_end(12);
 
     let intro = Label::new(Some(
         "Set the number of isolated instances to keep for each app, then apply changes.",
@@ -248,12 +471,18 @@ fn build_ui(app: &adw::Application) {
     intro.set_halign(gtk::Align::Fill);
     intro.set_xalign(0.0);
     intro.add_css_class("caption");
+    intro.add_css_class("dim-label");
+    intro.set_margin_bottom(20);
+
+    let banner = adw::Banner::new("");
+    banner.set_revealed(false);
 
     let list = ListBox::new();
     list.add_css_class("boxed-list");
     list.set_selection_mode(gtk::SelectionMode::None);
     list.set_vexpand(true);
     list.set_hexpand(true);
+
     let list_scroll = ScrolledWindow::builder()
         .child(&list)
         .vexpand(true)
@@ -262,77 +491,121 @@ fn build_ui(app: &adw::Application) {
         .min_content_height(220)
         .build();
 
-    let rows: Rc<RefCell<Vec<RowHandles>>> = Rc::new(RefCell::new(Vec::new()));
+    body.append(&intro);
+    body.append(&banner);
+    body.append(&list_scroll);
 
+    let clamp = adw::Clamp::new();
+    clamp.set_maximum_size(720);
+    clamp.set_tightening_threshold(560);
+    clamp.set_child(Some(&body));
+
+    let progress = ProgressBar::new();
+    progress.set_show_text(true);
+    progress.set_visible(false);
+    progress.set_hexpand(true);
+    progress.set_margin_top(6);
+    progress.set_margin_bottom(6);
+    progress.set_margin_start(12);
+    progress.set_margin_end(12);
+
+    // Footer: 32px row with status + counts. Top divider for visual anchor.
+    let footer_sep = gtk::Separator::new(Orientation::Horizontal);
+    let footer = GtkBox::new(Orientation::Horizontal, 0);
+    footer.set_margin_start(12);
+    footer.set_margin_end(12);
+    footer.set_margin_top(6);
+    footer.set_margin_bottom(6);
+    footer.set_height_request(20);
+
+    let statusbar = Label::new(Some("Ready"));
+    statusbar.add_css_class("dim-label");
+    statusbar.add_css_class("caption");
+    statusbar.set_halign(gtk::Align::Start);
+    statusbar.set_xalign(0.0);
+    statusbar.set_hexpand(true);
+
+    let total_label = Label::new(None);
+    total_label.add_css_class("dim-label");
+    total_label.add_css_class("caption");
+    total_label.set_halign(gtk::Align::End);
+    total_label.set_xalign(1.0);
+    let total_attrs = gtk::pango::AttrList::new();
+    total_attrs.insert(gtk::pango::AttrFontFeatures::new("tnum=1"));
+    total_label.set_attributes(Some(&total_attrs));
+
+    footer.append(&statusbar);
+    footer.append(&total_label);
+
+    // Outer column: clamp content (top-stacked), progress, footer divider, footer.
+    let outer = GtkBox::new(Orientation::Vertical, 0);
+    outer.set_hexpand(true);
+    outer.set_vexpand(true);
+    outer.append(&clamp);
+    outer.append(&progress);
+    outer.append(&footer_sep);
+    outer.append(&footer);
+
+    let toolbar_view = adw::ToolbarView::new();
+    toolbar_view.add_top_bar(&header);
+    toolbar_view.set_content(Some(&outer));
+    window.set_content(Some(&toolbar_view));
+
+    // Build rows.
     let _ =
         reconcile_catalog_install_version_metadata(paths.as_ref(), catalog.as_ref(), &mut |_| {});
 
-    for (app_index, app) in catalog.apps.iter().enumerate() {
-        let row = ListBoxRow::new();
-        row.set_selectable(false);
+    let rows: Rc<RefCell<Vec<RowHandles>>> = Rc::new(RefCell::new(Vec::new()));
 
-        let row_box = GtkBox::new(Orientation::Horizontal, 8);
-        row_box.set_margin_top(0);
-        row_box.set_margin_bottom(0);
-        row_box.set_margin_start(10);
-        row_box.set_margin_end(2);
-        row_box.set_hexpand(true);
-
-        let has_any_url = app.has_any_download_url();
-        let can_install = app.resolved_download_url().is_ok();
-
-        let installed = list_managed_instance_indices(paths.as_ref(), app)
+    for (app_index, catalog_app) in catalog.apps.iter().enumerate() {
+        let has_any_url = catalog_app.has_any_download_url();
+        let can_install = catalog_app.resolved_download_url().is_ok();
+        let installed = list_managed_instance_indices(paths.as_ref(), catalog_app)
             .map(|v| v.len() as u32)
             .unwrap_or(0);
+
+        let row = adw::ActionRow::new();
+        row.set_title(&glib::markup_escape_text(&catalog_app.display_name_resolved()));
+        row.set_use_markup(true);
+        row.set_title_lines(1);
+        row.set_subtitle_lines(1);
+        row.set_activatable(false);
 
         let icon = Image::from_icon_name("image-x-generic-symbolic");
         icon.set_pixel_size(32);
         icon.set_valign(gtk::Align::Center);
         icon.set_halign(gtk::Align::Center);
         icon.add_css_class("catalog-app-icon");
+        row.add_prefix(&icon);
 
-        let title = Label::builder()
-            .label(app.display_name_resolved())
-            .halign(gtk::Align::Start)
-            .hexpand(false)
-            .xalign(0.0)
-            .build();
-        title.add_css_class("catalog-title");
-        title.set_ellipsize(gtk::pango::EllipsizeMode::End);
-        title.set_max_width_chars(24);
+        let pending_pill = Label::new(Some("pending"));
+        pending_pill.add_css_class("row-pill");
+        pending_pill.add_css_class("pending");
+        pending_pill.set_valign(gtk::Align::Center);
+        pending_pill.set_visible(false);
 
-        let meta = Label::builder()
-            .label("")
-            .use_markup(true)
-            .halign(gtk::Align::Start)
-            .hexpand(true)
-            .xalign(0.0)
-            .build();
-        meta.add_css_class("catalog-meta");
-        meta.set_ellipsize(gtk::pango::EllipsizeMode::End);
-        let info_box = GtkBox::new(Orientation::Vertical, 0);
-        info_box.add_css_class("catalog-info");
-        info_box.set_hexpand(true);
-        info_box.append(&title);
-        info_box.append(&meta);
+        let update_pill = Label::new(Some("Update available"));
+        update_pill.add_css_class("row-pill");
+        update_pill.add_css_class("update");
+        update_pill.set_valign(gtk::Align::Center);
+        update_pill.set_visible(false);
 
-        let hint = catalog_row_hint(app);
-
-        let max_allowed = app.max_instances_allowed();
+        let max_allowed = catalog_app.max_instances_allowed();
         let spin = SpinButton::with_range(0.0, max_allowed as f64, 1.0);
         spin.set_value(installed.min(max_allowed) as f64);
         let base_tip = "Number of instances to keep for this app.";
-        let hover_tip = Rc::new(match app.instance_limit_tooltip_message() {
+        let hover_tip = Rc::new(match catalog_app.instance_limit_tooltip_message() {
             Some(extra) => format!("{base_tip}\n{extra}"),
             None => base_tip.to_string(),
         });
         spin.set_tooltip_text(Some(hover_tip.as_str()));
         spin.set_sensitive(has_any_url && can_install);
         spin.set_width_chars(3);
-        spin.set_halign(gtk::Align::End);
         spin.set_valign(gtk::Align::Center);
 
-        if max_allowed < MAX_INSTANCES_PER_APP && app.instance_limit_tooltip_message().is_some() {
+        if max_allowed < MAX_INSTANCES_PER_APP
+            && catalog_app.instance_limit_tooltip_message().is_some()
+        {
             let value_at_press = Rc::new(RefCell::new(0u32));
             let gesture = GestureClick::new();
             let spin_press = spin.clone();
@@ -354,7 +627,6 @@ fn build_ui(app: &adw::Application) {
                 if !increment_zone {
                     return;
                 }
-                // Value at press avoids a false positive when going from max-1 → max.
                 if *v_rel.borrow() >= max_allowed {
                     spin_rel.set_tooltip_text(Some(hover_clone.as_str()));
                     spin_rel.trigger_tooltip_query();
@@ -363,14 +635,85 @@ fn build_ui(app: &adw::Application) {
             spin.add_controller(gesture);
         }
 
-        let meta_for_spin = meta.clone();
+        let suffix = GtkBox::new(Orientation::Horizontal, 8);
+        suffix.set_valign(gtk::Align::Center);
+        suffix.append(&pending_pill);
+        suffix.append(&update_pill);
+        suffix.append(&spin);
+        row.add_suffix(&suffix);
+
+        list.append(&row);
+
+        rows.borrow_mut().push(RowHandles {
+            app_index,
+            icon,
+            row: row.clone(),
+            spin: spin.clone(),
+            pending_pill: pending_pill.clone(),
+            update_pill: update_pill.clone(),
+            can_install,
+            last_applied: installed,
+        });
+    }
+
+    // Initial meta render — needs catalog/paths/remote-cache borrow.
+    refresh_all_rows(&paths, &catalog, &remote_latest_cache, &rows);
+    update_total_label(&total_label, &paths, &catalog);
+
+    // Pending-state recompute helper. Called from spin change, after Apply, after Refresh.
+    let recompute_pending = {
+        let rows = Rc::clone(&rows);
+        let apply_weak = apply_weak.clone();
+        let banner = banner.clone();
+        let statusbar = statusbar.clone();
+        Rc::new(move || {
+            let pending_count = rows
+                .borrow()
+                .iter()
+                .filter(|h| (h.spin.value() as u32) != h.last_applied)
+                .count();
+            if let Some(a) = apply_weak.upgrade() {
+                let label = if pending_count == 0 {
+                    "Apply".to_string()
+                } else {
+                    format!("Apply ({pending_count})")
+                };
+                a.set_label(&label);
+                a.set_sensitive(pending_count > 0);
+            }
+            if pending_count == 0 {
+                banner.set_revealed(false);
+                statusbar.set_text("Ready");
+            } else {
+                banner.set_title(&format!(
+                    "{pending_count} pending change{} — click Apply to reconcile.",
+                    if pending_count == 1 { "" } else { "s" }
+                ));
+                banner.set_revealed(true);
+                statusbar.set_text(&format!(
+                    "{pending_count} pending change{}",
+                    if pending_count == 1 { "" } else { "s" }
+                ));
+            }
+        }) as Rc<dyn Fn()>
+    };
+
+    // Wire spin → meta + pending recompute (after rows exist so we can clone refs in).
+    for handle in rows.borrow().iter() {
         let paths_spin = Rc::clone(&paths);
         let catalog_spin = Rc::clone(&catalog);
         let remote_cache_spin = Rc::clone(&remote_latest_cache);
-        let app_index_spin = app_index;
-        spin.connect_value_changed(move |spin| {
+        let recompute = Rc::clone(&recompute_pending);
+        let app_index_spin = handle.app_index;
+        let row_w = handle.row.clone();
+        let pending_pill_w = handle.pending_pill.clone();
+        let update_pill_w = handle.update_pill.clone();
+        let last_applied = handle.last_applied;
+        handle.spin.connect_value_changed(move |spin| {
             let app = &catalog_spin.apps[app_index_spin];
             let n = spin.value() as u32;
+            let installed_n =
+                instance_count(paths_spin.as_ref(), app).unwrap_or(0);
             let cache = remote_cache_spin.borrow();
             let remote = cache
                 .get(app_index_spin)
@@ -378,34 +721,21 @@ fn build_ui(app: &adw::Application) {
             apply_row_meta(
                 paths_spin.as_ref(),
                 app,
+                installed_n,
                 n,
+                last_applied,
                 remote,
-                &meta_for_spin,
+                &row_w,
+                &update_pill_w,
+                &pending_pill_w,
                 catalog_row_hint(app).as_deref(),
             );
-        });
-
-        apply_row_meta(paths.as_ref(), app, installed, None, &meta, hint.as_deref());
-
-        row_box.append(&icon);
-        row_box.append(&info_box);
-        row_box.append(&spin);
-
-        row.set_child(Some(&row_box));
-        if let Some(ref h) = hint {
-            row.set_tooltip_text(Some(h.as_str()));
-        }
-        list.append(&row);
-
-        rows.borrow_mut().push(RowHandles {
-            app_index,
-            icon,
-            meta,
-            spin,
-            can_install,
+            (recompute)();
         });
     }
+    (recompute_pending)();
 
+    // Async catalog icons fetch + paint.
     let (tx_icons, rx_icons) = mpsc::channel::<Vec<Option<Vec<u8>>>>();
     let catalog_for_icons = (*catalog).clone();
     std::thread::spawn(move || {
@@ -414,9 +744,10 @@ fn build_ui(app: &adw::Application) {
     });
 
     let rows_icons = Rc::clone(&rows);
+    let icons_cache_idle = Rc::clone(&icons_cache);
     glib::idle_add_local(move || match rx_icons.try_recv() {
         Ok(icon_list) => {
-            for (i, bytes_opt) in icon_list.into_iter().enumerate() {
+            for (i, bytes_opt) in icon_list.iter().enumerate() {
                 let rows_b = rows_icons.borrow();
                 let Some(h) = rows_b.get(i) else {
                     continue;
@@ -428,12 +759,14 @@ fn build_ui(app: &adw::Application) {
                     }
                 }
             }
+            *icons_cache_idle.borrow_mut() = icon_list;
             glib::ControlFlow::Break
         }
         Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
         Err(mpsc::TryRecvError::Disconnected) => glib::ControlFlow::Break,
     });
 
+    // Async GitHub release-tag fetch + meta refresh.
     let (tx_remote, rx_remote) = mpsc::channel::<Vec<Option<GithubReleaseHint>>>();
     let catalog_for_fetch = (*catalog).clone();
     std::thread::spawn(move || {
@@ -455,12 +788,17 @@ fn build_ui(app: &adw::Application) {
                 };
                 let app = &catalog_remote.apps[h.app_index];
                 let n = h.spin.value() as u32;
+                let installed_n = instance_count(paths_remote.as_ref(), app).unwrap_or(0);
                 apply_row_meta(
                     paths_remote.as_ref(),
                     app,
+                    installed_n,
                     n,
+                    h.last_applied,
                     remote.as_ref().map(|hint| hint.tag.as_str()),
-                    &h.meta,
+                    &h.row,
+                    &h.update_pill,
+                    &h.pending_pill,
                     catalog_row_hint(app).as_deref(),
                 );
             }
@@ -470,34 +808,7 @@ fn build_ui(app: &adw::Application) {
         Err(mpsc::TryRecvError::Disconnected) => glib::ControlFlow::Break,
     });
 
-    let progress = ProgressBar::new();
-    progress.set_show_text(true);
-    progress.set_visible(false);
-    progress.set_hexpand(true);
-
-    let statusbar = Label::new(Some("Ready"));
-    statusbar.add_css_class("dim-label");
-    statusbar.set_halign(gtk::Align::Start);
-    statusbar.set_xalign(0.0);
-    statusbar.set_margin_start(12);
-    statusbar.set_margin_end(12);
-    statusbar.set_margin_bottom(12);
-
-    progress.set_margin_top(10);
-    progress.set_margin_bottom(10);
-
-    let list_and_progress = GtkBox::new(Orientation::Vertical, 0);
-    list_and_progress.set_hexpand(true);
-    list_and_progress.set_vexpand(true);
-    list_and_progress.append(&list_scroll);
-    list_and_progress.append(&progress);
-
-    content.append(&intro);
-    content.append(&list_and_progress);
-
-    outer.append(&content);
-    outer.append(&statusbar);
-
+    // Apply button: reconcile every row's spin to its target instance count.
     let window_for_apply: gtk::ApplicationWindow = window.clone().upcast();
     let window_for_update: gtk::ApplicationWindow = window.clone().upcast();
     apply.connect_clicked({
@@ -507,8 +818,10 @@ fn build_ui(app: &adw::Application) {
         let remote_latest_cache = Rc::clone(&remote_latest_cache);
         let progress = progress.clone();
         let statusbar = statusbar.clone();
+        let total_label = total_label.clone();
         let apply_weak = apply_weak.clone();
         let update_weak = update_weak.clone();
+        let recompute_pending = Rc::clone(&recompute_pending);
         move |_| {
             let mut specs = Vec::new();
             for h in rows.borrow().iter() {
@@ -524,6 +837,7 @@ fn build_ui(app: &adw::Application) {
             let progress_done = progress.clone();
             let apply_done = apply_weak.clone();
             let update_done = update_weak.clone();
+            let recompute_done = Rc::clone(&recompute_pending);
 
             if let Some(a) = apply_weak.upgrade() {
                 a.set_sensitive(false);
@@ -538,7 +852,7 @@ fn build_ui(app: &adw::Application) {
             progress.set_visible(true);
             progress.set_fraction(0.0);
             progress.set_text(Some("Working…"));
-            statusbar.set_visible(false);
+            statusbar.set_text("Working…");
 
             let (tx_prog, rx_prog) = mpsc::channel::<(f64, String)>();
             let (tx, rx) = mpsc::channel::<String>();
@@ -546,80 +860,73 @@ fn build_ui(app: &adw::Application) {
             let remote_for_idle = Rc::clone(&remote_latest_cache);
             let window_idle = window_for_apply.clone();
             let status_idle = statusbar.clone();
+            let total_idle = total_label.clone();
+            let paths_total = Rc::clone(&paths);
+            let catalog_total = Rc::clone(&catalog);
             glib::idle_add_local(move || {
                 while let Ok((f, label)) = rx_prog.try_recv() {
                     progress_done.set_fraction(f);
                     progress_done.set_text(Some(&label));
                 }
                 match rx.try_recv() {
-                Ok(log_final) => {
-                    progress_done.set_visible(false);
-                    progress_done.set_fraction(0.0);
-                    status_idle.set_visible(true);
-                    status_idle.set_text("Ready");
-                    present_activity_log_dialog(&window_idle, &log_final);
-                    let rem = remote_for_idle.borrow();
-                    for h in rows_idle.borrow().iter() {
-                        let app = &catalog_idle.apps[h.app_index];
-                        let n = instance_count(paths_idle.as_ref(), app).unwrap_or(0);
-                        let cap = app.max_instances_allowed();
-                        h.spin.set_value(n.min(cap) as f64);
-                        let can = h.can_install;
-                        let has_any = catalog_idle.apps[h.app_index].has_any_download_url();
-                        h.spin.set_sensitive(has_any && can);
-                        let remote = rem
-                            .get(h.app_index)
-                            .and_then(|o| o.as_ref().map(|hint| hint.tag.as_str()));
-                        apply_row_meta(
-                            paths_idle.as_ref(),
-                            app,
-                            n,
-                            remote,
-                            &h.meta,
-                            catalog_row_hint(app).as_deref(),
-                        );
+                    Ok(log_final) => {
+                        progress_done.set_visible(false);
+                        progress_done.set_fraction(0.0);
+                        present_activity_log_dialog(&window_idle, &log_final);
+                        let rem = remote_for_idle.borrow();
+                        for h in rows_idle.borrow_mut().iter_mut() {
+                            let app = &catalog_idle.apps[h.app_index];
+                            let n = instance_count(paths_idle.as_ref(), app).unwrap_or(0);
+                            let cap = app.max_instances_allowed();
+                            h.spin.set_value(n.min(cap) as f64);
+                            h.last_applied = n;
+                            let can = h.can_install;
+                            let has_any = catalog_idle.apps[h.app_index].has_any_download_url();
+                            h.spin.set_sensitive(has_any && can);
+                            let remote = rem
+                                .get(h.app_index)
+                                .and_then(|o| o.as_ref().map(|hint| hint.tag.as_str()));
+                            apply_row_meta(
+                                paths_idle.as_ref(),
+                                app,
+                                n,
+                                h.spin.value() as u32,
+                                h.last_applied,
+                                remote,
+                                &h.row,
+                                &h.update_pill,
+                                &h.pending_pill,
+                                catalog_row_hint(app).as_deref(),
+                            );
+                        }
+                        if let Some(a) = apply_done.upgrade() {
+                            a.set_sensitive(true);
+                        }
+                        if let Some(u) = update_done.upgrade() {
+                            u.set_sensitive(true);
+                        }
+                        update_total_label(&total_idle, &paths_total, &catalog_total);
+                        (recompute_done)();
+                        let _ = status_idle;
+                        glib::ControlFlow::Break
                     }
-                    if let Some(a) = apply_done.upgrade() {
-                        a.set_sensitive(true);
+                    Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
+                    Err(mpsc::TryRecvError::Disconnected) => {
+                        progress_done.set_visible(false);
+                        status_idle.set_text("Apply interrupted.");
+                        if let Some(a) = apply_done.upgrade() {
+                            a.set_sensitive(true);
+                        }
+                        if let Some(u) = update_done.upgrade() {
+                            u.set_sensitive(true);
+                        }
+                        for h in rows_idle.borrow().iter() {
+                            let has_any = catalog_idle.apps[h.app_index].has_any_download_url();
+                            h.spin.set_sensitive(has_any && h.can_install);
+                        }
+                        glib::ControlFlow::Break
                     }
-                    if let Some(u) = update_done.upgrade() {
-                        u.set_sensitive(true);
-                    }
-                    glib::ControlFlow::Break
                 }
-                Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
-                Err(mpsc::TryRecvError::Disconnected) => {
-                    progress_done.set_visible(false);
-                    status_idle.set_visible(true);
-                    status_idle.set_text("Apply interrupted.");
-                    if let Some(a) = apply_done.upgrade() {
-                        a.set_sensitive(true);
-                    }
-                    if let Some(u) = update_done.upgrade() {
-                        u.set_sensitive(true);
-                    }
-                    let rem = remote_for_idle.borrow();
-                    for h in rows_idle.borrow().iter() {
-                        let app = &catalog_idle.apps[h.app_index];
-                        let has_any = app.has_any_download_url();
-                        let can = h.can_install;
-                        h.spin.set_sensitive(has_any && can);
-                        let n = instance_count(paths_idle.as_ref(), app).unwrap_or(0);
-                        let remote = rem
-                            .get(h.app_index)
-                            .and_then(|o| o.as_ref().map(|hint| hint.tag.as_str()));
-                        apply_row_meta(
-                            paths_idle.as_ref(),
-                            app,
-                            n,
-                            remote,
-                            &h.meta,
-                            catalog_row_hint(app).as_deref(),
-                        );
-                    }
-                    glib::ControlFlow::Break
-                }
-            }
             });
 
             std::thread::spawn(move || {
@@ -638,10 +945,15 @@ fn build_ui(app: &adw::Application) {
                                 std::env::consts::ARCH
                             ));
                         } else {
-                            let r = reconcile_instance_count_with_report(&paths_t, app, target, &mut |m| {
-                                log.push_str(m);
-                                log.push('\n');
-                            });
+                            let r = reconcile_instance_count_with_report(
+                                &paths_t,
+                                app,
+                                target,
+                                &mut |m| {
+                                    log.push_str(m);
+                                    log.push('\n');
+                                },
+                            );
                             match r {
                                 Ok(rep) => {
                                     if !rep.added.is_empty() {
@@ -671,10 +983,8 @@ fn build_ui(app: &adw::Application) {
                         }
                         let done = step + 1;
                         let frac = done as f64 / n as f64;
-                        let _ = tx_prog.send((
-                            frac,
-                            format!("Working… ({}/{}): {}", done, n, app.id),
-                        ));
+                        let _ = tx_prog
+                            .send((frac, format!("Working… ({}/{}): {}", done, n, app.id)));
                     }
                 }
                 if log.is_empty() {
@@ -692,8 +1002,10 @@ fn build_ui(app: &adw::Application) {
         let remote_latest_cache = Rc::clone(&remote_latest_cache);
         let progress = progress.clone();
         let statusbar = statusbar.clone();
+        let total_label = total_label.clone();
         let apply_weak = apply_weak.clone();
         let update_weak = update_weak.clone();
+        let recompute_pending = Rc::clone(&recompute_pending);
         move |_| {
             let paths_t = (*paths).clone();
             let catalog_t = (*catalog).clone();
@@ -703,6 +1015,7 @@ fn build_ui(app: &adw::Application) {
             let progress_done = progress.clone();
             let apply_done = apply_weak.clone();
             let update_done = update_weak.clone();
+            let recompute_done = Rc::clone(&recompute_pending);
 
             if let Some(a) = apply_weak.upgrade() {
                 a.set_sensitive(false);
@@ -717,7 +1030,7 @@ fn build_ui(app: &adw::Application) {
             progress.set_visible(true);
             progress.set_fraction(0.0);
             progress.set_text(Some("Updating…"));
-            statusbar.set_visible(false);
+            statusbar.set_text("Updating…");
 
             let (tx_prog, rx_prog) = mpsc::channel::<(f64, String)>();
             let (tx, rx) = mpsc::channel::<(String, UpdateAllReport)>();
@@ -725,81 +1038,74 @@ fn build_ui(app: &adw::Application) {
             let remote_for_idle = Rc::clone(&remote_latest_cache);
             let window_idle = window_for_update.clone();
             let status_idle = statusbar.clone();
+            let total_idle = total_label.clone();
+            let paths_total = Rc::clone(&paths);
+            let catalog_total = Rc::clone(&catalog);
             glib::idle_add_local(move || {
                 while let Ok((f, label)) = rx_prog.try_recv() {
                     progress_done.set_fraction(f);
                     progress_done.set_text(Some(&label));
                 }
                 match rx.try_recv() {
-                Ok((log_final, rep)) => {
-                    progress_done.set_visible(false);
-                    progress_done.set_fraction(0.0);
-                    let summary = format_update_status_summary(&rep);
-                    status_idle.set_visible(true);
-                    status_idle.set_text(summary.as_str());
-                    present_activity_log_dialog(&window_idle, &log_final);
-                    let rem = remote_for_idle.borrow();
-                    for h in rows_idle.borrow().iter() {
-                        let app = &catalog_idle.apps[h.app_index];
-                        let n = instance_count(paths_idle.as_ref(), app).unwrap_or(0);
-                        let cap = app.max_instances_allowed();
-                        h.spin.set_value(n.min(cap) as f64);
-                        let can = h.can_install;
-                        let has_any = catalog_idle.apps[h.app_index].has_any_download_url();
-                        h.spin.set_sensitive(has_any && can);
-                        let remote = rem
-                            .get(h.app_index)
-                            .and_then(|o| o.as_ref().map(|hint| hint.tag.as_str()));
-                        apply_row_meta(
-                            paths_idle.as_ref(),
-                            app,
-                            n,
-                            remote,
-                            &h.meta,
-                            catalog_row_hint(app).as_deref(),
-                        );
+                    Ok((log_final, rep)) => {
+                        progress_done.set_visible(false);
+                        progress_done.set_fraction(0.0);
+                        let summary = format_update_status_summary(&rep);
+                        status_idle.set_text(summary.as_str());
+                        present_activity_log_dialog(&window_idle, &log_final);
+                        let rem = remote_for_idle.borrow();
+                        for h in rows_idle.borrow_mut().iter_mut() {
+                            let app = &catalog_idle.apps[h.app_index];
+                            let n = instance_count(paths_idle.as_ref(), app).unwrap_or(0);
+                            let cap = app.max_instances_allowed();
+                            h.spin.set_value(n.min(cap) as f64);
+                            h.last_applied = n;
+                            let can = h.can_install;
+                            let has_any = catalog_idle.apps[h.app_index].has_any_download_url();
+                            h.spin.set_sensitive(has_any && can);
+                            let remote = rem
+                                .get(h.app_index)
+                                .and_then(|o| o.as_ref().map(|hint| hint.tag.as_str()));
+                            apply_row_meta(
+                                paths_idle.as_ref(),
+                                app,
+                                n,
+                                h.spin.value() as u32,
+                                h.last_applied,
+                                remote,
+                                &h.row,
+                                &h.update_pill,
+                                &h.pending_pill,
+                                catalog_row_hint(app).as_deref(),
+                            );
+                        }
+                        if let Some(a) = apply_done.upgrade() {
+                            a.set_sensitive(true);
+                        }
+                        if let Some(u) = update_done.upgrade() {
+                            u.set_sensitive(true);
+                        }
+                        update_total_label(&total_idle, &paths_total, &catalog_total);
+                        (recompute_done)();
+                        glib::ControlFlow::Break
                     }
-                    if let Some(a) = apply_done.upgrade() {
-                        a.set_sensitive(true);
+                    Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
+                    Err(mpsc::TryRecvError::Disconnected) => {
+                        progress_done.set_visible(false);
+                        status_idle.set_text("Update interrupted.");
+                        if let Some(a) = apply_done.upgrade() {
+                            a.set_sensitive(true);
+                        }
+                        if let Some(u) = update_done.upgrade() {
+                            u.set_sensitive(true);
+                        }
+                        for h in rows_idle.borrow().iter() {
+                            let has_any = catalog_idle.apps[h.app_index].has_any_download_url();
+                            h.spin.set_sensitive(has_any && h.can_install);
+                        }
+                        glib::ControlFlow::Break
                     }
-                    if let Some(u) = update_done.upgrade() {
-                        u.set_sensitive(true);
-                    }
-                    glib::ControlFlow::Break
                 }
-                Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
-                Err(mpsc::TryRecvError::Disconnected) => {
-                    progress_done.set_visible(false);
-                    status_idle.set_visible(true);
-                    status_idle.set_text("Update interrupted.");
-                    if let Some(a) = apply_done.upgrade() {
-                        a.set_sensitive(true);
-                    }
-                    if let Some(u) = update_done.upgrade() {
-                        u.set_sensitive(true);
-                    }
-                    let rem = remote_for_idle.borrow();
-                    for h in rows_idle.borrow().iter() {
-                        let app = &catalog_idle.apps[h.app_index];
-                        let has_any = app.has_any_download_url();
-                        let can = h.can_install;
-                        h.spin.set_sensitive(has_any && can);
-                        let n = instance_count(paths_idle.as_ref(), app).unwrap_or(0);
-                        let remote = rem
-                            .get(h.app_index)
-                            .and_then(|o| o.as_ref().map(|hint| hint.tag.as_str()));
-                        apply_row_meta(
-                            paths_idle.as_ref(),
-                            app,
-                            n,
-                            remote,
-                            &h.meta,
-                            catalog_row_hint(app).as_deref(),
-                        );
-                    }
-                    glib::ControlFlow::Break
-                }
-            }
             });
 
             std::thread::spawn(move || {
@@ -840,364 +1146,468 @@ fn build_ui(app: &adw::Application) {
         }
     });
 
-    {
-        let window_for_actions: gtk::ApplicationWindow = window.clone().upcast();
-        let apply_btn = apply.clone();
-        let update_btn = update_installed.clone();
-        let progress_a = progress.clone();
-        let statusbar_a = statusbar.clone();
-        let rows_for_actions = Rc::clone(&rows);
-        let paths_seed = Rc::clone(&paths);
-        let catalog_seed = Rc::clone(&catalog);
-        let paths_a = Rc::clone(&paths);
-        let catalog_a = Rc::clone(&catalog);
-        let rows_a = Rc::clone(&rows);
-        let remote_a = Rc::clone(&remote_latest_cache);
-        let status_a = statusbar.clone();
+    install_window_actions_for_catalog(
+        window,
+        &paths,
+        &catalog,
+        &rows,
+        &remote_latest_cache,
+        &icons_cache,
+        &apply,
+        &update_installed,
+        &progress,
+        &statusbar,
+        &total_label,
+        Rc::clone(&recompute_pending),
+    );
+}
 
-        let refresh_fn: Rc<dyn Fn()> = Rc::new(move || {
-            let rem = remote_a.borrow();
-            for h in rows_a.borrow().iter() {
-                let app = &catalog_a.apps[h.app_index];
-                let n = instance_count(paths_a.as_ref(), app).unwrap_or(0);
+fn refresh_all_rows(
+    paths: &Rc<AppPaths>,
+    catalog: &Rc<Catalog>,
+    remote_latest_cache: &Rc<RefCell<Vec<Option<GithubReleaseHint>>>>,
+    rows: &Rc<RefCell<Vec<RowHandles>>>,
+) {
+    let rem = remote_latest_cache.borrow();
+    for h in rows.borrow().iter() {
+        let app = &catalog.apps[h.app_index];
+        let installed_n = instance_count(paths.as_ref(), app).unwrap_or(0);
+        let remote = rem
+            .get(h.app_index)
+            .and_then(|o| o.as_ref().map(|hint| hint.tag.as_str()));
+        apply_row_meta(
+            paths.as_ref(),
+            app,
+            installed_n,
+            h.spin.value() as u32,
+            h.last_applied,
+            remote,
+            &h.row,
+            &h.update_pill,
+            &h.pending_pill,
+            catalog_row_hint(app).as_deref(),
+        );
+    }
+}
+
+fn update_total_label(label: &Label, paths: &Rc<AppPaths>, catalog: &Rc<Catalog>) {
+    let total = catalog.apps.len();
+    let installed = catalog
+        .apps
+        .iter()
+        .filter(|app| {
+            instance_count(paths.as_ref(), app)
+                .map(|n| n > 0)
+                .unwrap_or(false)
+        })
+        .count();
+    label.set_text(&format!("{total} apps · {installed} installed"));
+}
+
+#[allow(clippy::too_many_arguments)]
+fn install_window_actions_for_catalog(
+    window: &adw::ApplicationWindow,
+    paths: &Rc<AppPaths>,
+    catalog: &Rc<Catalog>,
+    rows: &Rc<RefCell<Vec<RowHandles>>>,
+    remote_latest_cache: &Rc<RefCell<Vec<Option<GithubReleaseHint>>>>,
+    icons_cache: &Rc<RefCell<Vec<Option<Vec<u8>>>>>,
+    apply_btn: &Button,
+    update_btn: &Button,
+    progress: &ProgressBar,
+    statusbar: &Label,
+    total_label: &Label,
+    recompute_pending: Rc<dyn Fn()>,
+) {
+    let window_for_actions: gtk::ApplicationWindow = window.clone().upcast();
+
+    let refresh_fn: Rc<dyn Fn()> = {
+        let paths = Rc::clone(paths);
+        let catalog = Rc::clone(catalog);
+        let rows = Rc::clone(rows);
+        let remote = Rc::clone(remote_latest_cache);
+        let total_label = total_label.clone();
+        let statusbar = statusbar.clone();
+        let recompute_pending = Rc::clone(&recompute_pending);
+        Rc::new(move || {
+            for h in rows.borrow_mut().iter_mut() {
+                let app = &catalog.apps[h.app_index];
+                let n = instance_count(paths.as_ref(), app).unwrap_or(0);
                 h.spin.set_value(n.min(app.max_instances_allowed()) as f64);
-                let remote = rem
-                    .get(h.app_index)
-                    .and_then(|o| o.as_ref().map(|hint| hint.tag.as_str()));
-                apply_row_meta(
-                    paths_a.as_ref(),
-                    app,
-                    n,
-                    remote,
-                    &h.meta,
-                    catalog_row_hint(app).as_deref(),
-                );
+                h.last_applied = n;
             }
-            status_a.set_text("Ready");
-        });
+            refresh_all_rows(&paths, &catalog, &remote, &rows);
+            update_total_label(&total_label, &paths, &catalog);
+            statusbar.set_text("Ready");
+            (recompute_pending)();
+        })
+    };
 
-        let hooks = actions::ActionHooks {
-            apply: {
-                let b = apply_btn.clone();
-                Rc::new(move || b.emit_clicked())
-            },
-            update: {
-                let b = update_btn.clone();
-                Rc::new(move || b.emit_clicked())
-            },
-            seed_settings: {
-                let window = window_for_actions.clone();
-                let paths = Rc::clone(&paths_seed);
-                let catalog = Rc::clone(&catalog_seed);
-                let progress = progress_a.clone();
-                let statusbar = statusbar_a.clone();
-                let rows = Rc::clone(&rows_for_actions);
-                let apply_btn = apply_btn.clone();
-                let update_btn = update_btn.clone();
-                let refresh = Rc::clone(&refresh_fn);
-                Rc::new(move || {
-                    let installed_supported: Vec<(String, String, u32)> = catalog
-                        .apps
-                        .iter()
-                        .filter(|app| SupportedSeedApp::from_catalog_app(app).is_some())
-                        .filter_map(|app| {
-                            let n = instance_count(paths.as_ref(), app).ok()?;
-                            (n > 0).then(|| (app.id.clone(), app.display_name_resolved(), n))
-                        })
-                        .collect();
-                    if installed_supported.is_empty() {
-                        present_message_window(
-                            window.application().as_ref().expect("app"),
-                            "No supported installs",
-                            "There are no installed Feather or Electrum instances to seed.",
-                            None,
-                        );
-                        return;
+    let hooks = actions::ActionHooks {
+        apply: {
+            let b = apply_btn.clone();
+            Rc::new(move || b.emit_clicked())
+        },
+        update: {
+            let b = update_btn.clone();
+            Rc::new(move || b.emit_clicked())
+        },
+        seed_settings: {
+            let window = window_for_actions.clone();
+            let paths = Rc::clone(paths);
+            let catalog = Rc::clone(catalog);
+            let icons_cache = Rc::clone(icons_cache);
+            let progress = progress.clone();
+            let statusbar = statusbar.clone();
+            let rows = Rc::clone(rows);
+            let apply_btn = apply_btn.clone();
+            let update_btn = update_btn.clone();
+            let refresh = Rc::clone(&refresh_fn);
+            Rc::new(move || {
+                let installed_supported: Vec<(String, String, u32, usize)> = catalog
+                    .apps
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, app)| SupportedSeedApp::from_catalog_app(app).is_some())
+                    .filter_map(|(i, app)| {
+                        let n = instance_count(paths.as_ref(), app).ok()?;
+                        (n > 0).then(|| (app.id.clone(), app.display_name_resolved(), n, i))
+                    })
+                    .collect();
+                if installed_supported.is_empty() {
+                    present_message_window(
+                        window.application().as_ref().expect("app"),
+                        "No supported installs",
+                        "There are no installed Feather or Electrum instances to seed.",
+                        None,
+                    );
+                    return;
+                }
+                let public_apps: Vec<(String, String, u32)> = installed_supported
+                    .iter()
+                    .map(|(id, name, n, _)| (id.clone(), name.clone(), *n))
+                    .collect();
+                let icons_borrow = icons_cache.borrow();
+                let icons_for_dialog: Vec<Option<Vec<u8>>> = installed_supported
+                    .iter()
+                    .map(|(_, _, _, i)| icons_borrow.get(*i).cloned().unwrap_or(None))
+                    .collect();
+                drop(icons_borrow);
+
+                let Some((preset, selected_ids)) =
+                    choose_seed_settings(&window, &public_apps, &icons_for_dialog)
+                else {
+                    return;
+                };
+
+                if !selected_ids.is_empty() {
+                    apply_btn.set_sensitive(false);
+                    update_btn.set_sensitive(false);
+                    for h in rows.borrow().iter() {
+                        h.spin.set_sensitive(false);
                     }
-                    let Some((preset, selected_ids)) = choose_seed_settings(&window, &installed_supported) else {
-                        return;
-                    };
+                }
+                progress.set_visible(true);
+                progress.set_fraction(0.0);
+                progress.set_text(Some("Seeding settings…"));
+                statusbar.set_text("Seeding settings…");
 
-                    if !selected_ids.is_empty() {
-                        apply_btn.set_sensitive(false);
-                        update_btn.set_sensitive(false);
-                        for h in rows.borrow().iter() {
-                            h.spin.set_sensitive(false);
+                let total: u32 = public_apps
+                    .iter()
+                    .filter(|(app_id, _, _)| selected_ids.iter().any(|id| id == app_id))
+                    .map(|(_, _, n)| *n)
+                    .sum();
+                let (tx_prog, rx_prog) = mpsc::channel::<(f64, String)>();
+                let (tx, rx) = mpsc::channel::<(String, u32, u32)>();
+                let progress_done = progress.clone();
+                let status_idle = statusbar.clone();
+                let window_idle = window.clone();
+                let refresh_idle = Rc::clone(&refresh);
+                let apply_idle = apply_btn.clone();
+                let update_idle = update_btn.clone();
+                let rows_idle = Rc::clone(&rows);
+                glib::idle_add_local(move || {
+                    while let Ok((f, label)) = rx_prog.try_recv() {
+                        progress_done.set_fraction(f);
+                        progress_done.set_text(Some(&label));
+                    }
+                    match rx.try_recv() {
+                        Ok((log, seeded, failed)) => {
+                            progress_done.set_visible(false);
+                            progress_done.set_fraction(0.0);
+                            status_idle
+                                .set_text(format_seed_status_summary(seeded, failed).as_str());
+                            present_activity_log_dialog(&window_idle, &log);
+                            refresh_idle();
+                            apply_idle.set_sensitive(true);
+                            update_idle.set_sensitive(true);
+                            for h in rows_idle.borrow().iter() {
+                                h.spin.set_sensitive(true);
+                            }
+                            glib::ControlFlow::Break
+                        }
+                        Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
+                        Err(mpsc::TryRecvError::Disconnected) => {
+                            progress_done.set_visible(false);
+                            status_idle.set_text("Seed settings interrupted.");
+                            apply_idle.set_sensitive(true);
+                            update_idle.set_sensitive(true);
+                            for h in rows_idle.borrow().iter() {
+                                h.spin.set_sensitive(true);
+                            }
+                            glib::ControlFlow::Break
                         }
                     }
-                    progress.set_visible(true);
-                    progress.set_fraction(0.0);
-                    progress.set_text(Some("Seeding settings…"));
-                    statusbar.set_visible(false);
+                });
 
-                    let total: u32 = installed_supported
-                        .iter()
-                        .filter(|(app_id, _, _)| selected_ids.iter().any(|id| id == app_id))
-                        .map(|(_, _, n)| *n)
-                        .sum();
-                    let (tx_prog, rx_prog) = mpsc::channel::<(f64, String)>();
-                    let (tx, rx) = mpsc::channel::<(String, u32, u32)>();
-                    let progress_done = progress.clone();
-                    let status_idle = statusbar.clone();
-                    let window_idle = window.clone();
-                    let refresh_idle = Rc::clone(&refresh);
-                    let apply_idle = apply_btn.clone();
-                    let update_idle = update_btn.clone();
-                    let rows_idle = Rc::clone(&rows);
-                    glib::idle_add_local(move || {
-                        while let Ok((f, label)) = rx_prog.try_recv() {
-                            progress_done.set_fraction(f);
-                            progress_done.set_text(Some(&label));
+                let paths_t = (*paths).clone();
+                let catalog_t = (*catalog).clone();
+                std::thread::spawn(move || {
+                    let mut log = String::new();
+                    let mut seeded = 0u32;
+                    let mut failed = 0u32;
+                    let mut done = 0u32;
+                    if total == 0 {
+                        let _ = tx_prog.send((1.0, "Seeding settings…".to_string()));
+                    }
+                    for app in &catalog_t.apps {
+                        if !selected_ids.iter().any(|id| id == &app.id) {
+                            continue;
                         }
-                        match rx.try_recv() {
-                            Ok((log, seeded, failed)) => {
-                                progress_done.set_visible(false);
-                                progress_done.set_fraction(0.0);
-                                status_idle.set_visible(true);
-                                status_idle.set_text(format_seed_status_summary(seeded, failed).as_str());
-                                present_activity_log_dialog(&window_idle, &log);
-                                refresh_idle();
-                                apply_idle.set_sensitive(true);
-                                update_idle.set_sensitive(true);
-                                for h in rows_idle.borrow().iter() {
-                                    h.spin.set_sensitive(true);
-                                }
-                                glib::ControlFlow::Break
-                            }
-                            Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
-                            Err(mpsc::TryRecvError::Disconnected) => {
-                                progress_done.set_visible(false);
-                                status_idle.set_visible(true);
-                                status_idle.set_text("Seed settings interrupted.");
-                                apply_idle.set_sensitive(true);
-                                update_idle.set_sensitive(true);
-                                for h in rows_idle.borrow().iter() {
-                                    h.spin.set_sensitive(true);
-                                }
-                                glib::ControlFlow::Break
-                            }
+                        if SupportedSeedApp::from_catalog_app(app).is_none() {
+                            continue;
                         }
-                    });
-
-                    let paths_t = (*paths).clone();
-                    let catalog_t = (*catalog).clone();
-                    std::thread::spawn(move || {
-                        let mut log = String::new();
-                        let mut seeded = 0u32;
-                        let mut failed = 0u32;
-                        let mut done = 0u32;
-                        if total == 0 {
-                            let _ = tx_prog.send((1.0, "Seeding settings…".to_string()));
-                        }
-                        for app in &catalog_t.apps {
-                            if !selected_ids.iter().any(|id| id == &app.id) {
-                                continue;
-                            }
-                            if SupportedSeedApp::from_catalog_app(app).is_none() {
-                                continue;
-                            }
-                            let indices = list_managed_instance_indices(&paths_t, app).unwrap_or_default();
-                            for i in indices {
-                                match seed_instance_settings(&paths_t, app, i, preset, &mut |m| {
-                                    log.push_str(m);
-                                    log.push('\n');
-                                }) {
-                                    Ok(appimage_control_core::SeedOutcome::Seeded) => seeded += 1,
-                                    Ok(_) => {}
-                                    Err(e) => {
-                                        failed += 1;
-                                        log.push_str(&format!("{} instance {}: seeding failed: {e}\n", app.id, i));
-                                    }
-                                }
-                                done += 1;
-                                if total > 0 {
-                                    let _ = tx_prog.send((
-                                        done as f64 / total as f64,
-                                        format!("Seeding settings… ({done}/{total})"),
+                        let indices =
+                            list_managed_instance_indices(&paths_t, app).unwrap_or_default();
+                        for i in indices {
+                            match seed_instance_settings(&paths_t, app, i, preset, &mut |m| {
+                                log.push_str(m);
+                                log.push('\n');
+                            }) {
+                                Ok(appimage_control_core::SeedOutcome::Seeded) => seeded += 1,
+                                Ok(_) => {}
+                                Err(e) => {
+                                    failed += 1;
+                                    log.push_str(&format!(
+                                        "{} instance {}: seeding failed: {e}\n",
+                                        app.id, i
                                     ));
                                 }
                             }
-                        }
-                        if log.trim().is_empty() {
-                            log.push_str("No supported installed instances to seed.\n");
-                        }
-                        let _ = tx.send((log, seeded, failed));
-                    });
-                })
-            },
-            refresh: Rc::clone(&refresh_fn),
-            clean_cache: {
-                let paths = Rc::clone(&paths);
-                let window = window_for_actions.clone();
-                let refresh = Rc::clone(&refresh_fn);
-                Rc::new(move || {
-                    let mut log = String::new();
-                    match clean_catalog_download_cache(paths.as_ref()) {
-                        Ok(()) => log.push_str("Cache cleaned.\n"),
-                        Err(e) => log.push_str(&format!("Clean cache failed: {e}\n")),
-                    }
-                    present_activity_log_dialog(&window, &log);
-                    refresh();
-                })
-            },
-            clean: {
-                let paths = Rc::clone(&paths);
-                let catalog = Rc::clone(&catalog);
-                let window = window_for_actions.clone();
-                let refresh = Rc::clone(&refresh_fn);
-                Rc::new(move || {
-                    if !ask_confirmation(
-                        &window,
-                        "Clean installs",
-                        "Remove installed catalog instances and managed launchers/icons, but keep cache?",
-                    ) {
-                        return;
-                    }
-                    let mut log = String::new();
-                    let r = clean_installed_catalog_apps_keep_cache(paths.as_ref(), catalog.as_ref(), &mut |m| {
-                        log.push_str(m);
-                        log.push('\n');
-                    });
-                    if let Err(e) = r {
-                        log.push_str(&format!("Clean failed: {e}\n"));
-                    }
-                    present_activity_log_dialog(&window, &log);
-                    refresh();
-                })
-            },
-            purge: {
-                let paths = Rc::clone(&paths);
-                let catalog = Rc::clone(&catalog);
-                let window = window_for_actions.clone();
-                let refresh = Rc::clone(&refresh_fn);
-                Rc::new(move || {
-                    if !ask_confirmation(
-                        &window,
-                        "Purge state",
-                        "Remove all manager-owned installs, cache, managed files, launchers and icons?",
-                    ) {
-                        return;
-                    }
-                    let mut log = String::new();
-                    let r = purge_appimage_control_state(paths.as_ref(), Some(catalog.as_ref()), &mut |m| {
-                        log.push_str(m);
-                        log.push('\n');
-                    });
-                    if let Err(e) = r {
-                        log.push_str(&format!("Purge failed: {e}\n"));
-                    }
-                    present_activity_log_dialog(&window, &log);
-                    refresh();
-                })
-            },
-            migrate: {
-                let paths = Rc::clone(&paths);
-                let catalog = Rc::clone(&catalog);
-                let window = window_for_actions.clone();
-                let refresh = Rc::clone(&refresh_fn);
-                Rc::new(move || {
-                    if !ask_confirmation(
-                        &window,
-                        "Migrate legacy dirs",
-                        "Scan current directory and migrate matching legacy folders into managed instance homes?",
-                    ) {
-                        return;
-                    }
-                    let mut log = String::new();
-                    let cwd = match std::env::current_dir() {
-                        Ok(p) => p,
-                        Err(e) => {
-                            log.push_str(&format!("Could not read current dir: {e}\n"));
-                            present_activity_log_dialog(&window, &log);
-                            return;
-                        }
-                    };
-                    let candidates = discover_migration_candidates(&cwd, catalog.as_ref());
-                    let r = run_portable_dir_migration(
-                        paths.as_ref(),
-                        catalog.as_ref(),
-                        &candidates,
-                        Some(MigrationResolution::Renumber),
-                        false,
-                        |_| MigrationResolution::Renumber,
-                        &mut |m| {
-                            log.push_str(m);
-                            log.push('\n');
-                        },
-                    );
-                    if let Err(e) = r {
-                        log.push_str(&format!("Migration failed: {e}\n"));
-                    }
-                    present_activity_log_dialog(&window, &log);
-                    refresh();
-                })
-            },
-            backup: {
-                let paths = Rc::clone(&paths);
-                let catalog = Rc::clone(&catalog);
-                let window = window_for_actions.clone();
-                Rc::new(move || {
-                    let Some(path) = choose_save_path(&window, "Choose backup archive destination") else {
-                        return;
-                    };
-                    let mut log = String::new();
-                    match create_backup_archive(paths.as_ref(), catalog.as_ref(), &path, &BackupOptions::default()) {
-                        Ok(rep) => log.push_str(&format!(
-                            "Backup created: {} ({} entries, {} bytes)\n",
-                            rep.archive_path.display(),
-                            rep.entry_count,
-                            rep.total_bytes
-                        )),
-                        Err(e) => log.push_str(&format!("Backup failed: {e}\n")),
-                    }
-                    present_activity_log_dialog(&window, &log);
-                })
-            },
-            restore_backup: {
-                let paths = Rc::clone(&paths);
-                let window = window_for_actions.clone();
-                let refresh = Rc::clone(&refresh_fn);
-                Rc::new(move || {
-                    let Some(path) = choose_open_path(&window, "Choose backup archive to restore") else {
-                        return;
-                    };
-                    let mut log = String::new();
-                    match restore_backup_archive(paths.as_ref(), &path, false) {
-                        Ok(()) => log.push_str("Restore finished.\n"),
-                        Err(e) => {
-                            let msg = e.to_string();
-                            if msg.contains("managed state already exists")
-                                && ask_confirmation(
-                                    &window,
-                                    "Overwrite existing managed state?",
-                                    "Managed state already exists. Force restore and overwrite manager-owned state?",
-                                )
-                            {
-                                match restore_backup_archive(paths.as_ref(), &path, true) {
-                                    Ok(()) => log.push_str("Forced restore finished.\n"),
-                                    Err(e2) => log.push_str(&format!("Forced restore failed: {e2}\n")),
-                                }
-                            } else {
-                                log.push_str(&format!("Restore failed: {e}\n"));
+                            done += 1;
+                            if total > 0 {
+                                let _ = tx_prog.send((
+                                    done as f64 / total as f64,
+                                    format!("Seeding settings… ({done}/{total})"),
+                                ));
                             }
                         }
                     }
-                    present_activity_log_dialog(&window, &log);
-                    refresh();
-                })
-            },
-        };
-        actions::install_window_actions(&window_for_actions, hooks);
-    }
-
-    let clamp = adw::Clamp::new();
-    clamp.set_maximum_size(960);
-    clamp.set_tightening_threshold(640);
-    clamp.set_child(Some(&outer));
-    let toolbar_view = adw::ToolbarView::new();
-    toolbar_view.add_top_bar(&header);
-    toolbar_view.set_content(Some(&clamp));
-    window.set_content(Some(&toolbar_view));
-    window.present();
+                    if log.trim().is_empty() {
+                        log.push_str("No supported installed instances to seed.\n");
+                    }
+                    let _ = tx.send((log, seeded, failed));
+                });
+            })
+        },
+        refresh: Rc::clone(&refresh_fn),
+        clean_cache: {
+            let paths = Rc::clone(paths);
+            let window = window_for_actions.clone();
+            let refresh = Rc::clone(&refresh_fn);
+            Rc::new(move || {
+                let mut log = String::new();
+                match clean_catalog_download_cache(paths.as_ref()) {
+                    Ok(()) => log.push_str("Cache cleaned.\n"),
+                    Err(e) => log.push_str(&format!("Clean cache failed: {e}\n")),
+                }
+                present_activity_log_dialog(&window, &log);
+                refresh();
+            })
+        },
+        clean: {
+            let paths = Rc::clone(paths);
+            let catalog = Rc::clone(catalog);
+            let window = window_for_actions.clone();
+            let refresh = Rc::clone(&refresh_fn);
+            Rc::new(move || {
+                if !ask_confirmation(
+                    &window,
+                    ConfirmKind::Warn,
+                    "Clean installs?",
+                    "Remove installed catalog instances and their managed launchers and icons. The download cache is kept, so reinstalling is fast.",
+                    Some(
+                        "<small>• <tt>~/.local/share/appimages/apps/*</tt>\n\
+                         • <tt>~/.local/share/applications/appimage-control-*.desktop</tt></small>",
+                    ),
+                    "Clean",
+                ) {
+                    return;
+                }
+                let mut log = String::new();
+                let r = clean_installed_catalog_apps_keep_cache(
+                    paths.as_ref(),
+                    catalog.as_ref(),
+                    &mut |m| {
+                        log.push_str(m);
+                        log.push('\n');
+                    },
+                );
+                if let Err(e) = r {
+                    log.push_str(&format!("Clean failed: {e}\n"));
+                }
+                present_activity_log_dialog(&window, &log);
+                refresh();
+            })
+        },
+        purge: {
+            let paths = Rc::clone(paths);
+            let catalog = Rc::clone(catalog);
+            let window = window_for_actions.clone();
+            let refresh = Rc::clone(&refresh_fn);
+            Rc::new(move || {
+                if !ask_confirmation(
+                    &window,
+                    ConfirmKind::Danger,
+                    "Purge all manager state?",
+                    "This removes every install, the download cache, managed launchers, and icon tiles owned by AppImage Control. App data inside instance home dirs is also removed.",
+                    Some(
+                        "<small>• <tt>~/.local/share/appimages/</tt> (apps, cache, files, icons)\n\
+                         • <tt>~/.local/share/applications/appimage-control-*.desktop</tt>\n\
+                         • <tt>~/.local/share/icons/hicolor/*/apps/appimage-control-*.png</tt></small>",
+                    ),
+                    "Purge state",
+                ) {
+                    return;
+                }
+                let mut log = String::new();
+                let r = purge_appimage_control_state(
+                    paths.as_ref(),
+                    Some(catalog.as_ref()),
+                    &mut |m| {
+                        log.push_str(m);
+                        log.push('\n');
+                    },
+                );
+                if let Err(e) = r {
+                    log.push_str(&format!("Purge failed: {e}\n"));
+                }
+                present_activity_log_dialog(&window, &log);
+                refresh();
+            })
+        },
+        migrate: {
+            let paths = Rc::clone(paths);
+            let catalog = Rc::clone(catalog);
+            let window = window_for_actions.clone();
+            let refresh = Rc::clone(&refresh_fn);
+            Rc::new(move || {
+                if !ask_confirmation(
+                    &window,
+                    ConfirmKind::Info,
+                    "Migrate legacy directories?",
+                    "Scan the current directory for matching legacy folders (e.g. feather1, feather2) and move them into managed instance homes. Conflicting destinations are renumbered automatically.",
+                    None,
+                    "Migrate",
+                ) {
+                    return;
+                }
+                let mut log = String::new();
+                let cwd = match std::env::current_dir() {
+                    Ok(p) => p,
+                    Err(e) => {
+                        log.push_str(&format!("Could not read current dir: {e}\n"));
+                        present_activity_log_dialog(&window, &log);
+                        return;
+                    }
+                };
+                let candidates = discover_migration_candidates(&cwd, catalog.as_ref());
+                let r = run_portable_dir_migration(
+                    paths.as_ref(),
+                    catalog.as_ref(),
+                    &candidates,
+                    Some(MigrationResolution::Renumber),
+                    false,
+                    |_| MigrationResolution::Renumber,
+                    &mut |m| {
+                        log.push_str(m);
+                        log.push('\n');
+                    },
+                );
+                if let Err(e) = r {
+                    log.push_str(&format!("Migration failed: {e}\n"));
+                }
+                present_activity_log_dialog(&window, &log);
+                refresh();
+            })
+        },
+        backup: {
+            let paths = Rc::clone(paths);
+            let catalog = Rc::clone(catalog);
+            let window = window_for_actions.clone();
+            Rc::new(move || {
+                let Some(path) =
+                    choose_save_path(&window, "Choose backup archive destination")
+                else {
+                    return;
+                };
+                let mut log = String::new();
+                match create_backup_archive(
+                    paths.as_ref(),
+                    catalog.as_ref(),
+                    &path,
+                    &BackupOptions::default(),
+                ) {
+                    Ok(rep) => log.push_str(&format!(
+                        "Backup created: {} ({} entries, {} bytes)\n",
+                        rep.archive_path.display(),
+                        rep.entry_count,
+                        rep.total_bytes
+                    )),
+                    Err(e) => log.push_str(&format!("Backup failed: {e}\n")),
+                }
+                present_activity_log_dialog(&window, &log);
+            })
+        },
+        restore_backup: {
+            let paths = Rc::clone(paths);
+            let window = window_for_actions.clone();
+            let refresh = Rc::clone(&refresh_fn);
+            Rc::new(move || {
+                let Some(path) = choose_open_path(&window, "Choose backup archive to restore")
+                else {
+                    return;
+                };
+                let mut log = String::new();
+                match restore_backup_archive(paths.as_ref(), &path, false) {
+                    Ok(()) => log.push_str("Restore finished.\n"),
+                    Err(e) => {
+                        let msg = e.to_string();
+                        if msg.contains("managed state already exists")
+                            && ask_confirmation(
+                                &window,
+                                ConfirmKind::Danger,
+                                "Overwrite existing managed state?",
+                                "Managed state already exists. Force restore and overwrite manager-owned state?",
+                                None,
+                                "Overwrite",
+                            )
+                        {
+                            match restore_backup_archive(paths.as_ref(), &path, true) {
+                                Ok(()) => log.push_str("Forced restore finished.\n"),
+                                Err(e2) => {
+                                    log.push_str(&format!("Forced restore failed: {e2}\n"))
+                                }
+                            }
+                        } else {
+                            log.push_str(&format!("Restore failed: {e}\n"));
+                        }
+                    }
+                }
+                present_activity_log_dialog(&window, &log);
+                refresh();
+            })
+        },
+    };
+    actions::install_window_actions(&window_for_actions, hooks);
 }
-
