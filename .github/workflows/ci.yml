@@ -38,4 +38,4 @@ jobs:
       - name: Desktop file validate
         run: desktop-file-validate data/io.github.sureserverman.AppImageControl.desktop
       - name: AppStream validate
-        run: appstreamcli validate data/io.github.sureserverman.AppImageControl.metainfo.xml
+        run: appstreamcli validate --no-net data/io.github.sureserverman.AppImageControl.metainfo.xml

@@ -42,7 +42,7 @@ jobs:
       - name: Validate desktop metadata
         run: |
           desktop-file-validate data/io.github.sureserverman.AppImageControl.desktop
-          appstreamcli validate data/io.github.sureserverman.AppImageControl.metainfo.xml
+          appstreamcli validate --no-net data/io.github.sureserverman.AppImageControl.metainfo.xml
       - name: Validate Flatpak manifest
         run: |
           flatpak-builder --show-manifest flatpak/io.github.sureserverman.AppImageControl.yml >/dev/null
