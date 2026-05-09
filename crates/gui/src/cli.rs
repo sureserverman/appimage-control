@@ -622,10 +622,8 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
         }
     }
 
-    if !ran {
-        if seed_targets.is_none() {
-            return None;
-        }
+    if !ran && seed_targets.is_none() {
+        return None;
     }
 
     if let Some(targets) = seed_targets {

@@ -731,7 +731,8 @@ pub fn choose_seed_settings(
     }
     (recompute_label)();
 
-    let decided: Rc<RefCell<Option<(SeedPreset, Vec<String>)>>> = Rc::new(RefCell::new(None));
+    type Decision = Rc<RefCell<Option<(SeedPreset, Vec<String>)>>>;
+    let decided: Decision = Rc::new(RefCell::new(None));
     let decided_c = Rc::clone(&decided);
     let loop_ = glib::MainLoop::new(None, false);
     let loop_c = loop_.clone();
