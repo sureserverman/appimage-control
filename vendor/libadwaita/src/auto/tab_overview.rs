@@ -3,10 +3,11 @@
 // from gir-files (https://github.com/gtk-rs/gir-files.git)
 // DO NOT EDIT
 
-use crate::{ffi, TabPage, TabView};
+use crate::{TabPage, TabView, ffi};
 use glib::{
+    object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -260,16 +261,18 @@ impl TabOverview {
             this: *mut ffi::AdwTabOverview,
             f: glib::ffi::gpointer,
         ) -> *mut ffi::AdwTabPage {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this)) /*Not checked*/
-                .to_glib_none()
-                .0
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this)) /*Not checked*/
+                    .to_glib_none()
+                    .0
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"create-tab".as_ptr() as *const _,
+                c"create-tab".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     create_tab_trampoline::<F> as *const (),
                 )),
@@ -293,19 +296,21 @@ impl TabOverview {
             value: *mut glib::gobject_ffi::GValue,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(
-                &from_glib_borrow(this),
-                &from_glib_borrow(page),
-                &from_glib_borrow(value),
-            )
-            .into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    &from_glib_borrow(this),
+                    &from_glib_borrow(page),
+                    &from_glib_borrow(value),
+                )
+                .into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"extra-drag-drop".as_ptr() as *const _,
+                c"extra-drag-drop".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     extra_drag_drop_trampoline::<F> as *const (),
                 )),
@@ -318,32 +323,36 @@ impl TabOverview {
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_3")))]
     #[doc(alias = "extra-drag-value")]
     pub fn connect_extra_drag_value<
-        F: Fn(&Self, &TabPage, &glib::Value) -> gdk::DragAction + 'static,
+        F: Fn(&Self, &TabPage, Option<&glib::Value>) -> gdk::DragAction + 'static,
     >(
         &self,
         f: F,
     ) -> SignalHandlerId {
         unsafe extern "C" fn extra_drag_value_trampoline<
-            F: Fn(&TabOverview, &TabPage, &glib::Value) -> gdk::DragAction + 'static,
+            F: Fn(&TabOverview, &TabPage, Option<&glib::Value>) -> gdk::DragAction + 'static,
         >(
             this: *mut ffi::AdwTabOverview,
             page: *mut ffi::AdwTabPage,
             value: *mut glib::gobject_ffi::GValue,
             f: glib::ffi::gpointer,
         ) -> gdk::ffi::GdkDragAction {
-            let f: &F = &*(f as *const F);
-            f(
-                &from_glib_borrow(this),
-                &from_glib_borrow(page),
-                &from_glib_borrow(value),
-            )
-            .into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    &from_glib_borrow(this),
+                    &from_glib_borrow(page),
+                    Option::<glib::Value>::from_glib_borrow(value)
+                        .as_ref()
+                        .as_ref(),
+                )
+                .into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"extra-drag-value".as_ptr() as *const _,
+                c"extra-drag-value".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     extra_drag_value_trampoline::<F> as *const (),
                 )),
@@ -361,14 +370,16 @@ impl TabOverview {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::child".as_ptr() as *const _,
+                c"notify::child".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_child_trampoline::<F> as *const (),
                 )),
@@ -386,14 +397,16 @@ impl TabOverview {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::enable-new-tab".as_ptr() as *const _,
+                c"notify::enable-new-tab".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_new_tab_trampoline::<F> as *const (),
                 )),
@@ -411,14 +424,16 @@ impl TabOverview {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::enable-search".as_ptr() as *const _,
+                c"notify::enable-search".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_search_trampoline::<F> as *const (),
                 )),
@@ -441,14 +456,16 @@ impl TabOverview {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::extra-drag-preferred-action".as_ptr() as *const _,
+                c"notify::extra-drag-preferred-action".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_extra_drag_preferred_action_trampoline::<F> as *const (),
                 )),
@@ -469,14 +486,16 @@ impl TabOverview {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::extra-drag-preload".as_ptr() as *const _,
+                c"notify::extra-drag-preload".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_extra_drag_preload_trampoline::<F> as *const (),
                 )),
@@ -494,14 +513,16 @@ impl TabOverview {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::inverted".as_ptr() as *const _,
+                c"notify::inverted".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_inverted_trampoline::<F> as *const (),
                 )),
@@ -519,14 +540,16 @@ impl TabOverview {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::open".as_ptr() as *const _,
+                c"notify::open".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_open_trampoline::<F> as *const (),
                 )),
@@ -544,14 +567,16 @@ impl TabOverview {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::search-active".as_ptr() as *const _,
+                c"notify::search-active".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_search_active_trampoline::<F> as *const (),
                 )),
@@ -569,14 +594,16 @@ impl TabOverview {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::secondary-menu".as_ptr() as *const _,
+                c"notify::secondary-menu".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_secondary_menu_trampoline::<F> as *const (),
                 )),
@@ -599,14 +626,16 @@ impl TabOverview {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::show-end-title-buttons".as_ptr() as *const _,
+                c"notify::show-end-title-buttons".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_show_end_title_buttons_trampoline::<F> as *const (),
                 )),
@@ -629,14 +658,16 @@ impl TabOverview {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::show-start-title-buttons".as_ptr() as *const _,
+                c"notify::show-start-title-buttons".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_show_start_title_buttons_trampoline::<F> as *const (),
                 )),
@@ -654,14 +685,16 @@ impl TabOverview {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::view".as_ptr() as *const _,
+                c"notify::view".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_view_trampoline::<F> as *const (),
                 )),
@@ -860,6 +893,14 @@ impl TabOverviewBuilder {
             builder: self
                 .builder
                 .property("layout-manager", layout_manager.clone().upcast()),
+        }
+    }
+
+    #[cfg(feature = "gtk_v4_18")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "gtk_v4_18")))]
+    pub fn limit_events(self, limit_events: bool) -> Self {
+        Self {
+            builder: self.builder.property("limit-events", limit_events),
         }
     }
 

@@ -1,17 +1,12 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use glib::{translate::*, ControlFlow, WeakRef};
+use glib::{ControlFlow, WeakRef, translate::*};
 
-use crate::{ffi, prelude::*, Widget};
-
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::Widget>> Sealed for T {}
-}
+use crate::{Widget, ffi, prelude::*};
 
 // rustdoc-stripper-ignore-next
 /// Trait containing manually implemented methods of [`Widget`](crate::Widget).
-pub trait WidgetExtManual: sealed::Sealed + IsA<Widget> + 'static {
+pub trait WidgetExtManual: IsA<Widget> + 'static {
     #[doc(alias = "gtk_widget_add_tick_callback")]
     fn add_tick_callback<P: Fn(&Self, &gdk::FrameClock) -> ControlFlow + 'static>(
         &self,
@@ -27,11 +22,13 @@ pub trait WidgetExtManual: sealed::Sealed + IsA<Widget> + 'static {
             frame_clock: *mut gdk::ffi::GdkFrameClock,
             user_data: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let widget: Borrowed<Widget> = from_glib_borrow(widget);
-            let frame_clock = from_glib_borrow(frame_clock);
-            let callback: &P = &*(user_data as *mut _);
-            let res = (*callback)(widget.unsafe_cast_ref(), &frame_clock);
-            res.into_glib()
+            unsafe {
+                let widget: Borrowed<Widget> = from_glib_borrow(widget);
+                let frame_clock = from_glib_borrow(frame_clock);
+                let callback: &P = &*(user_data as *mut _);
+                let res = (*callback)(widget.unsafe_cast_ref(), &frame_clock);
+                res.into_glib()
+            }
         }
         let callback = Some(callback_func::<Self, P> as _);
 
@@ -41,7 +38,9 @@ pub trait WidgetExtManual: sealed::Sealed + IsA<Widget> + 'static {
         >(
             data: glib::ffi::gpointer,
         ) {
-            let _callback: Box<P> = Box::from_raw(data as *mut _);
+            unsafe {
+                let _callback: Box<P> = Box::from_raw(data as *mut _);
+            }
         }
         let destroy_call = Some(notify_func::<Self, P> as _);
 

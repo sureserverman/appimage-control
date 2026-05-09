@@ -6,13 +6,13 @@
 #[cfg_attr(docsrs, doc(cfg(feature = "v4_10")))]
 use crate::AccessibleRange;
 use crate::{
-    ffi, Accessible, AccessibleRole, Align, Buildable, ConstraintTarget, LayoutManager, Orientable,
-    Orientation, Overflow, ScrollType, Widget,
+    Accessible, AccessibleRole, Align, Buildable, ConstraintTarget, LayoutManager, Orientable,
+    Orientation, Overflow, ScrollType, Widget, ffi,
 };
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -28,7 +28,7 @@ glib::wrapper! {
     }
 }
 
-#[cfg(not(any(feature = "v4_10")))]
+#[cfg(not(feature = "v4_10"))]
 glib::wrapper! {
     #[doc(alias = "GtkPaned")]
     pub struct Paned(Object<ffi::GtkPaned>) @extends Widget, @implements Accessible, Buildable, ConstraintTarget, Orientable;
@@ -199,14 +199,16 @@ impl Paned {
             this: *mut ffi::GtkPaned,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this)).into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this)).into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"accept-position\0".as_ptr() as *const _,
+                c"accept-position".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     accept_position_trampoline::<F> as *const (),
                 )),
@@ -225,14 +227,16 @@ impl Paned {
             this: *mut ffi::GtkPaned,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this)).into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this)).into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"cancel-position\0".as_ptr() as *const _,
+                c"cancel-position".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     cancel_position_trampoline::<F> as *const (),
                 )),
@@ -255,14 +259,16 @@ impl Paned {
             reversed: glib::ffi::gboolean,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this), from_glib(reversed)).into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this), from_glib(reversed)).into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"cycle-child-focus\0".as_ptr() as *const _,
+                c"cycle-child-focus".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     cycle_child_focus_trampoline::<F> as *const (),
                 )),
@@ -287,14 +293,16 @@ impl Paned {
             reversed: glib::ffi::gboolean,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this), from_glib(reversed)).into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this), from_glib(reversed)).into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"cycle-handle-focus\0".as_ptr() as *const _,
+                c"cycle-handle-focus".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     cycle_handle_focus_trampoline::<F> as *const (),
                 )),
@@ -317,14 +325,16 @@ impl Paned {
             scroll_type: ffi::GtkScrollType,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this), from_glib(scroll_type)).into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this), from_glib(scroll_type)).into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"move-handle\0".as_ptr() as *const _,
+                c"move-handle".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     move_handle_trampoline::<F> as *const (),
                 )),
@@ -346,14 +356,16 @@ impl Paned {
             this: *mut ffi::GtkPaned,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this)).into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this)).into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"toggle-handle-focus\0".as_ptr() as *const _,
+                c"toggle-handle-focus".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     toggle_handle_focus_trampoline::<F> as *const (),
                 )),
@@ -373,14 +385,16 @@ impl Paned {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::end-child\0".as_ptr() as *const _,
+                c"notify::end-child".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_end_child_trampoline::<F> as *const (),
                 )),
@@ -396,14 +410,16 @@ impl Paned {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::max-position\0".as_ptr() as *const _,
+                c"notify::max-position".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_max_position_trampoline::<F> as *const (),
                 )),
@@ -419,14 +435,16 @@ impl Paned {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::min-position\0".as_ptr() as *const _,
+                c"notify::min-position".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_min_position_trampoline::<F> as *const (),
                 )),
@@ -442,14 +460,16 @@ impl Paned {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::position\0".as_ptr() as *const _,
+                c"notify::position".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_position_trampoline::<F> as *const (),
                 )),
@@ -465,14 +485,16 @@ impl Paned {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::position-set\0".as_ptr() as *const _,
+                c"notify::position-set".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_position_set_trampoline::<F> as *const (),
                 )),
@@ -488,14 +510,16 @@ impl Paned {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::resize-end-child\0".as_ptr() as *const _,
+                c"notify::resize-end-child".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_resize_end_child_trampoline::<F> as *const (),
                 )),
@@ -514,14 +538,16 @@ impl Paned {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::resize-start-child\0".as_ptr() as *const _,
+                c"notify::resize-start-child".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_resize_start_child_trampoline::<F> as *const (),
                 )),
@@ -537,14 +563,16 @@ impl Paned {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::shrink-end-child\0".as_ptr() as *const _,
+                c"notify::shrink-end-child".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_shrink_end_child_trampoline::<F> as *const (),
                 )),
@@ -563,14 +591,16 @@ impl Paned {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::shrink-start-child\0".as_ptr() as *const _,
+                c"notify::shrink-start-child".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_shrink_start_child_trampoline::<F> as *const (),
                 )),
@@ -586,14 +616,16 @@ impl Paned {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::start-child\0".as_ptr() as *const _,
+                c"notify::start-child".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_start_child_trampoline::<F> as *const (),
                 )),
@@ -609,14 +641,16 @@ impl Paned {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::wide-handle\0".as_ptr() as *const _,
+                c"notify::wide-handle".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_wide_handle_trampoline::<F> as *const (),
                 )),

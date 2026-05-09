@@ -2,7 +2,7 @@
 // from gir-files (https://github.com/gtk-rs/gir-files)
 // DO NOT EDIT
 
-use crate::{ffi, LayoutManager, Widget};
+use crate::{LayoutManager, Widget, ffi};
 use glib::{prelude::*, translate::*};
 
 glib::wrapper! {
@@ -18,12 +18,7 @@ impl LayoutChild {
     pub const NONE: Option<&'static LayoutChild> = None;
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::LayoutChild>> Sealed for T {}
-}
-
-pub trait LayoutChildExt: IsA<LayoutChild> + sealed::Sealed + 'static {
+pub trait LayoutChildExt: IsA<LayoutChild> + 'static {
     #[doc(alias = "gtk_layout_child_get_child_widget")]
     #[doc(alias = "get_child_widget")]
     #[doc(alias = "child-widget")]

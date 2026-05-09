@@ -10,7 +10,7 @@ use std::{
 
 use glib::translate::*;
 
-use crate::{ffi, prelude::*, Dialog, DialogFlags, ResponseType, Widget, Window};
+use crate::{Dialog, DialogFlags, ResponseType, Widget, Window, ffi, prelude::*};
 
 impl Dialog {
     #[doc(alias = "gtk_dialog_new_with_buttons")]
@@ -41,16 +41,11 @@ impl Dialog {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::Dialog>> Sealed for T {}
-}
-
 // rustdoc-stripper-ignore-next
 /// Trait containing manually implemented methods of [`Dialog`](crate::Dialog).
 #[cfg_attr(feature = "v4_10", deprecated = "Since 4.10")]
 #[allow(deprecated)]
-pub trait DialogExtManual: sealed::Sealed + IsA<Dialog> + 'static {
+pub trait DialogExtManual: IsA<Dialog> + 'static {
     #[doc(alias = "gtk_dialog_add_buttons")]
     fn add_buttons(&self, buttons: &[(&str, ResponseType)]) {
         for &(text, id) in buttons {

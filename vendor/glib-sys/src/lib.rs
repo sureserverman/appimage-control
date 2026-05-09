@@ -15,11 +15,11 @@ mod manual;
 
 pub use manual::*;
 
+#[allow(unused_imports)]
+use libc::{FILE, intptr_t, off_t, size_t, ssize_t, time_t, uintptr_t};
 #[cfg(unix)]
 #[allow(unused_imports)]
 use libc::{dev_t, gid_t, pid_t, socklen_t, uid_t};
-#[allow(unused_imports)]
-use libc::{intptr_t, off_t, size_t, ssize_t, time_t, uintptr_t, FILE};
 #[allow(unused_imports)]
 use std::ffi::{
     c_char, c_double, c_float, c_int, c_long, c_short, c_uchar, c_uint, c_ulong, c_ushort, c_void,
@@ -439,6 +439,7 @@ pub const G_UNICODE_BREAK_AKSARA_PRE_BASE: GUnicodeBreakType = 44;
 pub const G_UNICODE_BREAK_AKSARA_START: GUnicodeBreakType = 45;
 pub const G_UNICODE_BREAK_VIRAMA_FINAL: GUnicodeBreakType = 46;
 pub const G_UNICODE_BREAK_VIRAMA: GUnicodeBreakType = 47;
+pub const G_UNICODE_BREAK_UNAMBIGUOUS_HYPHEN: GUnicodeBreakType = 48;
 
 pub type GUnicodeScript = c_int;
 pub const G_UNICODE_SCRIPT_INVALID_CODE: GUnicodeScript = -1;
@@ -614,6 +615,10 @@ pub const G_UNICODE_SCRIPT_SUNUWAR: GUnicodeScript = 168;
 pub const G_UNICODE_SCRIPT_GURUNG_KHEMA: GUnicodeScript = 169;
 pub const G_UNICODE_SCRIPT_KIRAT_RAI: GUnicodeScript = 170;
 pub const G_UNICODE_SCRIPT_OL_ONAL: GUnicodeScript = 171;
+pub const G_UNICODE_SCRIPT_SIDETIC: GUnicodeScript = 172;
+pub const G_UNICODE_SCRIPT_TOLONG_SIKI: GUnicodeScript = 173;
+pub const G_UNICODE_SCRIPT_TAI_YO: GUnicodeScript = 174;
+pub const G_UNICODE_SCRIPT_BERIA_ERFE: GUnicodeScript = 175;
 
 pub type GUnicodeType = c_int;
 pub const G_UNICODE_CONTROL: GUnicodeType = 0;
@@ -646,16 +651,6 @@ pub const G_UNICODE_OTHER_SYMBOL: GUnicodeType = 26;
 pub const G_UNICODE_LINE_SEPARATOR: GUnicodeType = 27;
 pub const G_UNICODE_PARAGRAPH_SEPARATOR: GUnicodeType = 28;
 pub const G_UNICODE_SPACE_SEPARATOR: GUnicodeType = 29;
-
-#[cfg(unix)]
-#[cfg_attr(docsrs, doc(cfg(unix)))]
-pub type GUnixPipeEnd = c_int;
-#[cfg(unix)]
-#[cfg_attr(docsrs, doc(cfg(unix)))]
-pub const G_UNIX_PIPE_END_READ: GUnixPipeEnd = 0;
-#[cfg(unix)]
-#[cfg_attr(docsrs, doc(cfg(unix)))]
-pub const G_UNIX_PIPE_END_WRITE: GUnixPipeEnd = 1;
 
 pub type GUriError = c_int;
 pub const G_URI_ERROR_FAILED: GUriError = 0;
@@ -772,6 +767,7 @@ pub const G_LN2: c_double = 0.693147;
 pub const G_LOG_2_BASE_10: c_double = 0.301030;
 pub const G_LOG_FATAL_MASK: c_int = 5;
 pub const G_LOG_LEVEL_USER_SHIFT: c_int = 8;
+pub const G_NSEC_PER_SEC: u64 = 1000000000;
 pub const G_OPTION_REMAINING: &[u8] = b"\0";
 pub const G_PDP_ENDIAN: c_int = 3412;
 pub const G_PI: c_double = 3.141593;
@@ -845,7 +841,7 @@ pub const G_FORMAT_SIZE_ONLY_UNIT: GFormatSizeFlags = 16;
 pub type GHookFlagMask = c_uint;
 pub const G_HOOK_FLAG_ACTIVE: GHookFlagMask = 1;
 pub const G_HOOK_FLAG_IN_CALL: GHookFlagMask = 2;
-pub const G_HOOK_FLAG_MASK: GHookFlagMask = 15;
+pub const G_HOOK_FLAG_RESERVED1: GHookFlagMask = 4;
 
 pub type GIOCondition = c_uint;
 pub const G_IO_IN: GIOCondition = 1;
@@ -931,10 +927,7 @@ pub const G_REGEX_FIRSTLINE: GRegexCompileFlags = 262144;
 pub const G_REGEX_DUPNAMES: GRegexCompileFlags = 524288;
 pub const G_REGEX_NEWLINE_CR: GRegexCompileFlags = 1048576;
 pub const G_REGEX_NEWLINE_LF: GRegexCompileFlags = 2097152;
-pub const G_REGEX_NEWLINE_CRLF: GRegexCompileFlags = 3145728;
-pub const G_REGEX_NEWLINE_ANYCRLF: GRegexCompileFlags = 5242880;
-pub const G_REGEX_BSR_ANYCRLF: GRegexCompileFlags = 8388608;
-pub const G_REGEX_JAVASCRIPT_COMPAT: GRegexCompileFlags = 33554432;
+pub const G_REGEX_NEWLINE_RESERVED1: GRegexCompileFlags = 4194304;
 
 pub type GRegexMatchFlags = c_uint;
 pub const G_REGEX_MATCH_DEFAULT: GRegexMatchFlags = 0;
@@ -980,6 +973,7 @@ pub const G_TEST_SUBPROCESS_DEFAULT: GTestSubprocessFlags = 0;
 pub const G_TEST_SUBPROCESS_INHERIT_STDIN: GTestSubprocessFlags = 1;
 pub const G_TEST_SUBPROCESS_INHERIT_STDOUT: GTestSubprocessFlags = 2;
 pub const G_TEST_SUBPROCESS_INHERIT_STDERR: GTestSubprocessFlags = 4;
+pub const G_TEST_SUBPROCESS_INHERIT_DESCRIPTORS: GTestSubprocessFlags = 8;
 
 pub type GTestTrapFlags = c_uint;
 pub const G_TEST_TRAP_DEFAULT: GTestTrapFlags = 0;
@@ -1216,8 +1210,6 @@ pub type GThreadFunc = Option<unsafe extern "C" fn(gpointer) -> gpointer>;
 pub type GTranslateFunc = Option<unsafe extern "C" fn(*const c_char, gpointer) -> *const c_char>;
 pub type GTraverseFunc = Option<unsafe extern "C" fn(gpointer, gpointer, gpointer) -> gboolean>;
 pub type GTraverseNodeFunc = Option<unsafe extern "C" fn(*mut GTreeNode, gpointer) -> gboolean>;
-pub type GUnixFDSourceFunc =
-    Option<unsafe extern "C" fn(c_int, GIOCondition, gpointer) -> gboolean>;
 pub type GVoidFunc = Option<unsafe extern "C" fn()>;
 
 // Records
@@ -2532,24 +2524,6 @@ impl ::std::fmt::Debug for GTuples {
     }
 }
 
-#[cfg(unix)]
-#[cfg_attr(docsrs, doc(cfg(unix)))]
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct GUnixPipe {
-    pub fds: [c_int; 2],
-}
-
-#[cfg(unix)]
-#[cfg_attr(docsrs, doc(cfg(unix)))]
-impl ::std::fmt::Debug for GUnixPipe {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct(&format!("GUnixPipe @ {self:p}"))
-            .field("fds", &self.fds)
-            .finish()
-    }
-}
-
 #[repr(C)]
 #[allow(dead_code)]
 pub struct GUri {
@@ -2681,7 +2655,7 @@ impl ::std::fmt::Debug for GVariantType {
     }
 }
 
-extern "C" {
+unsafe extern "C" {
 
     //=========================================================================
     // GNormalizeMode
@@ -2732,7 +2706,7 @@ extern "C" {
     //=========================================================================
     pub fn g_array_get_type() -> GType;
     pub fn g_array_append_vals(array: *mut GArray, data: gconstpointer, len: c_uint)
-        -> *mut GArray;
+    -> *mut GArray;
     #[cfg(feature = "v2_62")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v2_62")))]
     pub fn g_array_binary_search(
@@ -3169,6 +3143,11 @@ extern "C" {
     //=========================================================================
     pub fn g_bytes_get_type() -> GType;
     pub fn g_bytes_new(data: gconstpointer, size: size_t) -> *mut GBytes;
+    pub fn g_bytes_new_from_bytes(
+        bytes: *mut GBytes,
+        offset: size_t,
+        length: size_t,
+    ) -> *mut GBytes;
     pub fn g_bytes_new_static(data: gconstpointer, size: size_t) -> *mut GBytes;
     pub fn g_bytes_new_take(data: gpointer, size: size_t) -> *mut GBytes;
     pub fn g_bytes_new_with_free_func(
@@ -3190,11 +3169,6 @@ extern "C" {
     ) -> gconstpointer;
     pub fn g_bytes_get_size(bytes: *mut GBytes) -> size_t;
     pub fn g_bytes_hash(bytes: gconstpointer) -> c_uint;
-    pub fn g_bytes_new_from_bytes(
-        bytes: *mut GBytes,
-        offset: size_t,
-        length: size_t,
-    ) -> *mut GBytes;
     pub fn g_bytes_ref(bytes: *mut GBytes) -> *mut GBytes;
     pub fn g_bytes_unref(bytes: *mut GBytes);
     pub fn g_bytes_unref_to_array(bytes: *mut GBytes) -> *mut GByteArray;
@@ -4096,7 +4070,7 @@ extern "C" {
         link_: *mut GList,
     ) -> *mut GList;
     pub fn g_list_insert_sorted(list: *mut GList, data: gpointer, func: GCompareFunc)
-        -> *mut GList;
+    -> *mut GList;
     pub fn g_list_insert_sorted_with_data(
         list: *mut GList,
         data: gpointer,
@@ -4244,14 +4218,37 @@ extern "C" {
         error: *mut *mut GError,
     ) -> gboolean;
     pub fn g_markup_parse_context_free(context: *mut GMarkupParseContext);
+    #[cfg(feature = "v2_90")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v2_90")))]
+    pub fn g_markup_parse_context_get_attribute_position(
+        context: *mut GMarkupParseContext,
+        attr: c_uint,
+        start_lines: *mut size_t,
+        start_chars: *mut size_t,
+        start_offset: *mut size_t,
+        end_lines: *mut size_t,
+        end_chars: *mut size_t,
+        end_offset: *mut size_t,
+    );
     pub fn g_markup_parse_context_get_element(context: *mut GMarkupParseContext) -> *const c_char;
     pub fn g_markup_parse_context_get_element_stack(
         context: *mut GMarkupParseContext,
     ) -> *const GSList;
+    #[cfg(feature = "v2_88")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v2_88")))]
+    pub fn g_markup_parse_context_get_offset(context: *mut GMarkupParseContext) -> size_t;
     pub fn g_markup_parse_context_get_position(
         context: *mut GMarkupParseContext,
         line_number: *mut c_int,
         char_number: *mut c_int,
+    );
+    #[cfg(feature = "v2_88")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v2_88")))]
+    pub fn g_markup_parse_context_get_tag_start(
+        context: *mut GMarkupParseContext,
+        line_number: *mut size_t,
+        char_number: *mut size_t,
+        offset: *mut size_t,
     );
     pub fn g_markup_parse_context_get_user_data(context: *mut GMarkupParseContext) -> gpointer;
     pub fn g_markup_parse_context_parse(
@@ -4348,7 +4345,7 @@ extern "C" {
         data: gpointer,
     ) -> *mut GNode;
     pub fn g_node_find_child(node: *mut GNode, flags: GTraverseFlags, data: gpointer)
-        -> *mut GNode;
+    -> *mut GNode;
     pub fn g_node_first_sibling(node: *mut GNode) -> *mut GNode;
     pub fn g_node_get_root(node: *mut GNode) -> *mut GNode;
     pub fn g_node_insert(parent: *mut GNode, position: c_int, node: *mut GNode) -> *mut GNode;
@@ -4553,7 +4550,7 @@ extern "C" {
     #[cfg(feature = "v2_70")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v2_70")))]
     pub fn g_pattern_spec_match_string(pspec: *mut GPatternSpec, string: *const c_char)
-        -> gboolean;
+    -> gboolean;
 
     //=========================================================================
     // GPollFD
@@ -5098,7 +5095,7 @@ extern "C" {
     );
     pub fn g_sequence_get(iter: *mut GSequenceIter) -> gpointer;
     pub fn g_sequence_insert_before(iter: *mut GSequenceIter, data: gpointer)
-        -> *mut GSequenceIter;
+    -> *mut GSequenceIter;
     pub fn g_sequence_move(src: *mut GSequenceIter, dest: *mut GSequenceIter);
     pub fn g_sequence_move_range(
         dest: *mut GSequenceIter,
@@ -5147,6 +5144,9 @@ extern "C" {
     pub fn g_source_add_unix_fd(source: *mut GSource, fd: c_int, events: GIOCondition) -> gpointer;
     pub fn g_source_attach(source: *mut GSource, context: *mut GMainContext) -> c_uint;
     pub fn g_source_destroy(source: *mut GSource);
+    #[cfg(feature = "v2_86")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v2_86")))]
+    pub fn g_source_dup_context(source: *mut GSource) -> *mut GMainContext;
     pub fn g_source_get_can_recurse(source: *mut GSource) -> gboolean;
     pub fn g_source_get_context(source: *mut GSource) -> *mut GMainContext;
     pub fn g_source_get_current_time(source: *mut GSource, timeval: *mut GTimeVal);
@@ -5910,7 +5910,7 @@ extern "C" {
     pub fn g_variant_new_strv(strv: *const *const c_char, length: ssize_t) -> *mut GVariant;
     pub fn g_variant_new_take_string(string: *mut c_char) -> *mut GVariant;
     pub fn g_variant_new_tuple(children: *const *mut GVariant, n_children: size_t)
-        -> *mut GVariant;
+    -> *mut GVariant;
     pub fn g_variant_new_uint16(value: u16) -> *mut GVariant;
     pub fn g_variant_new_uint32(value: u32) -> *mut GVariant;
     pub fn g_variant_new_uint64(value: u64) -> *mut GVariant;
@@ -6150,7 +6150,7 @@ extern "C" {
     #[cfg(feature = "v2_72")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v2_72")))]
     pub fn g_aligned_alloc0(n_blocks: size_t, n_block_bytes: size_t, alignment: size_t)
-        -> gpointer;
+    -> gpointer;
     #[cfg(feature = "v2_72")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v2_72")))]
     pub fn g_aligned_free(mem: gpointer);
@@ -6277,7 +6277,6 @@ extern "C" {
     #[cfg_attr(docsrs, doc(cfg(feature = "v2_74")))]
     pub fn g_atomic_int_exchange(atomic: *mut c_int, newval: c_int) -> c_int;
     pub fn g_atomic_int_exchange_and_add(atomic: *mut c_int, val: c_int) -> c_int;
-    pub fn g_atomic_int_get(atomic: *const c_int) -> c_int;
     pub fn g_atomic_int_inc(atomic: *mut c_int);
     pub fn g_atomic_int_or(atomic: *mut c_uint, val: c_uint) -> c_uint;
     pub fn g_atomic_int_set(atomic: *mut c_int, newval: c_int);
@@ -6340,7 +6339,7 @@ extern "C" {
     pub fn g_base64_decode(text: *const c_char, out_len: *mut size_t) -> *mut u8;
     pub fn g_base64_decode_inplace(text: *mut u8, out_len: *mut size_t) -> *mut u8;
     pub fn g_base64_decode_step(
-        in_: *const u8,
+        in_: *const c_char,
         len: size_t,
         out: *mut u8,
         state: *mut c_int,
@@ -6383,7 +6382,7 @@ extern "C" {
     //pub fn g_build_filename_valist(first_element: *const c_char, args: /*Unimplemented*/*mut va_list) -> *mut c_char;
     pub fn g_build_filenamev(args: *mut *mut c_char) -> *mut c_char;
     pub fn g_build_path(separator: *const c_char, first_element: *const c_char, ...)
-        -> *mut c_char;
+    -> *mut c_char;
     pub fn g_build_pathv(separator: *const c_char, args: *mut *mut c_char) -> *mut c_char;
     #[cfg(feature = "v2_58")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v2_58")))]
@@ -6416,9 +6415,6 @@ extern "C" {
     #[cfg_attr(docsrs, doc(cfg(feature = "v2_64")))]
     pub fn g_clear_slist(slist_ptr: *mut *mut GSList, destroy: GDestroyNotify);
     pub fn g_close(fd: c_int, error: *mut *mut GError) -> gboolean;
-    #[cfg(feature = "v2_80")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "v2_80")))]
-    pub fn g_closefrom(lowfd: c_int) -> c_int;
     pub fn g_compute_checksum_for_bytes(
         checksum_type: GChecksumType,
         data: *mut GBytes,
@@ -6571,9 +6567,6 @@ extern "C" {
         overwrite: gboolean,
     ) -> *mut *mut c_char;
     pub fn g_environ_unsetenv(envp: *mut *mut c_char, variable: *const c_char) -> *mut *mut c_char;
-    #[cfg(feature = "v2_80")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "v2_80")))]
-    pub fn g_fdwalk_set_cloexec(lowfd: c_int) -> c_int;
     pub fn g_file_error_from_errno(err_no: c_int) -> GFileError;
     pub fn g_file_error_quark() -> GQuark;
     pub fn g_file_get_contents(
@@ -6656,9 +6649,12 @@ extern "C" {
     #[cfg(feature = "v2_58")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v2_58")))]
     pub fn g_get_language_names_with_category(category_name: *const c_char)
-        -> *const *const c_char;
+    -> *const *const c_char;
     pub fn g_get_locale_variants(locale: *const c_char) -> *mut *mut c_char;
     pub fn g_get_monotonic_time() -> i64;
+    #[cfg(feature = "v2_88")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v2_88")))]
+    pub fn g_get_monotonic_time_ns() -> u64;
     pub fn g_get_num_processors() -> c_uint;
     #[cfg(feature = "v2_64")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v2_64")))]
@@ -7036,7 +7032,7 @@ extern "C" {
     pub fn g_set_print_handler(func: GPrintFunc) -> GPrintFunc;
     pub fn g_set_printerr_handler(func: GPrintFunc) -> GPrintFunc;
     pub fn g_setenv(variable: *const c_char, value: *const c_char, overwrite: gboolean)
-        -> gboolean;
+    -> gboolean;
     pub fn g_shell_error_quark() -> GQuark;
     pub fn g_shell_parse_argv(
         command_line: *const c_char,
@@ -7228,7 +7224,7 @@ extern "C" {
     ) -> *mut *mut c_char;
     pub fn g_strsplit_set(
         string: *const c_char,
-        delimiters: *const c_char,
+        delimiters: *const u8,
         max_tokens: c_int,
     ) -> *mut *mut c_char;
     pub fn g_strstr_len(
@@ -7349,6 +7345,9 @@ extern "C" {
     );
     pub fn g_test_trap_fork(usec_timeout: u64, test_trap_flags: GTestTrapFlags) -> gboolean;
     pub fn g_test_trap_has_passed() -> gboolean;
+    #[cfg(feature = "v2_88")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v2_88")))]
+    pub fn g_test_trap_has_skipped() -> gboolean;
     pub fn g_test_trap_reached_timeout() -> gboolean;
     pub fn g_test_trap_subprocess(
         test_path: *const c_char,
@@ -7379,7 +7378,7 @@ extern "C" {
         data: gpointer,
     ) -> c_uint;
     pub fn g_timeout_add_seconds(interval: c_uint, function: GSourceFunc, data: gpointer)
-        -> c_uint;
+    -> c_uint;
     pub fn g_timeout_add_seconds_full(
         priority: c_int,
         interval: c_uint,
@@ -7455,49 +7454,6 @@ extern "C" {
     pub fn g_unichar_xdigit_value(c: u32) -> c_int;
     pub fn g_unicode_canonical_decomposition(ch: u32, result_len: *mut size_t) -> *mut u32;
     pub fn g_unicode_canonical_ordering(string: *mut u32, len: size_t);
-    pub fn g_unix_error_quark() -> GQuark;
-    pub fn g_unix_fd_add(
-        fd: c_int,
-        condition: GIOCondition,
-        function: GUnixFDSourceFunc,
-        user_data: gpointer,
-    ) -> c_uint;
-    pub fn g_unix_fd_add_full(
-        priority: c_int,
-        fd: c_int,
-        condition: GIOCondition,
-        function: GUnixFDSourceFunc,
-        user_data: gpointer,
-        notify: GDestroyNotify,
-    ) -> c_uint;
-    pub fn g_unix_fd_source_new(fd: c_int, condition: GIOCondition) -> *mut GSource;
-    #[cfg(feature = "v2_64")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "v2_64")))]
-    #[cfg(unix)]
-    #[cfg_attr(docsrs, doc(cfg(unix)))]
-    pub fn g_unix_get_passwd_entry(
-        user_name: *const c_char,
-        error: *mut *mut GError,
-    ) -> *mut passwd;
-    pub fn g_unix_open_pipe(
-        fds: *mut [c_int; 2],
-        flags: c_int,
-        error: *mut *mut GError,
-    ) -> gboolean;
-    pub fn g_unix_set_fd_nonblocking(
-        fd: c_int,
-        nonblock: gboolean,
-        error: *mut *mut GError,
-    ) -> gboolean;
-    pub fn g_unix_signal_add(signum: c_int, handler: GSourceFunc, user_data: gpointer) -> c_uint;
-    pub fn g_unix_signal_add_full(
-        priority: c_int,
-        signum: c_int,
-        handler: GSourceFunc,
-        user_data: gpointer,
-        notify: GDestroyNotify,
-    ) -> c_uint;
-    pub fn g_unix_signal_source_new(signum: c_int) -> *mut GSource;
     pub fn g_unlink(filename: *const c_char) -> c_int;
     pub fn g_unsetenv(variable: *const c_char);
     pub fn g_usleep(microseconds: c_ulong);
@@ -7558,14 +7514,10 @@ extern "C" {
     #[cfg(feature = "v2_78")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v2_78")))]
     pub fn g_utf8_truncate_middle(string: *const c_char, truncate_length: size_t) -> *mut c_char;
-    pub fn g_utf8_validate(str: *const u8, max_len: ssize_t, end: *mut *const c_char) -> gboolean;
+    pub fn g_utf8_validate(str: *const u8, max_len: ssize_t, end: *mut *const u8) -> gboolean;
     #[cfg(feature = "v2_60")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v2_60")))]
-    pub fn g_utf8_validate_len(
-        str: *const u8,
-        max_len: size_t,
-        end: *mut *const c_char,
-    ) -> gboolean;
+    pub fn g_utf8_validate_len(str: *const u8, max_len: size_t, end: *mut *const u8) -> gboolean;
     pub fn g_uuid_string_is_valid(str: *const c_char) -> gboolean;
     pub fn g_uuid_string_random() -> *mut c_char;
     pub fn g_variant_get_gtype() -> GType;

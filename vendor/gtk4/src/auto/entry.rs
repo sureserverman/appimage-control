@@ -4,14 +4,14 @@
 #![allow(deprecated)]
 
 use crate::{
-    ffi, Accessible, AccessibleRole, Align, Buildable, CellEditable, ConstraintTarget, Editable,
+    Accessible, AccessibleRole, Align, Buildable, CellEditable, ConstraintTarget, Editable,
     EntryBuffer, EntryCompletion, EntryIconPosition, ImageType, InputHints, InputPurpose,
-    LayoutManager, Overflow, Widget,
+    LayoutManager, Overflow, Widget, ffi,
 };
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -161,6 +161,34 @@ impl EntryBuilder {
     pub fn max_length(self, max_length: i32) -> Self {
         Self {
             builder: self.builder.property("max-length", max_length),
+        }
+    }
+
+    #[cfg(feature = "v4_20")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+    pub fn menu_entry_icon_primary_text(
+        self,
+        menu_entry_icon_primary_text: impl Into<glib::GString>,
+    ) -> Self {
+        Self {
+            builder: self.builder.property(
+                "menu-entry-icon-primary-text",
+                menu_entry_icon_primary_text.into(),
+            ),
+        }
+    }
+
+    #[cfg(feature = "v4_20")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+    pub fn menu_entry_icon_secondary_text(
+        self,
+        menu_entry_icon_secondary_text: impl Into<glib::GString>,
+    ) -> Self {
+        Self {
+            builder: self.builder.property(
+                "menu-entry-icon-secondary-text",
+                menu_entry_icon_secondary_text.into(),
+            ),
         }
     }
 
@@ -597,12 +625,7 @@ impl EntryBuilder {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::Entry>> Sealed for T {}
-}
-
-pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
+pub trait EntryExt: IsA<Entry> + 'static {
     #[doc(alias = "gtk_entry_get_activates_default")]
     #[doc(alias = "get_activates_default")]
     #[doc(alias = "activates-default")]
@@ -807,6 +830,19 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
     #[doc(alias = "max-length")]
     fn max_length(&self) -> i32 {
         unsafe { ffi::gtk_entry_get_max_length(self.as_ref().to_glib_none().0) }
+    }
+
+    #[cfg(feature = "v4_20")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+    #[doc(alias = "gtk_entry_get_menu_entry_icon_text")]
+    #[doc(alias = "get_menu_entry_icon_text")]
+    fn menu_entry_icon_text(&self, icon_pos: EntryIconPosition) -> Option<glib::GString> {
+        unsafe {
+            from_glib_none(ffi::gtk_entry_get_menu_entry_icon_text(
+                self.as_ref().to_glib_none().0,
+                icon_pos.into_glib(),
+            ))
+        }
     }
 
     #[doc(alias = "gtk_entry_get_overwrite_mode")]
@@ -1091,6 +1127,19 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
         }
     }
 
+    #[cfg(feature = "v4_20")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+    #[doc(alias = "gtk_entry_set_menu_entry_icon_text")]
+    fn set_menu_entry_icon_text(&self, icon_pos: EntryIconPosition, text: &str) {
+        unsafe {
+            ffi::gtk_entry_set_menu_entry_icon_text(
+                self.as_ref().to_glib_none().0,
+                icon_pos.into_glib(),
+                text.to_glib_none().0,
+            );
+        }
+    }
+
     #[doc(alias = "gtk_entry_set_overwrite_mode")]
     #[doc(alias = "overwrite-mode")]
     fn set_overwrite_mode(&self, overwrite: bool) {
@@ -1182,6 +1231,42 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
     #[doc(alias = "invisible-char-set")]
     fn is_invisible_char_set(&self) -> bool {
         ObjectExt::property(self.as_ref(), "invisible-char-set")
+    }
+
+    #[cfg(feature = "v4_20")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+    #[doc(alias = "menu-entry-icon-primary-text")]
+    fn menu_entry_icon_primary_text(&self) -> Option<glib::GString> {
+        ObjectExt::property(self.as_ref(), "menu-entry-icon-primary-text")
+    }
+
+    #[cfg(feature = "v4_20")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+    #[doc(alias = "menu-entry-icon-primary-text")]
+    fn set_menu_entry_icon_primary_text(&self, menu_entry_icon_primary_text: Option<&str>) {
+        ObjectExt::set_property(
+            self.as_ref(),
+            "menu-entry-icon-primary-text",
+            menu_entry_icon_primary_text,
+        )
+    }
+
+    #[cfg(feature = "v4_20")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+    #[doc(alias = "menu-entry-icon-secondary-text")]
+    fn menu_entry_icon_secondary_text(&self) -> Option<glib::GString> {
+        ObjectExt::property(self.as_ref(), "menu-entry-icon-secondary-text")
+    }
+
+    #[cfg(feature = "v4_20")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+    #[doc(alias = "menu-entry-icon-secondary-text")]
+    fn set_menu_entry_icon_secondary_text(&self, menu_entry_icon_secondary_text: Option<&str>) {
+        ObjectExt::set_property(
+            self.as_ref(),
+            "menu-entry-icon-secondary-text",
+            menu_entry_icon_secondary_text,
+        )
     }
 
     #[doc(alias = "primary-icon-activatable")]
@@ -1411,14 +1496,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             this: *mut ffi::GtkEntry,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"activate\0".as_ptr() as *const _,
+                c"activate".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     activate_trampoline::<Self, F> as *const (),
                 )),
@@ -1444,17 +1531,19 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             icon_pos: ffi::GtkEntryIconPosition,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                Entry::from_glib_borrow(this).unsafe_cast_ref(),
-                from_glib(icon_pos),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    Entry::from_glib_borrow(this).unsafe_cast_ref(),
+                    from_glib(icon_pos),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"icon-press\0".as_ptr() as *const _,
+                c"icon-press".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     icon_press_trampoline::<Self, F> as *const (),
                 )),
@@ -1476,17 +1565,19 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             icon_pos: ffi::GtkEntryIconPosition,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                Entry::from_glib_borrow(this).unsafe_cast_ref(),
-                from_glib(icon_pos),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    Entry::from_glib_borrow(this).unsafe_cast_ref(),
+                    from_glib(icon_pos),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"icon-release\0".as_ptr() as *const _,
+                c"icon-release".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     icon_release_trampoline::<Self, F> as *const (),
                 )),
@@ -1505,14 +1596,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::activates-default\0".as_ptr() as *const _,
+                c"notify::activates-default".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_activates_default_trampoline::<Self, F> as *const (),
                 )),
@@ -1528,14 +1621,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::attributes\0".as_ptr() as *const _,
+                c"notify::attributes".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_attributes_trampoline::<Self, F> as *const (),
                 )),
@@ -1551,14 +1646,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::buffer\0".as_ptr() as *const _,
+                c"notify::buffer".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_buffer_trampoline::<Self, F> as *const (),
                 )),
@@ -1575,14 +1672,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::completion\0".as_ptr() as *const _,
+                c"notify::completion".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_completion_trampoline::<Self, F> as *const (),
                 )),
@@ -1604,14 +1703,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-emoji-completion\0".as_ptr() as *const _,
+                c"notify::enable-emoji-completion".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_emoji_completion_trampoline::<Self, F> as *const (),
                 )),
@@ -1627,14 +1728,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::extra-menu\0".as_ptr() as *const _,
+                c"notify::extra-menu".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_extra_menu_trampoline::<Self, F> as *const (),
                 )),
@@ -1650,14 +1753,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::has-frame\0".as_ptr() as *const _,
+                c"notify::has-frame".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_has_frame_trampoline::<Self, F> as *const (),
                 )),
@@ -1673,14 +1778,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::im-module\0".as_ptr() as *const _,
+                c"notify::im-module".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_im_module_trampoline::<Self, F> as *const (),
                 )),
@@ -1696,14 +1803,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::input-hints\0".as_ptr() as *const _,
+                c"notify::input-hints".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_input_hints_trampoline::<Self, F> as *const (),
                 )),
@@ -1719,14 +1828,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::input-purpose\0".as_ptr() as *const _,
+                c"notify::input-purpose".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_input_purpose_trampoline::<Self, F> as *const (),
                 )),
@@ -1745,14 +1856,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::invisible-char\0".as_ptr() as *const _,
+                c"notify::invisible-char".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_invisible_char_trampoline::<Self, F> as *const (),
                 )),
@@ -1771,14 +1884,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::invisible-char-set\0".as_ptr() as *const _,
+                c"notify::invisible-char-set".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_invisible_char_set_trampoline::<Self, F> as *const (),
                 )),
@@ -1794,16 +1909,84 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::max-length\0".as_ptr() as *const _,
+                c"notify::max-length".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_max_length_trampoline::<Self, F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[cfg(feature = "v4_20")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+    #[doc(alias = "menu-entry-icon-primary-text")]
+    fn connect_menu_entry_icon_primary_text_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_menu_entry_icon_primary_text_trampoline<
+            P: IsA<Entry>,
+            F: Fn(&P) + 'static,
+        >(
+            this: *mut ffi::GtkEntry,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                c"notify::menu-entry-icon-primary-text".as_ptr(),
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    notify_menu_entry_icon_primary_text_trampoline::<Self, F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[cfg(feature = "v4_20")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+    #[doc(alias = "menu-entry-icon-secondary-text")]
+    fn connect_menu_entry_icon_secondary_text_notify<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn notify_menu_entry_icon_secondary_text_trampoline<
+            P: IsA<Entry>,
+            F: Fn(&P) + 'static,
+        >(
+            this: *mut ffi::GtkEntry,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                c"notify::menu-entry-icon-secondary-text".as_ptr(),
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    notify_menu_entry_icon_secondary_text_trampoline::<Self, F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
@@ -1820,14 +2003,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::overwrite-mode\0".as_ptr() as *const _,
+                c"notify::overwrite-mode".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_overwrite_mode_trampoline::<Self, F> as *const (),
                 )),
@@ -1846,14 +2031,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::placeholder-text\0".as_ptr() as *const _,
+                c"notify::placeholder-text".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_placeholder_text_trampoline::<Self, F> as *const (),
                 )),
@@ -1875,14 +2062,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::primary-icon-activatable\0".as_ptr() as *const _,
+                c"notify::primary-icon-activatable".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_primary_icon_activatable_trampoline::<Self, F> as *const (),
                 )),
@@ -1901,14 +2090,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::primary-icon-gicon\0".as_ptr() as *const _,
+                c"notify::primary-icon-gicon".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_primary_icon_gicon_trampoline::<Self, F> as *const (),
                 )),
@@ -1927,14 +2118,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::primary-icon-name\0".as_ptr() as *const _,
+                c"notify::primary-icon-name".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_primary_icon_name_trampoline::<Self, F> as *const (),
                 )),
@@ -1956,14 +2149,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::primary-icon-paintable\0".as_ptr() as *const _,
+                c"notify::primary-icon-paintable".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_primary_icon_paintable_trampoline::<Self, F> as *const (),
                 )),
@@ -1985,14 +2180,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::primary-icon-sensitive\0".as_ptr() as *const _,
+                c"notify::primary-icon-sensitive".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_primary_icon_sensitive_trampoline::<Self, F> as *const (),
                 )),
@@ -2014,14 +2211,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::primary-icon-storage-type\0".as_ptr() as *const _,
+                c"notify::primary-icon-storage-type".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_primary_icon_storage_type_trampoline::<Self, F> as *const (),
                 )),
@@ -2043,14 +2242,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::primary-icon-tooltip-markup\0".as_ptr() as *const _,
+                c"notify::primary-icon-tooltip-markup".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_primary_icon_tooltip_markup_trampoline::<Self, F> as *const (),
                 )),
@@ -2072,14 +2273,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::primary-icon-tooltip-text\0".as_ptr() as *const _,
+                c"notify::primary-icon-tooltip-text".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_primary_icon_tooltip_text_trampoline::<Self, F> as *const (),
                 )),
@@ -2098,14 +2301,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::progress-fraction\0".as_ptr() as *const _,
+                c"notify::progress-fraction".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_progress_fraction_trampoline::<Self, F> as *const (),
                 )),
@@ -2124,14 +2329,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::progress-pulse-step\0".as_ptr() as *const _,
+                c"notify::progress-pulse-step".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_progress_pulse_step_trampoline::<Self, F> as *const (),
                 )),
@@ -2147,14 +2354,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::scroll-offset\0".as_ptr() as *const _,
+                c"notify::scroll-offset".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_scroll_offset_trampoline::<Self, F> as *const (),
                 )),
@@ -2176,14 +2385,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::secondary-icon-activatable\0".as_ptr() as *const _,
+                c"notify::secondary-icon-activatable".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_secondary_icon_activatable_trampoline::<Self, F> as *const (),
                 )),
@@ -2202,14 +2413,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::secondary-icon-gicon\0".as_ptr() as *const _,
+                c"notify::secondary-icon-gicon".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_secondary_icon_gicon_trampoline::<Self, F> as *const (),
                 )),
@@ -2228,14 +2441,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::secondary-icon-name\0".as_ptr() as *const _,
+                c"notify::secondary-icon-name".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_secondary_icon_name_trampoline::<Self, F> as *const (),
                 )),
@@ -2257,14 +2472,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::secondary-icon-paintable\0".as_ptr() as *const _,
+                c"notify::secondary-icon-paintable".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_secondary_icon_paintable_trampoline::<Self, F> as *const (),
                 )),
@@ -2286,14 +2503,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::secondary-icon-sensitive\0".as_ptr() as *const _,
+                c"notify::secondary-icon-sensitive".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_secondary_icon_sensitive_trampoline::<Self, F> as *const (),
                 )),
@@ -2315,14 +2534,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::secondary-icon-storage-type\0".as_ptr() as *const _,
+                c"notify::secondary-icon-storage-type".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_secondary_icon_storage_type_trampoline::<Self, F> as *const (),
                 )),
@@ -2344,14 +2565,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::secondary-icon-tooltip-markup\0".as_ptr() as *const _,
+                c"notify::secondary-icon-tooltip-markup".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_secondary_icon_tooltip_markup_trampoline::<Self, F> as *const (),
                 )),
@@ -2373,14 +2596,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::secondary-icon-tooltip-text\0".as_ptr() as *const _,
+                c"notify::secondary-icon-tooltip-text".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_secondary_icon_tooltip_text_trampoline::<Self, F> as *const (),
                 )),
@@ -2399,14 +2624,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::show-emoji-icon\0".as_ptr() as *const _,
+                c"notify::show-emoji-icon".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_show_emoji_icon_trampoline::<Self, F> as *const (),
                 )),
@@ -2422,14 +2649,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::tabs\0".as_ptr() as *const _,
+                c"notify::tabs".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_tabs_trampoline::<Self, F> as *const (),
                 )),
@@ -2445,14 +2674,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::text-length\0".as_ptr() as *const _,
+                c"notify::text-length".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_text_length_trampoline::<Self, F> as *const (),
                 )),
@@ -2471,14 +2702,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::truncate-multiline\0".as_ptr() as *const _,
+                c"notify::truncate-multiline".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_truncate_multiline_trampoline::<Self, F> as *const (),
                 )),
@@ -2494,14 +2727,16 @@ pub trait EntryExt: IsA<Entry> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Entry::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::visibility\0".as_ptr() as *const _,
+                c"notify::visibility".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_visibility_trampoline::<Self, F> as *const (),
                 )),

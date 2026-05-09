@@ -5,7 +5,7 @@
 use crate::ffi;
 use glib::{
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -68,12 +68,7 @@ impl EntryBufferBuilder {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::EntryBuffer>> Sealed for T {}
-}
-
-pub trait EntryBufferExt: IsA<EntryBuffer> + sealed::Sealed + 'static {
+pub trait EntryBufferExt: IsA<EntryBuffer> + 'static {
     #[doc(alias = "gtk_entry_buffer_emit_deleted_text")]
     fn emit_deleted_text(&self, position: u32, n_chars: u32) {
         unsafe {
@@ -104,14 +99,16 @@ pub trait EntryBufferExt: IsA<EntryBuffer> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(EntryBuffer::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(EntryBuffer::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::length\0".as_ptr() as *const _,
+                c"notify::length".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_length_trampoline::<Self, F> as *const (),
                 )),
@@ -130,14 +127,16 @@ pub trait EntryBufferExt: IsA<EntryBuffer> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(EntryBuffer::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(EntryBuffer::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::max-length\0".as_ptr() as *const _,
+                c"notify::max-length".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_max_length_trampoline::<Self, F> as *const (),
                 )),
@@ -153,14 +152,16 @@ pub trait EntryBufferExt: IsA<EntryBuffer> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(EntryBuffer::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(EntryBuffer::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::text\0".as_ptr() as *const _,
+                c"notify::text".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_text_trampoline::<Self, F> as *const (),
                 )),

@@ -1,23 +1,19 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 // rustdoc-stripper-ignore-next
-//! Traits intended for subclassing [`RecentManager`](crate::RecentManager).
+//! Traits intended for subclassing [`RecentManager`].
 
 use glib::translate::*;
 
-use crate::{ffi, prelude::*, subclass::prelude::*, RecentManager};
+use crate::{RecentManager, ffi, prelude::*, subclass::prelude::*};
 
-pub trait RecentManagerImpl: RecentManagerImplExt + ObjectImpl {
+pub trait RecentManagerImpl: ObjectImpl + ObjectSubclass<Type: IsA<RecentManager>> {
     fn changed(&self) {
         self.parent_changed()
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::RecentManagerImplExt> Sealed for T {}
-}
-pub trait RecentManagerImplExt: sealed::Sealed + ObjectSubclass {
+pub trait RecentManagerImplExt: RecentManagerImpl {
     fn parent_changed(&self) {
         unsafe {
             let data = Self::type_data();
@@ -47,8 +43,10 @@ unsafe impl<T: RecentManagerImpl> IsSubclassable<T> for RecentManager {
 }
 
 unsafe extern "C" fn recent_manager_changed<T: RecentManagerImpl>(ptr: *mut ffi::GtkRecentManager) {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.changed()
+        imp.changed()
+    }
 }

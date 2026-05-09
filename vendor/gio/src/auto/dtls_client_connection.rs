@@ -3,10 +3,10 @@
 // DO NOT EDIT
 #![allow(deprecated)]
 
-use crate::{ffi, DatagramBased, DtlsConnection, SocketConnectable, TlsCertificateFlags};
+use crate::{DatagramBased, DtlsConnection, SocketConnectable, TlsCertificateFlags, ffi};
 use glib::{
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -44,12 +44,7 @@ impl DtlsClientConnection {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::DtlsClientConnection>> Sealed for T {}
-}
-
-pub trait DtlsClientConnectionExt: IsA<DtlsClientConnection> + sealed::Sealed + 'static {
+pub trait DtlsClientConnectionExt: IsA<DtlsClientConnection> + 'static {
     #[doc(alias = "g_dtls_client_connection_get_accepted_cas")]
     #[doc(alias = "get_accepted_cas")]
     #[doc(alias = "accepted-cas")]
@@ -119,14 +114,16 @@ pub trait DtlsClientConnectionExt: IsA<DtlsClientConnection> + sealed::Sealed + 
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(DtlsClientConnection::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(DtlsClientConnection::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::accepted-cas\0".as_ptr() as *const _,
+                c"notify::accepted-cas".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_accepted_cas_trampoline::<Self, F> as *const (),
                 )),
@@ -145,14 +142,16 @@ pub trait DtlsClientConnectionExt: IsA<DtlsClientConnection> + sealed::Sealed + 
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(DtlsClientConnection::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(DtlsClientConnection::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::server-identity\0".as_ptr() as *const _,
+                c"notify::server-identity".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_server_identity_trampoline::<Self, F> as *const (),
                 )),
@@ -172,14 +171,16 @@ pub trait DtlsClientConnectionExt: IsA<DtlsClientConnection> + sealed::Sealed + 
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(DtlsClientConnection::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(DtlsClientConnection::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::validation-flags\0".as_ptr() as *const _,
+                c"notify::validation-flags".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_validation_flags_trampoline::<Self, F> as *const (),
                 )),

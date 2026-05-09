@@ -83,13 +83,15 @@ impl<T: TransparentPtrType> Drop for PtrSlice<T> {
     #[inline]
     fn drop(&mut self) {
         unsafe {
+            let len = mem::replace(&mut self.len, 0);
             if mem::needs_drop::<T>() {
-                for i in 0..self.len {
+                for i in 0..len {
                     ptr::drop_in_place::<T>(self.ptr.as_ptr().add(i) as *mut T);
                 }
             }
 
-            if self.capacity != 0 {
+            let capacity = mem::replace(&mut self.capacity, 0);
+            if capacity != 0 {
                 ffi::g_free(self.ptr.as_ptr() as ffi::gpointer);
             }
         }
@@ -263,13 +265,15 @@ impl<T: TransparentPtrType> Drop for IntoIter<T> {
     #[inline]
     fn drop(&mut self) {
         unsafe {
+            let len = mem::replace(&mut self.len, 0);
             if mem::needs_drop::<T>() {
-                for i in 0..self.len {
+                for i in 0..len {
                     ptr::drop_in_place::<T>(self.idx.as_ptr().add(i) as *mut T);
                 }
             }
 
-            if !self.empty {
+            let empty = mem::replace(&mut self.empty, true);
+            if !empty {
                 ffi::g_free(self.ptr.as_ptr() as ffi::gpointer);
             }
         }
@@ -426,13 +430,15 @@ impl<T: TransparentPtrType> PtrSlice<T> {
     /// Borrows a C array.
     #[inline]
     pub unsafe fn from_glib_borrow<'a>(ptr: *const <T as GlibPtrDefault>::GlibType) -> &'a [T] {
-        let mut len = 0;
-        if !ptr.is_null() {
-            while !(*ptr.add(len)).is_null() {
-                len += 1;
+        unsafe {
+            let mut len = 0;
+            if !ptr.is_null() {
+                while !(*ptr.add(len)).is_null() {
+                    len += 1;
+                }
             }
+            Self::from_glib_borrow_num(ptr, len)
         }
-        Self::from_glib_borrow_num(ptr, len)
     }
 
     // rustdoc-stripper-ignore-next
@@ -442,16 +448,18 @@ impl<T: TransparentPtrType> PtrSlice<T> {
         ptr: *const <T as GlibPtrDefault>::GlibType,
         len: usize,
     ) -> &'a [T] {
-        debug_assert_eq!(
-            mem::size_of::<T>(),
-            mem::size_of::<<T as GlibPtrDefault>::GlibType>()
-        );
-        debug_assert!(!ptr.is_null() || len == 0);
+        unsafe {
+            debug_assert_eq!(
+                mem::size_of::<T>(),
+                mem::size_of::<<T as GlibPtrDefault>::GlibType>()
+            );
+            debug_assert!(!ptr.is_null() || len == 0);
 
-        if len == 0 {
-            &[]
-        } else {
-            std::slice::from_raw_parts(ptr as *const T, len)
+            if len == 0 {
+                &[]
+            } else {
+                std::slice::from_raw_parts(ptr as *const T, len)
+            }
         }
     }
 
@@ -463,18 +471,20 @@ impl<T: TransparentPtrType> PtrSlice<T> {
         len: usize,
         _null_terminated: bool,
     ) -> Self {
-        debug_assert_eq!(
-            mem::size_of::<T>(),
-            mem::size_of::<<T as GlibPtrDefault>::GlibType>()
-        );
-        debug_assert!(!ptr.is_null() || len == 0);
+        unsafe {
+            debug_assert_eq!(
+                mem::size_of::<T>(),
+                mem::size_of::<<T as GlibPtrDefault>::GlibType>()
+            );
+            debug_assert!(!ptr.is_null() || len == 0);
 
-        if len == 0 {
-            PtrSlice::default()
-        } else {
-            // Need to fully copy the array here.
-            let s = Self::from_glib_borrow_num(ptr, len);
-            Self::from(s)
+            if len == 0 {
+                PtrSlice::default()
+            } else {
+                // Need to fully copy the array here.
+                let s = Self::from_glib_borrow_num(ptr, len);
+                Self::from(s)
+            }
         }
     }
 
@@ -486,25 +496,27 @@ impl<T: TransparentPtrType> PtrSlice<T> {
         len: usize,
         null_terminated: bool,
     ) -> Self {
-        debug_assert_eq!(
-            mem::size_of::<T>(),
-            mem::size_of::<<T as GlibPtrDefault>::GlibType>()
-        );
-        debug_assert!(!ptr.is_null() || len == 0);
+        unsafe {
+            debug_assert_eq!(
+                mem::size_of::<T>(),
+                mem::size_of::<<T as GlibPtrDefault>::GlibType>()
+            );
+            debug_assert!(!ptr.is_null() || len == 0);
 
-        if len == 0 {
-            ffi::g_free(ptr as ffi::gpointer);
-            PtrSlice::default()
-        } else {
-            // Need to clone every item because we don't own it here
-            for i in 0..len {
-                let p = ptr.add(i) as *mut T;
-                let clone: T = (*p).clone();
-                ptr::write(p, clone);
+            if len == 0 {
+                ffi::g_free(ptr as ffi::gpointer);
+                PtrSlice::default()
+            } else {
+                // Need to clone every item because we don't own it here
+                for i in 0..len {
+                    let p = ptr.add(i) as *mut T;
+                    let clone: T = (*p).clone();
+                    ptr::write(p, clone);
+                }
+
+                // And now it can be handled exactly the same as `from_glib_full_num()`.
+                Self::from_glib_full_num(ptr, len, null_terminated)
             }
-
-            // And now it can be handled exactly the same as `from_glib_full_num()`.
-            Self::from_glib_full_num(ptr, len, null_terminated)
         }
     }
 
@@ -516,41 +528,43 @@ impl<T: TransparentPtrType> PtrSlice<T> {
         len: usize,
         null_terminated: bool,
     ) -> Self {
-        debug_assert_eq!(
-            mem::size_of::<T>(),
-            mem::size_of::<<T as GlibPtrDefault>::GlibType>()
-        );
-        debug_assert!(!ptr.is_null() || len == 0);
+        unsafe {
+            debug_assert_eq!(
+                mem::size_of::<T>(),
+                mem::size_of::<<T as GlibPtrDefault>::GlibType>()
+            );
+            debug_assert!(!ptr.is_null() || len == 0);
 
-        if len == 0 {
-            ffi::g_free(ptr as ffi::gpointer);
-            PtrSlice::default()
-        } else {
-            if null_terminated {
-                return PtrSlice {
+            if len == 0 {
+                ffi::g_free(ptr as ffi::gpointer);
+                PtrSlice::default()
+            } else {
+                if null_terminated {
+                    return PtrSlice {
+                        ptr: ptr::NonNull::new_unchecked(ptr),
+                        len,
+                        capacity: len + 1,
+                    };
+                }
+
+                // Need to re-allocate here for adding the NULL-terminator
+                let capacity = len + 1;
+                assert_ne!(capacity, 0);
+                let ptr = ffi::g_realloc(
+                    ptr as *mut _,
+                    mem::size_of::<T>().checked_mul(capacity).unwrap(),
+                ) as *mut <T as GlibPtrDefault>::GlibType;
+
+                ptr::write(
+                    ptr.add(len),
+                    Ptr::from(ptr::null_mut::<<T as GlibPtrDefault>::GlibType>()),
+                );
+
+                PtrSlice {
                     ptr: ptr::NonNull::new_unchecked(ptr),
                     len,
-                    capacity: len + 1,
-                };
-            }
-
-            // Need to re-allocate here for adding the NULL-terminator
-            let capacity = len + 1;
-            assert_ne!(capacity, 0);
-            let ptr = ffi::g_realloc(
-                ptr as *mut _,
-                mem::size_of::<T>().checked_mul(capacity).unwrap(),
-            ) as *mut <T as GlibPtrDefault>::GlibType;
-
-            ptr::write(
-                ptr.add(len),
-                Ptr::from(ptr::null_mut::<<T as GlibPtrDefault>::GlibType>()),
-            );
-
-            PtrSlice {
-                ptr: ptr::NonNull::new_unchecked(ptr),
-                len,
-                capacity,
+                    capacity,
+                }
             }
         }
     }
@@ -559,42 +573,48 @@ impl<T: TransparentPtrType> PtrSlice<T> {
     /// Create a new `PtrSlice` around a `NULL`-terminated C array.
     #[inline]
     pub unsafe fn from_glib_none(ptr: *const <T as GlibPtrDefault>::GlibType) -> Self {
-        let mut len = 0;
-        if !ptr.is_null() {
-            while !(*ptr.add(len)).is_null() {
-                len += 1;
+        unsafe {
+            let mut len = 0;
+            if !ptr.is_null() {
+                while !(*ptr.add(len)).is_null() {
+                    len += 1;
+                }
             }
-        }
 
-        PtrSlice::from_glib_none_num(ptr, len, true)
+            PtrSlice::from_glib_none_num(ptr, len, true)
+        }
     }
 
     // rustdoc-stripper-ignore-next
     /// Create a new `PtrSlice` around a `NULL`-terminated C array.
     #[inline]
     pub unsafe fn from_glib_container(ptr: *mut <T as GlibPtrDefault>::GlibType) -> Self {
-        let mut len = 0;
-        if !ptr.is_null() {
-            while !(*ptr.add(len)).is_null() {
-                len += 1;
+        unsafe {
+            let mut len = 0;
+            if !ptr.is_null() {
+                while !(*ptr.add(len)).is_null() {
+                    len += 1;
+                }
             }
-        }
 
-        PtrSlice::from_glib_container_num(ptr, len, true)
+            PtrSlice::from_glib_container_num(ptr, len, true)
+        }
     }
 
     // rustdoc-stripper-ignore-next
     /// Create a new `PtrSlice` around a `NULL`-terminated C array.
     #[inline]
     pub unsafe fn from_glib_full(ptr: *mut <T as GlibPtrDefault>::GlibType) -> Self {
-        let mut len = 0;
-        if !ptr.is_null() {
-            while !(*ptr.add(len)).is_null() {
-                len += 1;
+        unsafe {
+            let mut len = 0;
+            if !ptr.is_null() {
+                while !(*ptr.add(len)).is_null() {
+                    len += 1;
+                }
             }
-        }
 
-        PtrSlice::from_glib_full_num(ptr, len, true)
+            PtrSlice::from_glib_full_num(ptr, len, true)
+        }
     }
 
     // rustdoc-stripper-ignore-next
@@ -713,7 +733,7 @@ impl<T: TransparentPtrType> PtrSlice<T> {
     #[allow(clippy::int_plus_one)]
     pub fn reserve(&mut self, additional: usize) {
         // Nothing new to reserve as there's still enough space
-        if self.len + additional + 1 <= self.capacity {
+        if additional < self.capacity - self.len {
             return;
         }
 
@@ -773,13 +793,12 @@ impl<T: TransparentPtrType> PtrSlice<T> {
     #[inline]
     pub fn clear(&mut self) {
         unsafe {
+            let len = mem::replace(&mut self.len, 0);
             if mem::needs_drop::<T>() {
-                for i in 0..self.len {
+                for i in 0..len {
                     ptr::drop_in_place::<T>(self.ptr.as_ptr().add(i) as *mut T);
                 }
             }
-
-            self.len = 0;
         }
     }
 
@@ -788,7 +807,7 @@ impl<T: TransparentPtrType> PtrSlice<T> {
     #[inline]
     pub fn extend_from_slice(&mut self, other: &[T]) {
         // Nothing new to reserve as there's still enough space
-        if self.len + other.len() + 1 > self.capacity {
+        if other.len() >= self.capacity - self.len {
             self.reserve(other.len());
         }
 
@@ -796,12 +815,14 @@ impl<T: TransparentPtrType> PtrSlice<T> {
             for item in other {
                 ptr::write(self.ptr.as_ptr().add(self.len) as *mut T, item.clone());
                 self.len += 1;
-            }
 
-            ptr::write(
-                self.ptr.as_ptr().add(self.len),
-                Ptr::from(ptr::null_mut::<<T as GlibPtrDefault>::GlibType>()),
-            );
+                // Add null terminator on every iteration because `clone`
+                // may panic
+                ptr::write(
+                    self.ptr.as_ptr().add(self.len),
+                    Ptr::from(ptr::null_mut::<<T as GlibPtrDefault>::GlibType>()),
+                );
+            }
         }
     }
 
@@ -813,7 +834,7 @@ impl<T: TransparentPtrType> PtrSlice<T> {
         assert!(index <= self.len);
 
         // Nothing new to reserve as there's still enough space
-        if self.len + 1 + 1 > self.capacity {
+        if 1 >= self.capacity - self.len {
             self.reserve(1);
         }
 
@@ -840,7 +861,7 @@ impl<T: TransparentPtrType> PtrSlice<T> {
     #[inline]
     pub fn push(&mut self, item: T) {
         // Nothing new to reserve as there's still enough space
-        if self.len + 1 + 1 > self.capacity {
+        if 1 >= self.capacity - self.len {
             self.reserve(1);
         }
 
@@ -911,14 +932,18 @@ impl<T: TransparentPtrType> PtrSlice<T> {
         }
 
         unsafe {
-            while self.len > len {
-                self.len -= 1;
-                let p = self.ptr.as_ptr().add(self.len);
-                ptr::drop_in_place::<T>(p as *mut T);
-                ptr::write(
-                    p,
-                    Ptr::from(ptr::null_mut::<<T as GlibPtrDefault>::GlibType>()),
-                );
+            if mem::needs_drop::<T>() {
+                while self.len > len {
+                    self.len -= 1;
+                    let p = self.ptr.as_ptr().add(self.len);
+                    ptr::drop_in_place::<T>(p as *mut T);
+                    ptr::write(
+                        p,
+                        Ptr::from(ptr::null_mut::<<T as GlibPtrDefault>::GlibType>()),
+                    );
+                }
+            } else {
+                self.len = len;
             }
         }
     }
@@ -930,7 +955,7 @@ impl<T: TransparentPtrType>
 {
     #[inline]
     unsafe fn from_glib_none_num(ptr: *mut <T as GlibPtrDefault>::GlibType, num: usize) -> Self {
-        Self::from_glib_none_num(ptr, num, false)
+        unsafe { Self::from_glib_none_num(ptr, num, false) }
     }
 
     #[inline]
@@ -938,12 +963,12 @@ impl<T: TransparentPtrType>
         ptr: *mut <T as GlibPtrDefault>::GlibType,
         num: usize,
     ) -> Self {
-        Self::from_glib_container_num(ptr, num, false)
+        unsafe { Self::from_glib_container_num(ptr, num, false) }
     }
 
     #[inline]
     unsafe fn from_glib_full_num(ptr: *mut <T as GlibPtrDefault>::GlibType, num: usize) -> Self {
-        Self::from_glib_full_num(ptr, num, false)
+        unsafe { Self::from_glib_full_num(ptr, num, false) }
     }
 }
 
@@ -952,7 +977,7 @@ impl<T: TransparentPtrType>
     for PtrSlice<T>
 {
     unsafe fn from_glib_none_num(ptr: *const <T as GlibPtrDefault>::GlibType, num: usize) -> Self {
-        Self::from_glib_none_num(ptr, num, false)
+        unsafe { Self::from_glib_none_num(ptr, num, false) }
     }
 
     unsafe fn from_glib_container_num(
@@ -976,17 +1001,17 @@ impl<T: TransparentPtrType>
 {
     #[inline]
     unsafe fn from_glib_none(ptr: *mut <T as GlibPtrDefault>::GlibType) -> Self {
-        Self::from_glib_none(ptr)
+        unsafe { Self::from_glib_none(ptr) }
     }
 
     #[inline]
     unsafe fn from_glib_container(ptr: *mut <T as GlibPtrDefault>::GlibType) -> Self {
-        Self::from_glib_container(ptr)
+        unsafe { Self::from_glib_container(ptr) }
     }
 
     #[inline]
     unsafe fn from_glib_full(ptr: *mut <T as GlibPtrDefault>::GlibType) -> Self {
-        Self::from_glib_full(ptr)
+        unsafe { Self::from_glib_full(ptr) }
     }
 }
 
@@ -996,7 +1021,7 @@ impl<T: TransparentPtrType>
 {
     #[inline]
     unsafe fn from_glib_none(ptr: *const <T as GlibPtrDefault>::GlibType) -> Self {
-        Self::from_glib_none(ptr)
+        unsafe { Self::from_glib_none(ptr) }
     }
 
     unsafe fn from_glib_container(_ptr: *const <T as GlibPtrDefault>::GlibType) -> Self {
@@ -1058,7 +1083,7 @@ impl<'a, T: TransparentPtrType + 'a> ToGlibPtrMut<'a, *mut <T as GlibPtrDefault>
 
 impl<T: TransparentPtrType> IntoGlibPtr<*mut <T as GlibPtrDefault>::GlibType> for PtrSlice<T> {
     #[inline]
-    unsafe fn into_glib_ptr(self) -> *mut <T as GlibPtrDefault>::GlibType {
+    fn into_glib_ptr(self) -> *mut <T as GlibPtrDefault>::GlibType {
         self.into_raw()
     }
 }
@@ -1304,7 +1329,7 @@ mod test {
 
         let slice2 = crate::Slice::from(slice.clone());
 
-        for (a, b) in Iterator::zip(items.iter(), slice.into_iter()) {
+        for (a, b) in Iterator::zip(items.iter(), slice) {
             assert_eq!(a.message(), b.message());
             assert_eq!(
                 a.kind::<crate::FileError>().unwrap(),
@@ -1314,7 +1339,7 @@ mod test {
 
         let slice3 = crate::PtrSlice::from(slice2.clone());
 
-        for (a, b) in Iterator::zip(items.iter(), slice2.into_iter()) {
+        for (a, b) in Iterator::zip(items.iter(), slice2) {
             assert_eq!(a.message(), b.message());
             assert_eq!(
                 a.kind::<crate::FileError>().unwrap(),
@@ -1322,7 +1347,7 @@ mod test {
             );
         }
 
-        for (a, b) in Iterator::zip(items.iter(), slice3.into_iter()) {
+        for (a, b) in Iterator::zip(items.iter(), slice3) {
             assert_eq!(a.message(), b.message());
             assert_eq!(
                 a.kind::<crate::FileError>().unwrap(),

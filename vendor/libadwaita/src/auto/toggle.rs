@@ -6,7 +6,7 @@
 use crate::ffi;
 use glib::{
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -39,6 +39,14 @@ impl Toggle {
     #[doc(alias = "get_child")]
     pub fn child(&self) -> Option<gtk::Widget> {
         unsafe { from_glib_none(ffi::adw_toggle_get_child(self.to_glib_none().0)) }
+    }
+
+    #[cfg(feature = "v1_9")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_9")))]
+    #[doc(alias = "adw_toggle_get_description")]
+    #[doc(alias = "get_description")]
+    pub fn description(&self) -> glib::GString {
+        unsafe { from_glib_none(ffi::adw_toggle_get_description(self.to_glib_none().0)) }
     }
 
     #[doc(alias = "adw_toggle_get_enabled")]
@@ -94,6 +102,16 @@ impl Toggle {
                 self.to_glib_none().0,
                 child.map(|p| p.as_ref()).to_glib_none().0,
             );
+        }
+    }
+
+    #[cfg(feature = "v1_9")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_9")))]
+    #[doc(alias = "adw_toggle_set_description")]
+    #[doc(alias = "description")]
+    pub fn set_description(&self, description: &str) {
+        unsafe {
+            ffi::adw_toggle_set_description(self.to_glib_none().0, description.to_glib_none().0);
         }
     }
 
@@ -154,16 +172,45 @@ impl Toggle {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::child".as_ptr() as *const _,
+                c"notify::child".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_child_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[cfg(feature = "v1_9")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_9")))]
+    #[doc(alias = "description")]
+    pub fn connect_description_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_description_trampoline<F: Fn(&Toggle) + 'static>(
+            this: *mut ffi::AdwToggle,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                c"notify::description".as_ptr(),
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    notify_description_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
@@ -179,14 +226,16 @@ impl Toggle {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::enabled".as_ptr() as *const _,
+                c"notify::enabled".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enabled_trampoline::<F> as *const (),
                 )),
@@ -204,14 +253,16 @@ impl Toggle {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::icon-name".as_ptr() as *const _,
+                c"notify::icon-name".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_icon_name_trampoline::<F> as *const (),
                 )),
@@ -229,14 +280,16 @@ impl Toggle {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::label".as_ptr() as *const _,
+                c"notify::label".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_label_trampoline::<F> as *const (),
                 )),
@@ -254,14 +307,16 @@ impl Toggle {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::name".as_ptr() as *const _,
+                c"notify::name".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_name_trampoline::<F> as *const (),
                 )),
@@ -279,14 +334,16 @@ impl Toggle {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::tooltip".as_ptr() as *const _,
+                c"notify::tooltip".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_tooltip_trampoline::<F> as *const (),
                 )),
@@ -304,14 +361,16 @@ impl Toggle {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::use-underline".as_ptr() as *const _,
+                c"notify::use-underline".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_use_underline_trampoline::<F> as *const (),
                 )),
@@ -357,6 +416,14 @@ impl ToggleBuilder {
     pub fn child(self, child: &impl IsA<gtk::Widget>) -> Self {
         Self {
             builder: self.builder.property("child", child.clone().upcast()),
+        }
+    }
+
+    #[cfg(feature = "v1_9")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_9")))]
+    pub fn description(self, description: impl Into<glib::GString>) -> Self {
+        Self {
+            builder: self.builder.property("description", description.into()),
         }
     }
 

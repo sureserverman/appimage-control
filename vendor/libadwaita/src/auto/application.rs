@@ -3,10 +3,10 @@
 // from gir-files (https://github.com/gtk-rs/gir-files.git)
 // DO NOT EDIT
 
-use crate::{ffi, StyleManager};
+use crate::{StyleManager, ffi};
 use glib::{
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -48,15 +48,34 @@ impl ApplicationBuilder {
         }
     }
 
+    #[cfg(feature = "gtk_v4_22")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "gtk_v4_22")))]
+    pub fn autosave_interval(self, autosave_interval: u32) -> Self {
+        Self {
+            builder: self
+                .builder
+                .property("autosave-interval", autosave_interval),
+        }
+    }
+
     pub fn menubar(self, menubar: &impl IsA<gio::MenuModel>) -> Self {
         Self {
             builder: self.builder.property("menubar", menubar.clone().upcast()),
         }
     }
 
+    #[cfg_attr(feature = "gtk_v4_22", deprecated = "Since 4.22")]
     pub fn register_session(self, register_session: bool) -> Self {
         Self {
             builder: self.builder.property("register-session", register_session),
+        }
+    }
+
+    #[cfg(feature = "gtk_v4_22")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "gtk_v4_22")))]
+    pub fn support_save(self, support_save: bool) -> Self {
+        Self {
+            builder: self.builder.property("support-save", support_save),
         }
     }
 
@@ -132,14 +151,16 @@ pub trait AdwApplicationExt: IsA<Application> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Application::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Application::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::style-manager".as_ptr() as *const _,
+                c"notify::style-manager".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_style_manager_trampoline::<Self, F> as *const (),
                 )),

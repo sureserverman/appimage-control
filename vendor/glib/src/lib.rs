@@ -26,18 +26,23 @@
 //! [`translate`]: mod@translate
 #![doc = include_str!("../README.md")]
 
+// for macros
+extern crate self as glib;
+
 pub use bitflags;
 #[doc(hidden)]
 pub use glib_macros::cstr_bytes;
 pub use glib_macros::{
+    Boxed, Downgrade, Enum, ErrorDomain, Properties, SharedBoxed, ValueDelegate, Variant,
     async_test, clone, closure, closure_local, derived_properties, flags, object_interface,
-    object_subclass, Boxed, Downgrade, Enum, ErrorDomain, Properties, SharedBoxed, ValueDelegate,
-    Variant,
+    object_subclass,
 };
 pub use glib_sys as ffi;
 pub use gobject_sys as gobject_ffi;
 
 pub use self::{
+    FileError,
+    bookmark_file::BookmarkFile,
     byte_array::ByteArray,
     bytes::Bytes,
     closure::{Closure, RustClosure},
@@ -45,8 +50,8 @@ pub use self::{
     error::{BoolError, Error},
     object::{BorrowedObject, Class, InitiallyUnowned, Interface, Object, SendWeakRef, WeakRef},
     signal::{
-        signal_handler_block, signal_handler_disconnect, signal_handler_unblock,
-        signal_stop_emission_by_name, Propagation, SignalHandlerId,
+        Propagation, SignalHandlerId, signal_handler_block, signal_handler_disconnect,
+        signal_handler_unblock, signal_stop_emission_by_name,
     },
     types::{ILong, Pointer, Type, ULong},
     value::{BoxedValue, SendValue, Value},
@@ -54,7 +59,6 @@ pub use self::{
     variant_dict::VariantDict,
     variant_iter::{VariantIter, VariantStrIter},
     variant_type::{VariantTy, VariantTyIterator, VariantType},
-    FileError,
 };
 
 // Hack for the time being to retrieve the current function's name as a string.
@@ -117,16 +121,17 @@ pub mod object;
 mod boxed_any_object;
 pub use boxed_any_object::BoxedAnyObject;
 mod exit_code;
-pub use exit_code::ExitCode;
+pub use exit_code::{ExitCode, InvalidExitCode};
 
 pub mod collections;
-pub use collections::{List, PtrSlice, SList, Slice, StrV};
+pub use collections::{List, PtrSlice, SList, Slice, StrV, StrVRef};
 
 pub use self::auto::*;
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::type_complexity)]
 #[allow(unused_imports)]
 #[allow(non_upper_case_globals)]
+#[allow(clippy::let_and_return)]
 mod auto;
 
 #[cfg(feature = "v2_74")]
@@ -142,6 +147,7 @@ pub use self::gobject::{BindingGroup, BindingGroupBuilder};
 
 mod gobject;
 
+mod bookmark_file;
 mod byte_array;
 mod bytes;
 mod control_flow;
@@ -204,11 +210,11 @@ mod log;
 pub use rs_log;
 
 pub use self::log::{
-    log_default_handler, log_remove_handler, log_set_always_fatal, log_set_default_handler,
-    log_set_fatal_mask, log_set_handler, log_set_writer_func, log_structured_array,
-    log_unset_default_handler, log_variant, log_writer_default, log_writer_format_fields,
-    log_writer_journald, log_writer_standard_streams, set_print_handler, set_printerr_handler,
-    unset_print_handler, unset_printerr_handler, LogField, LogHandlerId, LogLevel, LogLevels,
+    LogField, LogHandlerId, LogLevel, LogLevels, log_default_handler, log_remove_handler,
+    log_set_always_fatal, log_set_default_handler, log_set_fatal_mask, log_set_handler,
+    log_set_writer_func, log_structured_array, log_unset_default_handler, log_variant,
+    log_writer_default, log_writer_format_fields, log_writer_journald, log_writer_standard_streams,
+    set_print_handler, set_printerr_handler, unset_print_handler, unset_printerr_handler,
 };
 #[cfg(feature = "v2_68")]
 pub use self::log::{log_writer_default_set_use_stderr, log_writer_default_would_drop};
@@ -221,17 +227,25 @@ pub use self::log::{log_writer_is_journald, log_writer_supports_color};
 mod bridged_logging;
 #[cfg(feature = "log")]
 #[cfg_attr(docsrs, doc(cfg(feature = "log")))]
-pub use self::bridged_logging::{rust_log_handler, GlibLogger, GlibLoggerDomain, GlibLoggerFormat};
+pub use self::bridged_logging::{
+    GlibLogger, GlibLoggerDomain, GlibLoggerFormat, rust_log_handler, rust_log_writer,
+};
 
 #[macro_use]
 pub mod subclass;
 
+#[cfg(feature = "futures")]
 mod main_context_futures;
+#[cfg(feature = "futures")]
 pub use main_context_futures::{JoinError, JoinHandle, SpawnWithinJoinHandle};
+#[cfg(feature = "futures")]
 mod source_futures;
+#[cfg(feature = "futures")]
 pub use self::source_futures::*;
 
+#[cfg(feature = "futures")]
 mod future_with_timeout;
+#[cfg(feature = "futures")]
 pub use self::future_with_timeout::*;
 
 mod thread_pool;
@@ -244,9 +258,3 @@ pub mod thread_guard;
 /// logger (it prints to stdout by default), you can set your own logger using the corresponding
 /// `log` functions.
 pub const CLONE_MACRO_LOG_DOMAIN: &str = "glib-rs-clone";
-
-#[cfg(target_family = "windows")]
-mod win32;
-
-#[cfg(target_family = "windows")]
-pub use self::win32::*;

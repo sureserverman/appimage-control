@@ -5,7 +5,7 @@ use std::ptr;
 use glib::translate::*;
 
 use crate::{
-    ffi, prelude::*, ButtonsType, DialogFlags, MessageDialog, MessageType, Widget, Window,
+    ButtonsType, DialogFlags, MessageDialog, MessageType, Widget, Window, ffi, prelude::*,
 };
 
 impl MessageDialog {
@@ -27,7 +27,7 @@ impl MessageDialog {
                     flags.into_glib(),
                     type_.into_glib(),
                     buttons.into_glib(),
-                    b"%s\0".as_ptr() as *const libc::c_char,
+                    c"%s".as_ptr() as *const libc::c_char,
                     message.as_ptr(),
                     ptr::null::<libc::c_char>(),
                 ))

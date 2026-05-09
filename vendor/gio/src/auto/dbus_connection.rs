@@ -7,14 +7,14 @@
 #[cfg_attr(docsrs, doc(cfg(unix)))]
 use crate::UnixFDList;
 use crate::{
-    ffi, AsyncInitable, AsyncResult, Cancellable, Credentials, DBusAuthObserver, DBusCallFlags,
+    AsyncInitable, AsyncResult, Cancellable, Credentials, DBusAuthObserver, DBusCallFlags,
     DBusCapabilityFlags, DBusConnectionFlags, DBusMessage, DBusSendMessageFlags, IOStream,
-    Initable,
+    Initable, ffi,
 };
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::{boxed::Box as Box_, pin::Pin};
@@ -113,17 +113,20 @@ impl DBusConnection {
             res: *mut crate::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            let mut error = std::ptr::null_mut();
-            let ret = ffi::g_dbus_connection_call_finish(_source_object as *mut _, res, &mut error);
-            let result = if error.is_null() {
-                Ok(from_glib_full(ret))
-            } else {
-                Err(from_glib_full(error))
-            };
-            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                Box_::from_raw(user_data as *mut _);
-            let callback: P = callback.into_inner();
-            callback(result);
+            unsafe {
+                let mut error = std::ptr::null_mut();
+                let ret =
+                    ffi::g_dbus_connection_call_finish(_source_object as *mut _, res, &mut error);
+                let result = if error.is_null() {
+                    Ok(from_glib_full(ret))
+                } else {
+                    Err(from_glib_full(error))
+                };
+                let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                    Box_::from_raw(user_data as *mut _);
+                let callback: P = callback.into_inner();
+                callback(result);
+            }
         }
         let callback = call_trampoline::<P>;
         unsafe {
@@ -257,23 +260,25 @@ impl DBusConnection {
             res: *mut crate::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            let mut error = std::ptr::null_mut();
-            let mut out_fd_list = std::ptr::null_mut();
-            let ret = ffi::g_dbus_connection_call_with_unix_fd_list_finish(
-                _source_object as *mut _,
-                &mut out_fd_list,
-                res,
-                &mut error,
-            );
-            let result = if error.is_null() {
-                Ok((from_glib_full(ret), from_glib_full(out_fd_list)))
-            } else {
-                Err(from_glib_full(error))
-            };
-            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                Box_::from_raw(user_data as *mut _);
-            let callback: P = callback.into_inner();
-            callback(result);
+            unsafe {
+                let mut error = std::ptr::null_mut();
+                let mut out_fd_list = std::ptr::null_mut();
+                let ret = ffi::g_dbus_connection_call_with_unix_fd_list_finish(
+                    _source_object as *mut _,
+                    &mut out_fd_list,
+                    res,
+                    &mut error,
+                );
+                let result = if error.is_null() {
+                    Ok((from_glib_full(ret), from_glib_full(out_fd_list)))
+                } else {
+                    Err(from_glib_full(error))
+                };
+                let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                    Box_::from_raw(user_data as *mut _);
+                let callback: P = callback.into_inner();
+                callback(result);
+            }
         }
         let callback = call_with_unix_fd_list_trampoline::<P>;
         unsafe {
@@ -409,17 +414,19 @@ impl DBusConnection {
             res: *mut crate::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            let mut error = std::ptr::null_mut();
-            ffi::g_dbus_connection_close_finish(_source_object as *mut _, res, &mut error);
-            let result = if error.is_null() {
-                Ok(())
-            } else {
-                Err(from_glib_full(error))
-            };
-            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                Box_::from_raw(user_data as *mut _);
-            let callback: P = callback.into_inner();
-            callback(result);
+            unsafe {
+                let mut error = std::ptr::null_mut();
+                ffi::g_dbus_connection_close_finish(_source_object as *mut _, res, &mut error);
+                let result = if error.is_null() {
+                    Ok(())
+                } else {
+                    Err(from_glib_full(error))
+                };
+                let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                    Box_::from_raw(user_data as *mut _);
+                let callback: P = callback.into_inner();
+                callback(result);
+            }
         }
         let callback = close_trampoline::<P>;
         unsafe {
@@ -518,17 +525,19 @@ impl DBusConnection {
             res: *mut crate::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            let mut error = std::ptr::null_mut();
-            ffi::g_dbus_connection_flush_finish(_source_object as *mut _, res, &mut error);
-            let result = if error.is_null() {
-                Ok(())
-            } else {
-                Err(from_glib_full(error))
-            };
-            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                Box_::from_raw(user_data as *mut _);
-            let callback: P = callback.into_inner();
-            callback(result);
+            unsafe {
+                let mut error = std::ptr::null_mut();
+                ffi::g_dbus_connection_flush_finish(_source_object as *mut _, res, &mut error);
+                let result = if error.is_null() {
+                    Ok(())
+                } else {
+                    Err(from_glib_full(error))
+                };
+                let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                    Box_::from_raw(user_data as *mut _);
+                let callback: P = callback.into_inner();
+                callback(result);
+            }
         }
         let callback = flush_trampoline::<P>;
         unsafe {
@@ -702,21 +711,23 @@ impl DBusConnection {
             res: *mut crate::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            let mut error = std::ptr::null_mut();
-            let ret = ffi::g_dbus_connection_send_message_with_reply_finish(
-                _source_object as *mut _,
-                res,
-                &mut error,
-            );
-            let result = if error.is_null() {
-                Ok(from_glib_full(ret))
-            } else {
-                Err(from_glib_full(error))
-            };
-            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                Box_::from_raw(user_data as *mut _);
-            let callback: P = callback.into_inner();
-            callback(result);
+            unsafe {
+                let mut error = std::ptr::null_mut();
+                let ret = ffi::g_dbus_connection_send_message_with_reply_finish(
+                    _source_object as *mut _,
+                    res,
+                    &mut error,
+                );
+                let result = if error.is_null() {
+                    Ok(from_glib_full(ret))
+                } else {
+                    Err(from_glib_full(error))
+                };
+                let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                    Box_::from_raw(user_data as *mut _);
+                let callback: P = callback.into_inner();
+                callback(result);
+            }
         }
         let callback = send_message_with_reply_trampoline::<P>;
         unsafe {
@@ -839,17 +850,19 @@ impl DBusConnection {
             res: *mut crate::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            let mut error = std::ptr::null_mut();
-            let ret = ffi::g_dbus_connection_new_finish(res, &mut error);
-            let result = if error.is_null() {
-                Ok(from_glib_full(ret))
-            } else {
-                Err(from_glib_full(error))
-            };
-            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                Box_::from_raw(user_data as *mut _);
-            let callback: P = callback.into_inner();
-            callback(result);
+            unsafe {
+                let mut error = std::ptr::null_mut();
+                let ret = ffi::g_dbus_connection_new_finish(res, &mut error);
+                let result = if error.is_null() {
+                    Ok(from_glib_full(ret))
+                } else {
+                    Err(from_glib_full(error))
+                };
+                let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                    Box_::from_raw(user_data as *mut _);
+                let callback: P = callback.into_inner();
+                callback(result);
+            }
         }
         let callback = new_trampoline::<P>;
         unsafe {
@@ -920,17 +933,19 @@ impl DBusConnection {
             res: *mut crate::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            let mut error = std::ptr::null_mut();
-            let ret = ffi::g_dbus_connection_new_for_address_finish(res, &mut error);
-            let result = if error.is_null() {
-                Ok(from_glib_full(ret))
-            } else {
-                Err(from_glib_full(error))
-            };
-            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                Box_::from_raw(user_data as *mut _);
-            let callback: P = callback.into_inner();
-            callback(result);
+            unsafe {
+                let mut error = std::ptr::null_mut();
+                let ret = ffi::g_dbus_connection_new_for_address_finish(res, &mut error);
+                let result = if error.is_null() {
+                    Ok(from_glib_full(ret))
+                } else {
+                    Err(from_glib_full(error))
+                };
+                let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                    Box_::from_raw(user_data as *mut _);
+                let callback: P = callback.into_inner();
+                callback(result);
+            }
         }
         let callback = for_address_trampoline::<P>;
         unsafe {
@@ -982,20 +997,22 @@ impl DBusConnection {
             error: *mut glib::ffi::GError,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                &from_glib_borrow(this),
-                from_glib(remote_peer_vanished),
-                Option::<glib::Error>::from_glib_borrow(error)
-                    .as_ref()
-                    .as_ref(),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    &from_glib_borrow(this),
+                    from_glib(remote_peer_vanished),
+                    Option::<glib::Error>::from_glib_borrow(error)
+                        .as_ref()
+                        .as_ref(),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"closed\0".as_ptr() as *const _,
+                c"closed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     closed_trampoline::<F> as *const (),
                 )),
@@ -1016,14 +1033,16 @@ impl DBusConnection {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::capabilities\0".as_ptr() as *const _,
+                c"notify::capabilities".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_capabilities_trampoline::<F> as *const (),
                 )),
@@ -1044,14 +1063,16 @@ impl DBusConnection {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::closed\0".as_ptr() as *const _,
+                c"notify::closed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_closed_trampoline::<F> as *const (),
                 )),
@@ -1072,14 +1093,16 @@ impl DBusConnection {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::exit-on-close\0".as_ptr() as *const _,
+                c"notify::exit-on-close".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_exit_on_close_trampoline::<F> as *const (),
                 )),
@@ -1100,14 +1123,16 @@ impl DBusConnection {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::unique-name\0".as_ptr() as *const _,
+                c"notify::unique-name".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_unique_name_trampoline::<F> as *const (),
                 )),

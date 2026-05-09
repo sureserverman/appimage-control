@@ -1,8 +1,8 @@
 use glib::object::IsA;
 use glib::translate::*;
 
-use crate::prelude::*;
 use crate::MessageDialog;
+use crate::prelude::*;
 
 #[cfg(feature = "v1_3")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_3")))]
@@ -11,12 +11,7 @@ use std::boxed::Box as Box_;
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_3")))]
 use std::pin::Pin;
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::MessageDialog>> Sealed for T {}
-}
-
-pub trait MessageDialogExtManual: sealed::Sealed + IsA<MessageDialog> + 'static {
+pub trait MessageDialogExtManual: IsA<MessageDialog> + 'static {
     #[doc(alias = "adw_message_dialog_get_response_label")]
     #[doc(alias = "get_response_label")]
     fn response_label(&self, response: &str) -> glib::GString {
@@ -62,12 +57,14 @@ pub trait MessageDialogExtManual: sealed::Sealed + IsA<MessageDialog> + 'static 
             res: *mut gio::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            let result = from_glib_none(ffi::adw_message_dialog_choose_finish(
-                _source_object as *mut _,
-                res,
-            ));
+            let result = unsafe {
+                from_glib_none(ffi::adw_message_dialog_choose_finish(
+                    _source_object as *mut _,
+                    res,
+                ))
+            };
             let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                Box_::from_raw(user_data as *mut _);
+                unsafe { Box_::from_raw(user_data as *mut _) };
             let callback: P = callback.into_inner();
             callback(result);
         }

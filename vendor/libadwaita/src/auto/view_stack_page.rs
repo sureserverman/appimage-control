@@ -6,7 +6,7 @@
 use crate::ffi;
 use glib::{
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -57,6 +57,32 @@ impl ViewStackPage {
     pub fn needs_attention(&self) -> bool {
         unsafe {
             from_glib(ffi::adw_view_stack_page_get_needs_attention(
+                self.to_glib_none().0,
+            ))
+        }
+    }
+
+    #[cfg(feature = "v1_9")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_9")))]
+    #[doc(alias = "adw_view_stack_page_get_section_title")]
+    #[doc(alias = "get_section_title")]
+    #[doc(alias = "section-title")]
+    pub fn section_title(&self) -> Option<glib::GString> {
+        unsafe {
+            from_glib_none(ffi::adw_view_stack_page_get_section_title(
+                self.to_glib_none().0,
+            ))
+        }
+    }
+
+    #[cfg(feature = "v1_9")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_9")))]
+    #[doc(alias = "adw_view_stack_page_get_starts_section")]
+    #[doc(alias = "get_starts_section")]
+    #[doc(alias = "starts-section")]
+    pub fn is_starts_section(&self) -> bool {
+        unsafe {
+            from_glib(ffi::adw_view_stack_page_get_starts_section(
                 self.to_glib_none().0,
             ))
         }
@@ -124,6 +150,32 @@ impl ViewStackPage {
         }
     }
 
+    #[cfg(feature = "v1_9")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_9")))]
+    #[doc(alias = "adw_view_stack_page_set_section_title")]
+    #[doc(alias = "section-title")]
+    pub fn set_section_title(&self, section_title: Option<&str>) {
+        unsafe {
+            ffi::adw_view_stack_page_set_section_title(
+                self.to_glib_none().0,
+                section_title.to_glib_none().0,
+            );
+        }
+    }
+
+    #[cfg(feature = "v1_9")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_9")))]
+    #[doc(alias = "adw_view_stack_page_set_starts_section")]
+    #[doc(alias = "starts-section")]
+    pub fn set_starts_section(&self, starts_section: bool) {
+        unsafe {
+            ffi::adw_view_stack_page_set_starts_section(
+                self.to_glib_none().0,
+                starts_section.into_glib(),
+            );
+        }
+    }
+
     #[doc(alias = "adw_view_stack_page_set_title")]
     #[doc(alias = "title")]
     pub fn set_title(&self, title: Option<&str>) {
@@ -158,14 +210,16 @@ impl ViewStackPage {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::badge-number".as_ptr() as *const _,
+                c"notify::badge-number".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_badge_number_trampoline::<F> as *const (),
                 )),
@@ -181,14 +235,16 @@ impl ViewStackPage {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::icon-name".as_ptr() as *const _,
+                c"notify::icon-name".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_icon_name_trampoline::<F> as *const (),
                 )),
@@ -204,14 +260,16 @@ impl ViewStackPage {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::name".as_ptr() as *const _,
+                c"notify::name".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_name_trampoline::<F> as *const (),
                 )),
@@ -227,16 +285,72 @@ impl ViewStackPage {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::needs-attention".as_ptr() as *const _,
+                c"notify::needs-attention".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_needs_attention_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[cfg(feature = "v1_9")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_9")))]
+    #[doc(alias = "section-title")]
+    pub fn connect_section_title_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_section_title_trampoline<F: Fn(&ViewStackPage) + 'static>(
+            this: *mut ffi::AdwViewStackPage,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                c"notify::section-title".as_ptr(),
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    notify_section_title_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[cfg(feature = "v1_9")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_9")))]
+    #[doc(alias = "starts-section")]
+    pub fn connect_starts_section_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_starts_section_trampoline<F: Fn(&ViewStackPage) + 'static>(
+            this: *mut ffi::AdwViewStackPage,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                c"notify::starts-section".as_ptr(),
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    notify_starts_section_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
@@ -250,14 +364,16 @@ impl ViewStackPage {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::title".as_ptr() as *const _,
+                c"notify::title".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_title_trampoline::<F> as *const (),
                 )),
@@ -273,14 +389,16 @@ impl ViewStackPage {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::use-underline".as_ptr() as *const _,
+                c"notify::use-underline".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_use_underline_trampoline::<F> as *const (),
                 )),
@@ -296,14 +414,16 @@ impl ViewStackPage {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::visible".as_ptr() as *const _,
+                c"notify::visible".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_visible_trampoline::<F> as *const (),
                 )),

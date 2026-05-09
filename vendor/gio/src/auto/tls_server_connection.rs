@@ -2,10 +2,10 @@
 // from gir-files (https://github.com/gtk-rs/gir-files)
 // DO NOT EDIT
 
-use crate::{ffi, IOStream, TlsAuthenticationMode, TlsCertificate, TlsConnection};
+use crate::{IOStream, TlsAuthenticationMode, TlsCertificate, TlsConnection, ffi};
 use glib::{
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -43,12 +43,7 @@ impl TlsServerConnection {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::TlsServerConnection>> Sealed for T {}
-}
-
-pub trait TlsServerConnectionExt: IsA<TlsServerConnection> + sealed::Sealed + 'static {
+pub trait TlsServerConnectionExt: IsA<TlsServerConnection> + 'static {
     #[doc(alias = "authentication-mode")]
     fn authentication_mode(&self) -> TlsAuthenticationMode {
         ObjectExt::property(self.as_ref(), "authentication-mode")
@@ -69,14 +64,16 @@ pub trait TlsServerConnectionExt: IsA<TlsServerConnection> + sealed::Sealed + 's
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TlsServerConnection::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TlsServerConnection::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::authentication-mode\0".as_ptr() as *const _,
+                c"notify::authentication-mode".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_authentication_mode_trampoline::<Self, F> as *const (),
                 )),

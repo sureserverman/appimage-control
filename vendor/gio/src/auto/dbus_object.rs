@@ -2,11 +2,11 @@
 // from gir-files (https://github.com/gtk-rs/gir-files)
 // DO NOT EDIT
 
-use crate::{ffi, DBusInterface};
+use crate::{DBusInterface, ffi};
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -24,12 +24,7 @@ impl DBusObject {
     pub const NONE: Option<&'static DBusObject> = None;
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::DBusObject>> Sealed for T {}
-}
-
-pub trait DBusObjectExt: IsA<DBusObject> + sealed::Sealed + 'static {
+pub trait DBusObjectExt: IsA<DBusObject> + 'static {
     #[doc(alias = "g_dbus_object_get_interface")]
     #[doc(alias = "get_interface")]
     fn interface(&self, interface_name: &str) -> Option<DBusInterface> {
@@ -74,17 +69,19 @@ pub trait DBusObjectExt: IsA<DBusObject> + sealed::Sealed + 'static {
             interface: *mut ffi::GDBusInterface,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                DBusObject::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(interface),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    DBusObject::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(interface),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"interface-added\0".as_ptr() as *const _,
+                c"interface-added".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     interface_added_trampoline::<Self, F> as *const (),
                 )),
@@ -106,17 +103,19 @@ pub trait DBusObjectExt: IsA<DBusObject> + sealed::Sealed + 'static {
             interface: *mut ffi::GDBusInterface,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                DBusObject::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(interface),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    DBusObject::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(interface),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"interface-removed\0".as_ptr() as *const _,
+                c"interface-removed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     interface_removed_trampoline::<Self, F> as *const (),
                 )),

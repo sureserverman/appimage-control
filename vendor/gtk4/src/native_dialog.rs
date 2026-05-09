@@ -7,19 +7,14 @@ use std::{
     rc::Rc,
 };
 
-use crate::{prelude::*, NativeDialog, ResponseType};
-
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::NativeDialog>> Sealed for T {}
-}
+use crate::{NativeDialog, ResponseType, prelude::*};
 
 // rustdoc-stripper-ignore-next
 /// Trait containing manually implemented methods of
 /// [`NativeDialog`](crate::NativeDialog).
 #[cfg_attr(feature = "v4_10", deprecated = "Since 4.10")]
 #[allow(deprecated)]
-pub trait NativeDialogExtManual: sealed::Sealed + IsA<NativeDialog> {
+pub trait NativeDialogExtManual: IsA<NativeDialog> {
     // rustdoc-stripper-ignore-next
     /// Shows the dialog and returns a `Future` that resolves to the
     /// `ResponseType` on response.

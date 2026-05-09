@@ -2,10 +2,10 @@
 // from gir-files (https://github.com/gtk-rs/gir-files)
 // DO NOT EDIT
 
-use crate::{ffi, AsyncResult, Cancellable, FilterInputStream, InputStream, Seekable};
+use crate::{AsyncResult, Cancellable, FilterInputStream, InputStream, Seekable, ffi};
 use glib::{
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::{boxed::Box as Box_, pin::Pin};
@@ -104,12 +104,7 @@ impl BufferedInputStreamBuilder {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::BufferedInputStream>> Sealed for T {}
-}
-
-pub trait BufferedInputStreamExt: IsA<BufferedInputStream> + sealed::Sealed + 'static {
+pub trait BufferedInputStreamExt: IsA<BufferedInputStream> + 'static {
     #[doc(alias = "g_buffered_input_stream_fill")]
     fn fill(
         &self,
@@ -159,18 +154,23 @@ pub trait BufferedInputStreamExt: IsA<BufferedInputStream> + sealed::Sealed + 's
             res: *mut crate::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            let mut error = std::ptr::null_mut();
-            let ret =
-                ffi::g_buffered_input_stream_fill_finish(_source_object as *mut _, res, &mut error);
-            let result = if error.is_null() {
-                Ok(ret)
-            } else {
-                Err(from_glib_full(error))
-            };
-            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                Box_::from_raw(user_data as *mut _);
-            let callback: P = callback.into_inner();
-            callback(result);
+            unsafe {
+                let mut error = std::ptr::null_mut();
+                let ret = ffi::g_buffered_input_stream_fill_finish(
+                    _source_object as *mut _,
+                    res,
+                    &mut error,
+                );
+                let result = if error.is_null() {
+                    Ok(ret)
+                } else {
+                    Err(from_glib_full(error))
+                };
+                let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                    Box_::from_raw(user_data as *mut _);
+                let callback: P = callback.into_inner();
+                callback(result);
+            }
         }
         let callback = fill_async_trampoline::<P>;
         unsafe {
@@ -263,14 +263,16 @@ pub trait BufferedInputStreamExt: IsA<BufferedInputStream> + sealed::Sealed + 's
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(BufferedInputStream::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(BufferedInputStream::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::buffer-size\0".as_ptr() as *const _,
+                c"notify::buffer-size".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_buffer_size_trampoline::<Self, F> as *const (),
                 )),

@@ -2,11 +2,11 @@
 // from gir-files (https://github.com/gtk-rs/gir-files)
 // DO NOT EDIT
 
-use crate::{ffi, Initable, MemoryMonitorWarningLevel};
+use crate::{Initable, MemoryMonitorWarningLevel, ffi};
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -29,12 +29,7 @@ impl MemoryMonitor {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::MemoryMonitor>> Sealed for T {}
-}
-
-pub trait MemoryMonitorExt: IsA<MemoryMonitor> + sealed::Sealed + 'static {
+pub trait MemoryMonitorExt: IsA<MemoryMonitor> + 'static {
     #[cfg(feature = "v2_64")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v2_64")))]
     #[doc(alias = "low-memory-warning")]
@@ -50,17 +45,19 @@ pub trait MemoryMonitorExt: IsA<MemoryMonitor> + sealed::Sealed + 'static {
             level: ffi::GMemoryMonitorWarningLevel,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                MemoryMonitor::from_glib_borrow(this).unsafe_cast_ref(),
-                from_glib(level),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    MemoryMonitor::from_glib_borrow(this).unsafe_cast_ref(),
+                    from_glib(level),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"low-memory-warning\0".as_ptr() as *const _,
+                c"low-memory-warning".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     low_memory_warning_trampoline::<Self, F> as *const (),
                 )),

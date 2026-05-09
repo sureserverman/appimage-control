@@ -3,10 +3,11 @@
 // from gir-files (https://github.com/gtk-rs/gir-files.git)
 // DO NOT EDIT
 
-use crate::{ffi, NavigationPage, Swipeable};
+use crate::{NavigationPage, Swipeable, ffi};
 use glib::{
+    object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -277,14 +278,16 @@ impl NavigationView {
             this: *mut ffi::AdwNavigationView,
             f: glib::ffi::gpointer,
         ) -> *mut ffi::AdwNavigationPage {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this)).to_glib_full()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this)).to_glib_full()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"get-next-page".as_ptr() as *const _,
+                c"get-next-page".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     get_next_page_trampoline::<F> as *const (),
                 )),
@@ -304,14 +307,16 @@ impl NavigationView {
             page: *mut ffi::AdwNavigationPage,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this), &from_glib_borrow(page))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this), &from_glib_borrow(page))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"popped".as_ptr() as *const _,
+                c"popped".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     popped_trampoline::<F> as *const (),
                 )),
@@ -328,14 +333,16 @@ impl NavigationView {
             this: *mut ffi::AdwNavigationView,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"pushed".as_ptr() as *const _,
+                c"pushed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     pushed_trampoline::<F> as *const (),
                 )),
@@ -352,14 +359,16 @@ impl NavigationView {
             this: *mut ffi::AdwNavigationView,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"replaced".as_ptr() as *const _,
+                c"replaced".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     replaced_trampoline::<F> as *const (),
                 )),
@@ -382,14 +391,16 @@ impl NavigationView {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::animate-transitions".as_ptr() as *const _,
+                c"notify::animate-transitions".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_animate_transitions_trampoline::<F> as *const (),
                 )),
@@ -407,14 +418,16 @@ impl NavigationView {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::hhomogeneous".as_ptr() as *const _,
+                c"notify::hhomogeneous".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_hhomogeneous_trampoline::<F> as *const (),
                 )),
@@ -434,14 +447,16 @@ impl NavigationView {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::navigation-stack".as_ptr() as *const _,
+                c"notify::navigation-stack".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_navigation_stack_trampoline::<F> as *const (),
                 )),
@@ -459,14 +474,16 @@ impl NavigationView {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::pop-on-escape".as_ptr() as *const _,
+                c"notify::pop-on-escape".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_pop_on_escape_trampoline::<F> as *const (),
                 )),
@@ -484,14 +501,16 @@ impl NavigationView {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::vhomogeneous".as_ptr() as *const _,
+                c"notify::vhomogeneous".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_vhomogeneous_trampoline::<F> as *const (),
                 )),
@@ -509,14 +528,16 @@ impl NavigationView {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::visible-page".as_ptr() as *const _,
+                c"notify::visible-page".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_visible_page_trampoline::<F> as *const (),
                 )),
@@ -536,14 +557,16 @@ impl NavigationView {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::visible-page-tag".as_ptr() as *const _,
+                c"notify::visible-page-tag".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_visible_page_tag_trampoline::<F> as *const (),
                 )),
@@ -688,6 +711,14 @@ impl NavigationViewBuilder {
             builder: self
                 .builder
                 .property("layout-manager", layout_manager.clone().upcast()),
+        }
+    }
+
+    #[cfg(feature = "gtk_v4_18")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "gtk_v4_18")))]
+    pub fn limit_events(self, limit_events: bool) -> Self {
+        Self {
+            builder: self.builder.property("limit-events", limit_events),
         }
     }
 

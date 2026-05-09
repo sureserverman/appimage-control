@@ -5,8 +5,8 @@
 //! compatibility with GLib.Regex based APIs.
 
 use crate::{
-    ffi, translate::*, GStr, GStringPtr, MatchInfo, PtrSlice, Regex, RegexCompileFlags,
-    RegexMatchFlags,
+    GStr, GStringPtr, MatchInfo, PtrSlice, Regex, RegexCompileFlags, RegexMatchFlags, ffi,
+    translate::*,
 };
 use std::{mem, ptr};
 
@@ -102,6 +102,7 @@ impl Regex {
                         match_options.into_glib(),
                         &mut error,
                     );
+                    debug_assert_eq!(ret.is_null(), !error.is_null());
                     if error.is_null() {
                         Ok(from_glib_full(ret))
                     } else {
@@ -117,8 +118,8 @@ impl Regex {
         &self,
         string: &'input GStr,
         match_options: RegexMatchFlags,
-    ) -> Option<MatchInfo<'input>> {
-        self.match_all_full(string, 0, match_options).ok()
+    ) -> Result<MatchInfo<'input>, crate::Error> {
+        self.match_all_full(string, 0, match_options)
     }
 
     #[doc(alias = "g_regex_match_all_full")]
@@ -131,7 +132,7 @@ impl Regex {
         unsafe {
             let mut match_info = ptr::null_mut();
             let mut error = ptr::null_mut();
-            let is_ok = ffi::g_regex_match_all_full(
+            let res = ffi::g_regex_match_all_full(
                 self.to_glib_none().0,
                 string.to_glib_none().0,
                 string.len() as _,
@@ -140,10 +141,12 @@ impl Regex {
                 &mut match_info,
                 &mut error,
             );
-            debug_assert_eq!(is_ok == crate::ffi::GFALSE, !error.is_null());
             if error.is_null() {
-                Ok(from_glib_full(match_info))
+                let match_info = MatchInfo::from_glib_full(match_info);
+                debug_assert_eq!(match_info.matches(), from_glib(res));
+                Ok(match_info)
             } else {
+                debug_assert!(match_info.is_null());
                 Err(from_glib_full(error))
             }
         }
@@ -154,8 +157,8 @@ impl Regex {
         &self,
         string: &'input GStr,
         match_options: RegexMatchFlags,
-    ) -> Option<MatchInfo<'input>> {
-        self.match_full(string, 0, match_options).ok()
+    ) -> Result<MatchInfo<'input>, crate::Error> {
+        self.match_full(string, 0, match_options)
     }
 
     #[doc(alias = "g_regex_match_full")]
@@ -168,7 +171,7 @@ impl Regex {
         unsafe {
             let mut match_info = ptr::null_mut();
             let mut error = ptr::null_mut();
-            let is_ok = ffi::g_regex_match_full(
+            let res = ffi::g_regex_match_full(
                 self.to_glib_none().0,
                 string.to_glib_none().0,
                 string.len() as _,
@@ -177,10 +180,12 @@ impl Regex {
                 &mut match_info,
                 &mut error,
             );
-            debug_assert_eq!(is_ok == crate::ffi::GFALSE, !error.is_null());
             if error.is_null() {
-                Ok(from_glib_full(match_info))
+                let match_info = MatchInfo::from_glib_full(match_info);
+                debug_assert_eq!(match_info.matches(), from_glib(res));
+                Ok(match_info)
             } else {
+                debug_assert!(match_info.is_null());
                 Err(from_glib_full(error))
             }
         }
@@ -207,6 +212,7 @@ impl Regex {
                         match_options.into_glib(),
                         &mut error,
                     );
+                    debug_assert_eq!(ret.is_null(), !error.is_null());
                     if error.is_null() {
                         Ok(from_glib_full(ret))
                     } else {
@@ -247,6 +253,7 @@ impl Regex {
                     max_tokens,
                     &mut error,
                 );
+                debug_assert_eq!(ret.is_null(), !error.is_null());
                 if error.is_null() {
                     Ok(FromGlibPtrContainer::from_glib_full(ret))
                 } else {
@@ -279,7 +286,6 @@ impl Regex {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::RegexCompileFlags;
 
     #[test]
     fn test_replace_literal() {
@@ -316,5 +322,30 @@ mod tests {
         assert_eq!(result[0], "This is a ");
         assert_eq!(result[1], " ");
         assert_eq!(result[2], ".");
+    }
+
+    #[test]
+    fn test_match() {
+        let regex = Regex::new(r"\d", RegexCompileFlags::DEFAULT, RegexMatchFlags::DEFAULT)
+            .expect("Regex new")
+            .expect("Null regex");
+
+        let input = crate::GString::from("87");
+        let m = regex.match_(input.as_gstr(), RegexMatchFlags::DEFAULT);
+        let m = m.unwrap();
+        assert!(m.matches());
+        assert_eq!(m.match_count(), 1);
+        assert_eq!(m.fetch(0).as_deref(), Some("8"));
+        assert!(m.next().unwrap());
+        assert_eq!(m.fetch(0).as_deref(), Some("7"));
+        assert!(!m.next().unwrap());
+        assert!(m.fetch(0).is_none());
+
+        let input = crate::GString::from("a");
+        let m = regex.match_(input.as_gstr(), RegexMatchFlags::DEFAULT);
+        let m = m.unwrap();
+        assert!(!m.matches());
+        assert_eq!(m.match_count(), 0);
+        assert!(m.fetch(0).is_none());
     }
 }

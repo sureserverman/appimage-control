@@ -2,11 +2,11 @@
 // from gir-files (https://github.com/gtk-rs/gir-files)
 // DO NOT EDIT
 
-use crate::{ffi, RecentData, RecentInfo};
+use crate::{RecentData, RecentInfo, ffi};
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -44,12 +44,7 @@ impl Default for RecentManager {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::RecentManager>> Sealed for T {}
-}
-
-pub trait RecentManagerExt: IsA<RecentManager> + sealed::Sealed + 'static {
+pub trait RecentManagerExt: IsA<RecentManager> + 'static {
     #[doc(alias = "gtk_recent_manager_add_full")]
     fn add_full(&self, uri: &str, recent_data: &RecentData) -> bool {
         unsafe {
@@ -173,14 +168,16 @@ pub trait RecentManagerExt: IsA<RecentManager> + sealed::Sealed + 'static {
             this: *mut ffi::GtkRecentManager,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(RecentManager::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(RecentManager::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"changed\0".as_ptr() as *const _,
+                c"changed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     changed_trampoline::<Self, F> as *const (),
                 )),
@@ -196,14 +193,16 @@ pub trait RecentManagerExt: IsA<RecentManager> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(RecentManager::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(RecentManager::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::size\0".as_ptr() as *const _,
+                c"notify::size".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_size_trampoline::<Self, F> as *const (),
                 )),

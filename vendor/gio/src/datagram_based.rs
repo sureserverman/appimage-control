@@ -5,14 +5,9 @@ use std::{cell::RefCell, mem::transmute, pin::Pin, ptr, time::Duration};
 use futures_core::stream::Stream;
 use glib::{prelude::*, translate::*};
 
-use crate::{ffi, Cancellable, DatagramBased, InputMessage, OutputMessage};
+use crate::{Cancellable, DatagramBased, InputMessage, OutputMessage, ffi};
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::DatagramBased>> Sealed for T {}
-}
-
-pub trait DatagramBasedExtManual: sealed::Sealed + IsA<DatagramBased> + Sized {
+pub trait DatagramBasedExtManual: IsA<DatagramBased> + Sized {
     #[doc(alias = "g_datagram_based_create_source")]
     fn create_source<F, C>(
         &self,
@@ -34,16 +29,20 @@ pub trait DatagramBasedExtManual: sealed::Sealed + IsA<DatagramBased> + Sized {
             condition: glib::ffi::GIOCondition,
             func: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let func: &RefCell<F> = &*(func as *const RefCell<F>);
-            let mut func = func.borrow_mut();
-            (*func)(
-                DatagramBased::from_glib_borrow(datagram_based).unsafe_cast_ref(),
-                from_glib(condition),
-            )
-            .into_glib()
+            unsafe {
+                let func: &RefCell<F> = &*(func as *const RefCell<F>);
+                let mut func = func.borrow_mut();
+                (*func)(
+                    DatagramBased::from_glib_borrow(datagram_based).unsafe_cast_ref(),
+                    from_glib(condition),
+                )
+                .into_glib()
+            }
         }
         unsafe extern "C" fn destroy_closure<F>(ptr: glib::ffi::gpointer) {
-            let _ = Box::<RefCell<F>>::from_raw(ptr as *mut _);
+            unsafe {
+                let _ = Box::<RefCell<F>>::from_raw(ptr as *mut _);
+            }
         }
         let cancellable = cancellable.map(|c| c.as_ref());
         let gcancellable = cancellable.to_glib_none();

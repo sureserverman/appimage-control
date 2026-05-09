@@ -6,7 +6,7 @@
 use crate::ffi;
 use glib::{
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -170,6 +170,14 @@ impl PreferencesGroupBuilder {
         }
     }
 
+    #[cfg(feature = "gtk_v4_18")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "gtk_v4_18")))]
+    pub fn limit_events(self, limit_events: bool) -> Self {
+        Self {
+            builder: self.builder.property("limit-events", limit_events),
+        }
+    }
+
     pub fn margin_bottom(self, margin_bottom: i32) -> Self {
         Self {
             builder: self.builder.property("margin-bottom", margin_bottom),
@@ -294,6 +302,48 @@ pub trait PreferencesGroupExt: IsA<PreferencesGroup> + 'static {
         }
     }
 
+    #[cfg(feature = "v1_8")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_8")))]
+    #[doc(alias = "adw_preferences_group_bind_model")]
+    fn bind_model<P: Fn(&glib::Object) -> gtk::Widget + 'static>(
+        &self,
+        model: Option<&impl IsA<gio::ListModel>>,
+        create_row_func: P,
+    ) {
+        let create_row_func_data: Box_<P> = Box_::new(create_row_func);
+        unsafe extern "C" fn create_row_func_func<P: Fn(&glib::Object) -> gtk::Widget + 'static>(
+            item: *mut glib::gobject_ffi::GObject,
+            user_data: glib::ffi::gpointer,
+        ) -> *mut gtk::ffi::GtkWidget {
+            unsafe {
+                let item = from_glib_borrow(item);
+                let callback = &*(user_data as *mut P);
+                (*callback)(&item).to_glib_full()
+            }
+        }
+        let create_row_func = Some(create_row_func_func::<P> as _);
+        unsafe extern "C" fn user_data_free_func_func<
+            P: Fn(&glib::Object) -> gtk::Widget + 'static,
+        >(
+            data: glib::ffi::gpointer,
+        ) {
+            unsafe {
+                let _callback = Box_::from_raw(data as *mut P);
+            }
+        }
+        let destroy_call4 = Some(user_data_free_func_func::<P> as _);
+        let super_callback0: Box_<P> = create_row_func_data;
+        unsafe {
+            ffi::adw_preferences_group_bind_model(
+                self.as_ref().to_glib_none().0,
+                model.map(|p| p.as_ref()).to_glib_none().0,
+                create_row_func,
+                Box_::into_raw(super_callback0) as *mut _,
+                destroy_call4,
+            );
+        }
+    }
+
     #[doc(alias = "adw_preferences_group_get_description")]
     #[doc(alias = "get_description")]
     fn description(&self) -> Option<glib::GString> {
@@ -313,6 +363,19 @@ pub trait PreferencesGroupExt: IsA<PreferencesGroup> + 'static {
         unsafe {
             from_glib_none(ffi::adw_preferences_group_get_header_suffix(
                 self.as_ref().to_glib_none().0,
+            ))
+        }
+    }
+
+    #[cfg(feature = "v1_8")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_8")))]
+    #[doc(alias = "adw_preferences_group_get_row")]
+    #[doc(alias = "get_row")]
+    fn row(&self, index: u32) -> Option<gtk::Widget> {
+        unsafe {
+            from_glib_none(ffi::adw_preferences_group_get_row(
+                self.as_ref().to_glib_none().0,
+                index,
             ))
         }
     }
@@ -408,14 +471,16 @@ pub trait PreferencesGroupExt: IsA<PreferencesGroup> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(PreferencesGroup::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(PreferencesGroup::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::description".as_ptr() as *const _,
+                c"notify::description".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_description_trampoline::<Self, F> as *const (),
                 )),
@@ -436,14 +501,16 @@ pub trait PreferencesGroupExt: IsA<PreferencesGroup> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(PreferencesGroup::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(PreferencesGroup::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::header-suffix".as_ptr() as *const _,
+                c"notify::header-suffix".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_header_suffix_trampoline::<Self, F> as *const (),
                 )),
@@ -464,14 +531,16 @@ pub trait PreferencesGroupExt: IsA<PreferencesGroup> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(PreferencesGroup::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(PreferencesGroup::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::separate-rows".as_ptr() as *const _,
+                c"notify::separate-rows".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_separate_rows_trampoline::<Self, F> as *const (),
                 )),
@@ -490,14 +559,16 @@ pub trait PreferencesGroupExt: IsA<PreferencesGroup> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(PreferencesGroup::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(PreferencesGroup::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::title".as_ptr() as *const _,
+                c"notify::title".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_title_trampoline::<Self, F> as *const (),
                 )),

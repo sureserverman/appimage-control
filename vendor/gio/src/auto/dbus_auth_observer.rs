@@ -2,11 +2,11 @@
 // from gir-files (https://github.com/gtk-rs/gir-files)
 // DO NOT EDIT
 
-use crate::{ffi, Credentials, IOStream};
+use crate::{Credentials, IOStream, ffi};
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -63,18 +63,20 @@ impl DBusAuthObserver {
             mechanism: *mut std::ffi::c_char,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(
-                &from_glib_borrow(this),
-                &glib::GString::from_glib_borrow(mechanism),
-            )
-            .into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    &from_glib_borrow(this),
+                    &glib::GString::from_glib_borrow(mechanism),
+                )
+                .into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"allow-mechanism\0".as_ptr() as *const _,
+                c"allow-mechanism".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     allow_mechanism_trampoline::<F> as *const (),
                 )),
@@ -98,21 +100,23 @@ impl DBusAuthObserver {
             credentials: *mut ffi::GCredentials,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(
-                &from_glib_borrow(this),
-                &from_glib_borrow(stream),
-                Option::<Credentials>::from_glib_borrow(credentials)
-                    .as_ref()
-                    .as_ref(),
-            )
-            .into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    &from_glib_borrow(this),
+                    &from_glib_borrow(stream),
+                    Option::<Credentials>::from_glib_borrow(credentials)
+                        .as_ref()
+                        .as_ref(),
+                )
+                .into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"authorize-authenticated-peer\0".as_ptr() as *const _,
+                c"authorize-authenticated-peer".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     authorize_authenticated_peer_trampoline::<F> as *const (),
                 )),

@@ -216,6 +216,20 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "GtkAccessibleHyperlinkClass",
+        Layout {
+            size: size_of::<GtkAccessibleHyperlinkClass>(),
+            alignment: align_of::<GtkAccessibleHyperlinkClass>(),
+        },
+    ),
+    (
+        "GtkAccessibleHypertextInterface",
+        Layout {
+            size: size_of::<GtkAccessibleHypertextInterface>(),
+            alignment: align_of::<GtkAccessibleHypertextInterface>(),
+        },
+    ),
+    (
         "GtkAccessibleInterface",
         Layout {
             size: size_of::<GtkAccessibleInterface>(),
@@ -965,6 +979,20 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "GtkEnumListClass",
+        Layout {
+            size: size_of::<GtkEnumListClass>(),
+            alignment: align_of::<GtkEnumListClass>(),
+        },
+    ),
+    (
+        "GtkEnumListItemClass",
+        Layout {
+            size: size_of::<GtkEnumListItemClass>(),
+            alignment: align_of::<GtkEnumListItemClass>(),
+        },
+    ),
+    (
         "GtkEventControllerScrollFlags",
         Layout {
             size: size_of::<GtkEventControllerScrollFlags>(),
@@ -1259,6 +1287,13 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "GtkIconPaintableClass",
+        Layout {
+            size: size_of::<GtkIconPaintableClass>(),
+            alignment: align_of::<GtkIconPaintableClass>(),
+        },
+    ),
+    (
         "GtkIconSize",
         Layout {
             size: size_of::<GtkIconSize>(),
@@ -1312,6 +1347,20 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         Layout {
             size: size_of::<GtkInscriptionOverflow>(),
             alignment: align_of::<GtkInscriptionOverflow>(),
+        },
+    ),
+    (
+        "GtkInterfaceColorScheme",
+        Layout {
+            size: size_of::<GtkInterfaceColorScheme>(),
+            alignment: align_of::<GtkInterfaceColorScheme>(),
+        },
+    ),
+    (
+        "GtkInterfaceContrast",
+        Layout {
+            size: size_of::<GtkInterfaceContrast>(),
+            alignment: align_of::<GtkInterfaceContrast>(),
         },
     ),
     (
@@ -1679,6 +1728,13 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "GtkPopoverBinClass",
+        Layout {
+            size: size_of::<GtkPopoverBinClass>(),
+            alignment: align_of::<GtkPopoverBinClass>(),
+        },
+    ),
+    (
         "GtkPopoverClass",
         Layout {
             size: size_of::<GtkPopoverClass>(),
@@ -1840,6 +1896,13 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "GtkReducedMotion",
+        Layout {
+            size: size_of::<GtkReducedMotion>(),
+            alignment: align_of::<GtkReducedMotion>(),
+        },
+    ),
+    (
         "GtkRequestedSize",
         Layout {
             size: size_of::<GtkRequestedSize>(),
@@ -1858,6 +1921,13 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         Layout {
             size: size_of::<GtkResponseType>(),
             alignment: align_of::<GtkResponseType>(),
+        },
+    ),
+    (
+        "GtkRestoreReason",
+        Layout {
+            size: size_of::<GtkRestoreReason>(),
+            alignment: align_of::<GtkRestoreReason>(),
         },
     ),
     (
@@ -2152,6 +2222,41 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         Layout {
             size: size_of::<GtkStyleContextPrintFlags>(),
             alignment: align_of::<GtkStyleContextPrintFlags>(),
+        },
+    ),
+    (
+        "GtkSvgClass",
+        Layout {
+            size: size_of::<GtkSvgClass>(),
+            alignment: align_of::<GtkSvgClass>(),
+        },
+    ),
+    (
+        "GtkSvgError",
+        Layout {
+            size: size_of::<GtkSvgError>(),
+            alignment: align_of::<GtkSvgError>(),
+        },
+    ),
+    (
+        "GtkSvgFeatures",
+        Layout {
+            size: size_of::<GtkSvgFeatures>(),
+            alignment: align_of::<GtkSvgFeatures>(),
+        },
+    ),
+    (
+        "GtkSvgLocation",
+        Layout {
+            size: size_of::<GtkSvgLocation>(),
+            alignment: align_of::<GtkSvgLocation>(),
+        },
+    ),
+    (
+        "GtkSvgWidgetClass",
+        Layout {
+            size: size_of::<GtkSvgWidgetClass>(),
+            alignment: align_of::<GtkSvgWidgetClass>(),
         },
     ),
     (
@@ -2530,6 +2635,13 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         Layout {
             size: size_of::<GtkWindowControlsClass>(),
             alignment: align_of::<GtkWindowControlsClass>(),
+        },
+    ),
+    (
+        "GtkWindowGravity",
+        Layout {
+            size: size_of::<GtkWindowGravity>(),
+            alignment: align_of::<GtkWindowGravity>(),
         },
     ),
     (
@@ -2931,9 +3043,11 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(guint) GTK_DEBUG_MODULES", "8"),
     ("(guint) GTK_DEBUG_NO_CSS_CACHE", "512"),
     ("(guint) GTK_DEBUG_PRINTING", "64"),
+    ("(guint) GTK_DEBUG_SESSION", "4194304"),
     ("(guint) GTK_DEBUG_SIZE_REQUEST", "256"),
     ("(guint) GTK_DEBUG_SNAPSHOT", "16384"),
     ("(guint) GTK_DEBUG_TEXT", "1"),
+    ("(guint) GTK_DEBUG_TOUCHSCREEN", "2048"),
     ("(guint) GTK_DEBUG_TREE", "2"),
     ("(gint) GTK_DELETE_CHARS", "0"),
     ("(gint) GTK_DELETE_DISPLAY_LINES", "3"),
@@ -2955,7 +3069,8 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) GTK_DIR_TAB_BACKWARD", "1"),
     ("(gint) GTK_DIR_TAB_FORWARD", "0"),
     ("(gint) GTK_DIR_UP", "2"),
-    ("(gint) GTK_EDITABLE_NUM_PROPERTIES", "8"),
+    ("(gint) GTK_EDITABLE_NUM_PROPERTIES", "9"),
+    ("(gint) GTK_EDITABLE_PROP_COMPLETE_TEXT", "8"),
     ("(gint) GTK_EDITABLE_PROP_CURSOR_POSITION", "1"),
     ("(gint) GTK_EDITABLE_PROP_EDITABLE", "3"),
     ("(gint) GTK_EDITABLE_PROP_ENABLE_UNDO", "7"),
@@ -2971,6 +3086,10 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(guint) GTK_EVENT_CONTROLLER_SCROLL_HORIZONTAL", "2"),
     ("(guint) GTK_EVENT_CONTROLLER_SCROLL_KINETIC", "8"),
     ("(guint) GTK_EVENT_CONTROLLER_SCROLL_NONE", "0"),
+    (
+        "(guint) GTK_EVENT_CONTROLLER_SCROLL_PHYSICAL_DIRECTION",
+        "16",
+    ),
     ("(guint) GTK_EVENT_CONTROLLER_SCROLL_VERTICAL", "1"),
     ("(gint) GTK_EVENT_SEQUENCE_CLAIMED", "1"),
     ("(gint) GTK_EVENT_SEQUENCE_DENIED", "2"),
@@ -2983,8 +3102,11 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) GTK_FILE_CHOOSER_ERROR_INCOMPLETE_HOSTNAME", "3"),
     ("(gint) GTK_FILE_CHOOSER_ERROR_NONEXISTENT", "0"),
     ("(gint) GTK_FILTER_CHANGE_DIFFERENT", "0"),
+    ("(gint) GTK_FILTER_CHANGE_DIFFERENT_REWATCH", "3"),
     ("(gint) GTK_FILTER_CHANGE_LESS_STRICT", "1"),
+    ("(gint) GTK_FILTER_CHANGE_LESS_STRICT_REWATCH", "4"),
     ("(gint) GTK_FILTER_CHANGE_MORE_STRICT", "2"),
+    ("(gint) GTK_FILTER_CHANGE_MORE_STRICT_REWATCH", "5"),
     ("(gint) GTK_FILTER_MATCH_ALL", "2"),
     ("(gint) GTK_FILTER_MATCH_NONE", "1"),
     ("(gint) GTK_FILTER_MATCH_SOME", "0"),
@@ -3050,6 +3172,14 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) GTK_INSCRIPTION_OVERFLOW_ELLIPSIZE_END", "3"),
     ("(gint) GTK_INSCRIPTION_OVERFLOW_ELLIPSIZE_MIDDLE", "2"),
     ("(gint) GTK_INSCRIPTION_OVERFLOW_ELLIPSIZE_START", "1"),
+    ("(gint) GTK_INTERFACE_COLOR_SCHEME_DARK", "2"),
+    ("(gint) GTK_INTERFACE_COLOR_SCHEME_DEFAULT", "1"),
+    ("(gint) GTK_INTERFACE_COLOR_SCHEME_LIGHT", "3"),
+    ("(gint) GTK_INTERFACE_COLOR_SCHEME_UNSUPPORTED", "0"),
+    ("(gint) GTK_INTERFACE_CONTRAST_LESS", "3"),
+    ("(gint) GTK_INTERFACE_CONTRAST_MORE", "2"),
+    ("(gint) GTK_INTERFACE_CONTRAST_NO_PREFERENCE", "1"),
+    ("(gint) GTK_INTERFACE_CONTRAST_UNSUPPORTED", "0"),
     ("GTK_INVALID_LIST_POSITION", "4294967295"),
     ("(gint) GTK_JUSTIFY_CENTER", "2"),
     ("(gint) GTK_JUSTIFY_FILL", "3"),
@@ -3151,6 +3281,7 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) GTK_PACK_END", "1"),
     ("(gint) GTK_PACK_START", "0"),
     ("(gint) GTK_PAD_ACTION_BUTTON", "0"),
+    ("(gint) GTK_PAD_ACTION_DIAL", "3"),
     ("(gint) GTK_PAD_ACTION_RING", "1"),
     ("(gint) GTK_PAD_ACTION_STRIP", "2"),
     ("(gint) GTK_PAGE_ORIENTATION_LANDSCAPE", "1"),
@@ -3279,6 +3410,8 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) GTK_RECENT_MANAGER_ERROR_READ", "4"),
     ("(gint) GTK_RECENT_MANAGER_ERROR_UNKNOWN", "6"),
     ("(gint) GTK_RECENT_MANAGER_ERROR_WRITE", "5"),
+    ("(gint) GTK_REDUCED_MOTION_NO_PREFERENCE", "0"),
+    ("(gint) GTK_REDUCED_MOTION_REDUCE", "1"),
     ("(gint) GTK_RESPONSE_ACCEPT", "-3"),
     ("(gint) GTK_RESPONSE_APPLY", "-10"),
     ("(gint) GTK_RESPONSE_CANCEL", "-6"),
@@ -3290,7 +3423,15 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) GTK_RESPONSE_OK", "-5"),
     ("(gint) GTK_RESPONSE_REJECT", "-2"),
     ("(gint) GTK_RESPONSE_YES", "-8"),
+    ("(gint) GTK_RESTORE_REASON_LAUNCH", "1"),
+    ("(gint) GTK_RESTORE_REASON_PRISTINE", "0"),
+    ("(gint) GTK_RESTORE_REASON_RECOVER", "2"),
+    ("(gint) GTK_RESTORE_REASON_RESTORE", "3"),
     ("(gint) GTK_REVEALER_TRANSITION_TYPE_CROSSFADE", "1"),
+    ("(gint) GTK_REVEALER_TRANSITION_TYPE_FADE_SLIDE_DOWN", "13"),
+    ("(gint) GTK_REVEALER_TRANSITION_TYPE_FADE_SLIDE_LEFT", "11"),
+    ("(gint) GTK_REVEALER_TRANSITION_TYPE_FADE_SLIDE_RIGHT", "10"),
+    ("(gint) GTK_REVEALER_TRANSITION_TYPE_FADE_SLIDE_UP", "12"),
     ("(gint) GTK_REVEALER_TRANSITION_TYPE_NONE", "0"),
     ("(gint) GTK_REVEALER_TRANSITION_TYPE_SLIDE_DOWN", "5"),
     ("(gint) GTK_REVEALER_TRANSITION_TYPE_SLIDE_LEFT", "3"),
@@ -3419,6 +3560,24 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("GTK_STYLE_PROVIDER_PRIORITY_SETTINGS", "400"),
     ("GTK_STYLE_PROVIDER_PRIORITY_THEME", "200"),
     ("GTK_STYLE_PROVIDER_PRIORITY_USER", "800"),
+    ("(guint) GTK_SVG_ANIMATIONS", "1"),
+    ("GTK_SVG_DEFAULT_FEATURES", "15"),
+    ("(gint) GTK_SVG_ERROR_FAILED_RENDERING", "6"),
+    ("(gint) GTK_SVG_ERROR_FAILED_UPDATE", "5"),
+    ("(gint) GTK_SVG_ERROR_FEATURE_DISABLED", "10"),
+    ("(gint) GTK_SVG_ERROR_IGNORED_ELEMENT", "7"),
+    ("(gint) GTK_SVG_ERROR_INVALID_ATTRIBUTE", "2"),
+    ("(gint) GTK_SVG_ERROR_INVALID_ELEMENT", "1"),
+    ("(gint) GTK_SVG_ERROR_INVALID_REFERENCE", "4"),
+    ("(gint) GTK_SVG_ERROR_INVALID_SYNTAX", "0"),
+    ("(gint) GTK_SVG_ERROR_LIMITS_EXCEEDED", "8"),
+    ("(gint) GTK_SVG_ERROR_MISSING_ATTRIBUTE", "3"),
+    ("(gint) GTK_SVG_ERROR_NOT_IMPLEMENTED", "9"),
+    ("(guint) GTK_SVG_EXTENSIONS", "8"),
+    ("(guint) GTK_SVG_EXTERNAL_RESOURCES", "4"),
+    ("(guint) GTK_SVG_SYSTEM_RESOURCES", "2"),
+    ("(guint) GTK_SVG_TRADITIONAL_SYMBOLIC", "16"),
+    ("(gint) GTK_SYMBOLIC_COLOR_ACCENT", "4"),
     ("(gint) GTK_SYMBOLIC_COLOR_ERROR", "1"),
     ("(gint) GTK_SYMBOLIC_COLOR_FOREGROUND", "0"),
     ("(gint) GTK_SYMBOLIC_COLOR_SUCCESS", "3"),
@@ -3470,6 +3629,21 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) GTK_UNIT_POINTS", "1"),
     ("(gint) GTK_UPDATE_ALWAYS", "0"),
     ("(gint) GTK_UPDATE_IF_VALID", "1"),
+    ("(gint) GTK_WINDOW_GRAVITY_BOTTOM", "7"),
+    ("(gint) GTK_WINDOW_GRAVITY_BOTTOM_END", "14"),
+    ("(gint) GTK_WINDOW_GRAVITY_BOTTOM_LEFT", "6"),
+    ("(gint) GTK_WINDOW_GRAVITY_BOTTOM_RIGHT", "8"),
+    ("(gint) GTK_WINDOW_GRAVITY_BOTTOM_START", "13"),
+    ("(gint) GTK_WINDOW_GRAVITY_CENTER", "4"),
+    ("(gint) GTK_WINDOW_GRAVITY_END", "12"),
+    ("(gint) GTK_WINDOW_GRAVITY_LEFT", "3"),
+    ("(gint) GTK_WINDOW_GRAVITY_RIGHT", "5"),
+    ("(gint) GTK_WINDOW_GRAVITY_START", "11"),
+    ("(gint) GTK_WINDOW_GRAVITY_TOP", "1"),
+    ("(gint) GTK_WINDOW_GRAVITY_TOP_END", "10"),
+    ("(gint) GTK_WINDOW_GRAVITY_TOP_LEFT", "0"),
+    ("(gint) GTK_WINDOW_GRAVITY_TOP_RIGHT", "2"),
+    ("(gint) GTK_WINDOW_GRAVITY_TOP_START", "9"),
     ("(gint) GTK_WRAP_CHAR", "1"),
     ("(gint) GTK_WRAP_NONE", "0"),
     ("(gint) GTK_WRAP_WORD", "2"),

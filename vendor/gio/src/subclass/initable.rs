@@ -2,22 +2,17 @@
 
 use std::ptr;
 
-use glib::{prelude::*, subclass::prelude::*, translate::*, Error};
+use glib::{Error, prelude::*, subclass::prelude::*, translate::*};
 
-use crate::{ffi, Cancellable, Initable};
+use crate::{Cancellable, Initable, ffi};
 
-pub trait InitableImpl: ObjectImpl {
+pub trait InitableImpl: ObjectImpl + ObjectSubclass<Type: IsA<Initable>> {
     fn init(&self, cancellable: Option<&Cancellable>) -> Result<(), Error> {
         self.parent_init(cancellable)
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::InitableImplExt> Sealed for T {}
-}
-
-pub trait InitableImplExt: sealed::Sealed + ObjectSubclass {
+pub trait InitableImplExt: InitableImpl {
     fn parent_init(&self, cancellable: Option<&Cancellable>) -> Result<(), Error> {
         unsafe {
             let type_data = Self::type_data();
@@ -58,20 +53,22 @@ unsafe extern "C" fn initable_init<T: InitableImpl>(
     cancellable: *mut ffi::GCancellable,
     error: *mut *mut glib::ffi::GError,
 ) -> glib::ffi::gboolean {
-    let instance = &*(initable as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(initable as *mut T::Instance);
+        let imp = instance.imp();
 
-    match imp.init(
-        Option::<Cancellable>::from_glib_borrow(cancellable)
-            .as_ref()
-            .as_ref(),
-    ) {
-        Ok(()) => glib::ffi::GTRUE,
-        Err(e) => {
-            if !error.is_null() {
-                *error = e.into_glib_ptr();
+        match imp.init(
+            Option::<Cancellable>::from_glib_borrow(cancellable)
+                .as_ref()
+                .as_ref(),
+        ) {
+            Ok(()) => glib::ffi::GTRUE,
+            Err(e) => {
+                if !error.is_null() {
+                    *error = e.into_glib_ptr();
+                }
+                glib::ffi::GFALSE
             }
-            glib::ffi::GFALSE
         }
     }
 }
@@ -79,7 +76,7 @@ unsafe extern "C" fn initable_init<T: InitableImpl>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{prelude::*, Cancellable, Initable};
+    use crate::{Cancellable, Initable, prelude::*};
 
     pub mod imp {
         use std::cell::Cell;
@@ -114,8 +111,10 @@ mod tests {
         pub type InitableTestType = <imp::InitableTestType as ObjectSubclass>::Instance;
 
         pub unsafe extern "C" fn initable_test_type_get_value(this: *mut InitableTestType) -> u64 {
-            let this = super::InitableTestType::from_glib_borrow(this);
-            this.imp().0.get()
+            unsafe {
+                let this = super::InitableTestType::from_glib_borrow(this);
+                this.imp().0.get()
+            }
         }
     }
 
@@ -132,12 +131,14 @@ mod tests {
         }
 
         pub unsafe fn new_uninit() -> Self {
-            // This creates an uninitialized InitableTestType object, for testing
-            // purposes. In real code, using Initable::new (like the new() method
-            // does) is recommended.
-            glib::Object::new_internal(Self::static_type(), &mut [])
-                .downcast()
-                .unwrap()
+            unsafe {
+                // This creates an uninitialized InitableTestType object, for testing
+                // purposes. In real code, using Initable::new (like the new() method
+                // does) is recommended.
+                glib::Object::new_internal(Self::static_type(), &mut [])
+                    .downcast()
+                    .unwrap()
+            }
         }
 
         pub fn value(&self) -> u64 {

@@ -3,17 +3,19 @@
 // DO NOT EDIT
 #![allow(deprecated)]
 
+#[cfg(target_os = "linux")]
+#[cfg_attr(docsrs, doc(cfg(target_os = "linux")))]
 #[cfg(feature = "v4_14")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v4_14")))]
 use crate::DmabufFormats;
 #[cfg(feature = "v4_6")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v4_6")))]
 use crate::GLContext;
-use crate::{ffi, AppLaunchContext, Clipboard, Device, Event, Monitor, Seat, Surface};
+use crate::{AppLaunchContext, Clipboard, Device, Event, Monitor, Seat, Surface, ffi};
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -52,12 +54,7 @@ impl std::fmt::Display for Display {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::Display>> Sealed for T {}
-}
-
-pub trait DisplayExt: IsA<Display> + sealed::Sealed + 'static {
+pub trait DisplayExt: IsA<Display> + 'static {
     #[doc(alias = "gdk_display_beep")]
     fn beep(&self) {
         unsafe {
@@ -135,6 +132,8 @@ pub trait DisplayExt: IsA<Display> + sealed::Sealed + 'static {
         }
     }
 
+    #[cfg(target_os = "linux")]
+    #[cfg_attr(docsrs, doc(cfg(target_os = "linux")))]
     #[cfg(feature = "v4_14")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v4_14")))]
     #[doc(alias = "gdk_display_get_dmabuf_formats")]
@@ -303,17 +302,19 @@ pub trait DisplayExt: IsA<Display> + sealed::Sealed + 'static {
             is_error: glib::ffi::gboolean,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                Display::from_glib_borrow(this).unsafe_cast_ref(),
-                from_glib(is_error),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    Display::from_glib_borrow(this).unsafe_cast_ref(),
+                    from_glib(is_error),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"closed\0".as_ptr() as *const _,
+                c"closed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     closed_trampoline::<Self, F> as *const (),
                 )),
@@ -328,14 +329,16 @@ pub trait DisplayExt: IsA<Display> + sealed::Sealed + 'static {
             this: *mut ffi::GdkDisplay,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Display::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Display::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"opened\0".as_ptr() as *const _,
+                c"opened".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     opened_trampoline::<Self, F> as *const (),
                 )),
@@ -351,17 +354,19 @@ pub trait DisplayExt: IsA<Display> + sealed::Sealed + 'static {
             seat: *mut ffi::GdkSeat,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                Display::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(seat),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    Display::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(seat),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"seat-added\0".as_ptr() as *const _,
+                c"seat-added".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     seat_added_trampoline::<Self, F> as *const (),
                 )),
@@ -380,17 +385,19 @@ pub trait DisplayExt: IsA<Display> + sealed::Sealed + 'static {
             seat: *mut ffi::GdkSeat,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                Display::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(seat),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    Display::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(seat),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"seat-removed\0".as_ptr() as *const _,
+                c"seat-removed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     seat_removed_trampoline::<Self, F> as *const (),
                 )),
@@ -409,17 +416,19 @@ pub trait DisplayExt: IsA<Display> + sealed::Sealed + 'static {
             setting: *mut std::ffi::c_char,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                Display::from_glib_borrow(this).unsafe_cast_ref(),
-                &glib::GString::from_glib_borrow(setting),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    Display::from_glib_borrow(this).unsafe_cast_ref(),
+                    &glib::GString::from_glib_borrow(setting),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"setting-changed\0".as_ptr() as *const _,
+                c"setting-changed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     setting_changed_trampoline::<Self, F> as *const (),
                 )),
@@ -435,14 +444,16 @@ pub trait DisplayExt: IsA<Display> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Display::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Display::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::composited\0".as_ptr() as *const _,
+                c"notify::composited".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_composited_trampoline::<Self, F> as *const (),
                 )),
@@ -463,14 +474,16 @@ pub trait DisplayExt: IsA<Display> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Display::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Display::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::dmabuf-formats\0".as_ptr() as *const _,
+                c"notify::dmabuf-formats".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_dmabuf_formats_trampoline::<Self, F> as *const (),
                 )),
@@ -489,14 +502,16 @@ pub trait DisplayExt: IsA<Display> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Display::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Display::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::input-shapes\0".as_ptr() as *const _,
+                c"notify::input-shapes".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_input_shapes_trampoline::<Self, F> as *const (),
                 )),
@@ -512,14 +527,16 @@ pub trait DisplayExt: IsA<Display> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Display::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Display::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::rgba\0".as_ptr() as *const _,
+                c"notify::rgba".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_rgba_trampoline::<Self, F> as *const (),
                 )),
@@ -540,14 +557,16 @@ pub trait DisplayExt: IsA<Display> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Display::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Display::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::shadow-width\0".as_ptr() as *const _,
+                c"notify::shadow-width".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_shadow_width_trampoline::<Self, F> as *const (),
                 )),

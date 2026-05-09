@@ -5,9 +5,9 @@
 
 use glib::{prelude::*, subclass::prelude::*, translate::*};
 
-use crate::{ffi, PixbufLoader};
+use crate::{PixbufLoader, ffi};
 
-pub trait PixbufLoaderImpl: ObjectImpl {
+pub trait PixbufLoaderImpl: ObjectImpl + ObjectSubclass<Type: IsA<PixbufLoader>> {
     fn size_prepared(&self, width: i32, height: i32) {
         self.parent_size_prepared(width, height)
     }
@@ -25,12 +25,7 @@ pub trait PixbufLoaderImpl: ObjectImpl {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::PixbufLoaderImplExt> Sealed for T {}
-}
-
-pub trait PixbufLoaderImplExt: sealed::Sealed + ObjectSubclass {
+pub trait PixbufLoaderImplExt: PixbufLoaderImpl {
     fn parent_size_prepared(&self, width: i32, height: i32) {
         unsafe {
             let data = Self::type_data();
@@ -115,17 +110,21 @@ unsafe extern "C" fn loader_size_prepared<T: PixbufLoaderImpl>(
     width: i32,
     height: i32,
 ) {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.size_prepared(width, height)
+        imp.size_prepared(width, height)
+    }
 }
 
 unsafe extern "C" fn loader_area_prepared<T: PixbufLoaderImpl>(ptr: *mut ffi::GdkPixbufLoader) {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.area_prepared();
+        imp.area_prepared();
+    }
 }
 
 unsafe extern "C" fn loader_area_updated<T: PixbufLoaderImpl>(
@@ -135,15 +134,19 @@ unsafe extern "C" fn loader_area_updated<T: PixbufLoaderImpl>(
     width: i32,
     height: i32,
 ) {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.area_updated(x, y, width, height)
+        imp.area_updated(x, y, width, height)
+    }
 }
 
 unsafe extern "C" fn loader_closed<T: PixbufLoaderImpl>(ptr: *mut ffi::GdkPixbufLoader) {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.closed()
+        imp.closed()
+    }
 }

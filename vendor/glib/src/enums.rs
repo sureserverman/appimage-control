@@ -3,8 +3,8 @@
 use std::{cmp, ffi::CStr, fmt, ops::Deref, ptr};
 
 use crate::{
-    ffi, gobject_ffi, prelude::*, translate::*, ParamSpecEnum, ParamSpecFlags, Type, TypeInfo,
-    Value,
+    ParamSpecEnum, ParamSpecFlags, Type, TypeInfo, Value, ffi, gobject_ffi, prelude::*,
+    translate::*,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
@@ -279,14 +279,14 @@ impl EnumValue {
     // rustdoc-stripper-ignore-next
     /// Get name corresponding to the value.
     #[doc(alias = "get_name")]
-    pub fn name(&self) -> &str {
+    pub fn name<'a>(&self) -> &'a str {
         unsafe { CStr::from_ptr(self.0.value_name).to_str().unwrap() }
     }
 
     // rustdoc-stripper-ignore-next
     /// Get nick corresponding to the value.
     #[doc(alias = "get_nick")]
-    pub fn nick(&self) -> &str {
+    pub fn nick<'a>(&self) -> &'a str {
         unsafe { CStr::from_ptr(self.0.value_nick).to_str().unwrap() }
     }
 
@@ -334,7 +334,7 @@ impl Ord for EnumValue {
 
 impl UnsafeFrom<gobject_ffi::GEnumValue> for EnumValue {
     unsafe fn unsafe_from(g_value: gobject_ffi::GEnumValue) -> Self {
-        Self::unsafe_from(g_value)
+        unsafe { Self::unsafe_from(g_value) }
     }
 }
 
@@ -342,9 +342,11 @@ unsafe impl<'a> crate::value::FromValue<'a> for &EnumValue {
     type Checker = EnumTypeChecker;
 
     unsafe fn from_value(value: &'a Value) -> Self {
-        let (_, v) = EnumValue::from_value(value).unwrap();
-        // SAFETY: The enum class and its values live forever
-        std::mem::transmute(v)
+        unsafe {
+            let (_, v) = EnumValue::from_value(value).unwrap();
+            // SAFETY: The enum class and its values live forever
+            std::mem::transmute(v)
+        }
     }
 }
 
@@ -872,14 +874,14 @@ impl FlagsValue {
     // rustdoc-stripper-ignore-next
     /// Get name corresponding to the value.
     #[doc(alias = "get_name")]
-    pub fn name(&self) -> &str {
+    pub fn name<'a>(&self) -> &'a str {
         unsafe { CStr::from_ptr(self.0.value_name).to_str().unwrap() }
     }
 
     // rustdoc-stripper-ignore-next
     /// Get nick corresponding to the value.
     #[doc(alias = "get_nick")]
-    pub fn nick(&self) -> &str {
+    pub fn nick<'a>(&self) -> &'a str {
         unsafe { CStr::from_ptr(self.0.value_nick).to_str().unwrap() }
     }
 
@@ -920,7 +922,7 @@ impl Eq for FlagsValue {}
 
 impl UnsafeFrom<gobject_ffi::GFlagsValue> for FlagsValue {
     unsafe fn unsafe_from(g_value: gobject_ffi::GFlagsValue) -> Self {
-        Self::unsafe_from(g_value)
+        unsafe { Self::unsafe_from(g_value) }
     }
 }
 
@@ -1047,9 +1049,11 @@ unsafe impl<'a> crate::value::FromValue<'a> for Vec<&FlagsValue> {
     type Checker = FlagsTypeChecker;
 
     unsafe fn from_value(value: &'a Value) -> Self {
-        let (_, v) = FlagsValue::from_value(value).unwrap();
-        // SAFETY: The enum class and its values live forever
-        std::mem::transmute(v)
+        unsafe {
+            let (_, v) = FlagsValue::from_value(value).unwrap();
+            // SAFETY: The enum class and its values live forever
+            std::mem::transmute(v)
+        }
     }
 }
 

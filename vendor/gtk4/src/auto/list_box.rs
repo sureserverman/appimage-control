@@ -6,13 +6,13 @@
 #[cfg_attr(docsrs, doc(cfg(feature = "v4_18")))]
 use crate::ListTabBehavior;
 use crate::{
-    ffi, Accessible, AccessibleRole, Adjustment, Align, Buildable, ConstraintTarget, LayoutManager,
-    ListBoxRow, MovementStep, Overflow, SelectionMode, Widget,
+    Accessible, AccessibleRole, Adjustment, Align, Buildable, ConstraintTarget, LayoutManager,
+    ListBoxRow, MovementStep, Overflow, SelectionMode, Widget, ffi,
 };
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -59,15 +59,19 @@ impl ListBox {
             item: *mut glib::gobject_ffi::GObject,
             user_data: glib::ffi::gpointer,
         ) -> *mut ffi::GtkWidget {
-            let item = from_glib_borrow(item);
-            let callback = &*(user_data as *mut P);
-            (*callback)(&item).to_glib_full()
+            unsafe {
+                let item = from_glib_borrow(item);
+                let callback = &*(user_data as *mut P);
+                (*callback)(&item).to_glib_full()
+            }
         }
         let create_widget_func = Some(create_widget_func_func::<P> as _);
         unsafe extern "C" fn user_data_free_func_func<P: Fn(&glib::Object) -> Widget + 'static>(
             data: glib::ffi::gpointer,
         ) {
-            let _callback = Box_::from_raw(data as *mut P);
+            unsafe {
+                let _callback = Box_::from_raw(data as *mut P);
+            }
         }
         let destroy_call4 = Some(user_data_free_func_func::<P> as _);
         let super_callback0: Box_<P> = create_widget_func_data;
@@ -252,10 +256,12 @@ impl ListBox {
             row: *mut ffi::GtkListBoxRow,
             user_data: glib::ffi::gpointer,
         ) {
-            let box_ = from_glib_borrow(box_);
-            let row = from_glib_borrow(row);
-            let callback = user_data as *mut P;
-            (*callback)(&box_, &row)
+            unsafe {
+                let box_ = from_glib_borrow(box_);
+                let row = from_glib_borrow(row);
+                let callback = user_data as *mut P;
+                (*callback)(&box_, &row)
+            }
         }
         let func = Some(func_func::<P> as _);
         let super_callback0: &mut P = &mut func_data;
@@ -296,15 +302,19 @@ impl ListBox {
             row: *mut ffi::GtkListBoxRow,
             user_data: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let row = from_glib_borrow(row);
-            let callback = &*(user_data as *mut P);
-            (*callback)(&row).into_glib()
+            unsafe {
+                let row = from_glib_borrow(row);
+                let callback = &*(user_data as *mut P);
+                (*callback)(&row).into_glib()
+            }
         }
         let filter_func = Some(filter_func_func::<P> as _);
         unsafe extern "C" fn destroy_func<P: Fn(&ListBoxRow) -> bool + 'static>(
             data: glib::ffi::gpointer,
         ) {
-            let _callback = Box_::from_raw(data as *mut P);
+            unsafe {
+                let _callback = Box_::from_raw(data as *mut P);
+            }
         }
         let destroy_call3 = Some(destroy_func::<P> as _);
         let super_callback0: Box_<P> = filter_func_data;
@@ -331,16 +341,20 @@ impl ListBox {
             before: *mut ffi::GtkListBoxRow,
             user_data: glib::ffi::gpointer,
         ) {
-            let row = from_glib_borrow(row);
-            let before: Borrowed<Option<ListBoxRow>> = from_glib_borrow(before);
-            let callback = &*(user_data as *mut P);
-            (*callback)(&row, before.as_ref().as_ref())
+            unsafe {
+                let row = from_glib_borrow(row);
+                let before: Borrowed<Option<ListBoxRow>> = from_glib_borrow(before);
+                let callback = &*(user_data as *mut P);
+                (*callback)(&row, before.as_ref().as_ref())
+            }
         }
         let update_header = Some(update_header_func::<P> as _);
         unsafe extern "C" fn destroy_func<P: Fn(&ListBoxRow, Option<&ListBoxRow>) + 'static>(
             data: glib::ffi::gpointer,
         ) {
-            let _callback = Box_::from_raw(data as *mut P);
+            unsafe {
+                let _callback = Box_::from_raw(data as *mut P);
+            }
         }
         let destroy_call3 = Some(destroy_func::<P> as _);
         let super_callback0: Box_<P> = update_header_data;
@@ -423,14 +437,16 @@ impl ListBox {
             this: *mut ffi::GtkListBox,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"activate-cursor-row\0".as_ptr() as *const _,
+                c"activate-cursor-row".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     activate_cursor_row_trampoline::<F> as *const (),
                 )),
@@ -458,20 +474,22 @@ impl ListBox {
             modify: glib::ffi::gboolean,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                &from_glib_borrow(this),
-                from_glib(step),
-                count,
-                from_glib(extend),
-                from_glib(modify),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    &from_glib_borrow(this),
+                    from_glib(step),
+                    count,
+                    from_glib(extend),
+                    from_glib(modify),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"move-cursor\0".as_ptr() as *const _,
+                c"move-cursor".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     move_cursor_trampoline::<F> as *const (),
                 )),
@@ -494,14 +512,16 @@ impl ListBox {
             row: *mut ffi::GtkListBoxRow,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this), &from_glib_borrow(row))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this), &from_glib_borrow(row))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"row-activated\0".as_ptr() as *const _,
+                c"row-activated".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     row_activated_trampoline::<F> as *const (),
                 )),
@@ -522,19 +542,21 @@ impl ListBox {
             row: *mut ffi::GtkListBoxRow,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                &from_glib_borrow(this),
-                Option::<ListBoxRow>::from_glib_borrow(row)
-                    .as_ref()
-                    .as_ref(),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    &from_glib_borrow(this),
+                    Option::<ListBoxRow>::from_glib_borrow(row)
+                        .as_ref()
+                        .as_ref(),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"row-selected\0".as_ptr() as *const _,
+                c"row-selected".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     row_selected_trampoline::<F> as *const (),
                 )),
@@ -549,14 +571,16 @@ impl ListBox {
             this: *mut ffi::GtkListBox,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"select-all\0".as_ptr() as *const _,
+                c"select-all".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     select_all_trampoline::<F> as *const (),
                 )),
@@ -575,14 +599,16 @@ impl ListBox {
             this: *mut ffi::GtkListBox,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"selected-rows-changed\0".as_ptr() as *const _,
+                c"selected-rows-changed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     selected_rows_changed_trampoline::<F> as *const (),
                 )),
@@ -597,14 +623,16 @@ impl ListBox {
             this: *mut ffi::GtkListBox,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"toggle-cursor-row\0".as_ptr() as *const _,
+                c"toggle-cursor-row".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     toggle_cursor_row_trampoline::<F> as *const (),
                 )),
@@ -623,14 +651,16 @@ impl ListBox {
             this: *mut ffi::GtkListBox,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"unselect-all\0".as_ptr() as *const _,
+                c"unselect-all".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     unselect_all_trampoline::<F> as *const (),
                 )),
@@ -655,14 +685,16 @@ impl ListBox {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::accept-unpaired-release\0".as_ptr() as *const _,
+                c"notify::accept-unpaired-release".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_accept_unpaired_release_trampoline::<F> as *const (),
                 )),
@@ -683,14 +715,16 @@ impl ListBox {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::activate-on-single-click\0".as_ptr() as *const _,
+                c"notify::activate-on-single-click".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_activate_on_single_click_trampoline::<F> as *const (),
                 )),
@@ -706,14 +740,16 @@ impl ListBox {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::selection-mode\0".as_ptr() as *const _,
+                c"notify::selection-mode".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_selection_mode_trampoline::<F> as *const (),
                 )),
@@ -729,14 +765,16 @@ impl ListBox {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::show-separators\0".as_ptr() as *const _,
+                c"notify::show-separators".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_show_separators_trampoline::<F> as *const (),
                 )),
@@ -754,14 +792,16 @@ impl ListBox {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::tab-behavior\0".as_ptr() as *const _,
+                c"notify::tab-behavior".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_tab_behavior_trampoline::<F> as *const (),
                 )),

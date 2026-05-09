@@ -2,7 +2,7 @@
 // from gir-files (https://github.com/gtk-rs/gir-files)
 // DO NOT EDIT
 
-use crate::{ffi, TlsDatabase};
+use crate::{TlsDatabase, ffi};
 use glib::{prelude::*, translate::*};
 
 glib::wrapper! {
@@ -25,12 +25,7 @@ impl TlsBackend {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::TlsBackend>> Sealed for T {}
-}
-
-pub trait TlsBackendExt: IsA<TlsBackend> + sealed::Sealed + 'static {
+pub trait TlsBackendExt: IsA<TlsBackend> + 'static {
     #[doc(alias = "g_tls_backend_get_certificate_type")]
     #[doc(alias = "get_certificate_type")]
     fn certificate_type(&self) -> glib::types::Type {

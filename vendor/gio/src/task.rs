@@ -4,13 +4,13 @@ use std::{boxed::Box as Box_, future::Future, mem::transmute, panic, ptr};
 
 use glib::{
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 
 use futures_channel::oneshot;
 
-use crate::{ffi, AsyncResult, Cancellable};
+use crate::{AsyncResult, Cancellable, ffi};
 
 glib::wrapper! {
     // rustdoc-stripper-ignore-next
@@ -82,7 +82,7 @@ macro_rules! task_impl {
                     source_object: *mut glib::gobject_ffi::GObject,
                     res: *mut ffi::GAsyncResult,
                     user_data: glib::ffi::gpointer,
-                ) {
+                ) { unsafe {
                     let callback: Box_<Q> = Box::from_raw(user_data as *mut _);
                     let task = AsyncResult::from_glib_none(res)
                         .downcast::<$name<V>>()
@@ -92,7 +92,7 @@ macro_rules! task_impl {
                         task,
                         source_object.as_ref().as_ref().map(|s| s.unsafe_cast_ref()),
                     );
-                }
+                }}
                 let callback = trampoline::<S, V, Q>;
                 unsafe {
                     from_glib_full(ffi::g_task_new(
@@ -211,10 +211,10 @@ macro_rules! task_impl {
                 ) where
                     V: ValueType $(+ $bound)?,
                     F: Fn(&$name<V>) + 'static,
-                {
+                { unsafe {
                     let f: &F = &*(f as *const F);
                     f(&from_glib_borrow(this))
-                }
+                }}
                 unsafe {
                     let f: Box_<F> = Box_::new(f);
                     connect_raw(
@@ -237,17 +237,22 @@ macro_rules! task_impl {
                 unsafe { from_glib(ffi::g_task_return_error_if_cancelled(self.to_glib_none().0)) }
             }
 
+            // rustdoc-stripper-ignore-next
+            /// Set the result of the task
+            ///
+            /// # Safety
+            ///
+            /// The value must be read with [`Task::propagate`],
+            /// `g_task_propagate_value` or `g_task_propagate_pointer`.
             #[doc(alias = "g_task_return_value")]
-            #[doc(alias = "g_task_return_boolean")]
-            #[doc(alias = "g_task_return_int")]
             #[doc(alias = "g_task_return_pointer")]
             #[doc(alias = "g_task_return_error")]
             #[allow(unused_unsafe)]
             pub $($safety)? fn return_result(self, result: Result<V, glib::Error>) {
                 #[cfg(not(feature = "v2_64"))]
-                unsafe extern "C" fn value_free(value: *mut libc::c_void) {
+                unsafe extern "C" fn value_free(value: *mut libc::c_void) { unsafe {
                     let _: glib::Value = from_glib_full(value as *mut glib::gobject_ffi::GValue);
-                }
+                }}
 
                 match result {
                     #[cfg(feature = "v2_64")]
@@ -272,12 +277,51 @@ macro_rules! task_impl {
                 }
             }
 
+            // rustdoc-stripper-ignore-next
+            /// Set the result of the task as a boolean
+            ///
+            /// # Safety
+            ///
+            /// The value must be read with [`Task::propagate_boolean`],
+            /// or `g_task_propagate_boolean`.
+            #[doc(alias = "g_task_return_boolean")]
+            #[allow(unused_unsafe)]
+            pub $($safety)? fn return_boolean_result(self, result: Result<bool, glib::Error>) {
+                match result {
+                    Ok(v) =>  unsafe { ffi::g_task_return_boolean(self.to_glib_none().0, v as i32) },
+                    Err(e) => unsafe { ffi::g_task_return_error(self.to_glib_none().0, e.into_glib_ptr()) },
+                }
+            }
+
+            // rustdoc-stripper-ignore-next
+            /// Set the result of the task as an int
+            ///
+            /// # Safety
+            ///
+            /// The value must be read with [`Task::propagate_int`],
+            /// or `g_task_propagate_int`.
+            #[doc(alias = "g_task_return_int")]
+            #[allow(unused_unsafe)]
+            pub $($safety)? fn return_int_result(self, result: Result<isize, glib::Error>) {
+                match result {
+                    Ok(v) =>  unsafe { ffi::g_task_return_int(self.to_glib_none().0, v) },
+                    Err(e) => unsafe { ffi::g_task_return_error(self.to_glib_none().0, e.into_glib_ptr()) },
+                }
+            }
+
+
+            // rustdoc-stripper-ignore-next
+            /// Gets the result of the task and transfers ownership of it
+            ///
+            /// # Safety
+            ///
+            /// This must only be called once, and only if the result was set
+            /// via [`Task::return_result`], `g_task_return_value` or
+            /// `g_task_return_pointer`.
             #[doc(alias = "g_task_propagate_value")]
-            #[doc(alias = "g_task_propagate_boolean")]
-            #[doc(alias = "g_task_propagate_int")]
             #[doc(alias = "g_task_propagate_pointer")]
             #[allow(unused_unsafe)]
-            pub $($safety)? fn propagate(self) -> Result<V, glib::Error> {
+            pub unsafe fn propagate(self) -> Result<V, glib::Error> {
                 let mut error = ptr::null_mut();
 
                 unsafe {
@@ -310,6 +354,52 @@ macro_rules! task_impl {
                         } else {
                             Err(from_glib_full(error))
                         }
+                    }
+                }
+            }
+
+            // rustdoc-stripper-ignore-next
+            /// Gets the result of the task as a boolean, or the error
+            ///
+            /// # Safety
+            ///
+            /// This must only be called once, and only if the result was set
+            /// via [`Task::return_boolean_result`], or `g_task_return_boolean`.
+            #[doc(alias = "g_task_propagate_boolean")]
+            #[allow(unused_unsafe)]
+            pub unsafe fn propagate_boolean(self) -> Result<bool, glib::Error> {
+                let mut error = ptr::null_mut();
+
+                unsafe {
+                    let res = ffi::g_task_propagate_boolean(self.to_glib_none().0, &mut error);
+
+                    if error.is_null() {
+                        Ok(res != 0)
+                    } else {
+                        Err(from_glib_full(error))
+                    }
+                }
+            }
+
+            // rustdoc-stripper-ignore-next
+            /// Gets the result of the task as an int, or the error
+            ///
+            /// # Safety
+            ///
+            /// This must only be called once, and only if the result was set
+            /// via [`Task::return_int_result`], or `g_task_return_int`.
+            #[doc(alias = "g_task_propagate_int")]
+            #[allow(unused_unsafe)]
+            pub unsafe fn propagate_int(self) -> Result<isize, glib::Error> {
+                let mut error = ptr::null_mut();
+
+                unsafe {
+                    let res = ffi::g_task_propagate_int(self.to_glib_none().0, &mut error);
+
+                    if error.is_null() {
+                        Ok(res)
+                    } else {
+                        Err(from_glib_full(error))
                     }
                 }
             }
@@ -355,15 +445,17 @@ impl<V: ValueType + Send> Task<V> {
             S: IsA<glib::Object> + Send,
             Q: FnOnce(Task<V>, Option<&S>, Option<&Cancellable>) + Send + 'static,
         {
-            let task = Task::from_glib_none(task);
-            let source_object = Option::<glib::Object>::from_glib_borrow(source_object);
-            let cancellable = Option::<Cancellable>::from_glib_borrow(cancellable);
-            let task_func: Box_<Q> = Box::from_raw(user_data as *mut _);
-            task_func(
-                task,
-                source_object.as_ref().as_ref().map(|s| s.unsafe_cast_ref()),
-                cancellable.as_ref().as_ref(),
-            );
+            unsafe {
+                let task = Task::from_glib_none(task);
+                let source_object = Option::<glib::Object>::from_glib_borrow(source_object);
+                let cancellable = Option::<Cancellable>::from_glib_borrow(cancellable);
+                let task_func: Box_<Q> = Box::from_raw(user_data as *mut _);
+                task_func(
+                    task,
+                    source_object.as_ref().as_ref().map(|s| s.unsafe_cast_ref()),
+                    cancellable.as_ref().as_ref(),
+                );
+            }
         }
 
         let task_func = trampoline::<V, S, Q>;
@@ -447,7 +539,7 @@ mod test {
     use crate::{prelude::*, test_util::run_async_local};
 
     #[test]
-    fn test_int_async_result() {
+    fn test_int_value_async_result() {
         let fut = run_async_local(|tx, l| {
             let cancellable = crate::Cancellable::new();
             let task = unsafe {
@@ -461,6 +553,52 @@ mod test {
                 )
             };
             task.return_result(Ok(100_i32));
+        });
+
+        match fut {
+            Err(_) => panic!(),
+            Ok(i) => assert_eq!(i, 100),
+        }
+    }
+
+    #[test]
+    fn test_boolean_async_result() {
+        let fut = run_async_local(|tx, l| {
+            let cancellable = crate::Cancellable::new();
+            let task = unsafe {
+                crate::LocalTask::new(
+                    None,
+                    Some(&cancellable),
+                    move |t: LocalTask<bool>, _b: Option<&glib::Object>| {
+                        tx.send(t.propagate_boolean()).unwrap();
+                        l.quit();
+                    },
+                )
+            };
+            task.return_boolean_result(Ok(true));
+        });
+
+        match fut {
+            Err(_) => panic!(),
+            Ok(i) => assert!(i),
+        }
+    }
+
+    #[test]
+    fn test_int_async_result() {
+        let fut = run_async_local(|tx, l| {
+            let cancellable = crate::Cancellable::new();
+            let task = unsafe {
+                crate::LocalTask::new(
+                    None,
+                    Some(&cancellable),
+                    move |t: LocalTask<i32>, _b: Option<&glib::Object>| {
+                        tx.send(t.propagate_int()).unwrap();
+                        l.quit();
+                    },
+                )
+            };
+            task.return_int_result(Ok(100_isize));
         });
 
         match fut {

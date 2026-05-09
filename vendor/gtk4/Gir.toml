@@ -20,6 +20,8 @@ generate = [
     # "Gtk.PrintBackend", a record without a gtype
     "Gtk.AccessibleAnnouncementPriority",
     "Gtk.AccessibleAutocomplete",
+    "Gtk.AccessibleHyperlink",
+    "Gtk.AccessibleHypertext",
     "Gtk.AccessibleInvalidState",
     "Gtk.AccessiblePlatformState",
     "Gtk.AccessibleProperty",
@@ -143,11 +145,13 @@ generate = [
     "Gtk.IconViewDropPosition",
     "Gtk.ImageType",
     "Gtk.IMContext",
-    "Gtk.IMMulticontext",   
+    "Gtk.IMMulticontext",
     "Gtk.InputHints",
     "Gtk.InputPurpose",
     "Gtk.Inscription",
     "Gtk.InscriptionOverflow",
+    "Gtk.InterfaceColorScheme",
+    "Gtk.InterfaceContrast",
     "Gtk.Justification",
     "Gtk.LayoutChild",
     "Gtk.LayoutManager",
@@ -185,8 +189,10 @@ generate = [
     "Gtk.PanDirection",
     "Gtk.PasswordEntry",
     "Gtk.PasswordEntryBuffer",
+    "Gtk.PathPaintable",
     "Gtk.PickFlags",
     "Gtk.PolicyType",
+    "Gtk.PopoverBin",
     "Gtk.PopoverMenu",
     "Gtk.PopoverMenuBar",
     "Gtk.PopoverMenuFlags",
@@ -207,6 +213,8 @@ generate = [
     "Gtk.PropertyExpression",
     "Gtk.RecentInfo",
     "Gtk.RecentManagerError",
+    "Gtk.ReducedMotion",
+    "Gtk.RestoreReason",
     "Gtk.Revealer",
     "Gtk.RevealerTransitionType",
     "Gtk.Root",
@@ -251,6 +259,8 @@ generate = [
     "Gtk.StringSorter",
     "Gtk.StyleContextPrintFlags",
     "Gtk.StyleProvider",
+    "Gtk.SvgError",
+    "Gtk.SvgFeatures",
     "Gtk.SymbolicColor",
     "Gtk.SymbolicPaintable",
     "Gtk.SystemSetting",
@@ -275,6 +285,7 @@ generate = [
     "Gtk.Viewport",
     "Gtk.VolumeButton",
     "Gtk.WindowControls",
+    "Gtk.WindowGravity",
     "Gtk.WindowGroup",
     "Gtk.WindowHandle",
     "Gtk.WrapMode",
@@ -347,6 +358,7 @@ manual = [
     "GLib.MarkupParser",
     "GLib.Quark",
     "GLib.String",
+    "GLib.VariantDict",
     "GLib.VariantType",
     "GObject.Closure",
     "GObject.ParamFlags",
@@ -361,11 +373,13 @@ manual = [
     "Gsk.BlendMode",
     "Gsk.CairoNode", # docs only
     "Gsk.ColorStop",
+    "Gsk.ComponentTransfer",
     "Gsk.FillRule",
     "Gsk.GLShaderNode", # docs only
     "Gsk.MaskMode",
     "Gsk.MaskNode",
     "Gsk.Path",
+    "Gsk.PorterDuff",
     "Gsk.Renderer",
     "Gsk.RenderNode",
     "Gsk.RoundedRect",
@@ -908,7 +922,7 @@ manual_traits = ["ComboBoxExtManual"]
         const = true # iter shouldn't be mutable here
     [[object.function]]
     name = "set_active"
-    manual = true # use Option<u32> so we can allow -1 to unselect the active item 
+    manual = true # use Option<u32> so we can allow -1 to unselect the active item
     doc_trait_name = "ComboBoxExtManual"
     [[object.function]]
     name = "get_active"
@@ -993,6 +1007,9 @@ status = "generate"
     [[object.member]]
     name = "invert_text_dir"
     version = "4.8"
+    [[object.member]]
+    name = "session"
+    version = "4.22"
 
 [[object]]
 name = "Gtk.Dialog"
@@ -1000,7 +1017,7 @@ status = "generate"
 manual_traits = ["DialogExtManual"]
     [[object.function]]
     name = "add_buttons"
-    manual = true # to call Dialog::add_button 
+    manual = true # to call Dialog::add_button
     doc_trait_name = "DialogExtManual"
     [[object.function]]
     name = "new_with_buttons"
@@ -2157,6 +2174,11 @@ generate_builder = false
     manual = true
 
 [[object]]
+name = "Gtk.Svg"
+status = "generate"
+generate_builder = false
+
+[[object]]
 name = "Gtk.Switch"
 status = "generate"
     [[object.signal]]
@@ -2312,6 +2334,12 @@ manual_traits = ["TreeModelExtManual"]
     name = "filter_new"
     ignore = true # Replaced by TreeModelFilter::new
     [[object.function]]
+    name = "iter_next"
+    ignore = true # Changed & to &mut
+    [[object.function]]
+    name = "iter_previous"
+    ignore = true # Changed & to &mut
+    [[object.function]]
     name = "iter_children"
         [[object.function.parameter]]
         name = "parent"
@@ -2345,7 +2373,7 @@ manual_traits = ["TreeModelExtManual"]
     ignore = true # unsafe
     [[object.function]]
     pattern = "(get_value|get_valist)"
-    ignore = true # generated manually to check for column 
+    ignore = true # generated manually to check for column
     [[object.function]]
     name = "get"
     manual = true
@@ -2534,7 +2562,7 @@ generate_builder = false
         nullable = false # use unset_select_function
     [[object.function]]
     name = "get_user_data"
-    ignore = true # unsafe 
+    ignore = true # unsafe
 
 [[object]]
 name = "Gtk.TreeSortable"
@@ -2699,7 +2727,7 @@ status = "generate"
     [[object.function]]
     name = "new"
         [[object.function.parameter]]
-        name = "uri" # we have Default for creating instances without "uri" 
+        name = "uri" # we have Default for creating instances without "uri"
         nullable = false
 
 [[object]]

@@ -1,13 +1,13 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 // rustdoc-stripper-ignore-next
-//! Traits intended for subclassing [`Sorter`](crate::Sorter).
+//! Traits intended for subclassing [`Sorter`].
 
-use glib::{translate::*, Object};
+use glib::{Object, translate::*};
 
-use crate::{ffi, prelude::*, subclass::prelude::*, Ordering, Sorter, SorterOrder};
+use crate::{Ordering, Sorter, SorterOrder, ffi, prelude::*, subclass::prelude::*};
 
-pub trait SorterImpl: SorterImplExt + ObjectImpl {
+pub trait SorterImpl: ObjectImpl + ObjectSubclass<Type: IsA<Sorter>> {
     fn compare(&self, item1: &Object, item2: &Object) -> Ordering {
         self.parent_compare(item1, item2)
     }
@@ -17,12 +17,7 @@ pub trait SorterImpl: SorterImplExt + ObjectImpl {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::SorterImplExt> Sealed for T {}
-}
-
-pub trait SorterImplExt: sealed::Sealed + ObjectSubclass {
+pub trait SorterImplExt: SorterImpl {
     fn parent_compare(&self, item1: &Object, item2: &Object) -> Ordering {
         unsafe {
             let data = Self::type_data();
@@ -69,18 +64,22 @@ unsafe extern "C" fn sorter_compare<T: SorterImpl>(
     item1ptr: *mut glib::gobject_ffi::GObject,
     item2ptr: *mut glib::gobject_ffi::GObject,
 ) -> ffi::GtkOrdering {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.compare(&from_glib_borrow(item1ptr), &from_glib_borrow(item2ptr))
-        .into_glib()
+        imp.compare(&from_glib_borrow(item1ptr), &from_glib_borrow(item2ptr))
+            .into_glib()
+    }
 }
 
 unsafe extern "C" fn sorter_get_order<T: SorterImpl>(
     ptr: *mut ffi::GtkSorter,
 ) -> ffi::GtkSorterOrder {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.order().into_glib()
+        imp.order().into_glib()
+    }
 }

@@ -14,7 +14,7 @@ use futures_task::{FutureObj, LocalFutureObj, LocalSpawn, Spawn, SpawnError};
 use futures_util::FutureExt;
 
 use crate::{
-    ffi, thread_guard::ThreadGuard, translate::*, MainContext, MainLoop, Priority, Source, SourceId,
+    MainContext, MainLoop, Priority, Source, SourceId, ffi, thread_guard::ThreadGuard, translate::*,
 };
 
 // Wrapper around Send Futures and non-Send Futures that will panic
@@ -67,83 +67,95 @@ impl TaskSource {
         callback: ffi::GSourceFunc,
         _user_data: ffi::gpointer,
     ) -> ffi::gboolean {
-        let source = &mut *(source as *mut Self);
-        debug_assert!(callback.is_none());
+        unsafe {
+            let source = &mut *(source as *mut Self);
+            debug_assert!(callback.is_none());
 
-        // Poll the TaskSource and ensure we're never called again if the
-        // contained Future resolved now.
-        if let Poll::Ready(()) = source.poll() {
-            ffi::G_SOURCE_REMOVE
-        } else {
-            ffi::G_SOURCE_CONTINUE
+            // Poll the TaskSource and ensure we're never called again if the
+            // contained Future resolved now.
+            if let Poll::Ready(()) = source.poll() {
+                ffi::G_SOURCE_REMOVE
+            } else {
+                ffi::G_SOURCE_CONTINUE
+            }
         }
     }
 
     unsafe extern "C" fn finalize(source: *mut ffi::GSource) {
-        let source = source as *mut Self;
+        unsafe {
+            let source = source as *mut Self;
 
-        // This will panic if the future was a local future and is dropped from a different thread
-        // than where it was created so try to drop it from the main context if we're on another
-        // thread and the main context still exists.
-        //
-        // This can only really happen if the `Source` was manually retrieve from the context, but
-        // better safe than sorry.
-        match (*source).future {
-            FutureWrapper::Send(_) => {
-                ptr::drop_in_place(&mut (*source).future);
-            }
-            FutureWrapper::NonSend(ref mut future) if future.is_owner() => {
-                ptr::drop_in_place(&mut (*source).future);
-            }
-            FutureWrapper::NonSend(ref mut future) => {
-                let context = ffi::g_source_get_context(source as *mut ffi::GSource);
-                if !context.is_null() {
-                    let future = ptr::read(future);
-                    let context = MainContext::from_glib_none(context);
-                    context.invoke(move || {
-                        drop(future);
-                    });
-                } else {
-                    // This will panic
+            // This will panic if the future was a local future and is dropped from a different thread
+            // than where it was created so try to drop it from the main context if we're on another
+            // thread and the main context still exists.
+            //
+            // This can only really happen if the `Source` was manually retrieve from the context, but
+            // better safe than sorry.
+            match (*source).future {
+                FutureWrapper::Send(_) => {
                     ptr::drop_in_place(&mut (*source).future);
                 }
+                FutureWrapper::NonSend(ref mut future) if future.is_owner() => {
+                    ptr::drop_in_place(&mut (*source).future);
+                }
+                FutureWrapper::NonSend(ref mut future) => {
+                    let context = ffi::g_source_get_context(source as *mut ffi::GSource);
+                    if !context.is_null() {
+                        let future = ptr::read(future);
+                        let context = MainContext::from_glib_none(context);
+                        context.invoke(move || {
+                            drop(future);
+                        });
+                    } else {
+                        // This will panic
+                        ptr::drop_in_place(&mut (*source).future);
+                    }
+                }
             }
+
+            ptr::drop_in_place(&mut (*source).return_tx);
+
+            // Drop the waker to unref the underlying GSource
+            ptr::drop_in_place(&mut (*source).waker);
         }
-
-        ptr::drop_in_place(&mut (*source).return_tx);
-
-        // Drop the waker to unref the underlying GSource
-        ptr::drop_in_place(&mut (*source).waker);
     }
 }
 
 impl WakerSource {
     unsafe fn clone_raw(waker: *const ()) -> RawWaker {
-        static VTABLE: RawWakerVTable = RawWakerVTable::new(
-            WakerSource::clone_raw,
-            WakerSource::wake_raw,
-            WakerSource::wake_by_ref_raw,
-            WakerSource::drop_raw,
-        );
+        unsafe {
+            static VTABLE: RawWakerVTable = RawWakerVTable::new(
+                WakerSource::clone_raw,
+                WakerSource::wake_raw,
+                WakerSource::wake_by_ref_raw,
+                WakerSource::drop_raw,
+            );
 
-        let waker = waker as *const ffi::GSource;
-        ffi::g_source_ref(mut_override(waker));
-        RawWaker::new(waker as *const (), &VTABLE)
+            let waker = waker as *const ffi::GSource;
+            ffi::g_source_ref(mut_override(waker));
+            RawWaker::new(waker as *const (), &VTABLE)
+        }
     }
 
     unsafe fn wake_raw(waker: *const ()) {
-        Self::wake_by_ref_raw(waker);
-        Self::drop_raw(waker);
+        unsafe {
+            Self::wake_by_ref_raw(waker);
+            Self::drop_raw(waker);
+        }
     }
 
     unsafe fn wake_by_ref_raw(waker: *const ()) {
-        let waker = waker as *const ffi::GSource;
-        ffi::g_source_set_ready_time(mut_override(waker), 0);
+        unsafe {
+            let waker = waker as *const ffi::GSource;
+            ffi::g_source_set_ready_time(mut_override(waker), 0);
+        }
     }
 
     unsafe fn drop_raw(waker: *const ()) {
-        let waker = waker as *const ffi::GSource;
-        ffi::g_source_unref(mut_override(waker));
+        unsafe {
+            let waker = waker as *const ffi::GSource;
+            ffi::g_source_unref(mut_override(waker));
+        }
     }
 
     unsafe extern "C" fn dispatch(
@@ -151,10 +163,12 @@ impl WakerSource {
         _callback: ffi::GSourceFunc,
         _user_data: ffi::gpointer,
     ) -> ffi::gboolean {
-        // Set ready-time to -1 so that we're not called again before
-        // being woken up another time.
-        ffi::g_source_set_ready_time(mut_override(source), -1);
-        ffi::G_SOURCE_CONTINUE
+        unsafe {
+            // Set ready-time to -1 so that we're not called again before
+            // being woken up another time.
+            ffi::g_source_set_ready_time(mut_override(source), -1);
+            ffi::G_SOURCE_CONTINUE
+        }
     }
 }
 
@@ -243,26 +257,27 @@ impl TaskSource {
 
                 // This will panic if the future was a local future and is called from
                 // a different thread than where it was created.
-                if let Some(tx) = self.return_tx.take() {
-                    let res = panic::catch_unwind(panic::AssertUnwindSafe(|| {
-                        Pin::new(&mut self.future).poll(&mut context)
-                    }));
-                    match res {
-                        Ok(Poll::Ready(res)) => {
-                            let _ = tx.send(Ok(res));
-                            Poll::Ready(())
-                        }
-                        Ok(Poll::Pending) => {
-                            self.return_tx.replace(tx);
-                            Poll::Pending
-                        }
-                        Err(e) => {
-                            let _ = tx.send(Err(e));
-                            Poll::Ready(())
+                match self.return_tx.take() {
+                    Some(tx) => {
+                        let res = panic::catch_unwind(panic::AssertUnwindSafe(|| {
+                            Pin::new(&mut self.future).poll(&mut context)
+                        }));
+                        match res {
+                            Ok(Poll::Ready(res)) => {
+                                let _ = tx.send(Ok(res));
+                                Poll::Ready(())
+                            }
+                            Ok(Poll::Pending) => {
+                                self.return_tx.replace(tx);
+                                Poll::Pending
+                            }
+                            Err(e) => {
+                                let _ = tx.send(Err(e));
+                                Poll::Ready(())
+                            }
                         }
                     }
-                } else {
-                    Pin::new(&mut self.future).poll(&mut context).map(|_| ())
+                    _ => Pin::new(&mut self.future).poll(&mut context).map(|_| ()),
                 }
             })
             .expect("current thread is not owner of the main context")
@@ -629,41 +644,47 @@ impl MainContext {
     ///
     /// The given `Future` does not have to be `Send` or `'static`.
     ///
-    /// This must only be called if no `MainLoop` or anything else is running on this specific main
-    /// context.
+    /// # Panics
+    ///
+    /// This panics if the main context can't be acquired on this thread and can't be made the
+    /// thread default, which means that some other thread currently owns it.
     #[allow(clippy::transmute_ptr_to_ptr)]
     pub fn block_on<F: Future>(&self, f: F) -> F::Output {
-        let mut res = None;
-        let l = MainLoop::new(Some(self), false);
+        self.with_thread_default(|| {
+            let mut res = None;
+            let l = MainLoop::new(Some(self), false);
 
-        let f = async {
-            res = Some(panic::AssertUnwindSafe(f).catch_unwind().await);
-            l.quit();
-        };
+            let f = async {
+                res = Some(panic::AssertUnwindSafe(f).catch_unwind().await);
+                l.quit();
+            };
 
-        let f = unsafe {
-            // Super-unsafe: We transmute here to get rid of the 'static lifetime
-            let f = LocalFutureObj::new(Box::new(async move {
-                f.await;
-                Box::new(()) as Box<dyn Any + 'static>
-            }));
-            let f: LocalFutureObj<'static, Box<dyn Any + 'static>> = mem::transmute(f);
-            f
-        };
+            let f = unsafe {
+                // Super-unsafe: We transmute here to get rid of the 'static lifetime
+                // See also https://github.com/rust-lang/unsafe-code-guidelines/issues/282
+                let f = LocalFutureObj::new(Box::new(async move {
+                    f.await;
+                    Box::new(()) as Box<dyn Any + 'static>
+                }));
+                let f: LocalFutureObj<'static, Box<dyn Any + 'static>> = mem::transmute(f);
+                f
+            };
 
-        let source = TaskSource::new(
-            crate::Priority::default(),
-            FutureWrapper::NonSend(ThreadGuard::new(f)),
-            None,
-        );
-        source.attach(Some(self));
+            let source = TaskSource::new(
+                crate::Priority::default(),
+                FutureWrapper::NonSend(ThreadGuard::new(f)),
+                None,
+            );
+            source.attach(Some(self));
 
-        l.run();
+            l.run();
 
-        match res.unwrap() {
-            Ok(v) => v,
-            Err(e) => panic::resume_unwind(e),
-        }
+            match res.unwrap() {
+                Ok(v) => v,
+                Err(e) => panic::resume_unwind(e),
+            }
+        })
+        .expect("Can't make the main context the thread default")
     }
 }
 

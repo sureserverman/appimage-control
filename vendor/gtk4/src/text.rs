@@ -3,12 +3,12 @@
 use std::mem::transmute;
 
 use glib::{
-    signal::{connect_raw, SignalHandlerId},
-    translate::*,
     GString,
+    signal::{SignalHandlerId, connect_raw},
+    translate::*,
 };
 
-use crate::{ffi, prelude::*, DeleteType, MovementStep, Text, Widget};
+use crate::{DeleteType, MovementStep, Text, Widget, ffi, prelude::*};
 
 impl Text {
     pub fn connect_activate<F: Fn(&Text) + 'static>(&self, f: F) -> SignalHandlerId {
@@ -16,16 +16,18 @@ impl Text {
             this: *mut ffi::GtkText,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box<F> = Box::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"activate\0".as_ptr() as *const _,
-                Some(transmute::<usize, unsafe extern "C" fn()>(
-                    activate_trampoline::<F> as usize,
+                c"activate".as_ptr() as *const _,
+                Some(transmute::<*const (), unsafe extern "C" fn()>(
+                    activate_trampoline::<F> as *const (),
                 )),
                 Box::into_raw(f),
             )
@@ -37,16 +39,18 @@ impl Text {
             this: *mut ffi::GtkText,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box<F> = Box::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"backspace\0".as_ptr() as *const _,
-                Some(transmute::<usize, unsafe extern "C" fn()>(
-                    backspace_trampoline::<F> as usize,
+                c"backspace".as_ptr() as *const _,
+                Some(transmute::<*const (), unsafe extern "C" fn()>(
+                    backspace_trampoline::<F> as *const (),
                 )),
                 Box::into_raw(f),
             )
@@ -58,16 +62,18 @@ impl Text {
             this: *mut ffi::GtkText,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box<F> = Box::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"copy-clipboard\0".as_ptr() as *const _,
-                Some(transmute::<usize, unsafe extern "C" fn()>(
-                    copy_clipboard_trampoline::<F> as usize,
+                c"copy-clipboard".as_ptr() as *const _,
+                Some(transmute::<*const (), unsafe extern "C" fn()>(
+                    copy_clipboard_trampoline::<F> as *const (),
                 )),
                 Box::into_raw(f),
             )
@@ -79,16 +85,18 @@ impl Text {
             this: *mut ffi::GtkText,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box<F> = Box::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"cut-clipboard\0".as_ptr() as *const _,
-                Some(transmute::<usize, unsafe extern "C" fn()>(
-                    cut_clipboard_trampoline::<F> as usize,
+                c"cut-clipboard".as_ptr() as *const _,
+                Some(transmute::<*const (), unsafe extern "C" fn()>(
+                    cut_clipboard_trampoline::<F> as *const (),
                 )),
                 Box::into_raw(f),
             )
@@ -107,16 +115,18 @@ impl Text {
             count: libc::c_int,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this), from_glib(type_), count)
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this), from_glib(type_), count)
+            }
         }
         unsafe {
             let f: Box<F> = Box::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"delete-from-cursor\0".as_ptr() as *const _,
-                Some(transmute::<usize, unsafe extern "C" fn()>(
-                    delete_from_cursor_trampoline::<F> as usize,
+                c"delete-from-cursor".as_ptr() as *const _,
+                Some(transmute::<*const (), unsafe extern "C" fn()>(
+                    delete_from_cursor_trampoline::<F> as *const (),
                 )),
                 Box::into_raw(f),
             )
@@ -129,16 +139,18 @@ impl Text {
             string: *mut libc::c_char,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this), &GString::from_glib_borrow(string))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this), &GString::from_glib_borrow(string))
+            }
         }
         unsafe {
             let f: Box<F> = Box::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"insert-at-cursor\0".as_ptr() as *const _,
-                Some(transmute::<usize, unsafe extern "C" fn()>(
-                    insert_at_cursor_trampoline::<F> as usize,
+                c"insert-at-cursor".as_ptr() as *const _,
+                Some(transmute::<*const (), unsafe extern "C" fn()>(
+                    insert_at_cursor_trampoline::<F> as *const (),
                 )),
                 Box::into_raw(f),
             )
@@ -150,16 +162,18 @@ impl Text {
             this: *mut ffi::GtkText,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box<F> = Box::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"insert-emoji\0".as_ptr() as *const _,
-                Some(transmute::<usize, unsafe extern "C" fn()>(
-                    insert_emoji_trampoline::<F> as usize,
+                c"insert-emoji".as_ptr() as *const _,
+                Some(transmute::<*const (), unsafe extern "C" fn()>(
+                    insert_emoji_trampoline::<F> as *const (),
                 )),
                 Box::into_raw(f),
             )
@@ -179,21 +193,23 @@ impl Text {
             extend: glib::ffi::gboolean,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                &from_glib_borrow(this),
-                from_glib(step),
-                count,
-                from_glib(extend),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    &from_glib_borrow(this),
+                    from_glib(step),
+                    count,
+                    from_glib(extend),
+                )
+            }
         }
         unsafe {
             let f: Box<F> = Box::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"move-cursor\0".as_ptr() as *const _,
-                Some(transmute::<usize, unsafe extern "C" fn()>(
-                    move_cursor_trampoline::<F> as usize,
+                c"move-cursor".as_ptr() as *const _,
+                Some(transmute::<*const (), unsafe extern "C" fn()>(
+                    move_cursor_trampoline::<F> as *const (),
                 )),
                 Box::into_raw(f),
             )
@@ -205,16 +221,18 @@ impl Text {
             this: *mut ffi::GtkText,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box<F> = Box::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"paste-clipboard\0".as_ptr() as *const _,
-                Some(transmute::<usize, unsafe extern "C" fn()>(
-                    paste_clipboard_trampoline::<F> as usize,
+                c"paste-clipboard".as_ptr() as *const _,
+                Some(transmute::<*const (), unsafe extern "C" fn()>(
+                    paste_clipboard_trampoline::<F> as *const (),
                 )),
                 Box::into_raw(f),
             )
@@ -227,16 +245,18 @@ impl Text {
             widget: *mut ffi::GtkWidget,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this), &from_glib_borrow(widget))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this), &from_glib_borrow(widget))
+            }
         }
         unsafe {
             let f: Box<F> = Box::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"populate-popup\0".as_ptr() as *const _,
-                Some(transmute::<usize, unsafe extern "C" fn()>(
-                    populate_popup_trampoline::<F> as usize,
+                c"populate-popup".as_ptr() as *const _,
+                Some(transmute::<*const (), unsafe extern "C" fn()>(
+                    populate_popup_trampoline::<F> as *const (),
                 )),
                 Box::into_raw(f),
             )
@@ -249,16 +269,18 @@ impl Text {
             preedit: *mut libc::c_char,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this), &GString::from_glib_borrow(preedit))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this), &GString::from_glib_borrow(preedit))
+            }
         }
         unsafe {
             let f: Box<F> = Box::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"preedit-changed\0".as_ptr() as *const _,
-                Some(transmute::<usize, unsafe extern "C" fn()>(
-                    preedit_changed_trampoline::<F> as usize,
+                c"preedit-changed".as_ptr() as *const _,
+                Some(transmute::<*const (), unsafe extern "C" fn()>(
+                    preedit_changed_trampoline::<F> as *const (),
                 )),
                 Box::into_raw(f),
             )
@@ -270,16 +292,18 @@ impl Text {
             this: *mut ffi::GtkText,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box<F> = Box::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"toggle-overwrite\0".as_ptr() as *const _,
-                Some(transmute::<usize, unsafe extern "C" fn()>(
-                    toggle_overwrite_trampoline::<F> as usize,
+                c"toggle-overwrite".as_ptr() as *const _,
+                Some(transmute::<*const (), unsafe extern "C" fn()>(
+                    toggle_overwrite_trampoline::<F> as *const (),
                 )),
                 Box::into_raw(f),
             )

@@ -2,11 +2,11 @@
 // from gir-files (https://github.com/gtk-rs/gir-files)
 // DO NOT EDIT
 
-use crate::{ffi, FilterChange, FilterMatch};
+use crate::{FilterChange, FilterMatch, ffi};
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -24,12 +24,7 @@ impl Filter {
     pub const NONE: Option<&'static Filter> = None;
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::Filter>> Sealed for T {}
-}
-
-pub trait FilterExt: IsA<Filter> + sealed::Sealed + 'static {
+pub trait FilterExt: IsA<Filter> + 'static {
     #[doc(alias = "gtk_filter_changed")]
     fn changed(&self, change: FilterChange) {
         unsafe {
@@ -68,17 +63,19 @@ pub trait FilterExt: IsA<Filter> + sealed::Sealed + 'static {
             change: ffi::GtkFilterChange,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                Filter::from_glib_borrow(this).unsafe_cast_ref(),
-                from_glib(change),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    Filter::from_glib_borrow(this).unsafe_cast_ref(),
+                    from_glib(change),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"changed\0".as_ptr() as *const _,
+                c"changed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     changed_trampoline::<Self, F> as *const (),
                 )),

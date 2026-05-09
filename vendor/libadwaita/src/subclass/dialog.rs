@@ -1,7 +1,7 @@
 use glib::subclass::prelude::*;
 use glib::translate::*;
 
-use crate::{prelude::*, Dialog};
+use crate::{Dialog, prelude::*};
 use gtk::subclass::prelude::WidgetImpl;
 
 pub trait AdwDialogImpl: WidgetImpl + ObjectSubclass<Type: IsA<Dialog>> {
@@ -49,14 +49,14 @@ unsafe impl<T: AdwDialogImpl> IsSubclassable<T> for Dialog {
 }
 
 unsafe extern "C" fn close_attempt<T: AdwDialogImpl>(ptr: *mut ffi::AdwDialog) {
-    let instance = &*(ptr as *mut T::Instance);
+    let instance = unsafe { &*(ptr as *mut T::Instance) };
     let imp = instance.imp();
 
     AdwDialogImpl::close_attempt(imp)
 }
 
 unsafe extern "C" fn closed<T: AdwDialogImpl>(ptr: *mut ffi::AdwDialog) {
-    let instance = &*(ptr as *mut T::Instance);
+    let instance = unsafe { &*(ptr as *mut T::Instance) };
     let imp = instance.imp();
 
     AdwDialogImpl::closed(imp)

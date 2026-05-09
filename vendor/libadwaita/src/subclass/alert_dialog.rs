@@ -2,7 +2,7 @@ use glib::subclass::prelude::*;
 use glib::translate::*;
 
 use super::dialog::AdwDialogImpl;
-use crate::{prelude::*, AlertDialog};
+use crate::{AlertDialog, prelude::*};
 
 pub trait AdwAlertDialogImpl: AdwDialogImpl + ObjectSubclass<Type: IsA<AlertDialog>> {
     fn response(&self, response: &str) {
@@ -40,10 +40,10 @@ unsafe extern "C" fn response<T: AdwAlertDialogImpl>(
     ptr: *mut ffi::AdwAlertDialog,
     response: *const libc::c_char,
 ) {
-    let instance = &*(ptr as *mut T::Instance);
+    let instance = unsafe { &*(ptr as *mut T::Instance) };
     let imp = instance.imp();
 
-    let response: Borrowed<glib::GString> = from_glib_borrow(response);
+    let response: Borrowed<glib::GString> = unsafe { from_glib_borrow(response) };
 
     imp.response(response.as_ref())
 }

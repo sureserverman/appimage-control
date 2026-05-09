@@ -3,11 +3,11 @@
 // DO NOT EDIT
 #![allow(deprecated)]
 
-use crate::{ffi, CellRenderer, CellRendererMode, CellRendererText, TreeIter, TreeModel, TreePath};
+use crate::{CellRenderer, CellRendererMode, CellRendererText, TreeIter, TreeModel, TreePath, ffi};
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -79,15 +79,17 @@ impl CellRendererCombo {
             new_iter: *mut ffi::GtkTreeIter,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            let path = from_glib_full(crate::ffi::gtk_tree_path_new_from_string(path_string));
-            f(&from_glib_borrow(this), path, &from_glib_borrow(new_iter))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                let path = from_glib_full(crate::ffi::gtk_tree_path_new_from_string(path_string));
+                f(&from_glib_borrow(this), path, &from_glib_borrow(new_iter))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"changed\0".as_ptr() as *const _,
+                c"changed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     changed_trampoline::<F> as *const (),
                 )),
@@ -103,14 +105,16 @@ impl CellRendererCombo {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::has-entry\0".as_ptr() as *const _,
+                c"notify::has-entry".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_has_entry_trampoline::<F> as *const (),
                 )),
@@ -126,14 +130,16 @@ impl CellRendererCombo {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::model\0".as_ptr() as *const _,
+                c"notify::model".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_model_trampoline::<F> as *const (),
                 )),
@@ -149,14 +155,16 @@ impl CellRendererCombo {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::text-column\0".as_ptr() as *const _,
+                c"notify::text-column".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_text_column_trampoline::<F> as *const (),
                 )),

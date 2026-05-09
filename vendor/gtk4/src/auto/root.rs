@@ -2,7 +2,7 @@
 // from gir-files (https://github.com/gtk-rs/gir-files)
 // DO NOT EDIT
 
-use crate::{ffi, Accessible, Buildable, ConstraintTarget, Native, Widget};
+use crate::{Accessible, Buildable, ConstraintTarget, Native, Widget, ffi};
 use glib::{prelude::*, translate::*};
 
 glib::wrapper! {
@@ -18,12 +18,7 @@ impl Root {
     pub const NONE: Option<&'static Root> = None;
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::Root>> Sealed for T {}
-}
-
-pub trait RootExt: IsA<Root> + sealed::Sealed + 'static {
+pub trait RootExt: IsA<Root> + 'static {
     #[doc(alias = "gtk_root_get_display")]
     #[doc(alias = "get_display")]
     fn display(&self) -> gdk::Display {

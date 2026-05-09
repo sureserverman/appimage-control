@@ -4,14 +4,14 @@
 #![allow(deprecated)]
 
 use crate::{
-    ffi, AsyncResult, Cancellable, IOStream, ProxyResolver, SocketAddress, SocketClientEvent,
+    AsyncResult, Cancellable, IOStream, ProxyResolver, SocketAddress, SocketClientEvent,
     SocketConnectable, SocketConnection, SocketFamily, SocketProtocol, SocketType,
-    TlsCertificateFlags,
+    TlsCertificateFlags, ffi,
 };
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::{boxed::Box as Box_, pin::Pin};
@@ -40,12 +40,7 @@ impl Default for SocketClient {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::SocketClient>> Sealed for T {}
-}
-
-pub trait SocketClientExt: IsA<SocketClient> + sealed::Sealed + 'static {
+pub trait SocketClientExt: IsA<SocketClient> + 'static {
     #[doc(alias = "g_socket_client_add_application_proxy")]
     fn add_application_proxy(&self, protocol: &str) {
         unsafe {
@@ -104,18 +99,20 @@ pub trait SocketClientExt: IsA<SocketClient> + sealed::Sealed + 'static {
             res: *mut crate::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            let mut error = std::ptr::null_mut();
-            let ret =
-                ffi::g_socket_client_connect_finish(_source_object as *mut _, res, &mut error);
-            let result = if error.is_null() {
-                Ok(from_glib_full(ret))
-            } else {
-                Err(from_glib_full(error))
-            };
-            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                Box_::from_raw(user_data as *mut _);
-            let callback: P = callback.into_inner();
-            callback(result);
+            unsafe {
+                let mut error = std::ptr::null_mut();
+                let ret =
+                    ffi::g_socket_client_connect_finish(_source_object as *mut _, res, &mut error);
+                let result = if error.is_null() {
+                    Ok(from_glib_full(ret))
+                } else {
+                    Err(from_glib_full(error))
+                };
+                let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                    Box_::from_raw(user_data as *mut _);
+                let callback: P = callback.into_inner();
+                callback(result);
+            }
         }
         let callback = connect_async_trampoline::<P>;
         unsafe {
@@ -196,21 +193,23 @@ pub trait SocketClientExt: IsA<SocketClient> + sealed::Sealed + 'static {
             res: *mut crate::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            let mut error = std::ptr::null_mut();
-            let ret = ffi::g_socket_client_connect_to_host_finish(
-                _source_object as *mut _,
-                res,
-                &mut error,
-            );
-            let result = if error.is_null() {
-                Ok(from_glib_full(ret))
-            } else {
-                Err(from_glib_full(error))
-            };
-            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                Box_::from_raw(user_data as *mut _);
-            let callback: P = callback.into_inner();
-            callback(result);
+            unsafe {
+                let mut error = std::ptr::null_mut();
+                let ret = ffi::g_socket_client_connect_to_host_finish(
+                    _source_object as *mut _,
+                    res,
+                    &mut error,
+                );
+                let result = if error.is_null() {
+                    Ok(from_glib_full(ret))
+                } else {
+                    Err(from_glib_full(error))
+                };
+                let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                    Box_::from_raw(user_data as *mut _);
+                let callback: P = callback.into_inner();
+                callback(result);
+            }
         }
         let callback = connect_to_host_async_trampoline::<P>;
         unsafe {
@@ -298,21 +297,23 @@ pub trait SocketClientExt: IsA<SocketClient> + sealed::Sealed + 'static {
             res: *mut crate::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            let mut error = std::ptr::null_mut();
-            let ret = ffi::g_socket_client_connect_to_service_finish(
-                _source_object as *mut _,
-                res,
-                &mut error,
-            );
-            let result = if error.is_null() {
-                Ok(from_glib_full(ret))
-            } else {
-                Err(from_glib_full(error))
-            };
-            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                Box_::from_raw(user_data as *mut _);
-            let callback: P = callback.into_inner();
-            callback(result);
+            unsafe {
+                let mut error = std::ptr::null_mut();
+                let ret = ffi::g_socket_client_connect_to_service_finish(
+                    _source_object as *mut _,
+                    res,
+                    &mut error,
+                );
+                let result = if error.is_null() {
+                    Ok(from_glib_full(ret))
+                } else {
+                    Err(from_glib_full(error))
+                };
+                let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                    Box_::from_raw(user_data as *mut _);
+                let callback: P = callback.into_inner();
+                callback(result);
+            }
         }
         let callback = connect_to_service_async_trampoline::<P>;
         unsafe {
@@ -396,21 +397,23 @@ pub trait SocketClientExt: IsA<SocketClient> + sealed::Sealed + 'static {
             res: *mut crate::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            let mut error = std::ptr::null_mut();
-            let ret = ffi::g_socket_client_connect_to_uri_finish(
-                _source_object as *mut _,
-                res,
-                &mut error,
-            );
-            let result = if error.is_null() {
-                Ok(from_glib_full(ret))
-            } else {
-                Err(from_glib_full(error))
-            };
-            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                Box_::from_raw(user_data as *mut _);
-            let callback: P = callback.into_inner();
-            callback(result);
+            unsafe {
+                let mut error = std::ptr::null_mut();
+                let ret = ffi::g_socket_client_connect_to_uri_finish(
+                    _source_object as *mut _,
+                    res,
+                    &mut error,
+                );
+                let result = if error.is_null() {
+                    Ok(from_glib_full(ret))
+                } else {
+                    Err(from_glib_full(error))
+                };
+                let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                    Box_::from_raw(user_data as *mut _);
+                let callback: P = callback.into_inner();
+                callback(result);
+            }
         }
         let callback = connect_to_uri_async_trampoline::<P>;
         unsafe {
@@ -643,21 +646,23 @@ pub trait SocketClientExt: IsA<SocketClient> + sealed::Sealed + 'static {
             connection: *mut ffi::GIOStream,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                SocketClient::from_glib_borrow(this).unsafe_cast_ref(),
-                from_glib(event),
-                &from_glib_borrow(connectable),
-                Option::<IOStream>::from_glib_borrow(connection)
-                    .as_ref()
-                    .as_ref(),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    SocketClient::from_glib_borrow(this).unsafe_cast_ref(),
+                    from_glib(event),
+                    &from_glib_borrow(connectable),
+                    Option::<IOStream>::from_glib_borrow(connection)
+                        .as_ref()
+                        .as_ref(),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"event\0".as_ptr() as *const _,
+                c"event".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     event_trampoline::<Self, F> as *const (),
                 )),
@@ -676,14 +681,16 @@ pub trait SocketClientExt: IsA<SocketClient> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(SocketClient::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(SocketClient::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-proxy\0".as_ptr() as *const _,
+                c"notify::enable-proxy".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_proxy_trampoline::<Self, F> as *const (),
                 )),
@@ -699,14 +706,16 @@ pub trait SocketClientExt: IsA<SocketClient> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(SocketClient::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(SocketClient::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::family\0".as_ptr() as *const _,
+                c"notify::family".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_family_trampoline::<Self, F> as *const (),
                 )),
@@ -725,14 +734,16 @@ pub trait SocketClientExt: IsA<SocketClient> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(SocketClient::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(SocketClient::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::local-address\0".as_ptr() as *const _,
+                c"notify::local-address".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_local_address_trampoline::<Self, F> as *const (),
                 )),
@@ -751,14 +762,16 @@ pub trait SocketClientExt: IsA<SocketClient> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(SocketClient::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(SocketClient::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::protocol\0".as_ptr() as *const _,
+                c"notify::protocol".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_protocol_trampoline::<Self, F> as *const (),
                 )),
@@ -777,14 +790,16 @@ pub trait SocketClientExt: IsA<SocketClient> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(SocketClient::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(SocketClient::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::proxy-resolver\0".as_ptr() as *const _,
+                c"notify::proxy-resolver".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_proxy_resolver_trampoline::<Self, F> as *const (),
                 )),
@@ -803,14 +818,16 @@ pub trait SocketClientExt: IsA<SocketClient> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(SocketClient::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(SocketClient::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::timeout\0".as_ptr() as *const _,
+                c"notify::timeout".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_timeout_trampoline::<Self, F> as *const (),
                 )),
@@ -826,14 +843,16 @@ pub trait SocketClientExt: IsA<SocketClient> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(SocketClient::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(SocketClient::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::tls\0".as_ptr() as *const _,
+                c"notify::tls".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_tls_trampoline::<Self, F> as *const (),
                 )),
@@ -853,14 +872,16 @@ pub trait SocketClientExt: IsA<SocketClient> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(SocketClient::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(SocketClient::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::tls-validation-flags\0".as_ptr() as *const _,
+                c"notify::tls-validation-flags".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_tls_validation_flags_trampoline::<Self, F> as *const (),
                 )),
@@ -876,14 +897,16 @@ pub trait SocketClientExt: IsA<SocketClient> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(SocketClient::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(SocketClient::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::type\0".as_ptr() as *const _,
+                c"notify::type".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_type_trampoline::<Self, F> as *const (),
                 )),

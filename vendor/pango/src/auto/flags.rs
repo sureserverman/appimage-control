@@ -31,6 +31,10 @@ bitflags! {
         #[cfg_attr(docsrs, doc(cfg(feature = "v1_56")))]
         #[doc(alias = "PANGO_FONT_MASK_FEATURES")]
         const FEATURES = ffi::PANGO_FONT_MASK_FEATURES as _;
+        #[cfg(feature = "v1_57")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "v1_57")))]
+        #[doc(alias = "PANGO_FONT_MASK_COLOR")]
+        const COLOR = ffi::PANGO_FONT_MASK_COLOR as _;
     }
 }
 
@@ -79,7 +83,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for FontMask {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        from_glib(glib::gobject_ffi::g_value_get_flags(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_flags(value.to_glib_none().0)) }
     }
 }
 
@@ -176,7 +180,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for LayoutDeserializeFlags {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        from_glib(glib::gobject_ffi::g_value_get_flags(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_flags(value.to_glib_none().0)) }
     }
 }
 
@@ -279,7 +283,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for LayoutSerializeFlags {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        from_glib(glib::gobject_ffi::g_value_get_flags(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_flags(value.to_glib_none().0)) }
     }
 }
 
@@ -380,7 +384,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for ShapeFlags {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        from_glib(glib::gobject_ffi::g_value_get_flags(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_flags(value.to_glib_none().0)) }
     }
 }
 
@@ -485,7 +489,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for ShowFlags {
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
-        from_glib(glib::gobject_ffi::g_value_get_flags(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_flags(value.to_glib_none().0)) }
     }
 }
 

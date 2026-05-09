@@ -3,10 +3,13 @@
 // DO NOT EDIT
 #![allow(deprecated)]
 
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+use crate::WindowGravity;
 use crate::{
-    ffi, Accessible, AccessibleRole, Align, Application, Buildable, ConstraintTarget, Dialog,
+    Accessible, AccessibleRole, Align, Application, Buildable, ConstraintTarget, Dialog,
     FontChooser, FontChooserLevel, LayoutManager, Native, Overflow, Root, ShortcutManager, Widget,
-    Window,
+    Window, ffi,
 };
 use glib::{prelude::*, translate::*};
 
@@ -149,6 +152,14 @@ impl FontChooserDialogBuilder {
     pub fn fullscreened(self, fullscreened: bool) -> Self {
         Self {
             builder: self.builder.property("fullscreened", fullscreened),
+        }
+    }
+
+    #[cfg(feature = "v4_20")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+    pub fn gravity(self, gravity: WindowGravity) -> Self {
+        Self {
+            builder: self.builder.property("gravity", gravity),
         }
     }
 

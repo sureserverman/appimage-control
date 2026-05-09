@@ -1,16 +1,15 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 // rustdoc-stripper-ignore-next
-//! Traits intended for implementing the
-//! [`TreeDragSource`](crate::TreeDragSource) interface.
+//! Traits intended for implementing the [`TreeDragSource`] interface.
 
 use glib::translate::*;
 
-use crate::{ffi, prelude::*, subclass::prelude::*, TreeDragSource, TreePath};
+use crate::{TreeDragSource, TreePath, ffi, prelude::*, subclass::prelude::*};
 
 #[cfg_attr(feature = "v4_10", deprecated = "Since 4.10")]
 #[allow(deprecated)]
-pub trait TreeDragSourceImpl: ObjectImpl {
+pub trait TreeDragSourceImpl: ObjectImpl + ObjectSubclass<Type: IsA<TreeDragSource>> {
     fn row_draggable(&self, path: &TreePath) -> bool {
         self.parent_row_draggable(path)
     }
@@ -18,14 +17,9 @@ pub trait TreeDragSourceImpl: ObjectImpl {
     fn drag_data_delete(&self, path: &TreePath) -> bool;
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::TreeDragSourceImplExt> Sealed for T {}
-}
-
 #[cfg_attr(feature = "v4_10", deprecated = "Since 4.10")]
 #[allow(deprecated)]
-pub trait TreeDragSourceImplExt: sealed::Sealed + ObjectSubclass {
+pub trait TreeDragSourceImplExt: TreeDragSourceImpl {
     // Returns true if the row can be dragged
     fn parent_row_draggable(&self, path: &TreePath) -> bool {
         unsafe {
@@ -108,31 +102,37 @@ unsafe extern "C" fn tree_drag_source_row_draggable<T: TreeDragSourceImpl>(
     tree_drag_source: *mut ffi::GtkTreeDragSource,
     pathptr: *mut ffi::GtkTreePath,
 ) -> glib::ffi::gboolean {
-    let instance = &*(tree_drag_source as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(tree_drag_source as *mut T::Instance);
+        let imp = instance.imp();
 
-    let path: Borrowed<TreePath> = from_glib_borrow(pathptr);
+        let path: Borrowed<TreePath> = from_glib_borrow(pathptr);
 
-    imp.row_draggable(&path).into_glib()
+        imp.row_draggable(&path).into_glib()
+    }
 }
 
 unsafe extern "C" fn tree_drag_source_drag_data_get<T: TreeDragSourceImpl>(
     tree_drag_source: *mut ffi::GtkTreeDragSource,
     pathptr: *mut ffi::GtkTreePath,
 ) -> *mut gdk::ffi::GdkContentProvider {
-    let instance = &*(tree_drag_source as *mut T::Instance);
-    let imp = instance.imp();
-    let path: Borrowed<TreePath> = from_glib_borrow(pathptr);
+    unsafe {
+        let instance = &*(tree_drag_source as *mut T::Instance);
+        let imp = instance.imp();
+        let path: Borrowed<TreePath> = from_glib_borrow(pathptr);
 
-    imp.drag_data_get(&path).into_glib_ptr()
+        imp.drag_data_get(&path).into_glib_ptr()
+    }
 }
 
 unsafe extern "C" fn tree_drag_source_drag_data_delete<T: TreeDragSourceImpl>(
     tree_drag_source: *mut ffi::GtkTreeDragSource,
     pathptr: *mut ffi::GtkTreePath,
 ) -> glib::ffi::gboolean {
-    let instance = &*(tree_drag_source as *mut T::Instance);
-    let imp = instance.imp();
-    let path: Borrowed<TreePath> = from_glib_borrow(pathptr);
-    imp.drag_data_delete(&path).into_glib()
+    unsafe {
+        let instance = &*(tree_drag_source as *mut T::Instance);
+        let imp = instance.imp();
+        let path: Borrowed<TreePath> = from_glib_borrow(pathptr);
+        imp.drag_data_delete(&path).into_glib()
+    }
 }

@@ -1,13 +1,13 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 // rustdoc-stripper-ignore-next
-//! Traits intended for subclassing [`Dialog`](crate::Dialog).
+//! Traits intended for subclassing [`Dialog`].
 
 use glib::translate::*;
 
-use crate::{ffi, prelude::*, subclass::prelude::*, Dialog, ResponseType};
+use crate::{Dialog, ResponseType, ffi, prelude::*, subclass::prelude::*};
 
-pub trait DialogImpl: DialogImplExt + WindowImpl {
+pub trait DialogImpl: WindowImpl + ObjectSubclass<Type: IsA<Dialog>> {
     fn response(&self, response: ResponseType) {
         self.parent_response(response)
     }
@@ -17,12 +17,7 @@ pub trait DialogImpl: DialogImplExt + WindowImpl {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::DialogImplExt> Sealed for T {}
-}
-
-pub trait DialogImplExt: sealed::Sealed + ObjectSubclass {
+pub trait DialogImplExt: DialogImpl {
     fn parent_response(&self, response: ResponseType) {
         unsafe {
             let data = Self::type_data();
@@ -60,16 +55,20 @@ unsafe impl<T: DialogImpl> IsSubclassable<T> for Dialog {
 }
 
 unsafe extern "C" fn dialog_response<T: DialogImpl>(ptr: *mut ffi::GtkDialog, responseptr: i32) {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
-    let res: ResponseType = from_glib(responseptr);
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
+        let res: ResponseType = from_glib(responseptr);
 
-    imp.response(res)
+        imp.response(res)
+    }
 }
 
 unsafe extern "C" fn dialog_close<T: DialogImpl>(ptr: *mut ffi::GtkDialog) {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.close()
+        imp.close()
+    }
 }

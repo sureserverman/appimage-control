@@ -2,7 +2,7 @@
 // from gir-files (https://github.com/gtk-rs/gir-files)
 // DO NOT EDIT
 
-use crate::{ffi, Attribute};
+use crate::{Attribute, ffi};
 use glib::translate::*;
 
 glib::wrapper! {
@@ -36,9 +36,11 @@ impl AttrList {
             attribute: *mut ffi::PangoAttribute,
             user_data: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let attribute = from_glib_borrow(attribute);
-            let callback = user_data as *mut P;
-            (*callback)(&attribute).into_glib()
+            unsafe {
+                let attribute = from_glib_borrow(attribute);
+                let callback = user_data as *mut P;
+                (*callback)(&attribute).into_glib()
+            }
         }
         let func = Some(func_func::<P> as _);
         let super_callback0: &mut P = &mut func_data;

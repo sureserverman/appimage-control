@@ -2,11 +2,11 @@
 // from gir-files (https://github.com/gtk-rs/gir-files)
 // DO NOT EDIT
 
-use crate::{ffi, EventController, Gesture, GestureSingle, PropagationLimit, PropagationPhase};
+use crate::{EventController, Gesture, GestureSingle, PropagationLimit, PropagationPhase, ffi};
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -98,14 +98,16 @@ impl DragSource {
             drag: *mut gdk::ffi::GdkDrag,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this), &from_glib_borrow(drag))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this), &from_glib_borrow(drag))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"drag-begin\0".as_ptr() as *const _,
+                c"drag-begin".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     drag_begin_trampoline::<F> as *const (),
                 )),
@@ -129,19 +131,21 @@ impl DragSource {
             reason: gdk::ffi::GdkDragCancelReason,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(
-                &from_glib_borrow(this),
-                &from_glib_borrow(drag),
-                from_glib(reason),
-            )
-            .into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    &from_glib_borrow(this),
+                    &from_glib_borrow(drag),
+                    from_glib(reason),
+                )
+                .into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"drag-cancel\0".as_ptr() as *const _,
+                c"drag-cancel".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     drag_cancel_trampoline::<F> as *const (),
                 )),
@@ -161,18 +165,20 @@ impl DragSource {
             delete_data: glib::ffi::gboolean,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                &from_glib_borrow(this),
-                &from_glib_borrow(drag),
-                from_glib(delete_data),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    &from_glib_borrow(this),
+                    &from_glib_borrow(drag),
+                    from_glib(delete_data),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"drag-end\0".as_ptr() as *const _,
+                c"drag-end".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     drag_end_trampoline::<F> as *const (),
                 )),
@@ -194,14 +200,16 @@ impl DragSource {
             y: std::ffi::c_double,
             f: glib::ffi::gpointer,
         ) -> *mut gdk::ffi::GdkContentProvider {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this), x, y).to_glib_full()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this), x, y).to_glib_full()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"prepare\0".as_ptr() as *const _,
+                c"prepare".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     prepare_trampoline::<F> as *const (),
                 )),
@@ -217,14 +225,16 @@ impl DragSource {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::actions\0".as_ptr() as *const _,
+                c"notify::actions".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_actions_trampoline::<F> as *const (),
                 )),
@@ -240,14 +250,16 @@ impl DragSource {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::content\0".as_ptr() as *const _,
+                c"notify::content".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_content_trampoline::<F> as *const (),
                 )),

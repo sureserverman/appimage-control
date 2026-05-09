@@ -1,9 +1,9 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use glib::{translate::*, Type, Value};
+use glib::{Type, Value, translate::*};
 use libc::c_int;
 
-use crate::{ffi, prelude::*, ListStore, TreeIter, TreeModel};
+use crate::{ListStore, TreeIter, TreeModel, ffi, prelude::*};
 
 impl ListStore {
     #[doc(alias = "gtk_list_store_newv")]
@@ -100,7 +100,7 @@ impl ListStore {
                 "Incorrect `new_order` slice length. Expected `{count}`, found `{}`.",
                 new_order.len()
             );
-            let safe_values = new_order.iter().max().map_or(true, |&max| {
+            let safe_values = new_order.iter().max().is_none_or(|&max| {
                 let max = max as i32;
                 max >= 0 && max < count
             });

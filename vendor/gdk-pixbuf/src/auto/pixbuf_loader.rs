@@ -2,11 +2,11 @@
 // from gir-files (https://github.com/gtk-rs/gir-files)
 // DO NOT EDIT
 
-use crate::{ffi, Pixbuf, PixbufAnimation, PixbufFormat};
+use crate::{Pixbuf, PixbufAnimation, PixbufFormat, ffi};
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -64,12 +64,7 @@ impl Default for PixbufLoader {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::PixbufLoader>> Sealed for T {}
-}
-
-pub trait PixbufLoaderExt: IsA<PixbufLoader> + sealed::Sealed + 'static {
+pub trait PixbufLoaderExt: IsA<PixbufLoader> + 'static {
     #[doc(alias = "gdk_pixbuf_loader_close")]
     fn close(&self) -> Result<(), glib::Error> {
         unsafe {
@@ -165,14 +160,16 @@ pub trait PixbufLoaderExt: IsA<PixbufLoader> + sealed::Sealed + 'static {
             this: *mut ffi::GdkPixbufLoader,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(PixbufLoader::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(PixbufLoader::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"area-prepared\0".as_ptr() as *const _,
+                c"area-prepared".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     area_prepared_trampoline::<Self, F> as *const (),
                 )),
@@ -197,20 +194,22 @@ pub trait PixbufLoaderExt: IsA<PixbufLoader> + sealed::Sealed + 'static {
             height: std::ffi::c_int,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                PixbufLoader::from_glib_borrow(this).unsafe_cast_ref(),
-                x,
-                y,
-                width,
-                height,
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    PixbufLoader::from_glib_borrow(this).unsafe_cast_ref(),
+                    x,
+                    y,
+                    width,
+                    height,
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"area-updated\0".as_ptr() as *const _,
+                c"area-updated".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     area_updated_trampoline::<Self, F> as *const (),
                 )),
@@ -225,14 +224,16 @@ pub trait PixbufLoaderExt: IsA<PixbufLoader> + sealed::Sealed + 'static {
             this: *mut ffi::GdkPixbufLoader,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(PixbufLoader::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(PixbufLoader::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"closed\0".as_ptr() as *const _,
+                c"closed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     closed_trampoline::<Self, F> as *const (),
                 )),
@@ -252,18 +253,20 @@ pub trait PixbufLoaderExt: IsA<PixbufLoader> + sealed::Sealed + 'static {
             height: std::ffi::c_int,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                PixbufLoader::from_glib_borrow(this).unsafe_cast_ref(),
-                width,
-                height,
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    PixbufLoader::from_glib_borrow(this).unsafe_cast_ref(),
+                    width,
+                    height,
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"size-prepared\0".as_ptr() as *const _,
+                c"size-prepared".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     size_prepared_trampoline::<Self, F> as *const (),
                 )),

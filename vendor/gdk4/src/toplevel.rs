@@ -3,21 +3,16 @@
 use std::{boxed::Box as Box_, mem::transmute};
 
 use glib::{
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 
-use crate::{ffi, prelude::*, Toplevel, ToplevelSize};
-
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::Toplevel>> Sealed for T {}
-}
+use crate::{Toplevel, ToplevelSize, ffi, prelude::*};
 
 // rustdoc-stripper-ignore-next
 /// Trait containing manually implemented methods of
 /// [`Toplevel`](crate::Toplevel).
-pub trait ToplevelExtManual: sealed::Sealed + IsA<Toplevel> {
+pub trait ToplevelExtManual: IsA<Toplevel> {
     fn connect_compute_size<F: Fn(&Toplevel, &mut ToplevelSize) + 'static>(
         &self,
         f: F,
@@ -29,14 +24,17 @@ pub trait ToplevelExtManual: sealed::Sealed + IsA<Toplevel> {
             size: *mut ffi::GdkToplevelSize,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this), &mut *(size as *mut ToplevelSize))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                let mut size = ToplevelSize(std::ptr::NonNull::new_unchecked(size));
+                f(&from_glib_borrow(this), &mut size)
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"compute-size\0".as_ptr() as *const _,
+                c"compute-size".as_ptr() as *const _,
                 Some(transmute::<*const (), unsafe extern "C" fn()>(
                     compute_size_trampoline::<F> as *const (),
                 )),

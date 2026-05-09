@@ -20,7 +20,7 @@ pub unsafe trait RefCounted: Clone + Sized + 'static {
 
     // rustdoc-stripper-ignore-next
     /// Converts the RefCounted object to a raw pointer to InnerType
-    unsafe fn into_raw(self) -> *const Self::InnerType;
+    fn into_raw(self) -> *const Self::InnerType;
 
     // rustdoc-stripper-ignore-next
     /// Converts a raw pointer to InnerType to a RefCounted object
@@ -35,8 +35,10 @@ where
 
     #[inline]
     unsafe fn ref_(this: *const Self::InnerType) -> *const Self::InnerType {
-        std::sync::Arc::increment_strong_count(this);
-        this
+        unsafe {
+            std::sync::Arc::increment_strong_count(this);
+            this
+        }
     }
 
     #[inline]
@@ -45,13 +47,13 @@ where
     }
 
     #[inline]
-    unsafe fn into_raw(self) -> *const Self::InnerType {
+    fn into_raw(self) -> *const Self::InnerType {
         std::sync::Arc::into_raw(self)
     }
 
     #[inline]
     unsafe fn from_raw(this: *const Self::InnerType) -> Self {
-        std::sync::Arc::from_raw(this)
+        unsafe { std::sync::Arc::from_raw(this) }
     }
 }
 
@@ -63,9 +65,11 @@ where
 
     #[inline]
     unsafe fn ref_(this: *const Self::InnerType) -> *const Self::InnerType {
-        use std::mem::ManuallyDrop;
-        let this_rc = ManuallyDrop::new(std::rc::Rc::from_raw(this));
-        std::rc::Rc::into_raw(ManuallyDrop::take(&mut this_rc.clone()))
+        unsafe {
+            use std::mem::ManuallyDrop;
+            let this_rc = ManuallyDrop::new(std::rc::Rc::from_raw(this));
+            std::rc::Rc::into_raw(ManuallyDrop::take(&mut this_rc.clone()))
+        }
     }
 
     #[inline]
@@ -74,13 +78,13 @@ where
     }
 
     #[inline]
-    unsafe fn into_raw(self) -> *const Self::InnerType {
+    fn into_raw(self) -> *const Self::InnerType {
         std::rc::Rc::into_raw(self)
     }
 
     #[inline]
     unsafe fn from_raw(this: *const Self::InnerType) -> Self {
-        std::rc::Rc::from_raw(this)
+        unsafe { std::rc::Rc::from_raw(this) }
     }
 }
 
@@ -141,13 +145,17 @@ pub fn register_shared_type<T: SharedType>() -> crate::Type {
     unsafe {
         use std::ffi::CString;
         unsafe extern "C" fn shared_ref<T: SharedType>(v: ffi::gpointer) -> ffi::gpointer {
-            T::RefCountedType::ref_(v as *const <T::RefCountedType as RefCounted>::InnerType)
-                as ffi::gpointer
+            unsafe {
+                T::RefCountedType::ref_(v as *const <T::RefCountedType as RefCounted>::InnerType)
+                    as ffi::gpointer
+            }
         }
         unsafe extern "C" fn shared_unref<T: SharedType>(v: ffi::gpointer) {
-            let _ = T::RefCountedType::from_raw(
-                v as *const <T::RefCountedType as RefCounted>::InnerType,
-            );
+            unsafe {
+                let _ = T::RefCountedType::from_raw(
+                    v as *const <T::RefCountedType as RefCounted>::InnerType,
+                );
+            }
         }
 
         let type_name = if T::ALLOW_NAME_CONFLICT {

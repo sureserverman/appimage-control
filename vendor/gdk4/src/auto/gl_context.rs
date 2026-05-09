@@ -6,10 +6,10 @@
 #[cfg(feature = "v4_6")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v4_6")))]
 use crate::GLAPI;
-use crate::{ffi, Display, DrawContext, Surface};
+use crate::{Display, DrawContext, Surface, ffi};
 #[cfg(feature = "v4_6")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v4_6")))]
-use glib::signal::{connect_raw, SignalHandlerId};
+use glib::signal::{SignalHandlerId, connect_raw};
 use glib::{prelude::*, translate::*};
 #[cfg(feature = "v4_6")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v4_6")))]
@@ -43,12 +43,7 @@ impl GLContext {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::GLContext>> Sealed for T {}
-}
-
-pub trait GLContextExt: IsA<GLContext> + sealed::Sealed + 'static {
+pub trait GLContextExt: IsA<GLContext> + 'static {
     #[cfg(feature = "v4_6")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v4_6")))]
     #[doc(alias = "gdk_gl_context_get_allowed_apis")]
@@ -262,14 +257,16 @@ pub trait GLContextExt: IsA<GLContext> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(GLContext::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(GLContext::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::allowed-apis\0".as_ptr() as *const _,
+                c"notify::allowed-apis".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_allowed_apis_trampoline::<Self, F> as *const (),
                 )),
@@ -287,14 +284,16 @@ pub trait GLContextExt: IsA<GLContext> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(GLContext::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(GLContext::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::api\0".as_ptr() as *const _,
+                c"notify::api".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_api_trampoline::<Self, F> as *const (),
                 )),

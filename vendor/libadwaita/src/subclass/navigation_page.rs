@@ -1,4 +1,4 @@
-use crate::{prelude::*, NavigationPage};
+use crate::{NavigationPage, prelude::*};
 use glib::subclass::prelude::*;
 use glib::translate::*;
 use gtk::subclass::prelude::WidgetImpl;
@@ -96,7 +96,7 @@ unsafe impl<T: NavigationPageImpl> IsSubclassable<T> for NavigationPage {
 unsafe extern "C" fn navigation_page_hidden<T: NavigationPageImpl>(
     ptr: *mut ffi::AdwNavigationPage,
 ) {
-    let instance = &*(ptr as *mut T::Instance);
+    let instance = unsafe { &*(ptr as *mut T::Instance) };
     let imp = instance.imp();
 
     imp.hidden();
@@ -105,7 +105,7 @@ unsafe extern "C" fn navigation_page_hidden<T: NavigationPageImpl>(
 unsafe extern "C" fn navigation_page_hiding<T: NavigationPageImpl>(
     ptr: *mut ffi::AdwNavigationPage,
 ) {
-    let instance = &*(ptr as *mut T::Instance);
+    let instance = unsafe { &*(ptr as *mut T::Instance) };
     let imp = instance.imp();
 
     imp.hiding();
@@ -114,7 +114,7 @@ unsafe extern "C" fn navigation_page_hiding<T: NavigationPageImpl>(
 unsafe extern "C" fn navigation_page_showing<T: NavigationPageImpl>(
     ptr: *mut ffi::AdwNavigationPage,
 ) {
-    let instance = &*(ptr as *mut T::Instance);
+    let instance = unsafe { &*(ptr as *mut T::Instance) };
     let imp = instance.imp();
 
     imp.showing();
@@ -123,7 +123,7 @@ unsafe extern "C" fn navigation_page_showing<T: NavigationPageImpl>(
 unsafe extern "C" fn navigation_page_shown<T: NavigationPageImpl>(
     ptr: *mut ffi::AdwNavigationPage,
 ) {
-    let instance = &*(ptr as *mut T::Instance);
+    let instance = unsafe { &*(ptr as *mut T::Instance) };
     let imp = instance.imp();
 
     imp.shown();

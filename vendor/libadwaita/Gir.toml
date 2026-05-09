@@ -6,7 +6,6 @@ library = "Adw"
 version = "1"
 min_cfg_version = "1"
 target_path = "."
-use_gi_docgen = true
 work_mode = "normal"
 generate_safety_asserts = true
 deprecate_by_min_version = true
@@ -49,15 +48,15 @@ generate = [
     "Adw.DialogPresentationMode",
     "Adw.Easing",
     "Adw.EntryRow",
+    "Adw.EnumListItem",
     "Adw.ExpanderRow",
-    "Adw.FoldThresholdPolicy",
     "Adw.Flap",
     "Adw.FlapFoldPolicy",
     "Adw.FlapTransitionType",
-    "Adw.EnumListItem",
+    "Adw.FoldThresholdPolicy",
     "Adw.HeaderBar",
-    "Adw.InlineViewSwitcherDisplayMode",
     "Adw.InlineViewSwitcher",
+    "Adw.InlineViewSwitcherDisplayMode",
     "Adw.JustifyMode",
     "Adw.LayoutSlot",
     "Adw.Leaflet",
@@ -72,11 +71,13 @@ generate = [
     "Adw.PackDirection",
     "Adw.PasswordEntryRow",
     "Adw.PreferencesDialog",
-    "Adw.PreferencesGroup",
     "Adw.PreferencesPage",
     "Adw.PreferencesRow",
     "Adw.PreferencesWindow",
     "Adw.ResponseAppearance",
+    "Adw.ShortcutsDialog",
+    "Adw.SidebarItem",
+    "Adw.SidebarMode",
     "Adw.Spinner",
     "Adw.SplitButton",
     "Adw.SpringAnimation",
@@ -85,8 +86,8 @@ generate = [
     "Adw.SqueezerTransitionType",
     "Adw.StatusPage",
     "Adw.SwipeTracker",
-    "Adw.SwitchRow",
     "Adw.Swipeable",
+    "Adw.SwitchRow",
     "Adw.TabButton",
     "Adw.TabViewShortcuts",
     "Adw.TimedAnimation",
@@ -99,6 +100,7 @@ generate = [
     "Adw.ViewSwitcher",
     "Adw.ViewSwitcherBar",
     "Adw.ViewSwitcherPolicy",
+    "Adw.ViewSwitcherSidebar",
     "Adw.ViewSwitcherTitle",
     "Adw.WindowTitle",
     "Adw.WrapBox",
@@ -118,10 +120,10 @@ manual = [
     "Gdk.RGBA",
     "Gdk.Rectangle",
     "Gdk.Texture",
-    "Gio.Application",
-    "Gio.ApplicationFlags",
     "Gio.ActionGroup",
     "Gio.ActionMap",
+    "Gio.Application",
+    "Gio.ApplicationFlags",
     "Gio.Cancellable",
     "Gio.Icon",
     "Gio.ListModel",
@@ -139,6 +141,7 @@ manual = [
     "Gtk.Editable",
     "Gtk.Entry",
     "Gtk.Expression",
+    "Gtk.Filter",
     "Gtk.HeaderBar",
     "Gtk.InputHints",
     "Gtk.InputPurpose",
@@ -157,13 +160,19 @@ manual = [
     "Gtk.Scrollable",
     "Gtk.ScrollablePolicy",
     "Gtk.ScrolledWindow",
+    # TODO Implemented by ViewStackPages since 1.9. Gir only adds the gtk_v4_12
+    # feature guard
+    # "Gtk.SectionModel",
     "Gtk.SelectionModel",
     "Gtk.Settings",
     "Gtk.ShortcutManager",
     "Gtk.SpinButtonUpdatePolicy",
     "Gtk.Stack",
     "Gtk.StringFilterMatchMode",
+    "Gtk.SymbolicPaintable",
+    "Gtk.TextDirection",
     "Gtk.Widget",
+    "Gtk.WindowGravity",
     "Pango.AttrList",
     "Pango.EllipsizeMode",
 ]
@@ -306,6 +315,9 @@ trait_name = "AdwDialogExt"
 name = "Adw.EnumListModel"
 status = "generate"
 generate_builder = false
+    [[object.property]]
+    pattern = "(n-items|item-type)"
+    generate = [] # disable generated getter/notify, use the ones from GListModel iface
 
 [[object]]
 name = "Adw.Layout"
@@ -335,9 +347,58 @@ manual_traits = ["MessageDialogExtManual"]
     manual = true
 
 [[object]]
+name = "Adw.NoneAnimationTarget"
+status = "generate"
+generate_builder = false
+
+[[object]]
+name = "Adw.PreferencesGroup"
+status = "generate"
+    [[object.function]]
+    name = "bind_model"
+        [[object.function.parameter]]
+        name = "create_row_func"
+        nullable = false # we add a manual unbind() function instead
+
+[[object]]
 name = "Adw.PropertyAnimationTarget"
 status = "generate"
 generate_builder = false
+
+[[object]]
+name = "Adw.Sidebar"
+status = "generate"
+    [[object.function]]
+    name = "setup_drop_target"
+    manual = true # somehow gir fails to handle functions that have a array with a specific length
+
+[[object]]
+name = "Adw.SidebarSection"
+status = "generate"
+generate_builder = false
+    [[object.function]]
+    name = "bind_model"
+        [[object.function.parameter]]
+        name = "create_item_func"
+        nullable = false # we add a manual unbind() function instead
+
+[[object]]
+name = "Adw.ShortcutLabel"
+status = "generate"
+generate_builder = false
+
+[[object]]
+name = "Adw.ShortcutsItem"
+status = "generate"
+generate_builder = false
+
+[[object]]
+name = "Adw.ShortcutsSection"
+status = "generate"
+generate_builder = false
+    [[object.property]]
+    pattern = "(n-items|item-type)"
+    generate = [] # disable generated getter/notify, use the ones from GListModel iface
 
 [[object]]
 name = "Adw.SpinnerPaintable"
@@ -420,6 +481,9 @@ generate_builder = false
 name = "Adw.ViewStackPages"
 status = "generate"
 generate_builder = false
+    [[object.property]]
+    pattern = "(n-items|item-type)"
+    generate = [] # disable generated getter/notify, use the ones from GListModel iface
 
 [[object]]
 name = "Adw.Window"

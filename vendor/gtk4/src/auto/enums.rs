@@ -91,7 +91,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for AccessibleAnnouncementPriority {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -199,7 +199,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for AccessibleAutocomplete {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -303,7 +303,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for AccessibleInvalidState {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -417,7 +417,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for AccessiblePlatformState {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -601,7 +601,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for AccessibleProperty {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -817,7 +817,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for AccessibleRelation {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -1271,7 +1271,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for AccessibleRole {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -1375,7 +1375,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for AccessibleSort {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -1513,7 +1513,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for AccessibleState {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -1623,7 +1623,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for AccessibleTextContentChange {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -1749,7 +1749,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for AccessibleTextGranularity {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -1853,7 +1853,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for AccessibleTristate {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -1961,7 +1961,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for ArrowType {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -1989,6 +1989,7 @@ impl From<ArrowType> for glib::Value {
     }
 }
 
+#[cfg_attr(feature = "v4_10", deprecated = "Since 4.10")]
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
 #[non_exhaustive]
 #[doc(alias = "GtkAssistantPageType")]
@@ -2009,6 +2010,7 @@ pub enum AssistantPageType {
     __Unknown(i32),
 }
 
+#[allow(deprecated)]
 #[doc(hidden)]
 impl IntoGlib for AssistantPageType {
     type GlibType = ffi::GtkAssistantPageType;
@@ -2027,6 +2029,7 @@ impl IntoGlib for AssistantPageType {
     }
 }
 
+#[allow(deprecated)]
 #[doc(hidden)]
 impl FromGlib<ffi::GtkAssistantPageType> for AssistantPageType {
     #[inline]
@@ -2045,6 +2048,7 @@ impl FromGlib<ffi::GtkAssistantPageType> for AssistantPageType {
     }
 }
 
+#[allow(deprecated)]
 impl StaticType for AssistantPageType {
     #[inline]
     #[doc(alias = "gtk_assistant_page_type_get_type")]
@@ -2053,6 +2057,7 @@ impl StaticType for AssistantPageType {
     }
 }
 
+#[allow(deprecated)]
 impl glib::HasParamSpec for AssistantPageType {
     type ParamSpec = glib::ParamSpecEnum;
     type SetValue = Self;
@@ -2063,20 +2068,23 @@ impl glib::HasParamSpec for AssistantPageType {
     }
 }
 
+#[allow(deprecated)]
 impl glib::value::ValueType for AssistantPageType {
     type Type = Self;
 }
 
+#[allow(deprecated)]
 unsafe impl<'a> glib::value::FromValue<'a> for AssistantPageType {
     type Checker = glib::value::GenericValueTypeChecker<Self>;
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
+#[allow(deprecated)]
 impl ToValue for AssistantPageType {
     #[inline]
     fn to_value(&self) -> glib::Value {
@@ -2093,6 +2101,7 @@ impl ToValue for AssistantPageType {
     }
 }
 
+#[allow(deprecated)]
 impl From<AssistantPageType> for glib::Value {
     #[inline]
     fn from(v: AssistantPageType) -> Self {
@@ -2173,7 +2182,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for BaselinePosition {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -2301,7 +2310,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for BorderStyle {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -2470,7 +2479,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for BuilderError {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -2582,7 +2591,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for ButtonsType {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -2610,6 +2619,7 @@ impl From<ButtonsType> for glib::Value {
     }
 }
 
+#[cfg_attr(feature = "v4_20", deprecated = "Since 4.20")]
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
 #[non_exhaustive]
 #[doc(alias = "GtkCellRendererAccelMode")]
@@ -2622,6 +2632,7 @@ pub enum CellRendererAccelMode {
     __Unknown(i32),
 }
 
+#[allow(deprecated)]
 #[doc(hidden)]
 impl IntoGlib for CellRendererAccelMode {
     type GlibType = ffi::GtkCellRendererAccelMode;
@@ -2636,6 +2647,7 @@ impl IntoGlib for CellRendererAccelMode {
     }
 }
 
+#[allow(deprecated)]
 #[doc(hidden)]
 impl FromGlib<ffi::GtkCellRendererAccelMode> for CellRendererAccelMode {
     #[inline]
@@ -2650,6 +2662,7 @@ impl FromGlib<ffi::GtkCellRendererAccelMode> for CellRendererAccelMode {
     }
 }
 
+#[allow(deprecated)]
 impl StaticType for CellRendererAccelMode {
     #[inline]
     #[doc(alias = "gtk_cell_renderer_accel_mode_get_type")]
@@ -2658,6 +2671,7 @@ impl StaticType for CellRendererAccelMode {
     }
 }
 
+#[allow(deprecated)]
 impl glib::HasParamSpec for CellRendererAccelMode {
     type ParamSpec = glib::ParamSpecEnum;
     type SetValue = Self;
@@ -2668,20 +2682,23 @@ impl glib::HasParamSpec for CellRendererAccelMode {
     }
 }
 
+#[allow(deprecated)]
 impl glib::value::ValueType for CellRendererAccelMode {
     type Type = Self;
 }
 
+#[allow(deprecated)]
 unsafe impl<'a> glib::value::FromValue<'a> for CellRendererAccelMode {
     type Checker = glib::value::GenericValueTypeChecker<Self>;
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
+#[allow(deprecated)]
 impl ToValue for CellRendererAccelMode {
     #[inline]
     fn to_value(&self) -> glib::Value {
@@ -2698,6 +2715,7 @@ impl ToValue for CellRendererAccelMode {
     }
 }
 
+#[allow(deprecated)]
 impl From<CellRendererAccelMode> for glib::Value {
     #[inline]
     fn from(v: CellRendererAccelMode) -> Self {
@@ -2706,6 +2724,7 @@ impl From<CellRendererAccelMode> for glib::Value {
     }
 }
 
+#[cfg_attr(feature = "v4_20", deprecated = "Since 4.20")]
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
 #[non_exhaustive]
 #[doc(alias = "GtkCellRendererMode")]
@@ -2720,6 +2739,7 @@ pub enum CellRendererMode {
     __Unknown(i32),
 }
 
+#[allow(deprecated)]
 #[doc(hidden)]
 impl IntoGlib for CellRendererMode {
     type GlibType = ffi::GtkCellRendererMode;
@@ -2735,6 +2755,7 @@ impl IntoGlib for CellRendererMode {
     }
 }
 
+#[allow(deprecated)]
 #[doc(hidden)]
 impl FromGlib<ffi::GtkCellRendererMode> for CellRendererMode {
     #[inline]
@@ -2750,6 +2771,7 @@ impl FromGlib<ffi::GtkCellRendererMode> for CellRendererMode {
     }
 }
 
+#[allow(deprecated)]
 impl StaticType for CellRendererMode {
     #[inline]
     #[doc(alias = "gtk_cell_renderer_mode_get_type")]
@@ -2758,6 +2780,7 @@ impl StaticType for CellRendererMode {
     }
 }
 
+#[allow(deprecated)]
 impl glib::HasParamSpec for CellRendererMode {
     type ParamSpec = glib::ParamSpecEnum;
     type SetValue = Self;
@@ -2768,20 +2791,23 @@ impl glib::HasParamSpec for CellRendererMode {
     }
 }
 
+#[allow(deprecated)]
 impl glib::value::ValueType for CellRendererMode {
     type Type = Self;
 }
 
+#[allow(deprecated)]
 unsafe impl<'a> glib::value::FromValue<'a> for CellRendererMode {
     type Checker = glib::value::GenericValueTypeChecker<Self>;
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
+#[allow(deprecated)]
 impl ToValue for CellRendererMode {
     #[inline]
     fn to_value(&self) -> glib::Value {
@@ -2798,6 +2824,7 @@ impl ToValue for CellRendererMode {
     }
 }
 
+#[allow(deprecated)]
 impl From<CellRendererMode> for glib::Value {
     #[inline]
     fn from(v: CellRendererMode) -> Self {
@@ -2892,7 +2919,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for Collation {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -3032,7 +3059,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for ConstraintAttribute {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -3132,7 +3159,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for ConstraintRelation {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -3236,7 +3263,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for ConstraintStrength {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -3269,17 +3296,17 @@ impl From<ConstraintStrength> for glib::Value {
 #[doc(alias = "GtkConstraintVflParserError")]
 pub enum ConstraintVflParserError {
     #[doc(alias = "GTK_CONSTRAINT_VFL_PARSER_ERROR_INVALID_SYMBOL")]
-    Symbol,
+    InvalidSymbol,
     #[doc(alias = "GTK_CONSTRAINT_VFL_PARSER_ERROR_INVALID_ATTRIBUTE")]
-    Attribute,
+    InvalidAttribute,
     #[doc(alias = "GTK_CONSTRAINT_VFL_PARSER_ERROR_INVALID_VIEW")]
-    View,
+    InvalidView,
     #[doc(alias = "GTK_CONSTRAINT_VFL_PARSER_ERROR_INVALID_METRIC")]
-    Metric,
+    InvalidMetric,
     #[doc(alias = "GTK_CONSTRAINT_VFL_PARSER_ERROR_INVALID_PRIORITY")]
-    Priority,
+    InvalidPriority,
     #[doc(alias = "GTK_CONSTRAINT_VFL_PARSER_ERROR_INVALID_RELATION")]
-    Relation,
+    InvalidRelation,
     #[doc(hidden)]
     __Unknown(i32),
 }
@@ -3291,12 +3318,12 @@ impl IntoGlib for ConstraintVflParserError {
     #[inline]
     fn into_glib(self) -> ffi::GtkConstraintVflParserError {
         match self {
-            Self::Symbol => ffi::GTK_CONSTRAINT_VFL_PARSER_ERROR_INVALID_SYMBOL,
-            Self::Attribute => ffi::GTK_CONSTRAINT_VFL_PARSER_ERROR_INVALID_ATTRIBUTE,
-            Self::View => ffi::GTK_CONSTRAINT_VFL_PARSER_ERROR_INVALID_VIEW,
-            Self::Metric => ffi::GTK_CONSTRAINT_VFL_PARSER_ERROR_INVALID_METRIC,
-            Self::Priority => ffi::GTK_CONSTRAINT_VFL_PARSER_ERROR_INVALID_PRIORITY,
-            Self::Relation => ffi::GTK_CONSTRAINT_VFL_PARSER_ERROR_INVALID_RELATION,
+            Self::InvalidSymbol => ffi::GTK_CONSTRAINT_VFL_PARSER_ERROR_INVALID_SYMBOL,
+            Self::InvalidAttribute => ffi::GTK_CONSTRAINT_VFL_PARSER_ERROR_INVALID_ATTRIBUTE,
+            Self::InvalidView => ffi::GTK_CONSTRAINT_VFL_PARSER_ERROR_INVALID_VIEW,
+            Self::InvalidMetric => ffi::GTK_CONSTRAINT_VFL_PARSER_ERROR_INVALID_METRIC,
+            Self::InvalidPriority => ffi::GTK_CONSTRAINT_VFL_PARSER_ERROR_INVALID_PRIORITY,
+            Self::InvalidRelation => ffi::GTK_CONSTRAINT_VFL_PARSER_ERROR_INVALID_RELATION,
             Self::__Unknown(value) => value,
         }
     }
@@ -3309,12 +3336,12 @@ impl FromGlib<ffi::GtkConstraintVflParserError> for ConstraintVflParserError {
         skip_assert_initialized!();
 
         match value {
-            ffi::GTK_CONSTRAINT_VFL_PARSER_ERROR_INVALID_SYMBOL => Self::Symbol,
-            ffi::GTK_CONSTRAINT_VFL_PARSER_ERROR_INVALID_ATTRIBUTE => Self::Attribute,
-            ffi::GTK_CONSTRAINT_VFL_PARSER_ERROR_INVALID_VIEW => Self::View,
-            ffi::GTK_CONSTRAINT_VFL_PARSER_ERROR_INVALID_METRIC => Self::Metric,
-            ffi::GTK_CONSTRAINT_VFL_PARSER_ERROR_INVALID_PRIORITY => Self::Priority,
-            ffi::GTK_CONSTRAINT_VFL_PARSER_ERROR_INVALID_RELATION => Self::Relation,
+            ffi::GTK_CONSTRAINT_VFL_PARSER_ERROR_INVALID_SYMBOL => Self::InvalidSymbol,
+            ffi::GTK_CONSTRAINT_VFL_PARSER_ERROR_INVALID_ATTRIBUTE => Self::InvalidAttribute,
+            ffi::GTK_CONSTRAINT_VFL_PARSER_ERROR_INVALID_VIEW => Self::InvalidView,
+            ffi::GTK_CONSTRAINT_VFL_PARSER_ERROR_INVALID_METRIC => Self::InvalidMetric,
+            ffi::GTK_CONSTRAINT_VFL_PARSER_ERROR_INVALID_PRIORITY => Self::InvalidPriority,
+            ffi::GTK_CONSTRAINT_VFL_PARSER_ERROR_INVALID_RELATION => Self::InvalidRelation,
             value => Self::__Unknown(value),
         }
     }
@@ -3371,7 +3398,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for ConstraintVflParserError {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -3489,7 +3516,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for ContentFit {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -3597,7 +3624,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for CornerType {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -3837,7 +3864,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for DeleteType {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -3977,7 +4004,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for DialogError {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -4093,7 +4120,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for DirectionType {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -4141,6 +4168,8 @@ pub enum EditableProperties {
     PropXalign,
     #[doc(alias = "GTK_EDITABLE_PROP_ENABLE_UNDO")]
     PropEnableUndo,
+    #[doc(alias = "GTK_EDITABLE_PROP_COMPLETE_TEXT")]
+    PropCompleteText,
     #[doc(alias = "GTK_EDITABLE_NUM_PROPERTIES")]
     NumProperties,
     #[doc(hidden)]
@@ -4162,6 +4191,7 @@ impl IntoGlib for EditableProperties {
             Self::PropMaxWidthChars => ffi::GTK_EDITABLE_PROP_MAX_WIDTH_CHARS,
             Self::PropXalign => ffi::GTK_EDITABLE_PROP_XALIGN,
             Self::PropEnableUndo => ffi::GTK_EDITABLE_PROP_ENABLE_UNDO,
+            Self::PropCompleteText => ffi::GTK_EDITABLE_PROP_COMPLETE_TEXT,
             Self::NumProperties => ffi::GTK_EDITABLE_NUM_PROPERTIES,
             Self::__Unknown(value) => value,
         }
@@ -4183,6 +4213,7 @@ impl FromGlib<ffi::GtkEditableProperties> for EditableProperties {
             ffi::GTK_EDITABLE_PROP_MAX_WIDTH_CHARS => Self::PropMaxWidthChars,
             ffi::GTK_EDITABLE_PROP_XALIGN => Self::PropXalign,
             ffi::GTK_EDITABLE_PROP_ENABLE_UNDO => Self::PropEnableUndo,
+            ffi::GTK_EDITABLE_PROP_COMPLETE_TEXT => Self::PropCompleteText,
             ffi::GTK_EDITABLE_NUM_PROPERTIES => Self::NumProperties,
             value => Self::__Unknown(value),
         }
@@ -4217,7 +4248,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for EditableProperties {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -4313,7 +4344,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for EntryIconPosition {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -4413,7 +4444,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for EventSequenceState {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -4513,7 +4544,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for FileChooserAction {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -4541,6 +4572,7 @@ impl From<FileChooserAction> for glib::Value {
     }
 }
 
+#[cfg_attr(feature = "v4_20", deprecated = "Since 4.20")]
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
 #[non_exhaustive]
 #[doc(alias = "GtkFileChooserError")]
@@ -4557,6 +4589,7 @@ pub enum FileChooserError {
     __Unknown(i32),
 }
 
+#[allow(deprecated)]
 #[doc(hidden)]
 impl IntoGlib for FileChooserError {
     type GlibType = ffi::GtkFileChooserError;
@@ -4573,6 +4606,7 @@ impl IntoGlib for FileChooserError {
     }
 }
 
+#[allow(deprecated)]
 #[doc(hidden)]
 impl FromGlib<ffi::GtkFileChooserError> for FileChooserError {
     #[inline]
@@ -4589,6 +4623,7 @@ impl FromGlib<ffi::GtkFileChooserError> for FileChooserError {
     }
 }
 
+#[allow(deprecated)]
 impl glib::error::ErrorDomain for FileChooserError {
     #[inline]
     fn domain() -> glib::Quark {
@@ -4612,6 +4647,7 @@ impl glib::error::ErrorDomain for FileChooserError {
     }
 }
 
+#[allow(deprecated)]
 impl StaticType for FileChooserError {
     #[inline]
     #[doc(alias = "gtk_file_chooser_error_get_type")]
@@ -4620,6 +4656,7 @@ impl StaticType for FileChooserError {
     }
 }
 
+#[allow(deprecated)]
 impl glib::HasParamSpec for FileChooserError {
     type ParamSpec = glib::ParamSpecEnum;
     type SetValue = Self;
@@ -4630,20 +4667,23 @@ impl glib::HasParamSpec for FileChooserError {
     }
 }
 
+#[allow(deprecated)]
 impl glib::value::ValueType for FileChooserError {
     type Type = Self;
 }
 
+#[allow(deprecated)]
 unsafe impl<'a> glib::value::FromValue<'a> for FileChooserError {
     type Checker = glib::value::GenericValueTypeChecker<Self>;
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
+#[allow(deprecated)]
 impl ToValue for FileChooserError {
     #[inline]
     fn to_value(&self) -> glib::Value {
@@ -4660,6 +4700,7 @@ impl ToValue for FileChooserError {
     }
 }
 
+#[allow(deprecated)]
 impl From<FileChooserError> for glib::Value {
     #[inline]
     fn from(v: FileChooserError) -> Self {
@@ -4678,6 +4719,18 @@ pub enum FilterChange {
     LessStrict,
     #[doc(alias = "GTK_FILTER_CHANGE_MORE_STRICT")]
     MoreStrict,
+    #[cfg(feature = "v4_20")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+    #[doc(alias = "GTK_FILTER_CHANGE_DIFFERENT_REWATCH")]
+    DifferentRewatch,
+    #[cfg(feature = "v4_20")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+    #[doc(alias = "GTK_FILTER_CHANGE_LESS_STRICT_REWATCH")]
+    LessStrictRewatch,
+    #[cfg(feature = "v4_20")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+    #[doc(alias = "GTK_FILTER_CHANGE_MORE_STRICT_REWATCH")]
+    MoreStrictRewatch,
     #[doc(hidden)]
     __Unknown(i32),
 }
@@ -4692,6 +4745,12 @@ impl IntoGlib for FilterChange {
             Self::Different => ffi::GTK_FILTER_CHANGE_DIFFERENT,
             Self::LessStrict => ffi::GTK_FILTER_CHANGE_LESS_STRICT,
             Self::MoreStrict => ffi::GTK_FILTER_CHANGE_MORE_STRICT,
+            #[cfg(feature = "v4_20")]
+            Self::DifferentRewatch => ffi::GTK_FILTER_CHANGE_DIFFERENT_REWATCH,
+            #[cfg(feature = "v4_20")]
+            Self::LessStrictRewatch => ffi::GTK_FILTER_CHANGE_LESS_STRICT_REWATCH,
+            #[cfg(feature = "v4_20")]
+            Self::MoreStrictRewatch => ffi::GTK_FILTER_CHANGE_MORE_STRICT_REWATCH,
             Self::__Unknown(value) => value,
         }
     }
@@ -4707,6 +4766,12 @@ impl FromGlib<ffi::GtkFilterChange> for FilterChange {
             ffi::GTK_FILTER_CHANGE_DIFFERENT => Self::Different,
             ffi::GTK_FILTER_CHANGE_LESS_STRICT => Self::LessStrict,
             ffi::GTK_FILTER_CHANGE_MORE_STRICT => Self::MoreStrict,
+            #[cfg(feature = "v4_20")]
+            ffi::GTK_FILTER_CHANGE_DIFFERENT_REWATCH => Self::DifferentRewatch,
+            #[cfg(feature = "v4_20")]
+            ffi::GTK_FILTER_CHANGE_LESS_STRICT_REWATCH => Self::LessStrictRewatch,
+            #[cfg(feature = "v4_20")]
+            ffi::GTK_FILTER_CHANGE_MORE_STRICT_REWATCH => Self::MoreStrictRewatch,
             value => Self::__Unknown(value),
         }
     }
@@ -4740,7 +4805,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for FilterChange {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -4840,7 +4905,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for FilterMatch {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -4958,7 +5023,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for FontLevel {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -5072,7 +5137,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for FontRendering {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -5186,7 +5251,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for GraphicsOffloadEnabled {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -5290,7 +5355,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for IconSize {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -5410,7 +5475,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for IconThemeError {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -5438,6 +5503,7 @@ impl From<IconThemeError> for glib::Value {
     }
 }
 
+#[cfg_attr(feature = "v4_20", deprecated = "Since 4.20")]
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
 #[non_exhaustive]
 #[doc(alias = "GtkIconViewDropPosition")]
@@ -5458,6 +5524,7 @@ pub enum IconViewDropPosition {
     __Unknown(i32),
 }
 
+#[allow(deprecated)]
 #[doc(hidden)]
 impl IntoGlib for IconViewDropPosition {
     type GlibType = ffi::GtkIconViewDropPosition;
@@ -5476,6 +5543,7 @@ impl IntoGlib for IconViewDropPosition {
     }
 }
 
+#[allow(deprecated)]
 #[doc(hidden)]
 impl FromGlib<ffi::GtkIconViewDropPosition> for IconViewDropPosition {
     #[inline]
@@ -5494,6 +5562,7 @@ impl FromGlib<ffi::GtkIconViewDropPosition> for IconViewDropPosition {
     }
 }
 
+#[allow(deprecated)]
 impl StaticType for IconViewDropPosition {
     #[inline]
     #[doc(alias = "gtk_icon_view_drop_position_get_type")]
@@ -5502,6 +5571,7 @@ impl StaticType for IconViewDropPosition {
     }
 }
 
+#[allow(deprecated)]
 impl glib::HasParamSpec for IconViewDropPosition {
     type ParamSpec = glib::ParamSpecEnum;
     type SetValue = Self;
@@ -5512,20 +5582,23 @@ impl glib::HasParamSpec for IconViewDropPosition {
     }
 }
 
+#[allow(deprecated)]
 impl glib::value::ValueType for IconViewDropPosition {
     type Type = Self;
 }
 
+#[allow(deprecated)]
 unsafe impl<'a> glib::value::FromValue<'a> for IconViewDropPosition {
     type Checker = glib::value::GenericValueTypeChecker<Self>;
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
+#[allow(deprecated)]
 impl ToValue for IconViewDropPosition {
     #[inline]
     fn to_value(&self) -> glib::Value {
@@ -5542,6 +5615,7 @@ impl ToValue for IconViewDropPosition {
     }
 }
 
+#[allow(deprecated)]
 impl From<IconViewDropPosition> for glib::Value {
     #[inline]
     fn from(v: IconViewDropPosition) -> Self {
@@ -5626,7 +5700,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for ImageType {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -5758,7 +5832,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for InputPurpose {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -5876,7 +5950,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for InscriptionOverflow {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -5903,6 +5977,250 @@ impl ToValue for InscriptionOverflow {
 impl From<InscriptionOverflow> for glib::Value {
     #[inline]
     fn from(v: InscriptionOverflow) -> Self {
+        skip_assert_initialized!();
+        ToValue::to_value(&v)
+    }
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
+#[non_exhaustive]
+#[doc(alias = "GtkInterfaceColorScheme")]
+pub enum InterfaceColorScheme {
+    #[doc(alias = "GTK_INTERFACE_COLOR_SCHEME_UNSUPPORTED")]
+    Unsupported,
+    #[doc(alias = "GTK_INTERFACE_COLOR_SCHEME_DEFAULT")]
+    Default,
+    #[doc(alias = "GTK_INTERFACE_COLOR_SCHEME_DARK")]
+    Dark,
+    #[doc(alias = "GTK_INTERFACE_COLOR_SCHEME_LIGHT")]
+    Light,
+    #[doc(hidden)]
+    __Unknown(i32),
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+#[doc(hidden)]
+impl IntoGlib for InterfaceColorScheme {
+    type GlibType = ffi::GtkInterfaceColorScheme;
+
+    #[inline]
+    fn into_glib(self) -> ffi::GtkInterfaceColorScheme {
+        match self {
+            Self::Unsupported => ffi::GTK_INTERFACE_COLOR_SCHEME_UNSUPPORTED,
+            Self::Default => ffi::GTK_INTERFACE_COLOR_SCHEME_DEFAULT,
+            Self::Dark => ffi::GTK_INTERFACE_COLOR_SCHEME_DARK,
+            Self::Light => ffi::GTK_INTERFACE_COLOR_SCHEME_LIGHT,
+            Self::__Unknown(value) => value,
+        }
+    }
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+#[doc(hidden)]
+impl FromGlib<ffi::GtkInterfaceColorScheme> for InterfaceColorScheme {
+    #[inline]
+    unsafe fn from_glib(value: ffi::GtkInterfaceColorScheme) -> Self {
+        skip_assert_initialized!();
+
+        match value {
+            ffi::GTK_INTERFACE_COLOR_SCHEME_UNSUPPORTED => Self::Unsupported,
+            ffi::GTK_INTERFACE_COLOR_SCHEME_DEFAULT => Self::Default,
+            ffi::GTK_INTERFACE_COLOR_SCHEME_DARK => Self::Dark,
+            ffi::GTK_INTERFACE_COLOR_SCHEME_LIGHT => Self::Light,
+            value => Self::__Unknown(value),
+        }
+    }
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+impl StaticType for InterfaceColorScheme {
+    #[inline]
+    #[doc(alias = "gtk_interface_color_scheme_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::gtk_interface_color_scheme_get_type()) }
+    }
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+impl glib::HasParamSpec for InterfaceColorScheme {
+    type ParamSpec = glib::ParamSpecEnum;
+    type SetValue = Self;
+    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder_with_default
+    }
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+impl glib::value::ValueType for InterfaceColorScheme {
+    type Type = Self;
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+unsafe impl<'a> glib::value::FromValue<'a> for InterfaceColorScheme {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        skip_assert_initialized!();
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
+    }
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+impl ToValue for InterfaceColorScheme {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+impl From<InterfaceColorScheme> for glib::Value {
+    #[inline]
+    fn from(v: InterfaceColorScheme) -> Self {
+        skip_assert_initialized!();
+        ToValue::to_value(&v)
+    }
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
+#[non_exhaustive]
+#[doc(alias = "GtkInterfaceContrast")]
+pub enum InterfaceContrast {
+    #[doc(alias = "GTK_INTERFACE_CONTRAST_UNSUPPORTED")]
+    Unsupported,
+    #[doc(alias = "GTK_INTERFACE_CONTRAST_NO_PREFERENCE")]
+    NoPreference,
+    #[doc(alias = "GTK_INTERFACE_CONTRAST_MORE")]
+    More,
+    #[doc(alias = "GTK_INTERFACE_CONTRAST_LESS")]
+    Less,
+    #[doc(hidden)]
+    __Unknown(i32),
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+#[doc(hidden)]
+impl IntoGlib for InterfaceContrast {
+    type GlibType = ffi::GtkInterfaceContrast;
+
+    #[inline]
+    fn into_glib(self) -> ffi::GtkInterfaceContrast {
+        match self {
+            Self::Unsupported => ffi::GTK_INTERFACE_CONTRAST_UNSUPPORTED,
+            Self::NoPreference => ffi::GTK_INTERFACE_CONTRAST_NO_PREFERENCE,
+            Self::More => ffi::GTK_INTERFACE_CONTRAST_MORE,
+            Self::Less => ffi::GTK_INTERFACE_CONTRAST_LESS,
+            Self::__Unknown(value) => value,
+        }
+    }
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+#[doc(hidden)]
+impl FromGlib<ffi::GtkInterfaceContrast> for InterfaceContrast {
+    #[inline]
+    unsafe fn from_glib(value: ffi::GtkInterfaceContrast) -> Self {
+        skip_assert_initialized!();
+
+        match value {
+            ffi::GTK_INTERFACE_CONTRAST_UNSUPPORTED => Self::Unsupported,
+            ffi::GTK_INTERFACE_CONTRAST_NO_PREFERENCE => Self::NoPreference,
+            ffi::GTK_INTERFACE_CONTRAST_MORE => Self::More,
+            ffi::GTK_INTERFACE_CONTRAST_LESS => Self::Less,
+            value => Self::__Unknown(value),
+        }
+    }
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+impl StaticType for InterfaceContrast {
+    #[inline]
+    #[doc(alias = "gtk_interface_contrast_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::gtk_interface_contrast_get_type()) }
+    }
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+impl glib::HasParamSpec for InterfaceContrast {
+    type ParamSpec = glib::ParamSpecEnum;
+    type SetValue = Self;
+    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder_with_default
+    }
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+impl glib::value::ValueType for InterfaceContrast {
+    type Type = Self;
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+unsafe impl<'a> glib::value::FromValue<'a> for InterfaceContrast {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        skip_assert_initialized!();
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
+    }
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+impl ToValue for InterfaceContrast {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+impl From<InterfaceContrast> for glib::Value {
+    #[inline]
+    fn from(v: InterfaceContrast) -> Self {
         skip_assert_initialized!();
         ToValue::to_value(&v)
     }
@@ -5984,7 +6302,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for Justification {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -6080,7 +6398,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for LevelBarMode {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -6246,7 +6564,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for License {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -6360,7 +6678,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for ListTabBehavior {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -6472,7 +6790,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for MessageType {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -6600,7 +6918,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for MovementStep {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -6714,7 +7032,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for NaturalWrapMode {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -6814,7 +7132,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for NotebookTab {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -6934,7 +7252,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for NumberUpLayout {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -7034,7 +7352,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for Ordering {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -7130,7 +7448,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for Orientation {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -7226,7 +7544,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for Overflow {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -7322,7 +7640,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for PackType {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -7360,6 +7678,8 @@ pub enum PadActionType {
     Ring,
     #[doc(alias = "GTK_PAD_ACTION_STRIP")]
     Strip,
+    #[doc(alias = "GTK_PAD_ACTION_DIAL")]
+    Dial,
     #[doc(hidden)]
     __Unknown(i32),
 }
@@ -7374,6 +7694,7 @@ impl IntoGlib for PadActionType {
             Self::Button => ffi::GTK_PAD_ACTION_BUTTON,
             Self::Ring => ffi::GTK_PAD_ACTION_RING,
             Self::Strip => ffi::GTK_PAD_ACTION_STRIP,
+            Self::Dial => ffi::GTK_PAD_ACTION_DIAL,
             Self::__Unknown(value) => value,
         }
     }
@@ -7389,6 +7710,7 @@ impl FromGlib<ffi::GtkPadActionType> for PadActionType {
             ffi::GTK_PAD_ACTION_BUTTON => Self::Button,
             ffi::GTK_PAD_ACTION_RING => Self::Ring,
             ffi::GTK_PAD_ACTION_STRIP => Self::Strip,
+            ffi::GTK_PAD_ACTION_DIAL => Self::Dial,
             value => Self::__Unknown(value),
         }
     }
@@ -7422,7 +7744,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for PadActionType {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -7526,7 +7848,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for PageOrientation {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -7626,7 +7948,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for PageSet {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -7730,7 +8052,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for PanDirection {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -7834,7 +8156,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for PolicyType {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -7938,7 +8260,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for PositionType {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -8038,7 +8360,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for PrintDuplex {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -8165,7 +8487,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for PrintError {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -8269,7 +8591,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for PrintOperationAction {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -8373,7 +8695,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for PrintOperationResult {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -8477,7 +8799,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for PrintPages {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -8581,7 +8903,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for PrintQuality {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -8705,7 +9027,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for PrintStatus {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -8801,7 +9123,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for PropagationLimit {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -8905,7 +9227,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for PropagationPhase {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -9044,7 +9366,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for RecentManagerError {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -9067,6 +9389,242 @@ impl ToValue for RecentManagerError {
 impl From<RecentManagerError> for glib::Value {
     #[inline]
     fn from(v: RecentManagerError) -> Self {
+        skip_assert_initialized!();
+        ToValue::to_value(&v)
+    }
+}
+
+#[cfg(feature = "v4_22")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
+#[non_exhaustive]
+#[doc(alias = "GtkReducedMotion")]
+pub enum ReducedMotion {
+    #[doc(alias = "GTK_REDUCED_MOTION_NO_PREFERENCE")]
+    NoPreference,
+    #[doc(alias = "GTK_REDUCED_MOTION_REDUCE")]
+    Reduce,
+    #[doc(hidden)]
+    __Unknown(i32),
+}
+
+#[cfg(feature = "v4_22")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+#[doc(hidden)]
+impl IntoGlib for ReducedMotion {
+    type GlibType = ffi::GtkReducedMotion;
+
+    #[inline]
+    fn into_glib(self) -> ffi::GtkReducedMotion {
+        match self {
+            Self::NoPreference => ffi::GTK_REDUCED_MOTION_NO_PREFERENCE,
+            Self::Reduce => ffi::GTK_REDUCED_MOTION_REDUCE,
+            Self::__Unknown(value) => value,
+        }
+    }
+}
+
+#[cfg(feature = "v4_22")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+#[doc(hidden)]
+impl FromGlib<ffi::GtkReducedMotion> for ReducedMotion {
+    #[inline]
+    unsafe fn from_glib(value: ffi::GtkReducedMotion) -> Self {
+        skip_assert_initialized!();
+
+        match value {
+            ffi::GTK_REDUCED_MOTION_NO_PREFERENCE => Self::NoPreference,
+            ffi::GTK_REDUCED_MOTION_REDUCE => Self::Reduce,
+            value => Self::__Unknown(value),
+        }
+    }
+}
+
+#[cfg(feature = "v4_22")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+impl StaticType for ReducedMotion {
+    #[inline]
+    #[doc(alias = "gtk_reduced_motion_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::gtk_reduced_motion_get_type()) }
+    }
+}
+
+#[cfg(feature = "v4_22")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+impl glib::HasParamSpec for ReducedMotion {
+    type ParamSpec = glib::ParamSpecEnum;
+    type SetValue = Self;
+    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder_with_default
+    }
+}
+
+#[cfg(feature = "v4_22")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+impl glib::value::ValueType for ReducedMotion {
+    type Type = Self;
+}
+
+#[cfg(feature = "v4_22")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+unsafe impl<'a> glib::value::FromValue<'a> for ReducedMotion {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        skip_assert_initialized!();
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
+    }
+}
+
+#[cfg(feature = "v4_22")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+impl ToValue for ReducedMotion {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+#[cfg(feature = "v4_22")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+impl From<ReducedMotion> for glib::Value {
+    #[inline]
+    fn from(v: ReducedMotion) -> Self {
+        skip_assert_initialized!();
+        ToValue::to_value(&v)
+    }
+}
+
+#[cfg(feature = "v4_24")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_24")))]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
+#[non_exhaustive]
+#[doc(alias = "GtkRestoreReason")]
+pub enum RestoreReason {
+    #[doc(alias = "GTK_RESTORE_REASON_PRISTINE")]
+    Pristine,
+    #[doc(alias = "GTK_RESTORE_REASON_LAUNCH")]
+    Launch,
+    #[doc(alias = "GTK_RESTORE_REASON_RECOVER")]
+    Recover,
+    #[doc(alias = "GTK_RESTORE_REASON_RESTORE")]
+    Restore,
+    #[doc(hidden)]
+    __Unknown(i32),
+}
+
+#[cfg(feature = "v4_24")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_24")))]
+#[doc(hidden)]
+impl IntoGlib for RestoreReason {
+    type GlibType = ffi::GtkRestoreReason;
+
+    #[inline]
+    fn into_glib(self) -> ffi::GtkRestoreReason {
+        match self {
+            Self::Pristine => ffi::GTK_RESTORE_REASON_PRISTINE,
+            Self::Launch => ffi::GTK_RESTORE_REASON_LAUNCH,
+            Self::Recover => ffi::GTK_RESTORE_REASON_RECOVER,
+            Self::Restore => ffi::GTK_RESTORE_REASON_RESTORE,
+            Self::__Unknown(value) => value,
+        }
+    }
+}
+
+#[cfg(feature = "v4_24")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_24")))]
+#[doc(hidden)]
+impl FromGlib<ffi::GtkRestoreReason> for RestoreReason {
+    #[inline]
+    unsafe fn from_glib(value: ffi::GtkRestoreReason) -> Self {
+        skip_assert_initialized!();
+
+        match value {
+            ffi::GTK_RESTORE_REASON_PRISTINE => Self::Pristine,
+            ffi::GTK_RESTORE_REASON_LAUNCH => Self::Launch,
+            ffi::GTK_RESTORE_REASON_RECOVER => Self::Recover,
+            ffi::GTK_RESTORE_REASON_RESTORE => Self::Restore,
+            value => Self::__Unknown(value),
+        }
+    }
+}
+
+#[cfg(feature = "v4_24")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_24")))]
+impl StaticType for RestoreReason {
+    #[inline]
+    #[doc(alias = "gtk_restore_reason_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::gtk_restore_reason_get_type()) }
+    }
+}
+
+#[cfg(feature = "v4_24")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_24")))]
+impl glib::HasParamSpec for RestoreReason {
+    type ParamSpec = glib::ParamSpecEnum;
+    type SetValue = Self;
+    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder_with_default
+    }
+}
+
+#[cfg(feature = "v4_24")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_24")))]
+impl glib::value::ValueType for RestoreReason {
+    type Type = Self;
+}
+
+#[cfg(feature = "v4_24")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_24")))]
+unsafe impl<'a> glib::value::FromValue<'a> for RestoreReason {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        skip_assert_initialized!();
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
+    }
+}
+
+#[cfg(feature = "v4_24")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_24")))]
+impl ToValue for RestoreReason {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+#[cfg(feature = "v4_24")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_24")))]
+impl From<RestoreReason> for glib::Value {
+    #[inline]
+    fn from(v: RestoreReason) -> Self {
         skip_assert_initialized!();
         ToValue::to_value(&v)
     }
@@ -9096,6 +9654,22 @@ pub enum RevealerTransitionType {
     SwingUp,
     #[doc(alias = "GTK_REVEALER_TRANSITION_TYPE_SWING_DOWN")]
     SwingDown,
+    #[cfg(feature = "v4_22")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+    #[doc(alias = "GTK_REVEALER_TRANSITION_TYPE_FADE_SLIDE_RIGHT")]
+    FadeSlideRight,
+    #[cfg(feature = "v4_22")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+    #[doc(alias = "GTK_REVEALER_TRANSITION_TYPE_FADE_SLIDE_LEFT")]
+    FadeSlideLeft,
+    #[cfg(feature = "v4_22")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+    #[doc(alias = "GTK_REVEALER_TRANSITION_TYPE_FADE_SLIDE_UP")]
+    FadeSlideUp,
+    #[cfg(feature = "v4_22")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+    #[doc(alias = "GTK_REVEALER_TRANSITION_TYPE_FADE_SLIDE_DOWN")]
+    FadeSlideDown,
     #[doc(hidden)]
     __Unknown(i32),
 }
@@ -9104,7 +9678,6 @@ pub enum RevealerTransitionType {
 impl IntoGlib for RevealerTransitionType {
     type GlibType = ffi::GtkRevealerTransitionType;
 
-    #[inline]
     fn into_glib(self) -> ffi::GtkRevealerTransitionType {
         match self {
             Self::None => ffi::GTK_REVEALER_TRANSITION_TYPE_NONE,
@@ -9117,6 +9690,14 @@ impl IntoGlib for RevealerTransitionType {
             Self::SwingLeft => ffi::GTK_REVEALER_TRANSITION_TYPE_SWING_LEFT,
             Self::SwingUp => ffi::GTK_REVEALER_TRANSITION_TYPE_SWING_UP,
             Self::SwingDown => ffi::GTK_REVEALER_TRANSITION_TYPE_SWING_DOWN,
+            #[cfg(feature = "v4_22")]
+            Self::FadeSlideRight => ffi::GTK_REVEALER_TRANSITION_TYPE_FADE_SLIDE_RIGHT,
+            #[cfg(feature = "v4_22")]
+            Self::FadeSlideLeft => ffi::GTK_REVEALER_TRANSITION_TYPE_FADE_SLIDE_LEFT,
+            #[cfg(feature = "v4_22")]
+            Self::FadeSlideUp => ffi::GTK_REVEALER_TRANSITION_TYPE_FADE_SLIDE_UP,
+            #[cfg(feature = "v4_22")]
+            Self::FadeSlideDown => ffi::GTK_REVEALER_TRANSITION_TYPE_FADE_SLIDE_DOWN,
             Self::__Unknown(value) => value,
         }
     }
@@ -9124,7 +9705,6 @@ impl IntoGlib for RevealerTransitionType {
 
 #[doc(hidden)]
 impl FromGlib<ffi::GtkRevealerTransitionType> for RevealerTransitionType {
-    #[inline]
     unsafe fn from_glib(value: ffi::GtkRevealerTransitionType) -> Self {
         skip_assert_initialized!();
 
@@ -9139,6 +9719,14 @@ impl FromGlib<ffi::GtkRevealerTransitionType> for RevealerTransitionType {
             ffi::GTK_REVEALER_TRANSITION_TYPE_SWING_LEFT => Self::SwingLeft,
             ffi::GTK_REVEALER_TRANSITION_TYPE_SWING_UP => Self::SwingUp,
             ffi::GTK_REVEALER_TRANSITION_TYPE_SWING_DOWN => Self::SwingDown,
+            #[cfg(feature = "v4_22")]
+            ffi::GTK_REVEALER_TRANSITION_TYPE_FADE_SLIDE_RIGHT => Self::FadeSlideRight,
+            #[cfg(feature = "v4_22")]
+            ffi::GTK_REVEALER_TRANSITION_TYPE_FADE_SLIDE_LEFT => Self::FadeSlideLeft,
+            #[cfg(feature = "v4_22")]
+            ffi::GTK_REVEALER_TRANSITION_TYPE_FADE_SLIDE_UP => Self::FadeSlideUp,
+            #[cfg(feature = "v4_22")]
+            ffi::GTK_REVEALER_TRANSITION_TYPE_FADE_SLIDE_DOWN => Self::FadeSlideDown,
             value => Self::__Unknown(value),
         }
     }
@@ -9172,7 +9760,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for RevealerTransitionType {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -9284,7 +9872,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for ScrollStep {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -9434,7 +10022,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for ScrollType {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -9530,7 +10118,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for ScrollablePolicy {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -9634,7 +10222,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for SelectionMode {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -9734,7 +10322,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for SensitivityType {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -9834,7 +10422,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for ShortcutScope {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -9966,7 +10554,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for ShortcutType {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -10070,7 +10658,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for SizeGroupMode {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -10170,7 +10758,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for SizeRequestMode {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -10266,7 +10854,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for SortType {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -10370,7 +10958,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for SorterChange {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -10470,7 +11058,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for SorterOrder {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -10566,7 +11154,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for SpinButtonUpdatePolicy {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -10682,7 +11270,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for SpinType {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -10860,7 +11448,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for StackTransitionType {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -10960,7 +11548,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for StringFilterMatchMode {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -10988,6 +11576,230 @@ impl From<StringFilterMatchMode> for glib::Value {
     }
 }
 
+#[cfg(feature = "v4_22")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
+#[non_exhaustive]
+#[doc(alias = "GtkSvgError")]
+pub enum SvgError {
+    #[doc(alias = "GTK_SVG_ERROR_INVALID_SYNTAX")]
+    InvalidSyntax,
+    #[doc(alias = "GTK_SVG_ERROR_INVALID_ELEMENT")]
+    InvalidElement,
+    #[doc(alias = "GTK_SVG_ERROR_INVALID_ATTRIBUTE")]
+    InvalidAttribute,
+    #[doc(alias = "GTK_SVG_ERROR_MISSING_ATTRIBUTE")]
+    MissingAttribute,
+    #[doc(alias = "GTK_SVG_ERROR_INVALID_REFERENCE")]
+    InvalidReference,
+    #[doc(alias = "GTK_SVG_ERROR_FAILED_UPDATE")]
+    FailedUpdate,
+    #[doc(alias = "GTK_SVG_ERROR_FAILED_RENDERING")]
+    FailedRendering,
+    #[doc(alias = "GTK_SVG_ERROR_IGNORED_ELEMENT")]
+    IgnoredElement,
+    #[doc(alias = "GTK_SVG_ERROR_LIMITS_EXCEEDED")]
+    LimitsExceeded,
+    #[doc(alias = "GTK_SVG_ERROR_NOT_IMPLEMENTED")]
+    NotImplemented,
+    #[doc(alias = "GTK_SVG_ERROR_FEATURE_DISABLED")]
+    FeatureDisabled,
+    #[doc(hidden)]
+    __Unknown(i32),
+}
+
+#[cfg(feature = "v4_22")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+impl SvgError {
+    #[doc(alias = "gtk_svg_error_get_attribute")]
+    #[doc(alias = "get_attribute")]
+    pub fn attribute(error: &glib::Error) -> Option<glib::GString> {
+        assert_initialized_main_thread!();
+        unsafe { from_glib_none(ffi::gtk_svg_error_get_attribute(error.to_glib_none().0)) }
+    }
+
+    #[doc(alias = "gtk_svg_error_get_element")]
+    #[doc(alias = "get_element")]
+    pub fn element(error: &glib::Error) -> Option<glib::GString> {
+        assert_initialized_main_thread!();
+        unsafe { from_glib_none(ffi::gtk_svg_error_get_element(error.to_glib_none().0)) }
+    }
+
+    //#[doc(alias = "gtk_svg_error_get_end")]
+    //#[doc(alias = "get_end")]
+    //pub fn end(error: &glib::Error) -> /*Ignored*/Option<SvgLocation> {
+    //    unsafe { TODO: call ffi:gtk_svg_error_get_end() }
+    //}
+
+    #[cfg(feature = "v4_24")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_24")))]
+    #[doc(alias = "gtk_svg_error_get_input")]
+    #[doc(alias = "get_input")]
+    pub fn input(error: &glib::Error) -> Option<glib::GString> {
+        assert_initialized_main_thread!();
+        unsafe { from_glib_none(ffi::gtk_svg_error_get_input(error.to_glib_none().0)) }
+    }
+
+    //#[doc(alias = "gtk_svg_error_get_start")]
+    //#[doc(alias = "get_start")]
+    //pub fn start(error: &glib::Error) -> /*Ignored*/Option<SvgLocation> {
+    //    unsafe { TODO: call ffi:gtk_svg_error_get_start() }
+    //}
+
+    #[doc(alias = "gtk_svg_error_quark")]
+    pub fn quark() -> glib::Quark {
+        assert_initialized_main_thread!();
+        unsafe { from_glib(ffi::gtk_svg_error_quark()) }
+    }
+}
+
+#[cfg(feature = "v4_22")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+#[doc(hidden)]
+impl IntoGlib for SvgError {
+    type GlibType = ffi::GtkSvgError;
+
+    #[inline]
+    fn into_glib(self) -> ffi::GtkSvgError {
+        match self {
+            Self::InvalidSyntax => ffi::GTK_SVG_ERROR_INVALID_SYNTAX,
+            Self::InvalidElement => ffi::GTK_SVG_ERROR_INVALID_ELEMENT,
+            Self::InvalidAttribute => ffi::GTK_SVG_ERROR_INVALID_ATTRIBUTE,
+            Self::MissingAttribute => ffi::GTK_SVG_ERROR_MISSING_ATTRIBUTE,
+            Self::InvalidReference => ffi::GTK_SVG_ERROR_INVALID_REFERENCE,
+            Self::FailedUpdate => ffi::GTK_SVG_ERROR_FAILED_UPDATE,
+            Self::FailedRendering => ffi::GTK_SVG_ERROR_FAILED_RENDERING,
+            Self::IgnoredElement => ffi::GTK_SVG_ERROR_IGNORED_ELEMENT,
+            Self::LimitsExceeded => ffi::GTK_SVG_ERROR_LIMITS_EXCEEDED,
+            Self::NotImplemented => ffi::GTK_SVG_ERROR_NOT_IMPLEMENTED,
+            Self::FeatureDisabled => ffi::GTK_SVG_ERROR_FEATURE_DISABLED,
+            Self::__Unknown(value) => value,
+        }
+    }
+}
+
+#[cfg(feature = "v4_22")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+#[doc(hidden)]
+impl FromGlib<ffi::GtkSvgError> for SvgError {
+    #[inline]
+    unsafe fn from_glib(value: ffi::GtkSvgError) -> Self {
+        skip_assert_initialized!();
+
+        match value {
+            ffi::GTK_SVG_ERROR_INVALID_SYNTAX => Self::InvalidSyntax,
+            ffi::GTK_SVG_ERROR_INVALID_ELEMENT => Self::InvalidElement,
+            ffi::GTK_SVG_ERROR_INVALID_ATTRIBUTE => Self::InvalidAttribute,
+            ffi::GTK_SVG_ERROR_MISSING_ATTRIBUTE => Self::MissingAttribute,
+            ffi::GTK_SVG_ERROR_INVALID_REFERENCE => Self::InvalidReference,
+            ffi::GTK_SVG_ERROR_FAILED_UPDATE => Self::FailedUpdate,
+            ffi::GTK_SVG_ERROR_FAILED_RENDERING => Self::FailedRendering,
+            ffi::GTK_SVG_ERROR_IGNORED_ELEMENT => Self::IgnoredElement,
+            ffi::GTK_SVG_ERROR_LIMITS_EXCEEDED => Self::LimitsExceeded,
+            ffi::GTK_SVG_ERROR_NOT_IMPLEMENTED => Self::NotImplemented,
+            ffi::GTK_SVG_ERROR_FEATURE_DISABLED => Self::FeatureDisabled,
+            value => Self::__Unknown(value),
+        }
+    }
+}
+
+#[cfg(feature = "v4_22")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+impl glib::error::ErrorDomain for SvgError {
+    #[inline]
+    fn domain() -> glib::Quark {
+        skip_assert_initialized!();
+
+        static QUARK: ::std::sync::OnceLock<glib::ffi::GQuark> = ::std::sync::OnceLock::new();
+        let quark = *QUARK.get_or_init(|| unsafe {
+            glib::ffi::g_quark_from_static_string(c"GtkSvgError".as_ptr())
+        });
+        unsafe { from_glib(quark) }
+    }
+
+    #[inline]
+    fn code(self) -> i32 {
+        self.into_glib()
+    }
+
+    #[inline]
+    #[allow(clippy::match_single_binding)]
+    fn from(code: i32) -> Option<Self> {
+        skip_assert_initialized!();
+        match unsafe { from_glib(code) } {
+            value => Some(value),
+        }
+    }
+}
+
+#[cfg(feature = "v4_22")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+impl StaticType for SvgError {
+    #[inline]
+    #[doc(alias = "gtk_svg_error_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::gtk_svg_error_get_type()) }
+    }
+}
+
+#[cfg(feature = "v4_22")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+impl glib::HasParamSpec for SvgError {
+    type ParamSpec = glib::ParamSpecEnum;
+    type SetValue = Self;
+    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder_with_default
+    }
+}
+
+#[cfg(feature = "v4_22")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+impl glib::value::ValueType for SvgError {
+    type Type = Self;
+}
+
+#[cfg(feature = "v4_22")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+unsafe impl<'a> glib::value::FromValue<'a> for SvgError {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        skip_assert_initialized!();
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
+    }
+}
+
+#[cfg(feature = "v4_22")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+impl ToValue for SvgError {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+#[cfg(feature = "v4_22")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+impl From<SvgError> for glib::Value {
+    #[inline]
+    fn from(v: SvgError) -> Self {
+        skip_assert_initialized!();
+        ToValue::to_value(&v)
+    }
+}
+
 #[cfg(feature = "v4_6")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v4_6")))]
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
@@ -11002,6 +11814,10 @@ pub enum SymbolicColor {
     Warning,
     #[doc(alias = "GTK_SYMBOLIC_COLOR_SUCCESS")]
     Success,
+    #[cfg(feature = "v4_22")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+    #[doc(alias = "GTK_SYMBOLIC_COLOR_ACCENT")]
+    Accent,
     #[doc(hidden)]
     __Unknown(i32),
 }
@@ -11019,6 +11835,8 @@ impl IntoGlib for SymbolicColor {
             Self::Error => ffi::GTK_SYMBOLIC_COLOR_ERROR,
             Self::Warning => ffi::GTK_SYMBOLIC_COLOR_WARNING,
             Self::Success => ffi::GTK_SYMBOLIC_COLOR_SUCCESS,
+            #[cfg(feature = "v4_22")]
+            Self::Accent => ffi::GTK_SYMBOLIC_COLOR_ACCENT,
             Self::__Unknown(value) => value,
         }
     }
@@ -11037,6 +11855,8 @@ impl FromGlib<ffi::GtkSymbolicColor> for SymbolicColor {
             ffi::GTK_SYMBOLIC_COLOR_ERROR => Self::Error,
             ffi::GTK_SYMBOLIC_COLOR_WARNING => Self::Warning,
             ffi::GTK_SYMBOLIC_COLOR_SUCCESS => Self::Success,
+            #[cfg(feature = "v4_22")]
+            ffi::GTK_SYMBOLIC_COLOR_ACCENT => Self::Accent,
             value => Self::__Unknown(value),
         }
     }
@@ -11078,7 +11898,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for SymbolicColor {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -11190,7 +12010,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for SystemSetting {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -11290,7 +12110,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for TextDirection {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -11386,7 +12206,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for TextExtendSelection {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -11482,7 +12302,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for TextViewLayer {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -11594,7 +12414,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for TextWindowType {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -11622,6 +12442,7 @@ impl From<TextWindowType> for glib::Value {
     }
 }
 
+#[cfg_attr(feature = "v4_20", deprecated = "Since 4.20")]
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
 #[non_exhaustive]
 #[doc(alias = "GtkTreeViewColumnSizing")]
@@ -11636,6 +12457,7 @@ pub enum TreeViewColumnSizing {
     __Unknown(i32),
 }
 
+#[allow(deprecated)]
 #[doc(hidden)]
 impl IntoGlib for TreeViewColumnSizing {
     type GlibType = ffi::GtkTreeViewColumnSizing;
@@ -11651,6 +12473,7 @@ impl IntoGlib for TreeViewColumnSizing {
     }
 }
 
+#[allow(deprecated)]
 #[doc(hidden)]
 impl FromGlib<ffi::GtkTreeViewColumnSizing> for TreeViewColumnSizing {
     #[inline]
@@ -11666,6 +12489,7 @@ impl FromGlib<ffi::GtkTreeViewColumnSizing> for TreeViewColumnSizing {
     }
 }
 
+#[allow(deprecated)]
 impl StaticType for TreeViewColumnSizing {
     #[inline]
     #[doc(alias = "gtk_tree_view_column_sizing_get_type")]
@@ -11674,6 +12498,7 @@ impl StaticType for TreeViewColumnSizing {
     }
 }
 
+#[allow(deprecated)]
 impl glib::HasParamSpec for TreeViewColumnSizing {
     type ParamSpec = glib::ParamSpecEnum;
     type SetValue = Self;
@@ -11684,20 +12509,23 @@ impl glib::HasParamSpec for TreeViewColumnSizing {
     }
 }
 
+#[allow(deprecated)]
 impl glib::value::ValueType for TreeViewColumnSizing {
     type Type = Self;
 }
 
+#[allow(deprecated)]
 unsafe impl<'a> glib::value::FromValue<'a> for TreeViewColumnSizing {
     type Checker = glib::value::GenericValueTypeChecker<Self>;
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
+#[allow(deprecated)]
 impl ToValue for TreeViewColumnSizing {
     #[inline]
     fn to_value(&self) -> glib::Value {
@@ -11714,6 +12542,7 @@ impl ToValue for TreeViewColumnSizing {
     }
 }
 
+#[allow(deprecated)]
 impl From<TreeViewColumnSizing> for glib::Value {
     #[inline]
     fn from(v: TreeViewColumnSizing) -> Self {
@@ -11722,6 +12551,7 @@ impl From<TreeViewColumnSizing> for glib::Value {
     }
 }
 
+#[cfg_attr(feature = "v4_20", deprecated = "Since 4.20")]
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
 #[non_exhaustive]
 #[doc(alias = "GtkTreeViewDropPosition")]
@@ -11738,6 +12568,7 @@ pub enum TreeViewDropPosition {
     __Unknown(i32),
 }
 
+#[allow(deprecated)]
 #[doc(hidden)]
 impl IntoGlib for TreeViewDropPosition {
     type GlibType = ffi::GtkTreeViewDropPosition;
@@ -11754,6 +12585,7 @@ impl IntoGlib for TreeViewDropPosition {
     }
 }
 
+#[allow(deprecated)]
 #[doc(hidden)]
 impl FromGlib<ffi::GtkTreeViewDropPosition> for TreeViewDropPosition {
     #[inline]
@@ -11770,6 +12602,7 @@ impl FromGlib<ffi::GtkTreeViewDropPosition> for TreeViewDropPosition {
     }
 }
 
+#[allow(deprecated)]
 impl StaticType for TreeViewDropPosition {
     #[inline]
     #[doc(alias = "gtk_tree_view_drop_position_get_type")]
@@ -11778,6 +12611,7 @@ impl StaticType for TreeViewDropPosition {
     }
 }
 
+#[allow(deprecated)]
 impl glib::HasParamSpec for TreeViewDropPosition {
     type ParamSpec = glib::ParamSpecEnum;
     type SetValue = Self;
@@ -11788,20 +12622,23 @@ impl glib::HasParamSpec for TreeViewDropPosition {
     }
 }
 
+#[allow(deprecated)]
 impl glib::value::ValueType for TreeViewDropPosition {
     type Type = Self;
 }
 
+#[allow(deprecated)]
 unsafe impl<'a> glib::value::FromValue<'a> for TreeViewDropPosition {
     type Checker = glib::value::GenericValueTypeChecker<Self>;
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
+#[allow(deprecated)]
 impl ToValue for TreeViewDropPosition {
     #[inline]
     fn to_value(&self) -> glib::Value {
@@ -11818,6 +12655,7 @@ impl ToValue for TreeViewDropPosition {
     }
 }
 
+#[allow(deprecated)]
 impl From<TreeViewDropPosition> for glib::Value {
     #[inline]
     fn from(v: TreeViewDropPosition) -> Self {
@@ -11826,6 +12664,7 @@ impl From<TreeViewDropPosition> for glib::Value {
     }
 }
 
+#[cfg_attr(feature = "v4_20", deprecated = "Since 4.20")]
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
 #[non_exhaustive]
 #[doc(alias = "GtkTreeViewGridLines")]
@@ -11842,6 +12681,7 @@ pub enum TreeViewGridLines {
     __Unknown(i32),
 }
 
+#[allow(deprecated)]
 #[doc(hidden)]
 impl IntoGlib for TreeViewGridLines {
     type GlibType = ffi::GtkTreeViewGridLines;
@@ -11858,6 +12698,7 @@ impl IntoGlib for TreeViewGridLines {
     }
 }
 
+#[allow(deprecated)]
 #[doc(hidden)]
 impl FromGlib<ffi::GtkTreeViewGridLines> for TreeViewGridLines {
     #[inline]
@@ -11874,6 +12715,7 @@ impl FromGlib<ffi::GtkTreeViewGridLines> for TreeViewGridLines {
     }
 }
 
+#[allow(deprecated)]
 impl StaticType for TreeViewGridLines {
     #[inline]
     #[doc(alias = "gtk_tree_view_grid_lines_get_type")]
@@ -11882,6 +12724,7 @@ impl StaticType for TreeViewGridLines {
     }
 }
 
+#[allow(deprecated)]
 impl glib::HasParamSpec for TreeViewGridLines {
     type ParamSpec = glib::ParamSpecEnum;
     type SetValue = Self;
@@ -11892,20 +12735,23 @@ impl glib::HasParamSpec for TreeViewGridLines {
     }
 }
 
+#[allow(deprecated)]
 impl glib::value::ValueType for TreeViewGridLines {
     type Type = Self;
 }
 
+#[allow(deprecated)]
 unsafe impl<'a> glib::value::FromValue<'a> for TreeViewGridLines {
     type Checker = glib::value::GenericValueTypeChecker<Self>;
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
+#[allow(deprecated)]
 impl ToValue for TreeViewGridLines {
     #[inline]
     fn to_value(&self) -> glib::Value {
@@ -11922,6 +12768,7 @@ impl ToValue for TreeViewGridLines {
     }
 }
 
+#[allow(deprecated)]
 impl From<TreeViewGridLines> for glib::Value {
     #[inline]
     fn from(v: TreeViewGridLines) -> Self {
@@ -12006,7 +12853,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for Unit {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -12029,6 +12876,170 @@ impl ToValue for Unit {
 impl From<Unit> for glib::Value {
     #[inline]
     fn from(v: Unit) -> Self {
+        skip_assert_initialized!();
+        ToValue::to_value(&v)
+    }
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
+#[non_exhaustive]
+#[doc(alias = "GtkWindowGravity")]
+pub enum WindowGravity {
+    #[doc(alias = "GTK_WINDOW_GRAVITY_TOP_LEFT")]
+    TopLeft,
+    #[doc(alias = "GTK_WINDOW_GRAVITY_TOP")]
+    Top,
+    #[doc(alias = "GTK_WINDOW_GRAVITY_TOP_RIGHT")]
+    TopRight,
+    #[doc(alias = "GTK_WINDOW_GRAVITY_LEFT")]
+    Left,
+    #[doc(alias = "GTK_WINDOW_GRAVITY_CENTER")]
+    Center,
+    #[doc(alias = "GTK_WINDOW_GRAVITY_RIGHT")]
+    Right,
+    #[doc(alias = "GTK_WINDOW_GRAVITY_BOTTOM_LEFT")]
+    BottomLeft,
+    #[doc(alias = "GTK_WINDOW_GRAVITY_BOTTOM")]
+    Bottom,
+    #[doc(alias = "GTK_WINDOW_GRAVITY_BOTTOM_RIGHT")]
+    BottomRight,
+    #[doc(alias = "GTK_WINDOW_GRAVITY_TOP_START")]
+    TopStart,
+    #[doc(alias = "GTK_WINDOW_GRAVITY_TOP_END")]
+    TopEnd,
+    #[doc(alias = "GTK_WINDOW_GRAVITY_START")]
+    Start,
+    #[doc(alias = "GTK_WINDOW_GRAVITY_END")]
+    End,
+    #[doc(alias = "GTK_WINDOW_GRAVITY_BOTTOM_START")]
+    BottomStart,
+    #[doc(alias = "GTK_WINDOW_GRAVITY_BOTTOM_END")]
+    BottomEnd,
+    #[doc(hidden)]
+    __Unknown(i32),
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+#[doc(hidden)]
+impl IntoGlib for WindowGravity {
+    type GlibType = ffi::GtkWindowGravity;
+
+    fn into_glib(self) -> ffi::GtkWindowGravity {
+        match self {
+            Self::TopLeft => ffi::GTK_WINDOW_GRAVITY_TOP_LEFT,
+            Self::Top => ffi::GTK_WINDOW_GRAVITY_TOP,
+            Self::TopRight => ffi::GTK_WINDOW_GRAVITY_TOP_RIGHT,
+            Self::Left => ffi::GTK_WINDOW_GRAVITY_LEFT,
+            Self::Center => ffi::GTK_WINDOW_GRAVITY_CENTER,
+            Self::Right => ffi::GTK_WINDOW_GRAVITY_RIGHT,
+            Self::BottomLeft => ffi::GTK_WINDOW_GRAVITY_BOTTOM_LEFT,
+            Self::Bottom => ffi::GTK_WINDOW_GRAVITY_BOTTOM,
+            Self::BottomRight => ffi::GTK_WINDOW_GRAVITY_BOTTOM_RIGHT,
+            Self::TopStart => ffi::GTK_WINDOW_GRAVITY_TOP_START,
+            Self::TopEnd => ffi::GTK_WINDOW_GRAVITY_TOP_END,
+            Self::Start => ffi::GTK_WINDOW_GRAVITY_START,
+            Self::End => ffi::GTK_WINDOW_GRAVITY_END,
+            Self::BottomStart => ffi::GTK_WINDOW_GRAVITY_BOTTOM_START,
+            Self::BottomEnd => ffi::GTK_WINDOW_GRAVITY_BOTTOM_END,
+            Self::__Unknown(value) => value,
+        }
+    }
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+#[doc(hidden)]
+impl FromGlib<ffi::GtkWindowGravity> for WindowGravity {
+    unsafe fn from_glib(value: ffi::GtkWindowGravity) -> Self {
+        skip_assert_initialized!();
+
+        match value {
+            ffi::GTK_WINDOW_GRAVITY_TOP_LEFT => Self::TopLeft,
+            ffi::GTK_WINDOW_GRAVITY_TOP => Self::Top,
+            ffi::GTK_WINDOW_GRAVITY_TOP_RIGHT => Self::TopRight,
+            ffi::GTK_WINDOW_GRAVITY_LEFT => Self::Left,
+            ffi::GTK_WINDOW_GRAVITY_CENTER => Self::Center,
+            ffi::GTK_WINDOW_GRAVITY_RIGHT => Self::Right,
+            ffi::GTK_WINDOW_GRAVITY_BOTTOM_LEFT => Self::BottomLeft,
+            ffi::GTK_WINDOW_GRAVITY_BOTTOM => Self::Bottom,
+            ffi::GTK_WINDOW_GRAVITY_BOTTOM_RIGHT => Self::BottomRight,
+            ffi::GTK_WINDOW_GRAVITY_TOP_START => Self::TopStart,
+            ffi::GTK_WINDOW_GRAVITY_TOP_END => Self::TopEnd,
+            ffi::GTK_WINDOW_GRAVITY_START => Self::Start,
+            ffi::GTK_WINDOW_GRAVITY_END => Self::End,
+            ffi::GTK_WINDOW_GRAVITY_BOTTOM_START => Self::BottomStart,
+            ffi::GTK_WINDOW_GRAVITY_BOTTOM_END => Self::BottomEnd,
+            value => Self::__Unknown(value),
+        }
+    }
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+impl StaticType for WindowGravity {
+    #[inline]
+    #[doc(alias = "gtk_window_gravity_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::gtk_window_gravity_get_type()) }
+    }
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+impl glib::HasParamSpec for WindowGravity {
+    type ParamSpec = glib::ParamSpecEnum;
+    type SetValue = Self;
+    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder_with_default
+    }
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+impl glib::value::ValueType for WindowGravity {
+    type Type = Self;
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+unsafe impl<'a> glib::value::FromValue<'a> for WindowGravity {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        skip_assert_initialized!();
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
+    }
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+impl ToValue for WindowGravity {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+impl From<WindowGravity> for glib::Value {
+    #[inline]
+    fn from(v: WindowGravity) -> Self {
         skip_assert_initialized!();
         ToValue::to_value(&v)
     }
@@ -12110,7 +13121,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for WrapMode {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 

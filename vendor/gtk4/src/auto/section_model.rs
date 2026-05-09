@@ -6,7 +6,7 @@ use crate::ffi;
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -24,12 +24,7 @@ impl SectionModel {
     pub const NONE: Option<&'static SectionModel> = None;
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::SectionModel>> Sealed for T {}
-}
-
-pub trait SectionModelExt: IsA<SectionModel> + sealed::Sealed + 'static {
+pub trait SectionModelExt: IsA<SectionModel> + 'static {
     #[doc(alias = "gtk_section_model_get_section")]
     #[doc(alias = "get_section")]
     fn section(&self, position: u32) -> (u32, u32) {
@@ -70,18 +65,20 @@ pub trait SectionModelExt: IsA<SectionModel> + sealed::Sealed + 'static {
             n_items: std::ffi::c_uint,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                SectionModel::from_glib_borrow(this).unsafe_cast_ref(),
-                position,
-                n_items,
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    SectionModel::from_glib_borrow(this).unsafe_cast_ref(),
+                    position,
+                    n_items,
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"sections-changed\0".as_ptr() as *const _,
+                c"sections-changed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     sections_changed_trampoline::<Self, F> as *const (),
                 )),

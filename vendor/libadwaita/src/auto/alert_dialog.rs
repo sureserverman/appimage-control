@@ -3,10 +3,11 @@
 // from gir-files (https://github.com/gtk-rs/gir-files.git)
 // DO NOT EDIT
 
-use crate::{ffi, Dialog, DialogPresentationMode, ResponseAppearance};
+use crate::{Dialog, DialogPresentationMode, ResponseAppearance, ffi};
 use glib::{
+    object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -299,6 +300,14 @@ impl AlertDialogBuilder {
             builder: self
                 .builder
                 .property("layout-manager", layout_manager.clone().upcast()),
+        }
+    }
+
+    #[cfg(feature = "gtk_v4_18")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "gtk_v4_18")))]
+    pub fn limit_events(self, limit_events: bool) -> Self {
+        Self {
+            builder: self.builder.property("limit-events", limit_events),
         }
     }
 
@@ -688,21 +697,23 @@ pub trait AlertDialogExt: IsA<AlertDialog> + 'static {
             response: *mut std::ffi::c_char,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                AlertDialog::from_glib_borrow(this).unsafe_cast_ref(),
-                &glib::GString::from_glib_borrow(response),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    AlertDialog::from_glib_borrow(this).unsafe_cast_ref(),
+                    &glib::GString::from_glib_borrow(response),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             let detailed_signal_name = detail.map(|name| format!("response::{name}\0"));
-            let signal_name: &[u8] = detailed_signal_name
-                .as_ref()
-                .map_or(&b"response\0"[..], |n| n.as_bytes());
+            let signal_name = detailed_signal_name.as_ref().map_or(c"response", |n| {
+                std::ffi::CStr::from_bytes_with_nul_unchecked(n.as_bytes())
+            });
             connect_raw(
                 self.as_ptr() as *mut _,
-                signal_name.as_ptr() as *const _,
+                signal_name.as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     response_trampoline::<Self, F> as *const (),
                 )),
@@ -720,14 +731,16 @@ pub trait AlertDialogExt: IsA<AlertDialog> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(AlertDialog::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(AlertDialog::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::body".as_ptr() as *const _,
+                c"notify::body".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_body_trampoline::<Self, F> as *const (),
                 )),
@@ -748,14 +761,16 @@ pub trait AlertDialogExt: IsA<AlertDialog> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(AlertDialog::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(AlertDialog::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::body-use-markup".as_ptr() as *const _,
+                c"notify::body-use-markup".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_body_use_markup_trampoline::<Self, F> as *const (),
                 )),
@@ -776,14 +791,16 @@ pub trait AlertDialogExt: IsA<AlertDialog> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(AlertDialog::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(AlertDialog::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::close-response".as_ptr() as *const _,
+                c"notify::close-response".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_close_response_trampoline::<Self, F> as *const (),
                 )),
@@ -804,14 +821,16 @@ pub trait AlertDialogExt: IsA<AlertDialog> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(AlertDialog::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(AlertDialog::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::default-response".as_ptr() as *const _,
+                c"notify::default-response".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_default_response_trampoline::<Self, F> as *const (),
                 )),
@@ -832,14 +851,16 @@ pub trait AlertDialogExt: IsA<AlertDialog> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(AlertDialog::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(AlertDialog::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::extra-child".as_ptr() as *const _,
+                c"notify::extra-child".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_extra_child_trampoline::<Self, F> as *const (),
                 )),
@@ -857,14 +878,16 @@ pub trait AlertDialogExt: IsA<AlertDialog> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(AlertDialog::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(AlertDialog::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::heading".as_ptr() as *const _,
+                c"notify::heading".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_heading_trampoline::<Self, F> as *const (),
                 )),
@@ -885,14 +908,16 @@ pub trait AlertDialogExt: IsA<AlertDialog> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(AlertDialog::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(AlertDialog::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::heading-use-markup".as_ptr() as *const _,
+                c"notify::heading-use-markup".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_heading_use_markup_trampoline::<Self, F> as *const (),
                 )),
@@ -913,14 +938,16 @@ pub trait AlertDialogExt: IsA<AlertDialog> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(AlertDialog::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(AlertDialog::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::prefer-wide-layout".as_ptr() as *const _,
+                c"notify::prefer-wide-layout".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_prefer_wide_layout_trampoline::<Self, F> as *const (),
                 )),

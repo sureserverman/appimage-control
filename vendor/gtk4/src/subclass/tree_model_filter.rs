@@ -1,15 +1,15 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 // rustdoc-stripper-ignore-next
-//! Traits intended for subclassing [`TreeModelFilter`](crate::TreeModelFilter).
+//! Traits intended for subclassing [`TreeModelFilter`].
 
-use glib::{translate::*, Value};
+use glib::{Value, translate::*};
 
-use crate::{ffi, prelude::*, subclass::prelude::*, TreeIter, TreeModel, TreeModelFilter};
+use crate::{TreeIter, TreeModel, TreeModelFilter, ffi, prelude::*, subclass::prelude::*};
 
 #[cfg_attr(feature = "v4_10", deprecated = "Since 4.10")]
 #[allow(deprecated)]
-pub trait TreeModelFilterImpl: TreeModelFilterImplExt + ObjectImpl {
+pub trait TreeModelFilterImpl: ObjectImpl + ObjectSubclass<Type: IsA<TreeModelFilter>> {
     fn visible<M: IsA<TreeModel>>(&self, child_model: &M, iter: &TreeIter) -> bool {
         self.parent_visible(child_model, iter)
     }
@@ -25,14 +25,9 @@ pub trait TreeModelFilterImpl: TreeModelFilterImplExt + ObjectImpl {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::TreeModelFilterImplExt> Sealed for T {}
-}
-
 #[cfg_attr(feature = "v4_10", deprecated = "Since 4.10")]
 #[allow(deprecated)]
-pub trait TreeModelFilterImplExt: sealed::Sealed + ObjectSubclass {
+pub trait TreeModelFilterImplExt: TreeModelFilterImpl {
     // Whether the row indicated by iter is visible
     fn parent_visible<M: IsA<TreeModel>>(&self, child_model: &M, iter: &TreeIter) -> bool {
         unsafe {
@@ -98,12 +93,14 @@ unsafe extern "C" fn tree_model_filter_visible<T: TreeModelFilterImpl>(
     child_modelptr: *mut ffi::GtkTreeModel,
     iterptr: *mut ffi::GtkTreeIter,
 ) -> glib::ffi::gboolean {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
-    let child_model: Borrowed<TreeModel> = from_glib_borrow(child_modelptr);
-    let iter: Borrowed<TreeIter> = from_glib_borrow(iterptr);
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
+        let child_model: Borrowed<TreeModel> = from_glib_borrow(child_modelptr);
+        let iter: Borrowed<TreeIter> = from_glib_borrow(iterptr);
 
-    imp.visible(&*child_model, &iter).into_glib()
+        imp.visible(&*child_model, &iter).into_glib()
+    }
 }
 
 unsafe extern "C" fn tree_model_filter_modify<T: TreeModelFilterImpl>(
@@ -113,11 +110,13 @@ unsafe extern "C" fn tree_model_filter_modify<T: TreeModelFilterImpl>(
     valueptr: *mut glib::gobject_ffi::GValue,
     column: i32,
 ) {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
-    let child_model: Borrowed<TreeModel> = from_glib_borrow(child_modelptr);
-    let iter: Borrowed<TreeIter> = from_glib_borrow(iterptr);
-    let value: Value = from_glib_full(valueptr);
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
+        let child_model: Borrowed<TreeModel> = from_glib_borrow(child_modelptr);
+        let iter: Borrowed<TreeIter> = from_glib_borrow(iterptr);
+        let value: Value = from_glib_full(valueptr);
 
-    imp.modify(&*child_model, &iter, value, column)
+        imp.modify(&*child_model, &iter, value, column)
+    }
 }

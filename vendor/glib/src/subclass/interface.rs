@@ -2,9 +2,9 @@
 
 use std::{marker, mem};
 
-use super::{types::InterfaceStruct, InitializingType, Signal};
+use super::{InitializingType, Signal, types::InterfaceStruct};
 use crate::{
-    ffi, gobject_ffi, prelude::*, translate::*, Object, ParamSpec, Type, TypeFlags, TypeInfo,
+    Object, ParamSpec, Type, TypeFlags, TypeInfo, ffi, gobject_ffi, prelude::*, translate::*,
 };
 
 // rustdoc-stripper-ignore-next
@@ -156,15 +156,6 @@ pub trait ObjectInterfaceExt: ObjectInterface {
     ///
     /// This will panic if `obj` does not implement the interface.
     #[inline]
-    #[deprecated = "Use from_obj() instead"]
-    fn from_instance<T: IsA<Object>>(obj: &T) -> &Self {
-        Self::from_obj(obj)
-    }
-
-    /// Get interface from an instance.
-    ///
-    /// This will panic if `obj` does not implement the interface.
-    #[inline]
     fn from_obj<T: IsA<Object>>(obj: &T) -> &Self {
         assert!(obj.as_ref().type_().is_a(Self::type_()));
 
@@ -184,23 +175,25 @@ unsafe extern "C" fn interface_init<T: ObjectInterface>(
     klass: ffi::gpointer,
     _klass_data: ffi::gpointer,
 ) {
-    let iface = &mut *(klass as *mut T::Interface);
+    unsafe {
+        let iface = &mut *(klass as *mut T::Interface);
 
-    let pspecs = <T as ObjectInterface>::properties();
-    for pspec in pspecs {
-        gobject_ffi::g_object_interface_install_property(
-            iface as *mut T::Interface as *mut _,
-            pspec.to_glib_none().0,
-        );
+        let pspecs = <T as ObjectInterface>::properties();
+        for pspec in pspecs {
+            gobject_ffi::g_object_interface_install_property(
+                iface as *mut T::Interface as *mut _,
+                pspec.to_glib_none().0,
+            );
+        }
+
+        let type_ = T::type_();
+        let signals = <T as ObjectInterface>::signals();
+        for signal in signals {
+            signal.register(type_);
+        }
+
+        T::interface_init(iface);
     }
-
-    let type_ = T::type_();
-    let signals = <T as ObjectInterface>::signals();
-    for signal in signals {
-        signal.register(type_);
-    }
-
-    T::interface_init(iface);
 }
 
 /// Register a `glib::Type` ID for `T::Class`.

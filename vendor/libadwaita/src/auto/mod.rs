@@ -208,6 +208,13 @@ mod navigation_view;
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_4")))]
 pub use self::navigation_view::NavigationView;
 
+#[cfg(feature = "v1_9")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_9")))]
+mod none_animation_target;
+#[cfg(feature = "v1_9")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_9")))]
+pub use self::none_animation_target::NoneAnimationTarget;
+
 #[cfg(feature = "v1_4")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_4")))]
 mod overlay_split_view;
@@ -249,6 +256,55 @@ mod property_animation_target;
 #[cfg(feature = "v1_2")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_2")))]
 pub use self::property_animation_target::PropertyAnimationTarget;
+
+#[cfg(feature = "v1_8")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_8")))]
+mod shortcut_label;
+#[cfg(feature = "v1_8")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_8")))]
+pub use self::shortcut_label::ShortcutLabel;
+
+#[cfg(feature = "v1_8")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_8")))]
+mod shortcuts_dialog;
+#[cfg(feature = "v1_8")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_8")))]
+pub use self::shortcuts_dialog::ShortcutsDialog;
+
+#[cfg(feature = "v1_8")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_8")))]
+mod shortcuts_item;
+#[cfg(feature = "v1_8")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_8")))]
+pub use self::shortcuts_item::ShortcutsItem;
+
+#[cfg(feature = "v1_8")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_8")))]
+mod shortcuts_section;
+#[cfg(feature = "v1_8")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_8")))]
+pub use self::shortcuts_section::ShortcutsSection;
+
+#[cfg(feature = "v1_9")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_9")))]
+mod sidebar;
+#[cfg(feature = "v1_9")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_9")))]
+pub use self::sidebar::Sidebar;
+
+#[cfg(feature = "v1_9")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_9")))]
+mod sidebar_item;
+#[cfg(feature = "v1_9")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_9")))]
+pub use self::sidebar_item::SidebarItem;
+
+#[cfg(feature = "v1_9")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_9")))]
+mod sidebar_section;
+#[cfg(feature = "v1_9")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_9")))]
+pub use self::sidebar_section::SidebarSection;
 
 #[cfg(feature = "v1_4")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_4")))]
@@ -378,6 +434,13 @@ pub use self::view_switcher::ViewSwitcher;
 mod view_switcher_bar;
 pub use self::view_switcher_bar::ViewSwitcherBar;
 
+#[cfg(feature = "v1_9")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_9")))]
+mod view_switcher_sidebar;
+#[cfg(feature = "v1_9")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_9")))]
+pub use self::view_switcher_sidebar::ViewSwitcherSidebar;
+
 #[cfg_attr(feature = "v1_4", deprecated = "Since 1.4")]
 mod view_switcher_title;
 #[cfg_attr(feature = "v1_4", deprecated = "Since 1.4")]
@@ -457,6 +520,9 @@ pub use self::enums::PackDirection;
 #[cfg(feature = "v1_2")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_2")))]
 pub use self::enums::ResponseAppearance;
+#[cfg(feature = "v1_9")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_9")))]
+pub use self::enums::SidebarMode;
 #[allow(deprecated)]
 pub use self::enums::SqueezerTransitionType;
 pub use self::enums::ToastPriority;
@@ -510,6 +576,9 @@ pub(crate) mod traits {
     pub use super::preferences_row::PreferencesRowExt;
     #[cfg_attr(feature = "v1_6", deprecated = "Since 1.6")]
     pub use super::preferences_window::PreferencesWindowExt;
+    #[cfg(feature = "v1_9")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_9")))]
+    pub use super::sidebar_item::SidebarItemExt;
     pub use super::swipeable::SwipeableExt;
     pub use super::window::AdwWindowExt;
 }
@@ -597,6 +666,15 @@ pub(crate) mod builders {
     pub use super::preferences_row::PreferencesRowBuilder;
     #[cfg_attr(feature = "v1_6", deprecated = "Since 1.6")]
     pub use super::preferences_window::PreferencesWindowBuilder;
+    #[cfg(feature = "v1_8")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_8")))]
+    pub use super::shortcuts_dialog::ShortcutsDialogBuilder;
+    #[cfg(feature = "v1_9")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_9")))]
+    pub use super::sidebar::SidebarBuilder;
+    #[cfg(feature = "v1_9")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_9")))]
+    pub use super::sidebar_item::SidebarItemBuilder;
     #[cfg(feature = "v1_4")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_4")))]
     pub use super::spin_row::SpinRowBuilder;
@@ -634,6 +712,9 @@ pub(crate) mod builders {
     pub use super::view_stack::ViewStackBuilder;
     pub use super::view_switcher::ViewSwitcherBuilder;
     pub use super::view_switcher_bar::ViewSwitcherBarBuilder;
+    #[cfg(feature = "v1_9")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_9")))]
+    pub use super::view_switcher_sidebar::ViewSwitcherSidebarBuilder;
     #[cfg_attr(feature = "v1_4", deprecated = "Since 1.4")]
     pub use super::view_switcher_title::ViewSwitcherTitleBuilder;
     pub use super::window::WindowBuilder;

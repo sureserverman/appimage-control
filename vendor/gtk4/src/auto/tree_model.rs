@@ -3,11 +3,11 @@
 // DO NOT EDIT
 #![allow(deprecated)]
 
-use crate::{ffi, TreeIter, TreeModelFlags, TreePath};
+use crate::{TreeIter, TreeModelFlags, TreePath, ffi};
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -25,12 +25,7 @@ impl TreeModel {
     pub const NONE: Option<&'static TreeModel> = None;
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::TreeModel>> Sealed for T {}
-}
-
-pub trait TreeModelExt: IsA<TreeModel> + sealed::Sealed + 'static {
+pub trait TreeModelExt: IsA<TreeModel> + 'static {
     #[cfg_attr(feature = "v4_10", deprecated = "Since 4.10")]
     #[allow(deprecated)]
     #[doc(alias = "gtk_tree_model_foreach")]
@@ -42,11 +37,13 @@ pub trait TreeModelExt: IsA<TreeModel> + sealed::Sealed + 'static {
             iter: *mut ffi::GtkTreeIter,
             data: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let model = from_glib_borrow(model);
-            let path = from_glib_borrow(path);
-            let iter = from_glib_borrow(iter);
-            let callback = data as *mut P;
-            (*callback)(&model, &path, &iter).into_glib()
+            unsafe {
+                let model = from_glib_borrow(model);
+                let path = from_glib_borrow(path);
+                let iter = from_glib_borrow(iter);
+                let callback = data as *mut P;
+                (*callback)(&model, &path, &iter).into_glib()
+            }
         }
         let func = Some(func_func::<P> as _);
         let super_callback0: &mut P = &mut func_data;
@@ -96,11 +93,7 @@ pub trait TreeModelExt: IsA<TreeModel> + sealed::Sealed + 'static {
                 iter.to_glib_none_mut().0,
                 mut_override(path.to_glib_none().0),
             ));
-            if ret {
-                Some(iter)
-            } else {
-                None
-            }
+            if ret { Some(iter) } else { None }
         }
     }
 
@@ -115,11 +108,7 @@ pub trait TreeModelExt: IsA<TreeModel> + sealed::Sealed + 'static {
                 self.as_ref().to_glib_none().0,
                 iter.to_glib_none_mut().0,
             ));
-            if ret {
-                Some(iter)
-            } else {
-                None
-            }
+            if ret { Some(iter) } else { None }
         }
     }
 
@@ -135,11 +124,7 @@ pub trait TreeModelExt: IsA<TreeModel> + sealed::Sealed + 'static {
                 iter.to_glib_none_mut().0,
                 path_string.to_glib_none().0,
             ));
-            if ret {
-                Some(iter)
-            } else {
-                None
-            }
+            if ret { Some(iter) } else { None }
         }
     }
 
@@ -188,11 +173,7 @@ pub trait TreeModelExt: IsA<TreeModel> + sealed::Sealed + 'static {
                 iter.to_glib_none_mut().0,
                 mut_override(parent.to_glib_none().0),
             ));
-            if ret {
-                Some(iter)
-            } else {
-                None
-            }
+            if ret { Some(iter) } else { None }
         }
     }
 
@@ -222,18 +203,6 @@ pub trait TreeModelExt: IsA<TreeModel> + sealed::Sealed + 'static {
 
     #[cfg_attr(feature = "v4_10", deprecated = "Since 4.10")]
     #[allow(deprecated)]
-    #[doc(alias = "gtk_tree_model_iter_next")]
-    fn iter_next(&self, iter: &TreeIter) -> bool {
-        unsafe {
-            from_glib(ffi::gtk_tree_model_iter_next(
-                self.as_ref().to_glib_none().0,
-                mut_override(iter.to_glib_none().0),
-            ))
-        }
-    }
-
-    #[cfg_attr(feature = "v4_10", deprecated = "Since 4.10")]
-    #[allow(deprecated)]
     #[doc(alias = "gtk_tree_model_iter_nth_child")]
     fn iter_nth_child(&self, parent: Option<&TreeIter>, n: i32) -> Option<TreeIter> {
         unsafe {
@@ -244,11 +213,7 @@ pub trait TreeModelExt: IsA<TreeModel> + sealed::Sealed + 'static {
                 mut_override(parent.to_glib_none().0),
                 n,
             ));
-            if ret {
-                Some(iter)
-            } else {
-                None
-            }
+            if ret { Some(iter) } else { None }
         }
     }
 
@@ -263,23 +228,7 @@ pub trait TreeModelExt: IsA<TreeModel> + sealed::Sealed + 'static {
                 iter.to_glib_none_mut().0,
                 mut_override(child.to_glib_none().0),
             ));
-            if ret {
-                Some(iter)
-            } else {
-                None
-            }
-        }
-    }
-
-    #[cfg_attr(feature = "v4_10", deprecated = "Since 4.10")]
-    #[allow(deprecated)]
-    #[doc(alias = "gtk_tree_model_iter_previous")]
-    fn iter_previous(&self, iter: &TreeIter) -> bool {
-        unsafe {
-            from_glib(ffi::gtk_tree_model_iter_previous(
-                self.as_ref().to_glib_none().0,
-                mut_override(iter.to_glib_none().0),
-            ))
+            if ret { Some(iter) } else { None }
         }
     }
 
@@ -348,18 +297,20 @@ pub trait TreeModelExt: IsA<TreeModel> + sealed::Sealed + 'static {
             iter: *mut ffi::GtkTreeIter,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                TreeModel::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(path),
-                &from_glib_borrow(iter),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    TreeModel::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(path),
+                    &from_glib_borrow(iter),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"row-changed\0".as_ptr() as *const _,
+                c"row-changed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     row_changed_trampoline::<Self, F> as *const (),
                 )),
@@ -378,17 +329,19 @@ pub trait TreeModelExt: IsA<TreeModel> + sealed::Sealed + 'static {
             path: *mut ffi::GtkTreePath,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                TreeModel::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(path),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    TreeModel::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(path),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"row-deleted\0".as_ptr() as *const _,
+                c"row-deleted".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     row_deleted_trampoline::<Self, F> as *const (),
                 )),
@@ -411,18 +364,20 @@ pub trait TreeModelExt: IsA<TreeModel> + sealed::Sealed + 'static {
             iter: *mut ffi::GtkTreeIter,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                TreeModel::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(path),
-                &from_glib_borrow(iter),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    TreeModel::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(path),
+                    &from_glib_borrow(iter),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"row-has-child-toggled\0".as_ptr() as *const _,
+                c"row-has-child-toggled".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     row_has_child_toggled_trampoline::<Self, F> as *const (),
                 )),
@@ -445,18 +400,20 @@ pub trait TreeModelExt: IsA<TreeModel> + sealed::Sealed + 'static {
             iter: *mut ffi::GtkTreeIter,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                TreeModel::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(path),
-                &from_glib_borrow(iter),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    TreeModel::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(path),
+                    &from_glib_borrow(iter),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"row-inserted\0".as_ptr() as *const _,
+                c"row-inserted".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     row_inserted_trampoline::<Self, F> as *const (),
                 )),

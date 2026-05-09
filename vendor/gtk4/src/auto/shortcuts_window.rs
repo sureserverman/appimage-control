@@ -6,14 +6,17 @@
 #[cfg(feature = "v4_14")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v4_14")))]
 use crate::ShortcutsSection;
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+use crate::WindowGravity;
 use crate::{
-    ffi, Accessible, AccessibleRole, Align, Application, Buildable, ConstraintTarget,
-    LayoutManager, Native, Overflow, Root, ShortcutManager, Widget, Window,
+    Accessible, AccessibleRole, Align, Application, Buildable, ConstraintTarget, LayoutManager,
+    Native, Overflow, Root, ShortcutManager, Widget, Window, ffi,
 };
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -78,14 +81,16 @@ impl ShortcutsWindow {
             this: *mut ffi::GtkShortcutsWindow,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"close\0".as_ptr() as *const _,
+                c"close".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     close_trampoline::<F> as *const (),
                 )),
@@ -106,14 +111,16 @@ impl ShortcutsWindow {
             this: *mut ffi::GtkShortcutsWindow,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"search\0".as_ptr() as *const _,
+                c"search".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     search_trampoline::<F> as *const (),
                 )),
@@ -135,14 +142,16 @@ impl ShortcutsWindow {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::section-name\0".as_ptr() as *const _,
+                c"notify::section-name".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_section_name_trampoline::<F> as *const (),
                 )),
@@ -159,14 +168,16 @@ impl ShortcutsWindow {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::view-name\0".as_ptr() as *const _,
+                c"notify::view-name".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_view_name_trampoline::<F> as *const (),
                 )),
@@ -283,6 +294,14 @@ impl ShortcutsWindowBuilder {
     pub fn fullscreened(self, fullscreened: bool) -> Self {
         Self {
             builder: self.builder.property("fullscreened", fullscreened),
+        }
+    }
+
+    #[cfg(feature = "v4_20")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+    pub fn gravity(self, gravity: WindowGravity) -> Self {
+        Self {
+            builder: self.builder.property("gravity", gravity),
         }
     }
 

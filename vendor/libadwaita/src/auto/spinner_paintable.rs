@@ -6,11 +6,23 @@
 use crate::ffi;
 use glib::{
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
 
+#[cfg(feature = "gtk_v4_6")]
+#[cfg_attr(docsrs, doc(cfg(feature = "gtk_v4_6")))]
+glib::wrapper! {
+    #[doc(alias = "AdwSpinnerPaintable")]
+    pub struct SpinnerPaintable(Object<ffi::AdwSpinnerPaintable, ffi::AdwSpinnerPaintableClass>) @implements gdk::Paintable, gtk::SymbolicPaintable;
+
+    match fn {
+        type_ => || ffi::adw_spinner_paintable_get_type(),
+    }
+}
+
+#[cfg(not(feature = "gtk_v4_6"))]
 glib::wrapper! {
     #[doc(alias = "AdwSpinnerPaintable")]
     pub struct SpinnerPaintable(Object<ffi::AdwSpinnerPaintable, ffi::AdwSpinnerPaintableClass>) @implements gdk::Paintable;
@@ -57,14 +69,16 @@ impl SpinnerPaintable {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::widget".as_ptr() as *const _,
+                c"notify::widget".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_widget_trampoline::<F> as *const (),
                 )),

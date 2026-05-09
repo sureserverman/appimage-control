@@ -10,10 +10,10 @@
 # See Cargo.toml.orig for the original contents.
 
 [package]
-edition = "2021"
-rust-version = "1.70"
+edition = "2024"
+rust-version = "1.92"
 name = "glib"
-version = "0.20.12"
+version = "0.22.7"
 authors = ["The gtk-rs Project Developers"]
 build = false
 exclude = ["gir-files/*"]
@@ -37,21 +37,30 @@ repository = "https://github.com/gtk-rs/gtk-rs-core"
 
 [package.metadata.docs.rs]
 all-features = true
-rustc-args = [
-    "--cfg",
-    "docsrs",
-]
-rustdoc-args = [
-    "--cfg",
-    "docsrs",
-    "--generate-link-to-definition",
-]
+rustdoc-args = ["--generate-link-to-definition"]
 
 [features]
 compiletests = []
-default = ["gio"]
-gio = ["gio-sys"]
+default = [
+    "gio",
+    "futures",
+]
+futures = [
+    "futures-core",
+    "futures-task",
+    "futures-executor",
+    "futures-channel",
+    "futures-util",
+]
+gio = [
+    "gio-sys",
+    "futures",
+]
 log = ["rs-log"]
+log_kv = [
+    "log",
+    "rs-log/kv",
+]
 log_macros = ["log"]
 v2_58 = [
     "glib-sys/v2_58",
@@ -125,6 +134,14 @@ v2_86 = [
     "glib-sys/v2_86",
     "gobject-sys/v2_86",
 ]
+v2_88 = [
+    "v2_86",
+    "glib-sys/v2_88",
+]
+v2_90 = [
+    "v2_88",
+    "glib-sys/v2_90",
+]
 
 [lib]
 name = "glib"
@@ -157,6 +174,7 @@ path = "tests/print.rs"
 [[test]]
 name = "regex_compiletest"
 path = "tests/regex_compiletest.rs"
+required-features = ["compiletests"]
 
 [[test]]
 name = "structured_log"
@@ -181,43 +199,49 @@ path = "benches/gstring.rs"
 harness = false
 
 [dependencies.bitflags]
-version = "2.6"
+version = "2.10"
 
 [dependencies.futures-channel]
 version = "0.3"
+optional = true
 
 [dependencies.futures-core]
 version = "0.3"
+optional = true
 default-features = false
 
 [dependencies.futures-executor]
 version = "0.3"
+optional = true
 
 [dependencies.futures-task]
 version = "0.3"
+optional = true
 default-features = false
 
 [dependencies.futures-util]
 version = "0.3"
+optional = true
 
 [dependencies.gio-sys]
-version = "0.20.6"
+version = "0.22.0"
 optional = true
 
 [dependencies.glib-macros]
-version = "0.20.3"
+version = "0.22.0"
+default-features = false
 
 [dependencies.glib-sys]
-version = "0.20.6"
+version = "0.22.0"
 
 [dependencies.gobject-sys]
-version = "0.20"
+version = "0.22.0"
 
 [dependencies.libc]
 version = "0.2"
 
 [dependencies.memchr]
-version = "2.7.4"
+version = "2.8.0"
 
 [dependencies.rs-log]
 version = "0.4"
@@ -225,7 +249,7 @@ optional = true
 package = "log"
 
 [dependencies.smallvec]
-version = "1.13"
+version = "1.15"
 features = [
     "union",
     "const_generics",
@@ -233,7 +257,7 @@ features = [
 ]
 
 [dev-dependencies.criterion]
-version = "0.5.1"
+version = "0.8.2"
 
 [dev-dependencies.gir-format-check]
 version = "^0.1"
@@ -241,5 +265,5 @@ version = "^0.1"
 [dev-dependencies.tempfile]
 version = "3"
 
-[dev-dependencies.trybuild2]
+[dev-dependencies.trybuild]
 version = "1"

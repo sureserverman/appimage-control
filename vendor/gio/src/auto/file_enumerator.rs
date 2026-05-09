@@ -2,7 +2,7 @@
 // from gir-files (https://github.com/gtk-rs/gir-files)
 // DO NOT EDIT
 
-use crate::{ffi, AsyncResult, Cancellable, File, FileInfo};
+use crate::{AsyncResult, Cancellable, File, FileInfo, ffi};
 use glib::{prelude::*, translate::*};
 use std::{boxed::Box as Box_, pin::Pin};
 
@@ -19,30 +19,7 @@ impl FileEnumerator {
     pub const NONE: Option<&'static FileEnumerator> = None;
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::FileEnumerator>> Sealed for T {}
-}
-
-pub trait FileEnumeratorExt: IsA<FileEnumerator> + sealed::Sealed + 'static {
-    #[doc(alias = "g_file_enumerator_close")]
-    fn close(&self, cancellable: Option<&impl IsA<Cancellable>>) -> Result<(), glib::Error> {
-        unsafe {
-            let mut error = std::ptr::null_mut();
-            let is_ok = ffi::g_file_enumerator_close(
-                self.as_ref().to_glib_none().0,
-                cancellable.map(|p| p.as_ref()).to_glib_none().0,
-                &mut error,
-            );
-            debug_assert_eq!(is_ok == glib::ffi::GFALSE, !error.is_null());
-            if error.is_null() {
-                Ok(())
-            } else {
-                Err(from_glib_full(error))
-            }
-        }
-    }
-
+pub trait FileEnumeratorExt: IsA<FileEnumerator> + 'static {
     #[doc(alias = "g_file_enumerator_close_async")]
     fn close_async<P: FnOnce(Result<(), glib::Error>) + 'static>(
         &self,
@@ -69,17 +46,19 @@ pub trait FileEnumeratorExt: IsA<FileEnumerator> + sealed::Sealed + 'static {
             res: *mut crate::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            let mut error = std::ptr::null_mut();
-            ffi::g_file_enumerator_close_finish(_source_object as *mut _, res, &mut error);
-            let result = if error.is_null() {
-                Ok(())
-            } else {
-                Err(from_glib_full(error))
-            };
-            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                Box_::from_raw(user_data as *mut _);
-            let callback: P = callback.into_inner();
-            callback(result);
+            unsafe {
+                let mut error = std::ptr::null_mut();
+                ffi::g_file_enumerator_close_finish(_source_object as *mut _, res, &mut error);
+                let result = if error.is_null() {
+                    Ok(())
+                } else {
+                    Err(from_glib_full(error))
+                };
+                let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                    Box_::from_raw(user_data as *mut _);
+                let callback: P = callback.into_inner();
+                callback(result);
+            }
         }
         let callback = close_async_trampoline::<P>;
         unsafe {
@@ -193,18 +172,23 @@ pub trait FileEnumeratorExt: IsA<FileEnumerator> + sealed::Sealed + 'static {
             res: *mut crate::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            let mut error = std::ptr::null_mut();
-            let ret =
-                ffi::g_file_enumerator_next_files_finish(_source_object as *mut _, res, &mut error);
-            let result = if error.is_null() {
-                Ok(FromGlibPtrContainer::from_glib_full(ret))
-            } else {
-                Err(from_glib_full(error))
-            };
-            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                Box_::from_raw(user_data as *mut _);
-            let callback: P = callback.into_inner();
-            callback(result);
+            unsafe {
+                let mut error = std::ptr::null_mut();
+                let ret = ffi::g_file_enumerator_next_files_finish(
+                    _source_object as *mut _,
+                    res,
+                    &mut error,
+                );
+                let result = if error.is_null() {
+                    Ok(FromGlibPtrContainer::from_glib_full(ret))
+                } else {
+                    Err(from_glib_full(error))
+                };
+                let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                    Box_::from_raw(user_data as *mut _);
+                let callback: P = callback.into_inner();
+                callback(result);
+            }
         }
         let callback = next_files_async_trampoline::<P>;
         unsafe {

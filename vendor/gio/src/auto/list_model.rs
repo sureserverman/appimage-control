@@ -6,7 +6,7 @@ use crate::ffi;
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -24,12 +24,7 @@ impl ListModel {
     pub const NONE: Option<&'static ListModel> = None;
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::ListModel>> Sealed for T {}
-}
-
-pub trait ListModelExt: IsA<ListModel> + sealed::Sealed + 'static {
+pub trait ListModelExt: IsA<ListModel> + 'static {
     #[doc(alias = "g_list_model_get_item_type")]
     #[doc(alias = "get_item_type")]
     fn item_type(&self) -> glib::types::Type {
@@ -84,19 +79,21 @@ pub trait ListModelExt: IsA<ListModel> + sealed::Sealed + 'static {
             added: std::ffi::c_uint,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                ListModel::from_glib_borrow(this).unsafe_cast_ref(),
-                position,
-                removed,
-                added,
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    ListModel::from_glib_borrow(this).unsafe_cast_ref(),
+                    position,
+                    removed,
+                    added,
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"items-changed\0".as_ptr() as *const _,
+                c"items-changed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     items_changed_trampoline::<Self, F> as *const (),
                 )),

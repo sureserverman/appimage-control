@@ -1,5 +1,6 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![allow(clippy::needless_doctest_main)]
+#![allow(deprecated)]
 #![doc(
     html_logo_url = "https://gitlab.gnome.org/GNOME/libadwaita/-/raw/main/doc/libadwaita.svg",
     html_favicon_url = "https://gitlab.gnome.org/GNOME/libadwaita/-/raw/main/demo/data/org.gnome.Adwaita1.Demo-symbolic.svg"
@@ -127,6 +128,13 @@ mod functions;
 #[cfg(feature = "v1_2")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_2")))]
 mod message_dialog;
+mod preferences_group;
+#[cfg(feature = "v1_9")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_9")))]
+mod sidebar;
+#[cfg(feature = "v1_9")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_9")))]
+mod sidebar_section;
 #[cfg(feature = "v1_4")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_4")))]
 mod spin_row;

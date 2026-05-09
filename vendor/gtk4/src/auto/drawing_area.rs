@@ -3,13 +3,13 @@
 // DO NOT EDIT
 
 use crate::{
-    ffi, Accessible, AccessibleRole, Align, Buildable, ConstraintTarget, LayoutManager, Overflow,
-    Widget,
+    Accessible, AccessibleRole, Align, Buildable, ConstraintTarget, LayoutManager, Overflow,
+    Widget, ffi,
 };
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -276,12 +276,7 @@ impl DrawingAreaBuilder {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::DrawingArea>> Sealed for T {}
-}
-
-pub trait DrawingAreaExt: IsA<DrawingArea> + sealed::Sealed + 'static {
+pub trait DrawingAreaExt: IsA<DrawingArea> + 'static {
     #[doc(alias = "gtk_drawing_area_get_content_height")]
     #[doc(alias = "get_content_height")]
     #[doc(alias = "content-height")]
@@ -323,18 +318,20 @@ pub trait DrawingAreaExt: IsA<DrawingArea> + sealed::Sealed + 'static {
             height: std::ffi::c_int,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                DrawingArea::from_glib_borrow(this).unsafe_cast_ref(),
-                width,
-                height,
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    DrawingArea::from_glib_borrow(this).unsafe_cast_ref(),
+                    width,
+                    height,
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"resize\0".as_ptr() as *const _,
+                c"resize".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     resize_trampoline::<Self, F> as *const (),
                 )),
@@ -353,14 +350,16 @@ pub trait DrawingAreaExt: IsA<DrawingArea> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(DrawingArea::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(DrawingArea::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::content-height\0".as_ptr() as *const _,
+                c"notify::content-height".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_content_height_trampoline::<Self, F> as *const (),
                 )),
@@ -379,14 +378,16 @@ pub trait DrawingAreaExt: IsA<DrawingArea> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(DrawingArea::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(DrawingArea::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::content-width\0".as_ptr() as *const _,
+                c"notify::content-width".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_content_width_trampoline::<Self, F> as *const (),
                 )),

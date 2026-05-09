@@ -1,13 +1,13 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 #[cfg(unix)]
-use std::os::unix::io::AsRawFd;
+use std::os::unix::io::{AsFd, AsRawFd};
 use std::{
     boxed::Box as Box_,
     sync::{Arc, Mutex, OnceLock},
 };
 
-use crate::{ffi, translate::*, GStr, GString, LogWriterOutput};
+use crate::{GStr, GString, LogWriterOutput, ffi, translate::*};
 
 #[derive(Debug)]
 pub struct LogHandlerId(u32);
@@ -162,14 +162,16 @@ pub fn log_set_handler<P: Fn(Option<&str>, LogLevel, &str) + Send + Sync + 'stat
         message: *const libc::c_char,
         user_data: ffi::gpointer,
     ) {
-        let log_domain: Borrowed<Option<GString>> = from_glib_borrow(log_domain);
-        let message: Borrowed<GString> = from_glib_borrow(message);
-        let callback: &P = &*(user_data as *mut _);
-        (*callback)(
-            (*log_domain).as_ref().map(|s| s.as_str()),
-            from_glib(log_level),
-            message.as_str(),
-        );
+        unsafe {
+            let log_domain: Borrowed<Option<GString>> = from_glib_borrow(log_domain);
+            let message: Borrowed<GString> = from_glib_borrow(message);
+            let callback: &P = &*(user_data as *mut _);
+            (*callback)(
+                (*log_domain).as_ref().map(|s| s.as_str()),
+                from_glib(log_level),
+                message.as_str(),
+            );
+        }
     }
     let log_func = Some(log_func_func::<P> as _);
     unsafe extern "C" fn destroy_func<
@@ -177,7 +179,9 @@ pub fn log_set_handler<P: Fn(Option<&str>, LogLevel, &str) + Send + Sync + 'stat
     >(
         data: ffi::gpointer,
     ) {
-        let _callback: Box_<P> = Box_::from_raw(data as *mut _);
+        unsafe {
+            let _callback: Box_<P> = Box_::from_raw(data as *mut _);
+        }
     }
     let destroy_call4 = Some(destroy_func::<P> as _);
     let super_callback0: Box_<P> = log_func_data;
@@ -226,14 +230,16 @@ fn print_handler() -> &'static Mutex<Option<Arc<PrintCallback>>> {
 #[doc(alias = "g_set_print_handler")]
 pub fn set_print_handler<P: Fn(&str) + Send + Sync + 'static>(func: P) {
     unsafe extern "C" fn func_func(string: *const libc::c_char) {
-        if let Some(callback) = print_handler()
-            .lock()
-            .expect("Failed to lock PRINT_HANDLER")
-            .as_ref()
-            .map(Arc::clone)
-        {
-            let string: Borrowed<GString> = from_glib_borrow(string);
-            (*callback)(string.as_str())
+        unsafe {
+            if let Some(callback) = print_handler()
+                .lock()
+                .expect("Failed to lock PRINT_HANDLER")
+                .as_ref()
+                .map(Arc::clone)
+            {
+                let string: Borrowed<GString> = from_glib_borrow(string);
+                (*callback)(string.as_str())
+            }
         }
     }
     *print_handler()
@@ -261,14 +267,16 @@ fn printerr_handler() -> &'static Mutex<Option<Arc<PrintCallback>>> {
 #[doc(alias = "g_set_printerr_handler")]
 pub fn set_printerr_handler<P: Fn(&str) + Send + Sync + 'static>(func: P) {
     unsafe extern "C" fn func_func(string: *const libc::c_char) {
-        if let Some(callback) = printerr_handler()
-            .lock()
-            .expect("Failed to lock PRINTERR_HANDLER")
-            .as_ref()
-            .map(Arc::clone)
-        {
-            let string: Borrowed<GString> = from_glib_borrow(string);
-            (*callback)(string.as_str())
+        unsafe {
+            if let Some(callback) = printerr_handler()
+                .lock()
+                .expect("Failed to lock PRINTERR_HANDLER")
+                .as_ref()
+                .map(Arc::clone)
+            {
+                let string: Borrowed<GString> = from_glib_borrow(string);
+                (*callback)(string.as_str())
+            }
         }
     }
     *printerr_handler()
@@ -305,19 +313,21 @@ pub fn log_set_default_handler<P: Fn(Option<&str>, LogLevel, &str) + Send + Sync
         message: *const libc::c_char,
         _user_data: ffi::gpointer,
     ) {
-        if let Some(callback) = default_handler()
-            .lock()
-            .expect("Failed to lock DEFAULT_HANDLER")
-            .as_ref()
-            .map(Arc::clone)
-        {
-            let log_domain: Borrowed<Option<GString>> = from_glib_borrow(log_domain);
-            let message: Borrowed<GString> = from_glib_borrow(message);
-            (*callback)(
-                (*log_domain).as_ref().map(|s| s.as_str()),
-                from_glib(log_levels),
-                message.as_str(),
-            );
+        unsafe {
+            if let Some(callback) = default_handler()
+                .lock()
+                .expect("Failed to lock DEFAULT_HANDLER")
+                .as_ref()
+                .map(Arc::clone)
+            {
+                let log_domain: Borrowed<Option<GString>> = from_glib_borrow(log_domain);
+                let message: Borrowed<GString> = from_glib_borrow(message);
+                (*callback)(
+                    (*log_domain).as_ref().map(|s| s.as_str()),
+                    from_glib(log_levels),
+                    message.as_str(),
+                );
+            }
         }
     }
     *default_handler()
@@ -395,7 +405,7 @@ impl<'a> LogField<'a> {
         Self(
             ffi::GLogField {
                 key: key.as_ptr(),
-                value: data as *const _,
+                value: std::ptr::without_provenance(data),
                 length: 0,
             },
             Default::default(),
@@ -432,7 +442,7 @@ impl<'a> LogField<'a> {
     /// Retrieves the the user data value from a field created with [`Self::new_user_data`].
     /// Returns `None` if the field was created with [`Self::new`].
     pub fn user_data(&self) -> Option<usize> {
-        (self.0.length == 0).then_some(self.0.value as usize)
+        (self.0.length == 0).then_some(self.0.value.addr())
     }
 }
 
@@ -455,9 +465,11 @@ pub fn log_set_writer_func<
         n_fields: libc::size_t,
         _user_data: ffi::gpointer,
     ) -> ffi::GLogWriterOutput {
-        let writer_func = WRITER_FUNC.get().unwrap();
-        let fields = std::slice::from_raw_parts(fields as *const LogField<'_>, n_fields);
-        writer_func(from_glib(log_level), fields).into_glib()
+        unsafe {
+            let writer_func = WRITER_FUNC.get().unwrap();
+            let fields = std::slice::from_raw_parts(fields as *const LogField<'_>, n_fields);
+            writer_func(from_glib(log_level), fields).into_glib()
+        }
     }
     unsafe {
         ffi::g_log_set_writer_func(Some(writer_trampoline), std::ptr::null_mut(), None);
@@ -862,7 +874,7 @@ macro_rules! g_printerr {
 ///         "MY_FIELD" => "123";
 ///         // fields can also take format arguments
 ///         "MY_FIELD2" => "abc {}", "def";
-///         // single argument can be a &str or a &[u8] or anything else satsfying AsRef<[u8]>
+///         // single argument can be a &str or a &[u8] or anything else satisfying AsRef<[u8]>
 ///         "MY_FIELD3" => CString::new("my string").unwrap().to_bytes();
 ///         // field names can also be dynamic
 ///         GString::from("MY_FIELD4") => b"a binary string".to_owned();
@@ -972,16 +984,20 @@ pub fn log_variant(log_domain: Option<&str>, log_level: LogLevel, fields: &crate
 #[cfg_attr(docsrs, doc(cfg(unix)))]
 #[doc(alias = "g_log_writer_supports_color")]
 #[inline]
-pub fn log_writer_supports_color<T: AsRawFd>(output_fd: T) -> bool {
-    unsafe { from_glib(ffi::g_log_writer_supports_color(output_fd.as_raw_fd())) }
+pub fn log_writer_supports_color(output_fd: impl AsFd) -> bool {
+    unsafe {
+        from_glib(ffi::g_log_writer_supports_color(
+            output_fd.as_fd().as_raw_fd(),
+        ))
+    }
 }
 
 #[cfg(unix)]
 #[cfg_attr(docsrs, doc(cfg(unix)))]
 #[doc(alias = "g_log_writer_is_journald")]
 #[inline]
-pub fn log_writer_is_journald<T: AsRawFd>(output_fd: T) -> bool {
-    unsafe { from_glib(ffi::g_log_writer_is_journald(output_fd.as_raw_fd())) }
+pub fn log_writer_is_journald(output_fd: impl AsFd) -> bool {
+    unsafe { from_glib(ffi::g_log_writer_is_journald(output_fd.as_fd().as_raw_fd())) }
 }
 
 #[doc(alias = "g_log_writer_format_fields")]
@@ -1058,7 +1074,9 @@ pub fn log_writer_default(log_level: LogLevel, fields: &[LogField<'_>]) -> LogWr
 #[doc(alias = "g_log_writer_default_set_use_stderr")]
 #[inline]
 pub unsafe fn log_writer_default_set_use_stderr(use_stderr: bool) {
-    ffi::g_log_writer_default_set_use_stderr(use_stderr.into_glib());
+    unsafe {
+        ffi::g_log_writer_default_set_use_stderr(use_stderr.into_glib());
+    }
 }
 
 #[cfg(feature = "v2_68")]

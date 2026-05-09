@@ -9,14 +9,9 @@ use futures_core::{
 use futures_io::AsyncRead;
 use glib::{prelude::*, translate::*};
 
-use crate::{ffi, prelude::*, Cancellable, PollableInputStream};
+use crate::{Cancellable, PollableInputStream, ffi, prelude::*};
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::PollableInputStream>> Sealed for T {}
-}
-
-pub trait PollableInputStreamExtManual: sealed::Sealed + IsA<PollableInputStream> + Sized {
+pub trait PollableInputStreamExtManual: IsA<PollableInputStream> + Sized {
     #[doc(alias = "g_pollable_input_stream_create_source")]
     fn create_source<F, C>(
         &self,
@@ -36,12 +31,16 @@ pub trait PollableInputStreamExtManual: sealed::Sealed + IsA<PollableInputStream
             stream: *mut ffi::GPollableInputStream,
             func: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let func: &RefCell<F> = &*(func as *const RefCell<F>);
-            let mut func = func.borrow_mut();
-            (*func)(PollableInputStream::from_glib_borrow(stream).unsafe_cast_ref()).into_glib()
+            unsafe {
+                let func: &RefCell<F> = &*(func as *const RefCell<F>);
+                let mut func = func.borrow_mut();
+                (*func)(PollableInputStream::from_glib_borrow(stream).unsafe_cast_ref()).into_glib()
+            }
         }
         unsafe extern "C" fn destroy_closure<F>(ptr: glib::ffi::gpointer) {
-            let _ = Box::<RefCell<F>>::from_raw(ptr as *mut _);
+            unsafe {
+                let _ = Box::<RefCell<F>>::from_raw(ptr as *mut _);
+            }
         }
         let cancellable = cancellable.map(|c| c.as_ref());
         let gcancellable = cancellable.to_glib_none();

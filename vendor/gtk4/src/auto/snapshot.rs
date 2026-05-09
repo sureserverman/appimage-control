@@ -3,7 +3,7 @@
 // DO NOT EDIT
 #![allow(deprecated)]
 
-use crate::{ffi, StyleContext};
+use crate::{StyleContext, ffi};
 use glib::{prelude::*, translate::*};
 
 glib::wrapper! {
@@ -31,12 +31,7 @@ impl Default for Snapshot {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::Snapshot>> Sealed for T {}
-}
-
-pub trait SnapshotExt: IsA<Snapshot> + sealed::Sealed + 'static {
+pub trait SnapshotExt: IsA<Snapshot> + 'static {
     #[doc(alias = "gtk_snapshot_append_cairo")]
     fn append_cairo(&self, bounds: &graphene::Rect) -> cairo::Context {
         unsafe {
@@ -177,6 +172,19 @@ pub trait SnapshotExt: IsA<Snapshot> + sealed::Sealed + 'static {
                 dy,
                 spread,
                 blur_radius,
+            );
+        }
+    }
+
+    #[cfg(feature = "v4_22")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+    #[doc(alias = "gtk_snapshot_append_paste")]
+    fn append_paste(&self, bounds: &graphene::Rect, nth: usize) {
+        unsafe {
+            ffi::gtk_snapshot_append_paste(
+                self.as_ref().to_glib_none().0,
+                bounds.to_glib_none().0,
+                nth,
             );
         }
     }
@@ -376,6 +384,45 @@ pub trait SnapshotExt: IsA<Snapshot> + sealed::Sealed + 'static {
         }
     }
 
+    #[cfg(feature = "v4_20")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+    #[doc(alias = "gtk_snapshot_push_component_transfer")]
+    fn push_component_transfer(
+        &self,
+        red: &gsk::ComponentTransfer,
+        green: &gsk::ComponentTransfer,
+        blue: &gsk::ComponentTransfer,
+        alpha: &gsk::ComponentTransfer,
+    ) {
+        unsafe {
+            ffi::gtk_snapshot_push_component_transfer(
+                self.as_ref().to_glib_none().0,
+                red.to_glib_none().0,
+                green.to_glib_none().0,
+                blue.to_glib_none().0,
+                alpha.to_glib_none().0,
+            );
+        }
+    }
+
+    #[cfg(feature = "v4_22")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+    #[doc(alias = "gtk_snapshot_push_composite")]
+    fn push_composite(&self, op: gsk::PorterDuff) {
+        unsafe {
+            ffi::gtk_snapshot_push_composite(self.as_ref().to_glib_none().0, op.into_glib());
+        }
+    }
+
+    #[cfg(feature = "v4_22")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+    #[doc(alias = "gtk_snapshot_push_copy")]
+    fn push_copy(&self) {
+        unsafe {
+            ffi::gtk_snapshot_push_copy(self.as_ref().to_glib_none().0);
+        }
+    }
+
     #[doc(alias = "gtk_snapshot_push_cross_fade")]
     fn push_cross_fade(&self, progress: f64) {
         unsafe {
@@ -414,6 +461,13 @@ pub trait SnapshotExt: IsA<Snapshot> + sealed::Sealed + 'static {
             );
         }
     }
+
+    //#[cfg(feature = "v4_22")]
+    //#[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+    //#[doc(alias = "gtk_snapshot_push_isolation")]
+    //fn push_isolation(&self, features: /*Ignored*/gsk::Isolation) {
+    //    unsafe { TODO: call ffi:gtk_snapshot_push_isolation() }
+    //}
 
     #[cfg(feature = "v4_10")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v4_10")))]

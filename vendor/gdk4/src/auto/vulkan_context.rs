@@ -2,18 +2,18 @@
 // from gir-files (https://github.com/gtk-rs/gir-files)
 // DO NOT EDIT
 
-use crate::{ffi, DrawContext};
+use crate::{DrawContext, ffi};
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
 
 glib::wrapper! {
     #[doc(alias = "GdkVulkanContext")]
-    pub struct VulkanContext(Object<ffi::GdkVulkanContext>) @extends DrawContext, @implements gio::Initable;
+    pub struct VulkanContext(Object<ffi::GdkVulkanContext>) @extends DrawContext;
 
     match fn {
         type_ => || ffi::gdk_vulkan_context_get_type(),
@@ -27,14 +27,16 @@ impl VulkanContext {
             this: *mut ffi::GdkVulkanContext,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"images-updated\0".as_ptr() as *const _,
+                c"images-updated".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     images_updated_trampoline::<F> as *const (),
                 )),

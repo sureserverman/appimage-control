@@ -21,8 +21,8 @@
                     unsigned long: "%lu", \
                     long long: "%lld", \
                     unsigned long long: "%llu", \
-                    float: "%f", \
-                    double: "%f", \
+                    float: "%.6f", \
+                    double: "%.6f", \
                     long double: "%ld"), \
            CONSTANT_NAME); \
     printf("\n");
@@ -115,6 +115,10 @@ int main() {
     PRINT_CONSTANT((gint) PANGO_ELLIPSIZE_MIDDLE);
     PRINT_CONSTANT((gint) PANGO_ELLIPSIZE_NONE);
     PRINT_CONSTANT((gint) PANGO_ELLIPSIZE_START);
+    PRINT_CONSTANT((gint) PANGO_FONT_COLOR_DONT_CARE);
+    PRINT_CONSTANT((gint) PANGO_FONT_COLOR_FORBIDDEN);
+    PRINT_CONSTANT((gint) PANGO_FONT_COLOR_REQUIRED);
+    PRINT_CONSTANT((guint) PANGO_FONT_MASK_COLOR);
     PRINT_CONSTANT((guint) PANGO_FONT_MASK_FAMILY);
     PRINT_CONSTANT((guint) PANGO_FONT_MASK_FEATURES);
     PRINT_CONSTANT((guint) PANGO_FONT_MASK_GRAVITY);

@@ -2,7 +2,7 @@
 // from gir-files (https://github.com/gtk-rs/gir-files)
 // DO NOT EDIT
 
-use crate::{ffi, AsyncResult, Cancellable, SocketAddress};
+use crate::{AsyncResult, Cancellable, SocketAddress, ffi};
 use glib::{prelude::*, translate::*};
 use std::{boxed::Box as Box_, pin::Pin};
 
@@ -19,14 +19,7 @@ impl SocketAddressEnumerator {
     pub const NONE: Option<&'static SocketAddressEnumerator> = None;
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::SocketAddressEnumerator>> Sealed for T {}
-}
-
-pub trait SocketAddressEnumeratorExt:
-    IsA<SocketAddressEnumerator> + sealed::Sealed + 'static
-{
+pub trait SocketAddressEnumeratorExt: IsA<SocketAddressEnumerator> + 'static {
     #[doc(alias = "g_socket_address_enumerator_next")]
     fn next(
         &self,
@@ -72,21 +65,23 @@ pub trait SocketAddressEnumeratorExt:
             res: *mut crate::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            let mut error = std::ptr::null_mut();
-            let ret = ffi::g_socket_address_enumerator_next_finish(
-                _source_object as *mut _,
-                res,
-                &mut error,
-            );
-            let result = if error.is_null() {
-                Ok(from_glib_full(ret))
-            } else {
-                Err(from_glib_full(error))
-            };
-            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                Box_::from_raw(user_data as *mut _);
-            let callback: P = callback.into_inner();
-            callback(result);
+            unsafe {
+                let mut error = std::ptr::null_mut();
+                let ret = ffi::g_socket_address_enumerator_next_finish(
+                    _source_object as *mut _,
+                    res,
+                    &mut error,
+                );
+                let result = if error.is_null() {
+                    Ok(from_glib_full(ret))
+                } else {
+                    Err(from_glib_full(error))
+                };
+                let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                    Box_::from_raw(user_data as *mut _);
+                let callback: P = callback.into_inner();
+                callback(result);
+            }
         }
         let callback = next_async_trampoline::<P>;
         unsafe {

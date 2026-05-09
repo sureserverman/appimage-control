@@ -4,12 +4,12 @@
 #![allow(deprecated)]
 
 use crate::{
-    ffi, CellRenderer, CellRendererAccelMode, CellRendererMode, CellRendererText, TreePath,
+    CellRenderer, CellRendererAccelMode, CellRendererMode, CellRendererText, TreePath, ffi,
 };
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -87,15 +87,17 @@ impl CellRendererAccel {
             path_string: *mut std::ffi::c_char,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            let path = from_glib_full(crate::ffi::gtk_tree_path_new_from_string(path_string));
-            f(&from_glib_borrow(this), path)
+            unsafe {
+                let f: &F = &*(f as *const F);
+                let path = from_glib_full(crate::ffi::gtk_tree_path_new_from_string(path_string));
+                f(&from_glib_borrow(this), path)
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"accel-cleared\0".as_ptr() as *const _,
+                c"accel-cleared".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     accel_cleared_trampoline::<F> as *const (),
                 )),
@@ -119,21 +121,23 @@ impl CellRendererAccel {
             hardware_keycode: std::ffi::c_uint,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            let path = from_glib_full(crate::ffi::gtk_tree_path_new_from_string(path_string));
-            f(
-                &from_glib_borrow(this),
-                path,
-                accel_key,
-                from_glib(accel_mods),
-                hardware_keycode,
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                let path = from_glib_full(crate::ffi::gtk_tree_path_new_from_string(path_string));
+                f(
+                    &from_glib_borrow(this),
+                    path,
+                    accel_key,
+                    from_glib(accel_mods),
+                    hardware_keycode,
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"accel-edited\0".as_ptr() as *const _,
+                c"accel-edited".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     accel_edited_trampoline::<F> as *const (),
                 )),
@@ -149,14 +153,16 @@ impl CellRendererAccel {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::accel-key\0".as_ptr() as *const _,
+                c"notify::accel-key".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_accel_key_trampoline::<F> as *const (),
                 )),
@@ -172,14 +178,16 @@ impl CellRendererAccel {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::accel-mode\0".as_ptr() as *const _,
+                c"notify::accel-mode".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_accel_mode_trampoline::<F> as *const (),
                 )),
@@ -195,14 +203,16 @@ impl CellRendererAccel {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::accel-mods\0".as_ptr() as *const _,
+                c"notify::accel-mods".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_accel_mods_trampoline::<F> as *const (),
                 )),
@@ -218,14 +228,16 @@ impl CellRendererAccel {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::keycode\0".as_ptr() as *const _,
+                c"notify::keycode".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_keycode_trampoline::<F> as *const (),
                 )),

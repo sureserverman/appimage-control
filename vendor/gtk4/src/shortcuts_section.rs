@@ -3,11 +3,11 @@
 use std::mem::transmute;
 
 use glib::{
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 
-use crate::{ffi, prelude::*, ShortcutsSection};
+use crate::{ShortcutsSection, ffi, prelude::*};
 
 impl ShortcutsSection {
     // todo: figure out what the bool return value here corresponds to
@@ -23,15 +23,17 @@ impl ShortcutsSection {
                 object: libc::c_int,
                 f: glib::ffi::gpointer,
             ) -> glib::ffi::gboolean {
-                let f: &F = &*(f as *const F);
-                f(&from_glib_borrow(this), object).into_glib()
+                unsafe {
+                    let f: &F = &*(f as *const F);
+                    f(&from_glib_borrow(this), object).into_glib()
+                }
             }
             let f = Box::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"change-current-page\0".as_ptr() as *const _,
-                Some(transmute::<usize, unsafe extern "C" fn()>(
-                    change_current_page_trampoline::<F> as usize,
+                c"change-current-page".as_ptr() as *const _,
+                Some(transmute::<*const (), unsafe extern "C" fn()>(
+                    change_current_page_trampoline::<F> as *const (),
                 )),
                 Box::into_raw(f),
             )

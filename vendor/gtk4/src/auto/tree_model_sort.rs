@@ -3,7 +3,7 @@
 // DO NOT EDIT
 #![allow(deprecated)]
 
-use crate::{ffi, TreeDragSource, TreeIter, TreeModel, TreePath, TreeSortable};
+use crate::{TreeDragSource, TreeIter, TreeModel, TreePath, TreeSortable, ffi};
 use glib::{prelude::*, translate::*};
 
 glib::wrapper! {
@@ -30,12 +30,7 @@ impl TreeModelSort {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::TreeModelSort>> Sealed for T {}
-}
-
-pub trait TreeModelSortExt: IsA<TreeModelSort> + sealed::Sealed + 'static {
+pub trait TreeModelSortExt: IsA<TreeModelSort> + 'static {
     #[cfg_attr(feature = "v4_10", deprecated = "Since 4.10")]
     #[allow(deprecated)]
     #[doc(alias = "gtk_tree_model_sort_clear_cache")]
@@ -56,11 +51,7 @@ pub trait TreeModelSortExt: IsA<TreeModelSort> + sealed::Sealed + 'static {
                 sort_iter.to_glib_none_mut().0,
                 mut_override(child_iter.to_glib_none().0),
             ));
-            if ret {
-                Some(sort_iter)
-            } else {
-                None
-            }
+            if ret { Some(sort_iter) } else { None }
         }
     }
 

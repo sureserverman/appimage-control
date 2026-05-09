@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{prelude::*, Breakpoint};
+use crate::{Breakpoint, prelude::*};
 use glib::translate::*;
 
 impl Breakpoint {

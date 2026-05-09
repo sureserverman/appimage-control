@@ -3,13 +3,13 @@
 // DO NOT EDIT
 
 use crate::{
-    ffi, NumberUpLayout, PageRange, PageSet, PageSetup, PrintPages, PrintSettings, PrintStatus,
-    Printer,
+    NumberUpLayout, PageRange, PageSet, PageSetup, PrintPages, PrintSettings, PrintStatus, Printer,
+    ffi,
 };
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -290,14 +290,16 @@ impl PrintJob {
             this: *mut ffi::GtkPrintJob,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"status-changed\0".as_ptr() as *const _,
+                c"status-changed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     status_changed_trampoline::<F> as *const (),
                 )),
@@ -316,14 +318,16 @@ impl PrintJob {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::track-print-status\0".as_ptr() as *const _,
+                c"notify::track-print-status".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_track_print_status_trampoline::<F> as *const (),
                 )),

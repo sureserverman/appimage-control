@@ -2,11 +2,11 @@
 // from gir-files (https://github.com/gtk-rs/gir-files)
 // DO NOT EDIT
 
-use crate::{ffi, EventController, Gesture, GestureSingle, PropagationLimit, PropagationPhase};
+use crate::{EventController, Gesture, GestureSingle, PropagationLimit, PropagationPhase, ffi};
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -56,14 +56,16 @@ impl GestureLongPress {
             this: *mut ffi::GtkGestureLongPress,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"cancelled\0".as_ptr() as *const _,
+                c"cancelled".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     cancelled_trampoline::<F> as *const (),
                 )),
@@ -80,14 +82,16 @@ impl GestureLongPress {
             y: std::ffi::c_double,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this), x, y)
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this), x, y)
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"pressed\0".as_ptr() as *const _,
+                c"pressed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     pressed_trampoline::<F> as *const (),
                 )),
@@ -103,14 +107,16 @@ impl GestureLongPress {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::delay-factor\0".as_ptr() as *const _,
+                c"notify::delay-factor".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_delay_factor_trampoline::<F> as *const (),
                 )),

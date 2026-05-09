@@ -2,7 +2,7 @@
 // from gir-files (https://github.com/gtk-rs/gir-files)
 // DO NOT EDIT
 
-use crate::{ffi, Cancellable, OutputStream};
+use crate::{Cancellable, OutputStream, ffi};
 use glib::{prelude::*, translate::*};
 
 glib::wrapper! {
@@ -18,12 +18,7 @@ impl PollableOutputStream {
     pub const NONE: Option<&'static PollableOutputStream> = None;
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::PollableOutputStream>> Sealed for T {}
-}
-
-pub trait PollableOutputStreamExt: IsA<PollableOutputStream> + sealed::Sealed + 'static {
+pub trait PollableOutputStreamExt: IsA<PollableOutputStream> + 'static {
     #[doc(alias = "g_pollable_output_stream_can_poll")]
     fn can_poll(&self) -> bool {
         unsafe {

@@ -2,7 +2,10 @@
 // from gir-files (https://github.com/gtk-rs/gir-files)
 // DO NOT EDIT
 
-use crate::{ffi, FontMask, Gravity, Stretch, Style, Variant, Weight};
+#[cfg(feature = "v1_57")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_57")))]
+use crate::FontColor;
+use crate::{FontMask, Gravity, Stretch, Style, Variant, Weight, ffi};
 use glib::translate::*;
 
 glib::wrapper! {
@@ -45,6 +48,14 @@ impl FontDescription {
                 desc2.to_glib_none().0,
             ))
         }
+    }
+
+    #[cfg(feature = "v1_57")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_57")))]
+    #[doc(alias = "pango_font_description_get_color")]
+    #[doc(alias = "get_color")]
+    pub fn color(&self) -> FontColor {
+        unsafe { from_glib(ffi::pango_font_description_get_color(self.to_glib_none().0)) }
     }
 
     #[doc(alias = "pango_font_description_get_family")]
@@ -173,6 +184,15 @@ impl FontDescription {
     pub fn set_absolute_size(&mut self, size: f64) {
         unsafe {
             ffi::pango_font_description_set_absolute_size(self.to_glib_none_mut().0, size);
+        }
+    }
+
+    #[cfg(feature = "v1_57")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_57")))]
+    #[doc(alias = "pango_font_description_set_color")]
+    pub fn set_color(&mut self, color: FontColor) {
+        unsafe {
+            ffi::pango_font_description_set_color(self.to_glib_none_mut().0, color.into_glib());
         }
     }
 

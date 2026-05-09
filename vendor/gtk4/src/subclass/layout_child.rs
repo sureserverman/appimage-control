@@ -1,11 +1,11 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 // rustdoc-stripper-ignore-next
-//! Traits intended for subclassing [`LayoutChild`](crate::LayoutChild).
+//! Traits intended for subclassing [`LayoutChild`].
 
-use crate::{subclass::prelude::*, LayoutChild};
+use crate::{LayoutChild, prelude::*, subclass::prelude::*};
 
-pub trait LayoutChildImpl: ObjectImpl {}
+pub trait LayoutChildImpl: ObjectImpl + ObjectSubclass<Type: IsA<LayoutChild>> {}
 
 unsafe impl<T: LayoutChildImpl> IsSubclassable<T> for LayoutChild {
     fn class_init(class: &mut glib::Class<Self>) {

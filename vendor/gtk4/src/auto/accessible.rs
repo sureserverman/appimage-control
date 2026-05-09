@@ -5,13 +5,13 @@
 #[cfg(feature = "v4_14")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v4_14")))]
 use crate::AccessibleAnnouncementPriority;
-use crate::{ffi, AccessibleProperty, AccessibleRelation, AccessibleRole, AccessibleState};
 #[cfg(feature = "v4_10")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v4_10")))]
 use crate::{ATContext, AccessiblePlatformState};
+use crate::{AccessibleProperty, AccessibleRelation, AccessibleRole, AccessibleState, ffi};
 use glib::{
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -29,12 +29,7 @@ impl Accessible {
     pub const NONE: Option<&'static Accessible> = None;
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::Accessible>> Sealed for T {}
-}
-
-pub trait AccessibleExt: IsA<Accessible> + sealed::Sealed + 'static {
+pub trait AccessibleExt: IsA<Accessible> + 'static {
     #[cfg(feature = "v4_14")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v4_14")))]
     #[doc(alias = "gtk_accessible_announce")]
@@ -45,6 +40,18 @@ pub trait AccessibleExt: IsA<Accessible> + sealed::Sealed + 'static {
                 message.to_glib_none().0,
                 priority.into_glib(),
             );
+        }
+    }
+
+    #[cfg(feature = "v4_22")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+    #[doc(alias = "gtk_accessible_get_accessible_id")]
+    #[doc(alias = "get_accessible_id")]
+    fn accessible_id(&self) -> Option<glib::GString> {
+        unsafe {
+            from_glib_full(ffi::gtk_accessible_get_accessible_id(
+                self.as_ref().to_glib_none().0,
+            ))
         }
     }
 
@@ -236,14 +243,16 @@ pub trait AccessibleExt: IsA<Accessible> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Accessible::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Accessible::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::accessible-role\0".as_ptr() as *const _,
+                c"notify::accessible-role".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_accessible_role_trampoline::<Self, F> as *const (),
                 )),

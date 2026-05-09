@@ -10,10 +10,10 @@
 # See Cargo.toml.orig for the original contents.
 
 [package]
-edition = "2021"
-rust-version = "1.70"
+edition = "2024"
+rust-version = "1.92"
 name = "gtk4"
-version = "0.9.7"
+version = "0.11.3"
 authors = ["The gtk-rs Project Developers"]
 build = false
 autolib = false
@@ -41,15 +41,7 @@ repository = "https://github.com/gtk-rs/gtk4-rs"
 
 [package.metadata.docs.rs]
 all-features = true
-rustc-args = [
-    "--cfg",
-    "docsrs",
-]
-rustdoc-args = [
-    "--cfg",
-    "docsrs",
-    "--generate-link-to-definition",
-]
+rustdoc-args = ["--generate-link-to-definition"]
 
 [features]
 blueprint = ["gtk4-macros/blueprint"]
@@ -91,6 +83,21 @@ gnome_47 = [
     "gio/v2_82",
     "gnome_46",
 ]
+gnome_48 = [
+    "v4_18",
+    "gio/v2_84",
+    "gnome_47",
+]
+gnome_49 = [
+    "v4_20",
+    "gio/v2_86",
+    "gnome_48",
+]
+gnome_50 = [
+    "v4_22",
+    "gio/v2_88",
+    "gnome_49",
+]
 unsafe-assume-initialized = []
 v4_10 = [
     "gtk4-sys/v4_10",
@@ -125,6 +132,24 @@ v4_2 = [
     "gdk/v4_2",
     "gsk/v4_2",
 ]
+v4_20 = [
+    "gtk4-sys/v4_20",
+    "gdk/v4_20",
+    "gsk/v4_20",
+    "v4_18",
+]
+v4_22 = [
+    "gtk4-sys/v4_22",
+    "gdk/v4_22",
+    "gsk/v4_22",
+    "v4_20",
+]
+v4_24 = [
+    "gtk4-sys/v4_24",
+    "gdk/v4_24",
+    "gsk/v4_22",
+    "v4_22",
+]
 v4_4 = [
     "gtk4-sys/v4_4",
     "v4_2",
@@ -154,7 +179,7 @@ name = "check_gir"
 path = "tests/check_gir.rs"
 
 [dependencies.cairo-rs]
-version = "0.20"
+version = "0.22.0"
 features = ["use_glib"]
 
 [dependencies.field-offset]
@@ -164,39 +189,39 @@ version = "0.3"
 version = "0.3"
 
 [dependencies.gdk]
-version = "0.9"
+version = "0.11.0"
 package = "gdk4"
 
 [dependencies.gdk-pixbuf]
-version = "0.20"
+version = "0.22.0"
 
 [dependencies.gio]
-version = "0.20"
+version = "0.22.0"
 features = ["v2_66"]
 
 [dependencies.glib]
-version = "0.20"
+version = "0.22.0"
 features = ["v2_66"]
 
 [dependencies.graphene]
-version = "0.20"
+version = "0.22.0"
 package = "graphene-rs"
 
 [dependencies.gsk]
-version = "0.9"
+version = "0.11.0"
 package = "gsk4"
 
 [dependencies.gtk4-macros]
-version = "0.9"
+version = "0.11.0"
 
 [dependencies.gtk4-sys]
-version = "0.9.4"
+version = "0.11.0"
 
 [dependencies.libc]
 version = "0.2"
 
 [dependencies.pango]
-version = "0.20"
+version = "0.22.0"
 features = ["v1_46"]
 
 [dev-dependencies.gir-format-check]

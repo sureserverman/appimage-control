@@ -21,6 +21,7 @@ generate = [
     "Gdk.CairoContext",
     "Gdk.CicpParams",
     "Gdk.CicpRange",
+    "Gdk.ColorChannel",
     "Gdk.ColorState",
     "Gdk.CrossingEvent",
     "Gdk.CrossingMode",
@@ -28,8 +29,6 @@ generate = [
     "Gdk.DevicePad",
     "Gdk.DevicePadFeature",
     "Gdk.DeviceToolType",
-    "Gdk.DmabufError",
-    "Gdk.DmabufTexture",
     "Gdk.DNDEvent",
     "Gdk.DragAction",
     "Gdk.DragCancelReason",
@@ -55,6 +54,7 @@ generate = [
     "Gdk.ProximityEvent",
     "Gdk.ScrollDirection",
     "Gdk.ScrollEvent",
+    "Gdk.ScrollRelativeDirection",
     "Gdk.ScrollUnit",
     "Gdk.SeatCapabilities",
     "Gdk.SubpixelLayout",
@@ -62,6 +62,7 @@ generate = [
     "Gdk.TextureDownloader",
     "Gdk.TextureError",
     "Gdk.TitlebarGesture",
+    "Gdk.ToplevelCapabilities",
     "Gdk.ToplevelLayout",
     "Gdk.TouchEvent",
     "Gdk.TouchpadEvent",
@@ -144,11 +145,11 @@ status = "generate"
     [[object.function]]
     name = "pango_layout_get_clip_region"
     manual = true
-    doc_ignore_parameters = ["n_ranges"] 
+    doc_ignore_parameters = ["n_ranges"]
     [[object.function]]
     name = "pango_layout_line_get_clip_region"
     manual = true
-    doc_ignore_parameters = ["n_ranges"] 
+    doc_ignore_parameters = ["n_ranges"]
     [[object.function]]
     name = "content_register_deserializer"
     manual = true
@@ -421,9 +422,15 @@ manual_traits = ["DisplayExtManual"]
     [[object.function]]
     pattern = "map_key(code|val)"
     manual = true # make use of Key
+    [[object.function]]
+    name = "get_dmabuf_formats"
+    cfg_condition = "target_os = \"linux\""
     [[object.property]]
     name = "shadow-width"
     generate = ["notify"]
+    [[object.property]]
+    name = "dmabuf-formats"
+    cfg_condition = "target_os = \"linux\""
 
 [[object]]
 name = "Gdk.DisplayManager"
@@ -431,8 +438,14 @@ status = "generate"
 generate_builder = false
 
 [[object]]
+name = "Gdk.DmabufError"
+status = "generate"
+cfg_condition = "target_os = \"linux\""
+
+[[object]]
 name = "Gdk.DmabufFormats"
 status = "generate"
+cfg_condition = "target_os = \"linux\""
     [[object.function]]
     name = "equal"
         [[object.function.parameter]]
@@ -440,16 +453,33 @@ status = "generate"
         nullable = false
 
 [[object]]
+name = "Gdk.DmabufTexture"
+status = "generate"
+cfg_condition = "target_os = \"linux\""
+
+[[object]]
 name = "Gdk.DmabufTextureBuilder"
 status = "generate"
+cfg_condition = "target_os = \"linux\""
     [[object.function]]
     name = "set_update_region"
         [[object.function.parameter]]
         name = "region"
         const = true
     [[object.function]]
+    pattern = "set_(color_state|display|fd|fourcc|height|modifier|n_planes|offset|premultiplied|stride|update_region|update_texture|width)"
+    # Take by value and return self
+    manual = true
+    [[object.function]]
+    pattern = "get_fd"
+    # Use BorrowedFd
+    manual = true
+    [[object.function]]
     name = "build"
     manual = true # Can't be auto-generated
+    [[object.property]]
+    pattern = "(color-state|display|fourcc|height|modifier|n-planes|premultiplied|update-region|update-texture|width)"
+    generate = [] # ignore get/set/notify
 
 [[object]]
 name = "Gdk.Drag"
@@ -486,6 +516,9 @@ status = "generate"
     [[object.member]]
     name = "touchpad_hold"
     version = "4.8"
+    [[object.member]]
+    name = "pad_dial"
+    version = "4.20"
     [[object.member]]
     name = "event_last"
     ignore = true # not useful
@@ -526,7 +559,8 @@ generate_builder = false
         name = "region"
         const = true
     [[object.function]]
-    pattern = "set_(context|format|has_mipmap|height|id|update_region|update_texture|width)"
+    pattern = "set_(color_state|context|format|has_mipmap|height|id|update_region|update_texture|width)"
+    # Take by value and return self
     manual = true
     [[object.function]]
     pattern = "(set|get)_sync"
@@ -535,7 +569,7 @@ generate_builder = false
     name = "build"
     manual = true
     [[object.property]]
-    pattern = "(context|format|has-mipmap|height|id|sync|update-region|update-texture|width)"
+    pattern = "(color-state|context|format|has-mipmap|height|id|sync|update-region|update-texture|width)"
     generate = [] # ignore get/set/notify
 
 [[object]]
@@ -575,6 +609,13 @@ concurrency = "send+sync"
         [[object.function.parameter]]
         name = "region"
         const = true
+    [[object.function]]
+    pattern = "set_(bytes|color_state|format|height|offset|stride|stride_for_plane|update_region|update_texture|width)"
+    # Take by value and return self
+    manual = true
+    [[object.property]]
+    pattern = "(bytes|color-state|format|height|stride|update-region|update-texture|width)"
+    generate = [] # ignore get/set/notify
 
 [[object]]
 name = "Gdk.Monitor"
@@ -606,6 +647,9 @@ boxed_inline = true
     name = "parse"
     # This is a constructor
     manual = true
+    [[object.function]]
+    name = "print"
+    ignore = true # This is a C helper
 
 [[object]]
 name = "Gdk.Seat"

@@ -29,6 +29,9 @@ pub mod preferences_group;
 pub mod preferences_page;
 pub mod preferences_row;
 pub mod preferences_window;
+#[cfg(feature = "v1_9")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_9")))]
+pub mod sidebar_item;
 #[cfg(feature = "v1_4")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_4")))]
 pub mod spin_row;
@@ -67,6 +70,9 @@ pub mod prelude {
     pub use super::preferences_page::PreferencesPageImpl;
     pub use super::preferences_row::PreferencesRowImpl;
     pub use super::preferences_window::PreferencesWindowImpl;
+    #[cfg(feature = "v1_9")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_9")))]
+    pub use super::sidebar_item::SidebarItemImpl;
     #[cfg(feature = "v1_4")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_4")))]
     pub use super::spin_row::SpinRowImpl;

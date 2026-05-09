@@ -7,11 +7,11 @@ use std::{
 
 use futures_channel::oneshot;
 use futures_core::{
-    task::{Context, Poll},
     FusedFuture,
+    task::{Context, Poll},
 };
 
-use crate::{prelude::*, Cancellable};
+use crate::{Cancellable, prelude::*};
 
 pub struct GioFuture<F, O, T> {
     obj: O,
@@ -115,7 +115,7 @@ where
             && self
                 .receiver
                 .as_ref()
-                .map_or(true, |receiver| receiver.is_terminated())
+                .is_none_or(|receiver| receiver.is_terminated())
     }
 }
 

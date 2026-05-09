@@ -2,9 +2,9 @@
 
 use std::marker::PhantomData;
 
-use glib::{gobject_ffi, shared::Shared, translate::*, ParamSpec, Value};
+use glib::{ParamSpec, Value, gobject_ffi, shared::Shared, translate::*};
 
-use crate::{ffi, prelude::*, Expression, ParamSpecExpression};
+use crate::{Expression, ParamSpecExpression, ffi, prelude::*};
 
 impl HasParamSpec for Expression {
     type ParamSpec = ParamSpecExpression;
@@ -70,7 +70,7 @@ impl<'a> ToGlibPtr<'a, *mut gobject_ffi::GParamSpec> for ParamSpecExpression {
 #[doc(hidden)]
 impl IntoGlibPtr<*mut gobject_ffi::GParamSpec> for ParamSpecExpression {
     #[inline]
-    unsafe fn into_glib_ptr(self) -> *mut gobject_ffi::GParamSpec {
+    fn into_glib_ptr(self) -> *mut gobject_ffi::GParamSpec {
         let s = std::mem::ManuallyDrop::new(self);
         s.to_glib_none().0
     }
@@ -79,7 +79,7 @@ impl IntoGlibPtr<*mut gobject_ffi::GParamSpec> for ParamSpecExpression {
 #[doc(hidden)]
 impl IntoGlibPtr<*const gobject_ffi::GParamSpec> for ParamSpecExpression {
     #[inline]
-    unsafe fn into_glib_ptr(self) -> *const gobject_ffi::GParamSpec {
+    fn into_glib_ptr(self) -> *const gobject_ffi::GParamSpec {
         let s = std::mem::ManuallyDrop::new(self);
         s.to_glib_none().0
     }
@@ -89,7 +89,7 @@ impl IntoGlibPtr<*const gobject_ffi::GParamSpec> for ParamSpecExpression {
 impl FromGlibPtrFull<*mut gobject_ffi::GParamSpec> for ParamSpecExpression {
     #[inline]
     unsafe fn from_glib_full(ptr: *mut gobject_ffi::GParamSpec) -> Self {
-        from_glib_full(ptr as *mut ffi::GtkParamSpecExpression)
+        unsafe { from_glib_full(ptr as *mut ffi::GtkParamSpecExpression) }
     }
 }
 
@@ -127,7 +127,7 @@ impl ParamSpecExpression {
     /// This method returns an instance of
     /// [`ParamSpecExpressionBuilder`](crate::builders::ParamSpecExpressionBuilder)
     /// which can be used to create [`ParamSpecExpression`] objects.
-    pub fn builder(name: &str) -> ParamSpecExpressionBuilder {
+    pub fn builder(name: &str) -> ParamSpecExpressionBuilder<'_> {
         assert_initialized_main_thread!();
         ParamSpecExpressionBuilder::new(name)
     }
@@ -211,9 +211,11 @@ unsafe impl<'a> glib::value::FromValue<'a> for ParamSpecExpression {
 
     #[inline]
     unsafe fn from_value(value: &'a Value) -> Self {
-        let ptr = gobject_ffi::g_value_dup_param(value.to_glib_none().0);
-        debug_assert!(!ptr.is_null());
-        from_glib_full(ptr)
+        unsafe {
+            let ptr = gobject_ffi::g_value_dup_param(value.to_glib_none().0);
+            debug_assert!(!ptr.is_null());
+            from_glib_full(ptr)
+        }
     }
 }
 

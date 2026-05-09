@@ -1,26 +1,20 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 // rustdoc-stripper-ignore-next
-//! Traits intended for implementing the [`SectionModel`](crate::SectionModel)
-//! interface.
+//! Traits intended for implementing the [`SectionModel`] interface.
 
 use glib::translate::*;
 
-use crate::{ffi, prelude::*, subclass::prelude::*, SectionModel};
+use crate::{SectionModel, ffi, prelude::*, subclass::prelude::*};
 
-pub trait SectionModelImpl: ListModelImpl {
+pub trait SectionModelImpl: ListModelImpl + ObjectSubclass<Type: IsA<SectionModel>> {
     #[doc(alias = "get_section")]
     fn section(&self, position: u32) -> (u32, u32) {
         self.parent_section(position)
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::SectionModelImplExt> Sealed for T {}
-}
-
-pub trait SectionModelImplExt: sealed::Sealed + ObjectSubclass {
+pub trait SectionModelImplExt: SectionModelImpl {
     fn parent_section(&self, position: u32) -> (u32, u32) {
         unsafe {
             let type_data = Self::type_data();
@@ -65,10 +59,12 @@ unsafe extern "C" fn model_get_section<T: SectionModelImpl>(
     startptr: *mut libc::c_uint,
     endptr: *mut libc::c_uint,
 ) {
-    let instance = &*(model as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(model as *mut T::Instance);
+        let imp = instance.imp();
 
-    let (start, end) = imp.section(position);
-    *startptr = start;
-    *endptr = end;
+        let (start, end) = imp.section(position);
+        *startptr = start;
+        *endptr = end;
+    }
 }

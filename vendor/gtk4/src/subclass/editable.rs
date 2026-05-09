@@ -1,16 +1,15 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 // rustdoc-stripper-ignore-next
-//! Traits intended for implementing the [`Editable`](crate::Editable)
-//! interface.
+//! Traits intended for implementing the [`Editable`] interface.
 use std::sync::OnceLock;
 
-use glib::{translate::*, GString, Quark};
+use glib::{GString, Quark, translate::*};
 use libc::{c_char, c_int};
 
-use crate::{ffi, prelude::*, subclass::prelude::*, Editable};
+use crate::{Editable, ffi, prelude::*, subclass::prelude::*};
 
-pub trait EditableImpl: WidgetImpl {
+pub trait EditableImpl: WidgetImpl + ObjectSubclass<Type: IsA<Editable>> {
     fn insert_text(&self, text: &str, length: i32, position: &mut i32) {
         self.parent_insert_text(text, length, position);
     }
@@ -51,12 +50,7 @@ pub trait EditableImpl: WidgetImpl {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::EditableImplExt> Sealed for T {}
-}
-
-pub trait EditableImplExt: sealed::Sealed + ObjectSubclass {
+pub trait EditableImplExt: EditableImpl {
     #[doc(alias = "gtk_editable_delegate_get_property")]
     fn delegate_get_property(
         &self,
@@ -287,10 +281,12 @@ unsafe extern "C" fn editable_insert_text<T: EditableImpl>(
     length: c_int,
     position: *mut c_int,
 ) {
-    let instance = &*(editable as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(editable as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.insert_text(&GString::from_glib_borrow(text), length, &mut *position)
+        imp.insert_text(&GString::from_glib_borrow(text), length, &mut *position)
+    }
 }
 
 unsafe extern "C" fn editable_delete_text<T: EditableImpl>(
@@ -298,52 +294,60 @@ unsafe extern "C" fn editable_delete_text<T: EditableImpl>(
     start_position: c_int,
     end_position: c_int,
 ) {
-    let instance = &*(editable as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(editable as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.delete_text(start_position, end_position)
+        imp.delete_text(start_position, end_position)
+    }
 }
 
 unsafe extern "C" fn editable_changed<T: EditableImpl>(editable: *mut ffi::GtkEditable) {
-    let instance = &*(editable as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(editable as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.changed()
+        imp.changed()
+    }
 }
 
 unsafe extern "C" fn editable_get_text<T: EditableImpl>(
     editable: *mut ffi::GtkEditable,
-) -> *const c_char {
-    let instance = &*(editable as *mut T::Instance);
-    let imp = instance.imp();
+) -> *mut c_char {
+    unsafe {
+        let instance = &*(editable as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.text().into_glib_ptr()
+        imp.text().into_glib_ptr()
+    }
 }
 
 unsafe extern "C" fn editable_get_delegate<T: EditableImpl>(
     editable: *mut ffi::GtkEditable,
 ) -> *mut ffi::GtkEditable {
-    let instance = &*(editable as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(editable as *mut T::Instance);
+        let imp = instance.imp();
 
-    let delegate = imp.delegate();
+        let delegate = imp.delegate();
 
-    static QUARK: OnceLock<Quark> = OnceLock::new();
-    let quark = *QUARK.get_or_init(|| Quark::from_str("gtk-rs-subclass-editable-get-delegate"));
+        static QUARK: OnceLock<Quark> = OnceLock::new();
+        let quark = *QUARK.get_or_init(|| Quark::from_str("gtk-rs-subclass-editable-get-delegate"));
 
-    match imp.obj().qdata::<Option<Editable>>(quark) {
-        Some(delegate_data) => {
-            assert_eq!(
-                delegate_data.as_ref(),
-                &delegate,
-                "The Editable delegate must not change"
-            );
-        }
-        None => {
-            imp.obj().set_qdata(quark, delegate.clone());
-        }
-    };
-    delegate.to_glib_none().0
+        match imp.obj().qdata::<Option<Editable>>(quark) {
+            Some(delegate_data) => {
+                assert_eq!(
+                    delegate_data.as_ref(),
+                    &delegate,
+                    "The Editable delegate must not change"
+                );
+            }
+            None => {
+                imp.obj().set_qdata(quark, delegate.clone());
+            }
+        };
+        delegate.to_glib_none().0
+    }
 }
 
 unsafe extern "C" fn editable_do_insert_text<T: EditableImpl>(
@@ -352,10 +356,12 @@ unsafe extern "C" fn editable_do_insert_text<T: EditableImpl>(
     length: i32,
     position: *mut i32,
 ) {
-    let instance = &*(editable as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(editable as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.do_insert_text(&GString::from_glib_borrow(text), length, &mut *position)
+        imp.do_insert_text(&GString::from_glib_borrow(text), length, &mut *position)
+    }
 }
 
 unsafe extern "C" fn editable_do_delete_text<T: EditableImpl>(
@@ -363,10 +369,12 @@ unsafe extern "C" fn editable_do_delete_text<T: EditableImpl>(
     start_position: i32,
     end_position: i32,
 ) {
-    let instance = &*(editable as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(editable as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.do_delete_text(start_position, end_position)
+        imp.do_delete_text(start_position, end_position)
+    }
 }
 
 unsafe extern "C" fn editable_get_selection_bounds<T: EditableImpl>(
@@ -374,22 +382,24 @@ unsafe extern "C" fn editable_get_selection_bounds<T: EditableImpl>(
     start_position: *mut i32,
     end_position: *mut i32,
 ) -> glib::ffi::gboolean {
-    let instance = &*(editable as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(editable as *mut T::Instance);
+        let imp = instance.imp();
 
-    if let Some((start_pos, end_pos)) = imp.selection_bounds() {
-        if !start_position.is_null() {
-            *start_position = start_pos;
-        }
+        if let Some((start_pos, end_pos)) = imp.selection_bounds() {
+            if !start_position.is_null() {
+                *start_position = start_pos;
+            }
 
-        if !end_position.is_null() {
-            *end_position = end_pos;
+            if !end_position.is_null() {
+                *end_position = end_pos;
+            }
+            true.into_glib()
+        } else {
+            *start_position = 0;
+            *end_position = 0;
+            false.into_glib()
         }
-        true.into_glib()
-    } else {
-        *start_position = 0;
-        *end_position = 0;
-        false.into_glib()
     }
 }
 
@@ -398,8 +408,10 @@ unsafe extern "C" fn editable_set_selection_bounds<T: EditableImpl>(
     start_position: i32,
     end_position: i32,
 ) {
-    let instance = &*(editable as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(editable as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.set_selection_bounds(start_position, end_position)
+        imp.set_selection_bounds(start_position, end_position)
+    }
 }

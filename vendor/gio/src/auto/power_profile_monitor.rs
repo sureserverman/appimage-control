@@ -2,10 +2,10 @@
 // from gir-files (https://github.com/gtk-rs/gir-files)
 // DO NOT EDIT
 
-use crate::{ffi, Initable};
+use crate::{Initable, ffi};
 use glib::{
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -29,12 +29,7 @@ impl PowerProfileMonitor {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::PowerProfileMonitor>> Sealed for T {}
-}
-
-pub trait PowerProfileMonitorExt: IsA<PowerProfileMonitor> + sealed::Sealed + 'static {
+pub trait PowerProfileMonitorExt: IsA<PowerProfileMonitor> + 'static {
     #[doc(alias = "g_power_profile_monitor_get_power_saver_enabled")]
     #[doc(alias = "get_power_saver_enabled")]
     #[doc(alias = "power-saver-enabled")]
@@ -58,14 +53,16 @@ pub trait PowerProfileMonitorExt: IsA<PowerProfileMonitor> + sealed::Sealed + 's
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(PowerProfileMonitor::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(PowerProfileMonitor::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::power-saver-enabled\0".as_ptr() as *const _,
+                c"notify::power-saver-enabled".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_power_saver_enabled_trampoline::<Self, F> as *const (),
                 )),

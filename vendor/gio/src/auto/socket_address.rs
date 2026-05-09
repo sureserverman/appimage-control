@@ -2,10 +2,10 @@
 // from gir-files (https://github.com/gtk-rs/gir-files)
 // DO NOT EDIT
 
-use crate::{ffi, SocketConnectable, SocketFamily};
+use crate::{SocketConnectable, SocketFamily, ffi};
 use glib::{
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -32,12 +32,7 @@ impl SocketAddress {
 unsafe impl Send for SocketAddress {}
 unsafe impl Sync for SocketAddress {}
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::SocketAddress>> Sealed for T {}
-}
-
-pub trait SocketAddressExt: IsA<SocketAddress> + sealed::Sealed + 'static {
+pub trait SocketAddressExt: IsA<SocketAddress> + 'static {
     #[doc(alias = "g_socket_address_get_family")]
     #[doc(alias = "get_family")]
     fn family(&self) -> SocketFamily {
@@ -69,14 +64,16 @@ pub trait SocketAddressExt: IsA<SocketAddress> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(SocketAddress::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(SocketAddress::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::family\0".as_ptr() as *const _,
+                c"notify::family".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_family_trampoline::<Self, F> as *const (),
                 )),

@@ -9,7 +9,6 @@ use std::{
     thread,
 };
 
-use futures_executor::block_on;
 use glib::clone;
 
 struct State {
@@ -878,17 +877,21 @@ fn test_clone_macro_typed_args() {
                     std::mem::drop(w);
 
                     // We use the threads to ensure that the closure panics as expected.
-                    assert!(thread::spawn(move || {
-                        closure(1);
-                    })
-                    .join()
-                    .is_err());
+                    assert!(
+                        thread::spawn(move || {
+                            closure(1);
+                        })
+                        .join()
+                        .is_err()
+                    );
                     assert_eq!(2, *check.lock().unwrap());
-                    assert!(thread::spawn(move || {
-                        closure2(1);
-                    })
-                    .join()
-                    .is_err());
+                    assert!(
+                        thread::spawn(move || {
+                            closure2(1);
+                        })
+                        .join()
+                        .is_err()
+                    );
                     assert_eq!(2, *check.lock().unwrap());
                 }};
             }
@@ -1053,11 +1056,12 @@ fn test_clone_macro_body() {
     assert_eq!(10, *v.lock().expect("failed to lock"));
 }
 
+#[cfg(feature = "futures")]
 #[test]
 fn test_clone_macro_async_kinds() {
     let v = Rc::new(RefCell::new(1));
 
-    block_on(clone!(
+    futures_executor::block_on(clone!(
         #[weak]
         v,
         async move {

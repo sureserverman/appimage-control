@@ -1,17 +1,13 @@
 use libadwaita as adw;
 
 use adw::prelude::*;
-use adw::{ActionRow, ApplicationWindow, HeaderBar};
-use gtk::{Application, Box, ListBox, Orientation};
+use adw::{ActionRow, Application, ApplicationWindow, HeaderBar};
+use gtk::{Box, ListBox, Orientation};
 
 fn main() {
     let application = Application::builder()
         .application_id("com.example.FirstAdwaitaApp")
         .build();
-
-    application.connect_startup(|_| {
-        adw::init().unwrap();
-    });
 
     application.connect_activate(|app| {
         // ActionRows are only available in Adwaita
@@ -29,9 +25,8 @@ fn main() {
             .margin_end(32)
             .margin_bottom(32)
             .margin_start(32)
-            // the content class makes the list look nicer
-            .css_classes(vec![String::from("content")])
             .build();
+        list.add_css_class("boxed-list");
         list.append(&row);
 
         // Combine the content in a box
@@ -50,7 +45,7 @@ fn main() {
             // add content to window
             .content(&content)
             .build();
-        window.show();
+        window.present();
     });
 
     application.run();

@@ -10,9 +10,9 @@
 # See Cargo.toml.orig for the original contents.
 
 [package]
-edition = "2021"
+edition = "2024"
 name = "libadwaita"
-version = "0.7.2"
+version = "0.9.1"
 authors = ["Bilal Elmoussaoui <bil.elmoussaoui@gmail.com>"]
 build = false
 autolib = false
@@ -39,18 +39,23 @@ repository = "https://gitlab.gnome.org/World/Rust/libadwaita-rs"
 
 [package.metadata.docs.rs]
 all-features = true
-rustc-args = [
-    "--cfg",
-    "docsrs",
-]
-rustdoc-args = [
-    "--cfg",
-    "docsrs",
-]
+rustdoc-args = ["--generate-link-to-definition"]
 
 [features]
 gio_v2_80 = ["gio/v2_80"]
+gtk_v4_18 = [
+    "gtk_v4_6",
+    "gtk/v4_18",
+]
 gtk_v4_2 = ["gtk/v4_2"]
+gtk_v4_20 = [
+    "gtk_v4_18",
+    "gtk/v4_20",
+]
+gtk_v4_22 = [
+    "gtk_v4_20",
+    "gtk/v4_22",
+]
 gtk_v4_6 = [
     "gtk_v4_2",
     "gtk/v4_6",
@@ -80,6 +85,14 @@ v1_7 = [
     "v1_6",
     "ffi/v1_7",
 ]
+v1_8 = [
+    "v1_7",
+    "ffi/v1_8",
+]
+v1_9 = [
+    "v1_8",
+    "ffi/v1_9",
+]
 
 [lib]
 name = "libadwaita"
@@ -90,25 +103,25 @@ name = "hello-world"
 path = "examples/hello-world.rs"
 
 [dependencies.ffi]
-version = "0.7"
+version = "0.9.1"
 package = "libadwaita-sys"
 
 [dependencies.gdk]
-version = "0.9"
+version = "0.11"
 package = "gdk4"
 
 [dependencies.gio]
-version = "0.20"
+version = "0.22"
 
 [dependencies.glib]
-version = "0.20"
+version = "0.22"
 
 [dependencies.gtk]
-version = "0.9"
+version = "0.11"
 package = "gtk4"
 
 [dependencies.libc]
 version = "0.2"
 
 [dependencies.pango]
-version = "0.20"
+version = "0.22"

@@ -2,16 +2,9 @@
 
 use glib::{prelude::*, translate::*};
 
-use crate::{prelude::*, SocketControlMessage};
+use crate::{SocketControlMessage, prelude::*};
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::SocketControlMessage>> Sealed for T {}
-}
-
-pub trait SocketControlMessageExtManual:
-    sealed::Sealed + IsA<SocketControlMessage> + Sized
-{
+pub trait SocketControlMessageExtManual: IsA<SocketControlMessage> + Sized {
     #[doc(alias = "g_socket_control_message_serialize")]
     fn serialize(&self, data: &mut [u8]) {
         assert!(data.len() >= self.size());

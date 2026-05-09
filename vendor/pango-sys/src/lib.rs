@@ -14,18 +14,18 @@
 use glib_sys as glib;
 use gobject_sys as gobject;
 
+#[allow(unused_imports)]
+use libc::{FILE, intptr_t, off_t, size_t, ssize_t, time_t, uintptr_t};
 #[cfg(unix)]
 #[allow(unused_imports)]
 use libc::{dev_t, gid_t, pid_t, socklen_t, uid_t};
-#[allow(unused_imports)]
-use libc::{intptr_t, off_t, size_t, ssize_t, time_t, uintptr_t, FILE};
 #[allow(unused_imports)]
 use std::ffi::{
     c_char, c_double, c_float, c_int, c_long, c_short, c_uchar, c_uint, c_ulong, c_ushort, c_void,
 };
 
 #[allow(unused_imports)]
-use glib::{gboolean, gconstpointer, gpointer, GType};
+use glib::{GType, gboolean, gconstpointer, gpointer};
 
 // Aliases
 pub type PangoGlyph = u32;
@@ -128,6 +128,11 @@ pub const PANGO_ELLIPSIZE_NONE: PangoEllipsizeMode = 0;
 pub const PANGO_ELLIPSIZE_START: PangoEllipsizeMode = 1;
 pub const PANGO_ELLIPSIZE_MIDDLE: PangoEllipsizeMode = 2;
 pub const PANGO_ELLIPSIZE_END: PangoEllipsizeMode = 3;
+
+pub type PangoFontColor = c_int;
+pub const PANGO_FONT_COLOR_FORBIDDEN: PangoFontColor = 0;
+pub const PANGO_FONT_COLOR_REQUIRED: PangoFontColor = 1;
+pub const PANGO_FONT_COLOR_DONT_CARE: PangoFontColor = 2;
 
 pub type PangoFontScale = c_int;
 pub const PANGO_FONT_SCALE_NONE: PangoFontScale = 0;
@@ -378,6 +383,9 @@ pub const PANGO_FONT_MASK_VARIATIONS: PangoFontMask = 128;
 #[cfg(feature = "v1_56")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_56")))]
 pub const PANGO_FONT_MASK_FEATURES: PangoFontMask = 256;
+#[cfg(feature = "v1_57")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_57")))]
+pub const PANGO_FONT_MASK_COLOR: PangoFontMask = 512;
 
 pub type PangoLayoutDeserializeFlags = c_uint;
 pub const PANGO_LAYOUT_DESERIALIZE_DEFAULT: PangoLayoutDeserializeFlags = 0;
@@ -1407,7 +1415,7 @@ impl ::std::fmt::Debug for PangoRenderer {
     }
 }
 
-extern "C" {
+unsafe extern "C" {
 
     //=========================================================================
     // PangoAlignment
@@ -1448,6 +1456,13 @@ extern "C" {
     // PangoEllipsizeMode
     //=========================================================================
     pub fn pango_ellipsize_mode_get_type() -> GType;
+
+    //=========================================================================
+    // PangoFontColor
+    //=========================================================================
+    #[cfg(feature = "v1_57")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_57")))]
+    pub fn pango_font_color_get_type() -> GType;
 
     //=========================================================================
     // PangoFontScale
@@ -1767,6 +1782,9 @@ extern "C" {
         desc2: *const PangoFontDescription,
     ) -> gboolean;
     pub fn pango_font_description_free(desc: *mut PangoFontDescription);
+    #[cfg(feature = "v1_57")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_57")))]
+    pub fn pango_font_description_get_color(desc: *const PangoFontDescription) -> PangoFontColor;
     pub fn pango_font_description_get_family(desc: *const PangoFontDescription) -> *const c_char;
     #[cfg(feature = "v1_56")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_56")))]
@@ -1803,6 +1821,9 @@ extern "C" {
         desc: *mut PangoFontDescription,
         size: c_double,
     );
+    #[cfg(feature = "v1_57")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_57")))]
+    pub fn pango_font_description_set_color(desc: *mut PangoFontDescription, color: PangoFontColor);
     pub fn pango_font_description_set_family(
         desc: *mut PangoFontDescription,
         family: *const c_char,

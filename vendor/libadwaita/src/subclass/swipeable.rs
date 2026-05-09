@@ -1,4 +1,4 @@
-use crate::{prelude::*, NavigationDirection, Swipeable};
+use crate::{NavigationDirection, Swipeable, prelude::*};
 use glib::translate::*;
 use gtk::subclass::prelude::*;
 
@@ -136,7 +136,7 @@ unsafe impl<T: SwipeableImpl> IsImplementable<T> for Swipeable {
 unsafe extern "C" fn swipeable_get_cancel_progress<T: SwipeableImpl>(
     swipeable: *mut ffi::AdwSwipeable,
 ) -> f64 {
-    let instance = &*(swipeable as *mut T::Instance);
+    let instance = unsafe { &*(swipeable as *mut T::Instance) };
     let imp = instance.imp();
 
     imp.cancel_progress()
@@ -145,7 +145,7 @@ unsafe extern "C" fn swipeable_get_cancel_progress<T: SwipeableImpl>(
 unsafe extern "C" fn swipeable_get_distance<T: SwipeableImpl>(
     swipeable: *mut ffi::AdwSwipeable,
 ) -> f64 {
-    let instance = &*(swipeable as *mut T::Instance);
+    let instance = unsafe { &*(swipeable as *mut T::Instance) };
     let imp = instance.imp();
 
     imp.distance()
@@ -154,7 +154,7 @@ unsafe extern "C" fn swipeable_get_distance<T: SwipeableImpl>(
 unsafe extern "C" fn swipeable_get_progress<T: SwipeableImpl>(
     swipeable: *mut ffi::AdwSwipeable,
 ) -> f64 {
-    let instance = &*(swipeable as *mut T::Instance);
+    let instance = unsafe { &*(swipeable as *mut T::Instance) };
     let imp = instance.imp();
 
     imp.progress()
@@ -164,12 +164,14 @@ unsafe extern "C" fn swipeable_get_snap_points<T: SwipeableImpl>(
     swipeable: *mut ffi::AdwSwipeable,
     n_pointsptr: *mut libc::c_int,
 ) -> *mut f64 {
-    let instance = &*(swipeable as *mut T::Instance);
+    let instance = unsafe { &*(swipeable as *mut T::Instance) };
     let imp = instance.imp();
 
     let points = imp.snap_points();
 
-    n_pointsptr.write(points.len() as libc::c_int);
+    unsafe {
+        n_pointsptr.write(points.len() as libc::c_int);
+    }
     ToGlibContainerFromSlice::to_glib_full_from_slice(points.as_slice())
 }
 
@@ -179,10 +181,12 @@ unsafe extern "C" fn swipeable_get_swipe_area<T: SwipeableImpl>(
     is_drag: i32,
     area: *mut gdk::ffi::GdkRectangle,
 ) {
-    let instance = &*(swipeable as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(swipeable as *mut T::Instance);
+        let imp = instance.imp();
 
-    let swipe_area = imp.swipe_area(from_glib(navigation_direction), from_glib(is_drag));
+        let swipe_area = imp.swipe_area(from_glib(navigation_direction), from_glib(is_drag));
 
-    *area = *swipe_area.to_glib_full();
+        *area = *swipe_area.to_glib_full();
+    }
 }

@@ -6,13 +6,13 @@
 #[cfg_attr(docsrs, doc(cfg(feature = "v4_10")))]
 use crate::AccessibleRange;
 use crate::{
-    ffi, Accessible, AccessibleRole, Align, Buildable, ConstraintTarget, LayoutManager,
-    LevelBarMode, Orientable, Orientation, Overflow, Widget,
+    Accessible, AccessibleRole, Align, Buildable, ConstraintTarget, LayoutManager, LevelBarMode,
+    Orientable, Orientation, Overflow, Widget, ffi,
 };
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -28,7 +28,7 @@ glib::wrapper! {
     }
 }
 
-#[cfg(not(any(feature = "v4_10")))]
+#[cfg(not(feature = "v4_10"))]
 glib::wrapper! {
     #[doc(alias = "GtkLevelBar")]
     pub struct LevelBar(Object<ffi::GtkLevelBar>) @extends Widget, @implements Accessible, Buildable, ConstraintTarget, Orientable;
@@ -111,11 +111,7 @@ impl LevelBar {
                 name.to_glib_none().0,
                 value.as_mut_ptr(),
             ));
-            if ret {
-                Some(value.assume_init())
-            } else {
-                None
-            }
+            if ret { Some(value.assume_init()) } else { None }
         }
     }
 
@@ -183,21 +179,25 @@ impl LevelBar {
             name: *mut std::ffi::c_char,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                &from_glib_borrow(this),
-                &glib::GString::from_glib_borrow(name),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    &from_glib_borrow(this),
+                    &glib::GString::from_glib_borrow(name),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             let detailed_signal_name = detail.map(|name| format!("offset-changed::{name}\0"));
-            let signal_name: &[u8] = detailed_signal_name
+            let signal_name = detailed_signal_name
                 .as_ref()
-                .map_or(&b"offset-changed\0"[..], |n| n.as_bytes());
+                .map_or(c"offset-changed", |n| {
+                    std::ffi::CStr::from_bytes_with_nul_unchecked(n.as_bytes())
+                });
             connect_raw(
                 self.as_ptr() as *mut _,
-                signal_name.as_ptr() as *const _,
+                signal_name.as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     offset_changed_trampoline::<F> as *const (),
                 )),
@@ -213,14 +213,16 @@ impl LevelBar {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::inverted\0".as_ptr() as *const _,
+                c"notify::inverted".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_inverted_trampoline::<F> as *const (),
                 )),
@@ -236,14 +238,16 @@ impl LevelBar {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::max-value\0".as_ptr() as *const _,
+                c"notify::max-value".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_max_value_trampoline::<F> as *const (),
                 )),
@@ -259,14 +263,16 @@ impl LevelBar {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::min-value\0".as_ptr() as *const _,
+                c"notify::min-value".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_min_value_trampoline::<F> as *const (),
                 )),
@@ -282,14 +288,16 @@ impl LevelBar {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::mode\0".as_ptr() as *const _,
+                c"notify::mode".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_mode_trampoline::<F> as *const (),
                 )),
@@ -305,14 +313,16 @@ impl LevelBar {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::value\0".as_ptr() as *const _,
+                c"notify::value".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_value_trampoline::<F> as *const (),
                 )),

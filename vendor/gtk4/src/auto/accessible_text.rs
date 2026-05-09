@@ -2,7 +2,7 @@
 // from gir-files (https://github.com/gtk-rs/gir-files)
 // DO NOT EDIT
 
-use crate::{ffi, Accessible, AccessibleTextContentChange};
+use crate::{Accessible, AccessibleTextContentChange, ffi};
 use glib::{prelude::*, translate::*};
 
 glib::wrapper! {
@@ -18,12 +18,7 @@ impl AccessibleText {
     pub const NONE: Option<&'static AccessibleText> = None;
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::AccessibleText>> Sealed for T {}
-}
-
-pub trait AccessibleTextExt: IsA<AccessibleText> + sealed::Sealed + 'static {
+pub trait AccessibleTextExt: IsA<AccessibleText> + 'static {
     #[doc(alias = "gtk_accessible_text_update_caret_position")]
     fn update_caret_position(&self) {
         unsafe {

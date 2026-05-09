@@ -2,7 +2,7 @@
 
 use crate::SpinRow;
 use glib::{
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use gtk::{glib, prelude::*};
@@ -18,8 +18,10 @@ impl SpinRow {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"input\0".as_ptr() as *mut _,
-                Some(transmute(input_trampoline::<F> as usize)),
+                c"input".as_ptr() as *const _,
+                Some(transmute::<*const (), unsafe extern "C" fn()>(
+                    input_trampoline::<F> as *const (),
+                )),
                 Box_::into_raw(f),
             )
         }
@@ -31,12 +33,14 @@ unsafe extern "C" fn input_trampoline<F: Fn(&SpinRow) -> Option<Result<f64, ()>>
     new_value: *mut c_double,
     f: &F,
 ) -> c_int {
-    match f(SpinRow::from_glib_borrow(this).unsafe_cast_ref()) {
-        Some(Ok(v)) => {
-            *new_value = v;
-            glib::ffi::GTRUE
+    unsafe {
+        match f(SpinRow::from_glib_borrow(this).unsafe_cast_ref()) {
+            Some(Ok(v)) => {
+                *new_value = v;
+                glib::ffi::GTRUE
+            }
+            Some(Err(_)) => gtk::ffi::GTK_INPUT_ERROR,
+            None => glib::ffi::GFALSE,
         }
-        Some(Err(_)) => gtk::ffi::GTK_INPUT_ERROR,
-        None => glib::ffi::GFALSE,
     }
 }

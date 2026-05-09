@@ -2,11 +2,11 @@
 // from gir-files (https://github.com/gtk-rs/gir-files)
 // DO NOT EDIT
 
-use crate::{ffi, TextChildAnchor, TextIter, TextMark, TextTag, TextTagTable};
+use crate::{TextChildAnchor, TextIter, TextMark, TextTag, TextTagTable, ffi};
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -87,12 +87,7 @@ impl TextBufferBuilder {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::TextBuffer>> Sealed for T {}
-}
-
-pub trait TextBufferExt: IsA<TextBuffer> + sealed::Sealed + 'static {
+pub trait TextBufferExt: IsA<TextBuffer> + 'static {
     #[doc(alias = "gtk_text_buffer_add_mark")]
     fn add_mark(&self, mark: &impl IsA<TextMark>, where_: &TextIter) {
         unsafe {
@@ -396,11 +391,7 @@ pub trait TextBufferExt: IsA<TextBuffer> + sealed::Sealed + 'static {
                 iter.to_glib_none_mut().0,
                 line_number,
             ));
-            if ret {
-                Some(iter)
-            } else {
-                None
-            }
+            if ret { Some(iter) } else { None }
         }
     }
 
@@ -415,11 +406,7 @@ pub trait TextBufferExt: IsA<TextBuffer> + sealed::Sealed + 'static {
                 line_number,
                 byte_index,
             ));
-            if ret {
-                Some(iter)
-            } else {
-                None
-            }
+            if ret { Some(iter) } else { None }
         }
     }
 
@@ -434,11 +421,7 @@ pub trait TextBufferExt: IsA<TextBuffer> + sealed::Sealed + 'static {
                 line_number,
                 char_offset,
             ));
-            if ret {
-                Some(iter)
-            } else {
-                None
-            }
+            if ret { Some(iter) } else { None }
         }
     }
 
@@ -524,11 +507,7 @@ pub trait TextBufferExt: IsA<TextBuffer> + sealed::Sealed + 'static {
                 start.to_glib_none_mut().0,
                 end.to_glib_none_mut().0,
             ));
-            if ret {
-                Some((start, end))
-            } else {
-                None
-            }
+            if ret { Some((start, end)) } else { None }
         }
     }
 
@@ -902,19 +881,21 @@ pub trait TextBufferExt: IsA<TextBuffer> + sealed::Sealed + 'static {
             end: *mut ffi::GtkTextIter,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                TextBuffer::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(tag),
-                &from_glib_borrow(start),
-                &from_glib_borrow(end),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    TextBuffer::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(tag),
+                    &from_glib_borrow(start),
+                    &from_glib_borrow(end),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"apply-tag\0".as_ptr() as *const _,
+                c"apply-tag".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     apply_tag_trampoline::<Self, F> as *const (),
                 )),
@@ -932,14 +913,16 @@ pub trait TextBufferExt: IsA<TextBuffer> + sealed::Sealed + 'static {
             this: *mut ffi::GtkTextBuffer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TextBuffer::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TextBuffer::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"begin-user-action\0".as_ptr() as *const _,
+                c"begin-user-action".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     begin_user_action_trampoline::<Self, F> as *const (),
                 )),
@@ -954,14 +937,16 @@ pub trait TextBufferExt: IsA<TextBuffer> + sealed::Sealed + 'static {
             this: *mut ffi::GtkTextBuffer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TextBuffer::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TextBuffer::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"changed\0".as_ptr() as *const _,
+                c"changed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     changed_trampoline::<Self, F> as *const (),
                 )),
@@ -984,18 +969,20 @@ pub trait TextBufferExt: IsA<TextBuffer> + sealed::Sealed + 'static {
             end: *mut ffi::GtkTextIter,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                TextBuffer::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(start),
-                &from_glib_borrow(end),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    TextBuffer::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(start),
+                    &from_glib_borrow(end),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"delete-range\0".as_ptr() as *const _,
+                c"delete-range".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     delete_range_trampoline::<Self, F> as *const (),
                 )),
@@ -1010,14 +997,16 @@ pub trait TextBufferExt: IsA<TextBuffer> + sealed::Sealed + 'static {
             this: *mut ffi::GtkTextBuffer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TextBuffer::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TextBuffer::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"end-user-action\0".as_ptr() as *const _,
+                c"end-user-action".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     end_user_action_trampoline::<Self, F> as *const (),
                 )),
@@ -1040,18 +1029,20 @@ pub trait TextBufferExt: IsA<TextBuffer> + sealed::Sealed + 'static {
             anchor: *mut ffi::GtkTextChildAnchor,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                TextBuffer::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(location),
-                &from_glib_borrow(anchor),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    TextBuffer::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(location),
+                    &from_glib_borrow(anchor),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"insert-child-anchor\0".as_ptr() as *const _,
+                c"insert-child-anchor".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     insert_child_anchor_trampoline::<Self, F> as *const (),
                 )),
@@ -1074,18 +1065,20 @@ pub trait TextBufferExt: IsA<TextBuffer> + sealed::Sealed + 'static {
             paintable: *mut gdk::ffi::GdkPaintable,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                TextBuffer::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(location),
-                &from_glib_borrow(paintable),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    TextBuffer::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(location),
+                    &from_glib_borrow(paintable),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"insert-paintable\0".as_ptr() as *const _,
+                c"insert-paintable".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     insert_paintable_trampoline::<Self, F> as *const (),
                 )),
@@ -1104,17 +1097,19 @@ pub trait TextBufferExt: IsA<TextBuffer> + sealed::Sealed + 'static {
             mark: *mut ffi::GtkTextMark,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                TextBuffer::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(mark),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    TextBuffer::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(mark),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"mark-deleted\0".as_ptr() as *const _,
+                c"mark-deleted".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     mark_deleted_trampoline::<Self, F> as *const (),
                 )),
@@ -1137,18 +1132,20 @@ pub trait TextBufferExt: IsA<TextBuffer> + sealed::Sealed + 'static {
             mark: *mut ffi::GtkTextMark,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                TextBuffer::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(location),
-                &from_glib_borrow(mark),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    TextBuffer::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(location),
+                    &from_glib_borrow(mark),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"mark-set\0".as_ptr() as *const _,
+                c"mark-set".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     mark_set_trampoline::<Self, F> as *const (),
                 )),
@@ -1166,14 +1163,16 @@ pub trait TextBufferExt: IsA<TextBuffer> + sealed::Sealed + 'static {
             this: *mut ffi::GtkTextBuffer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TextBuffer::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TextBuffer::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"modified-changed\0".as_ptr() as *const _,
+                c"modified-changed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     modified_changed_trampoline::<Self, F> as *const (),
                 )),
@@ -1192,17 +1191,19 @@ pub trait TextBufferExt: IsA<TextBuffer> + sealed::Sealed + 'static {
             clipboard: *mut gdk::ffi::GdkClipboard,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                TextBuffer::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(clipboard),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    TextBuffer::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(clipboard),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"paste-done\0".as_ptr() as *const _,
+                c"paste-done".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     paste_done_trampoline::<Self, F> as *const (),
                 )),
@@ -1217,14 +1218,16 @@ pub trait TextBufferExt: IsA<TextBuffer> + sealed::Sealed + 'static {
             this: *mut ffi::GtkTextBuffer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TextBuffer::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TextBuffer::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"redo\0".as_ptr() as *const _,
+                c"redo".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     redo_trampoline::<Self, F> as *const (),
                 )),
@@ -1248,19 +1251,21 @@ pub trait TextBufferExt: IsA<TextBuffer> + sealed::Sealed + 'static {
             end: *mut ffi::GtkTextIter,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                TextBuffer::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(tag),
-                &from_glib_borrow(start),
-                &from_glib_borrow(end),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    TextBuffer::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(tag),
+                    &from_glib_borrow(start),
+                    &from_glib_borrow(end),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"remove-tag\0".as_ptr() as *const _,
+                c"remove-tag".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     remove_tag_trampoline::<Self, F> as *const (),
                 )),
@@ -1275,14 +1280,16 @@ pub trait TextBufferExt: IsA<TextBuffer> + sealed::Sealed + 'static {
             this: *mut ffi::GtkTextBuffer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TextBuffer::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TextBuffer::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"undo\0".as_ptr() as *const _,
+                c"undo".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     undo_trampoline::<Self, F> as *const (),
                 )),
@@ -1298,14 +1305,16 @@ pub trait TextBufferExt: IsA<TextBuffer> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TextBuffer::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TextBuffer::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::can-redo\0".as_ptr() as *const _,
+                c"notify::can-redo".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_can_redo_trampoline::<Self, F> as *const (),
                 )),
@@ -1321,14 +1330,16 @@ pub trait TextBufferExt: IsA<TextBuffer> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TextBuffer::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TextBuffer::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::can-undo\0".as_ptr() as *const _,
+                c"notify::can-undo".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_can_undo_trampoline::<Self, F> as *const (),
                 )),
@@ -1347,14 +1358,16 @@ pub trait TextBufferExt: IsA<TextBuffer> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TextBuffer::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TextBuffer::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::cursor-position\0".as_ptr() as *const _,
+                c"notify::cursor-position".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_cursor_position_trampoline::<Self, F> as *const (),
                 )),
@@ -1373,14 +1386,16 @@ pub trait TextBufferExt: IsA<TextBuffer> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TextBuffer::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TextBuffer::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-undo\0".as_ptr() as *const _,
+                c"notify::enable-undo".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_undo_trampoline::<Self, F> as *const (),
                 )),
@@ -1399,14 +1414,16 @@ pub trait TextBufferExt: IsA<TextBuffer> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TextBuffer::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TextBuffer::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::has-selection\0".as_ptr() as *const _,
+                c"notify::has-selection".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_has_selection_trampoline::<Self, F> as *const (),
                 )),
@@ -1422,14 +1439,16 @@ pub trait TextBufferExt: IsA<TextBuffer> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TextBuffer::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TextBuffer::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::text\0".as_ptr() as *const _,
+                c"notify::text".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_text_trampoline::<Self, F> as *const (),
                 )),

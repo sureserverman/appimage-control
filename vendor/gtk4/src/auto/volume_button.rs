@@ -7,12 +7,12 @@
 #[cfg_attr(docsrs, doc(cfg(feature = "v4_10")))]
 use crate::AccessibleRange;
 use crate::{
-    ffi, Accessible, AccessibleRole, Adjustment, Align, Buildable, ConstraintTarget, LayoutManager,
-    Orientable, Orientation, Overflow, ScaleButton, Widget,
+    Accessible, AccessibleRole, Adjustment, Align, Buildable, ConstraintTarget, LayoutManager,
+    Orientable, Orientation, Overflow, ScaleButton, Widget, ffi,
 };
 use glib::{
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -28,7 +28,7 @@ glib::wrapper! {
     }
 }
 
-#[cfg(not(any(feature = "v4_10")))]
+#[cfg(not(feature = "v4_10"))]
 glib::wrapper! {
     #[doc(alias = "GtkVolumeButton")]
     pub struct VolumeButton(Object<ffi::GtkVolumeButton>) @extends ScaleButton, Widget, @implements Accessible, Buildable, ConstraintTarget, Orientable;
@@ -75,14 +75,16 @@ impl VolumeButton {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::use-symbolic\0".as_ptr() as *const _,
+                c"notify::use-symbolic".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_use_symbolic_trampoline::<F> as *const (),
                 )),

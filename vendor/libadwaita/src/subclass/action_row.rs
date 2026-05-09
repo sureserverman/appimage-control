@@ -2,7 +2,7 @@ use glib::subclass::prelude::*;
 use glib::translate::*;
 
 use crate::subclass::prelude::PreferencesRowImpl;
-use crate::{prelude::*, ActionRow};
+use crate::{ActionRow, prelude::*};
 
 pub trait ActionRowImpl: PreferencesRowImpl + ObjectSubclass<Type: IsA<ActionRow>> {
     fn activate(&self) {
@@ -33,7 +33,7 @@ unsafe impl<T: ActionRowImpl> IsSubclassable<T> for ActionRow {
 }
 
 unsafe extern "C" fn row_activate<T: ActionRowImpl>(ptr: *mut ffi::AdwActionRow) {
-    let instance = &*(ptr as *mut T::Instance);
+    let instance = unsafe { &*(ptr as *mut T::Instance) };
     let imp = instance.imp();
 
     ActionRowImpl::activate(imp)

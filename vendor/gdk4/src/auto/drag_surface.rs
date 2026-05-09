@@ -2,7 +2,7 @@
 // from gir-files (https://github.com/gtk-rs/gir-files)
 // DO NOT EDIT
 
-use crate::{ffi, Surface};
+use crate::{Surface, ffi};
 use glib::{prelude::*, translate::*};
 
 glib::wrapper! {
@@ -18,12 +18,7 @@ impl DragSurface {
     pub const NONE: Option<&'static DragSurface> = None;
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::DragSurface>> Sealed for T {}
-}
-
-pub trait DragSurfaceExt: IsA<DragSurface> + sealed::Sealed + 'static {
+pub trait DragSurfaceExt: IsA<DragSurface> + 'static {
     #[doc(alias = "gdk_drag_surface_present")]
     fn present(&self, width: i32, height: i32) -> bool {
         unsafe {

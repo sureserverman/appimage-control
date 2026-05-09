@@ -3,13 +3,13 @@
 // DO NOT EDIT
 
 use crate::{
-    ffi, DBusConnection, DBusInterface, DBusInterfaceInfo, DBusInterfaceSkeletonFlags,
-    DBusMethodInvocation,
+    DBusConnection, DBusInterface, DBusInterfaceInfo, DBusInterfaceSkeletonFlags,
+    DBusMethodInvocation, ffi,
 };
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -27,12 +27,7 @@ impl DBusInterfaceSkeleton {
     pub const NONE: Option<&'static DBusInterfaceSkeleton> = None;
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::DBusInterfaceSkeleton>> Sealed for T {}
-}
-
-pub trait DBusInterfaceSkeletonExt: IsA<DBusInterfaceSkeleton> + sealed::Sealed + 'static {
+pub trait DBusInterfaceSkeletonExt: IsA<DBusInterfaceSkeleton> + 'static {
     #[doc(alias = "g_dbus_interface_skeleton_export")]
     fn export(&self, connection: &DBusConnection, object_path: &str) -> Result<(), glib::Error> {
         unsafe {
@@ -81,6 +76,7 @@ pub trait DBusInterfaceSkeletonExt: IsA<DBusInterfaceSkeleton> + sealed::Sealed 
 
     #[doc(alias = "g_dbus_interface_skeleton_get_flags")]
     #[doc(alias = "get_flags")]
+    #[doc(alias = "g-flags")]
     fn flags(&self) -> DBusInterfaceSkeletonFlags {
         unsafe {
             from_glib(ffi::g_dbus_interface_skeleton_get_flags(
@@ -136,6 +132,7 @@ pub trait DBusInterfaceSkeletonExt: IsA<DBusInterfaceSkeleton> + sealed::Sealed 
     }
 
     #[doc(alias = "g_dbus_interface_skeleton_set_flags")]
+    #[doc(alias = "g-flags")]
     fn set_flags(&self, flags: DBusInterfaceSkeletonFlags) {
         unsafe {
             ffi::g_dbus_interface_skeleton_set_flags(
@@ -162,16 +159,6 @@ pub trait DBusInterfaceSkeletonExt: IsA<DBusInterfaceSkeleton> + sealed::Sealed 
         }
     }
 
-    #[doc(alias = "g-flags")]
-    fn g_flags(&self) -> DBusInterfaceSkeletonFlags {
-        ObjectExt::property(self.as_ref(), "g-flags")
-    }
-
-    #[doc(alias = "g-flags")]
-    fn set_g_flags(&self, g_flags: DBusInterfaceSkeletonFlags) {
-        ObjectExt::set_property(self.as_ref(), "g-flags", g_flags)
-    }
-
     #[doc(alias = "g-authorize-method")]
     fn connect_g_authorize_method<F: Fn(&Self, &DBusMethodInvocation) -> bool + 'static>(
         &self,
@@ -185,18 +172,20 @@ pub trait DBusInterfaceSkeletonExt: IsA<DBusInterfaceSkeleton> + sealed::Sealed 
             invocation: *mut ffi::GDBusMethodInvocation,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(
-                DBusInterfaceSkeleton::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(invocation),
-            )
-            .into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    DBusInterfaceSkeleton::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(invocation),
+                )
+                .into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"g-authorize-method\0".as_ptr() as *const _,
+                c"g-authorize-method".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     g_authorize_method_trampoline::<Self, F> as *const (),
                 )),
@@ -215,14 +204,16 @@ pub trait DBusInterfaceSkeletonExt: IsA<DBusInterfaceSkeleton> + sealed::Sealed 
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(DBusInterfaceSkeleton::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(DBusInterfaceSkeleton::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::g-flags\0".as_ptr() as *const _,
+                c"notify::g-flags".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_g_flags_trampoline::<Self, F> as *const (),
                 )),

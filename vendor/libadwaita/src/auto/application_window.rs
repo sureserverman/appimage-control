@@ -3,16 +3,16 @@
 // from gir-files (https://github.com/gtk-rs/gir-files.git)
 // DO NOT EDIT
 
-use crate::ffi;
 #[cfg(feature = "v1_4")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_4")))]
 use crate::Breakpoint;
 #[cfg(feature = "v1_5")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_5")))]
 use crate::Dialog;
+use crate::ffi;
 use glib::{
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -162,6 +162,14 @@ impl ApplicationWindowBuilder {
     pub fn fullscreened(self, fullscreened: bool) -> Self {
         Self {
             builder: self.builder.property("fullscreened", fullscreened),
+        }
+    }
+
+    #[cfg(feature = "gtk_v4_20")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "gtk_v4_20")))]
+    pub fn gravity(self, gravity: gtk::WindowGravity) -> Self {
+        Self {
+            builder: self.builder.property("gravity", gravity),
         }
     }
 
@@ -318,6 +326,14 @@ impl ApplicationWindowBuilder {
             builder: self
                 .builder
                 .property("layout-manager", layout_manager.clone().upcast()),
+        }
+    }
+
+    #[cfg(feature = "gtk_v4_18")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "gtk_v4_18")))]
+    pub fn limit_events(self, limit_events: bool) -> Self {
+        Self {
+            builder: self.builder.property("limit-events", limit_events),
         }
     }
 
@@ -544,14 +560,16 @@ pub trait AdwApplicationWindowExt: IsA<ApplicationWindow> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(ApplicationWindow::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(ApplicationWindow::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::adaptive-preview".as_ptr() as *const _,
+                c"notify::adaptive-preview".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_adaptive_preview_trampoline::<Self, F> as *const (),
                 )),
@@ -570,14 +588,16 @@ pub trait AdwApplicationWindowExt: IsA<ApplicationWindow> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(ApplicationWindow::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(ApplicationWindow::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::content".as_ptr() as *const _,
+                c"notify::content".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_content_trampoline::<Self, F> as *const (),
                 )),
@@ -598,14 +618,16 @@ pub trait AdwApplicationWindowExt: IsA<ApplicationWindow> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(ApplicationWindow::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(ApplicationWindow::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::current-breakpoint".as_ptr() as *const _,
+                c"notify::current-breakpoint".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_current_breakpoint_trampoline::<Self, F> as *const (),
                 )),
@@ -626,14 +648,16 @@ pub trait AdwApplicationWindowExt: IsA<ApplicationWindow> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(ApplicationWindow::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(ApplicationWindow::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::dialogs".as_ptr() as *const _,
+                c"notify::dialogs".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_dialogs_trampoline::<Self, F> as *const (),
                 )),
@@ -654,14 +678,16 @@ pub trait AdwApplicationWindowExt: IsA<ApplicationWindow> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(ApplicationWindow::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(ApplicationWindow::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::visible-dialog".as_ptr() as *const _,
+                c"notify::visible-dialog".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_visible_dialog_trampoline::<Self, F> as *const (),
                 )),

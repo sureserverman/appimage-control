@@ -1,21 +1,20 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 // rustdoc-stripper-ignore-next
-//! Traits intended for implementing the [`BuilderScope`](crate::BuilderScope)
-//! interface.
+//! Traits intended for implementing the [`BuilderScope`] interface.
 
-use glib::{translate::*, GString};
+use glib::{GString, translate::*};
 
 use crate::{
-    ffi, prelude::*, subclass::prelude::*, Builder, BuilderCScope, BuilderClosureFlags,
-    BuilderScope,
+    Builder, BuilderCScope, BuilderClosureFlags, BuilderScope, ffi, prelude::*,
+    subclass::prelude::*,
 };
 
-pub trait BuilderCScopeImpl: BuilderScopeImpl {}
+pub trait BuilderCScopeImpl: BuilderScopeImpl + ObjectSubclass<Type: IsA<BuilderCScope>> {}
 
 unsafe impl<T: BuilderCScopeImpl> IsSubclassable<T> for BuilderCScope {}
 
-pub trait BuilderScopeImpl: ObjectImpl {
+pub trait BuilderScopeImpl: ObjectImpl + ObjectSubclass<Type: IsA<BuilderScope>> {
     #[doc(alias = "get_type_from_name")]
     fn type_from_name(&self, builder: &Builder, type_name: &str) -> glib::Type {
         self.parent_type_from_name(builder, type_name)
@@ -35,12 +34,7 @@ pub trait BuilderScopeImpl: ObjectImpl {
     ) -> Result<glib::Closure, glib::Error>;
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::BuilderScopeImplExt> Sealed for T {}
-}
-
-pub trait BuilderScopeImplExt: sealed::Sealed + ObjectSubclass {
+pub trait BuilderScopeImplExt: BuilderScopeImpl {
     fn parent_type_from_name(&self, builder: &Builder, type_name: &str) -> glib::Type {
         unsafe {
             let type_data = Self::type_data();
@@ -139,12 +133,14 @@ unsafe extern "C" fn builder_scope_get_type_from_name<T: BuilderScopeImpl>(
     builderptr: *mut ffi::GtkBuilder,
     type_nameptr: *const libc::c_char,
 ) -> glib::ffi::GType {
-    let instance = &*(builder_scope as *mut T::Instance);
-    let imp = instance.imp();
-    let builder: Borrowed<Builder> = from_glib_borrow(builderptr);
-    let type_name: Borrowed<GString> = from_glib_borrow(type_nameptr);
+    unsafe {
+        let instance = &*(builder_scope as *mut T::Instance);
+        let imp = instance.imp();
+        let builder: Borrowed<Builder> = from_glib_borrow(builderptr);
+        let type_name: Borrowed<GString> = from_glib_borrow(type_nameptr);
 
-    imp.type_from_name(&builder, &type_name).into_glib()
+        imp.type_from_name(&builder, &type_name).into_glib()
+    }
 }
 
 unsafe extern "C" fn builder_scope_get_type_from_function<T: BuilderScopeImpl>(
@@ -152,12 +148,14 @@ unsafe extern "C" fn builder_scope_get_type_from_function<T: BuilderScopeImpl>(
     builderptr: *mut ffi::GtkBuilder,
     func_nameptr: *const libc::c_char,
 ) -> glib::ffi::GType {
-    let instance = &*(builder_scope as *mut T::Instance);
-    let imp = instance.imp();
-    let builder: Borrowed<Builder> = from_glib_borrow(builderptr);
-    let func_name: Borrowed<GString> = from_glib_borrow(func_nameptr);
+    unsafe {
+        let instance = &*(builder_scope as *mut T::Instance);
+        let imp = instance.imp();
+        let builder: Borrowed<Builder> = from_glib_borrow(builderptr);
+        let func_name: Borrowed<GString> = from_glib_borrow(func_nameptr);
 
-    imp.type_from_function(&builder, &func_name).into_glib()
+        imp.type_from_function(&builder, &func_name).into_glib()
+    }
 }
 
 unsafe extern "C" fn builder_scope_create_closure<T: BuilderScopeImpl>(
@@ -168,26 +166,28 @@ unsafe extern "C" fn builder_scope_create_closure<T: BuilderScopeImpl>(
     objectptr: *mut glib::gobject_ffi::GObject,
     errorptr: *mut *mut glib::ffi::GError,
 ) -> *mut glib::gobject_ffi::GClosure {
-    let instance = &*(builder_scope as *mut T::Instance);
-    let imp = instance.imp();
-    let builder: Borrowed<Builder> = from_glib_borrow(builderptr);
-    let func_name: Borrowed<GString> = from_glib_borrow(func_nameptr);
-    let object: Borrowed<Option<glib::Object>> = from_glib_borrow(objectptr);
+    unsafe {
+        let instance = &*(builder_scope as *mut T::Instance);
+        let imp = instance.imp();
+        let builder: Borrowed<Builder> = from_glib_borrow(builderptr);
+        let func_name: Borrowed<GString> = from_glib_borrow(func_nameptr);
+        let object: Borrowed<Option<glib::Object>> = from_glib_borrow(objectptr);
 
-    let ret = imp.create_closure(
-        &builder,
-        &func_name,
-        from_glib(flags),
-        object.as_ref().as_ref(),
-    );
+        let ret = imp.create_closure(
+            &builder,
+            &func_name,
+            from_glib(flags),
+            object.as_ref().as_ref(),
+        );
 
-    match ret {
-        Ok(closure) => closure.into_glib_ptr(),
-        Err(e) => {
-            if !errorptr.is_null() {
-                *errorptr = e.into_glib_ptr();
+        match ret {
+            Ok(closure) => closure.into_glib_ptr(),
+            Err(e) => {
+                if !errorptr.is_null() {
+                    *errorptr = e.into_glib_ptr();
+                }
+                std::ptr::null_mut()
             }
-            std::ptr::null_mut()
         }
     }
 }

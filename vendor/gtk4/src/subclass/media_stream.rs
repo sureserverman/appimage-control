@@ -1,13 +1,16 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 // rustdoc-stripper-ignore-next
-//! Traits intended for subclassing [`MediaStream`](crate::MediaStream).
+//! Traits intended for subclassing [`MediaStream`].
 
+use gdk::Paintable;
 use glib::translate::*;
 
-use crate::{ffi, prelude::*, subclass::prelude::*, MediaStream};
+use crate::{MediaStream, ffi, prelude::*, subclass::prelude::*};
 
-pub trait MediaStreamImpl: MediaStreamImplExt + ObjectImpl {
+pub trait MediaStreamImpl:
+    ObjectImpl + ObjectSubclass<Type: IsA<MediaStream> + IsA<Paintable>>
+{
     fn pause(&self) {
         self.parent_pause()
     }
@@ -33,12 +36,7 @@ pub trait MediaStreamImpl: MediaStreamImplExt + ObjectImpl {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::MediaStreamImplExt> Sealed for T {}
-}
-
-pub trait MediaStreamImplExt: sealed::Sealed + ObjectSubclass {
+pub trait MediaStreamImplExt: MediaStreamImpl {
     fn parent_pause(&self) {
         unsafe {
             let data = Self::type_data();
@@ -143,49 +141,59 @@ unsafe impl<T: MediaStreamImpl> IsSubclassable<T> for MediaStream {
 }
 
 unsafe extern "C" fn media_stream_pause<T: MediaStreamImpl>(ptr: *mut ffi::GtkMediaStream) {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.pause()
+        imp.pause()
+    }
 }
 
 unsafe extern "C" fn media_stream_play<T: MediaStreamImpl>(
     ptr: *mut ffi::GtkMediaStream,
 ) -> glib::ffi::gboolean {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.play().into_glib()
+        imp.play().into_glib()
+    }
 }
 
 unsafe extern "C" fn media_stream_realize<T: MediaStreamImpl>(
     ptr: *mut ffi::GtkMediaStream,
     surface: *mut gdk::ffi::GdkSurface,
 ) {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.realize(from_glib_none(surface))
+        imp.realize(from_glib_none(surface))
+    }
 }
 
 unsafe extern "C" fn media_stream_seek<T: MediaStreamImpl>(
     ptr: *mut ffi::GtkMediaStream,
     timestamp: i64,
 ) {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.seek(timestamp)
+        imp.seek(timestamp)
+    }
 }
 
 unsafe extern "C" fn media_stream_unrealize<T: MediaStreamImpl>(
     ptr: *mut ffi::GtkMediaStream,
     surface: *mut gdk::ffi::GdkSurface,
 ) {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.unrealize(from_glib_none(surface))
+        imp.unrealize(from_glib_none(surface))
+    }
 }
 
 unsafe extern "C" fn media_stream_update_audio<T: MediaStreamImpl>(
@@ -193,8 +201,10 @@ unsafe extern "C" fn media_stream_update_audio<T: MediaStreamImpl>(
     muted: glib::ffi::gboolean,
     volume: f64,
 ) {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.update_audio(from_glib(muted), volume)
+        imp.update_audio(from_glib(muted), volume)
+    }
 }

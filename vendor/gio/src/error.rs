@@ -2,11 +2,11 @@
 
 use std::io;
 
-#[cfg(feature = "v2_74")]
-use crate::glib::translate::*;
+use crate::IOErrorEnum;
 #[cfg(feature = "v2_74")]
 use crate::glib::FileError;
-use crate::IOErrorEnum;
+#[cfg(feature = "v2_74")]
+use crate::glib::translate::*;
 
 impl From<IOErrorEnum> for io::ErrorKind {
     fn from(kind: IOErrorEnum) -> Self {
@@ -31,7 +31,7 @@ impl From<IOErrorEnum> for io::ErrorKind {
 pub(crate) fn to_std_io_result<T>(result: Result<T, glib::Error>) -> io::Result<T> {
     result.map_err(|g_error| match g_error.kind::<IOErrorEnum>() {
         Some(io_error_enum) => io::Error::new(io_error_enum.into(), g_error),
-        None => io::Error::new(io::ErrorKind::Other, g_error),
+        None => io::Error::other(g_error),
     })
 }
 

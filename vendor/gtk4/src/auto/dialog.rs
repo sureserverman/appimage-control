@@ -3,15 +3,17 @@
 // DO NOT EDIT
 #![allow(deprecated)]
 
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+use crate::WindowGravity;
 use crate::{
-    ffi, Accessible, AccessibleRole, Align, Application, Box, Buildable, ConstraintTarget,
-    HeaderBar, LayoutManager, Native, Overflow, ResponseType, Root, ShortcutManager, Widget,
-    Window,
+    Accessible, AccessibleRole, Align, Application, Box, Buildable, ConstraintTarget, HeaderBar,
+    LayoutManager, Native, Overflow, ResponseType, Root, ShortcutManager, Widget, Window, ffi,
 };
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -151,6 +153,14 @@ impl DialogBuilder {
     pub fn fullscreened(self, fullscreened: bool) -> Self {
         Self {
             builder: self.builder.property("fullscreened", fullscreened),
+        }
+    }
+
+    #[cfg(feature = "v4_20")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+    pub fn gravity(self, gravity: WindowGravity) -> Self {
+        Self {
+            builder: self.builder.property("gravity", gravity),
         }
     }
 
@@ -431,12 +441,7 @@ impl DialogBuilder {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::Dialog>> Sealed for T {}
-}
-
-pub trait DialogExt: IsA<Dialog> + sealed::Sealed + 'static {
+pub trait DialogExt: IsA<Dialog> + 'static {
     #[cfg_attr(feature = "v4_10", deprecated = "Since 4.10")]
     #[allow(deprecated)]
     #[doc(alias = "gtk_dialog_add_action_widget")]
@@ -547,14 +552,16 @@ pub trait DialogExt: IsA<Dialog> + sealed::Sealed + 'static {
             this: *mut ffi::GtkDialog,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Dialog::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Dialog::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"close\0".as_ptr() as *const _,
+                c"close".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     close_trampoline::<Self, F> as *const (),
                 )),
@@ -578,17 +585,19 @@ pub trait DialogExt: IsA<Dialog> + sealed::Sealed + 'static {
             response_id: ffi::GtkResponseType,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                Dialog::from_glib_borrow(this).unsafe_cast_ref(),
-                from_glib(response_id),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    Dialog::from_glib_borrow(this).unsafe_cast_ref(),
+                    from_glib(response_id),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"response\0".as_ptr() as *const _,
+                c"response".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     response_trampoline::<Self, F> as *const (),
                 )),

@@ -2,14 +2,9 @@
 
 use glib::translate::*;
 
-use crate::{prelude::*, MediaStream};
+use crate::{MediaStream, prelude::*};
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::MediaStream>> Sealed for T {}
-}
-
-pub trait MediaStreamExtManual: sealed::Sealed + IsA<MediaStream> + 'static {
+pub trait MediaStreamExtManual: IsA<MediaStream> + 'static {
     #[doc(alias = "gtk_media_stream_gerror")]
     #[doc(alias = "gtk_media_stream_error")]
     #[doc(alias = "gerror")]

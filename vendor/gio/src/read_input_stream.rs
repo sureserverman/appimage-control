@@ -5,7 +5,7 @@ use std::{
     io::{Read, Seek},
 };
 
-use crate::{prelude::*, subclass::prelude::*, InputStream};
+use crate::{InputStream, prelude::*, subclass::prelude::*};
 
 mod imp {
     use std::cell::RefCell;
@@ -234,14 +234,11 @@ impl AnyReader {
                     Ok(res) => res,
                     Err(panic) => {
                         self.reader = AnyOrPanic::Panic(panic);
-                        Err(std::io::Error::new(std::io::ErrorKind::Other, "Panicked"))
+                        Err(std::io::Error::other("Panicked"))
                     }
                 }
             }
-            AnyOrPanic::Panic(_) => Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Panicked before",
-            )),
+            AnyOrPanic::Panic(_) => Err(std::io::Error::other("Panicked before")),
         }
     }
 

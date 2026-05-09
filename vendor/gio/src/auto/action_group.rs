@@ -6,7 +6,7 @@ use crate::ffi;
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -24,12 +24,7 @@ impl ActionGroup {
     pub const NONE: Option<&'static ActionGroup> = None;
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::ActionGroup>> Sealed for T {}
-}
-
-pub trait ActionGroupExt: IsA<ActionGroup> + sealed::Sealed + 'static {
+pub trait ActionGroupExt: IsA<ActionGroup> + 'static {
     #[doc(alias = "g_action_group_action_added")]
     fn action_added(&self, action_name: &str) {
         unsafe {
@@ -182,21 +177,23 @@ pub trait ActionGroupExt: IsA<ActionGroup> + sealed::Sealed + 'static {
             action_name: *mut std::ffi::c_char,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                ActionGroup::from_glib_borrow(this).unsafe_cast_ref(),
-                &glib::GString::from_glib_borrow(action_name),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    ActionGroup::from_glib_borrow(this).unsafe_cast_ref(),
+                    &glib::GString::from_glib_borrow(action_name),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             let detailed_signal_name = detail.map(|name| format!("action-added::{name}\0"));
-            let signal_name: &[u8] = detailed_signal_name
-                .as_ref()
-                .map_or(&b"action-added\0"[..], |n| n.as_bytes());
+            let signal_name = detailed_signal_name.as_ref().map_or(c"action-added", |n| {
+                std::ffi::CStr::from_bytes_with_nul_unchecked(n.as_bytes())
+            });
             connect_raw(
                 self.as_ptr() as *mut _,
-                signal_name.as_ptr() as *const _,
+                signal_name.as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     action_added_trampoline::<Self, F> as *const (),
                 )),
@@ -220,23 +217,27 @@ pub trait ActionGroupExt: IsA<ActionGroup> + sealed::Sealed + 'static {
             enabled: glib::ffi::gboolean,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                ActionGroup::from_glib_borrow(this).unsafe_cast_ref(),
-                &glib::GString::from_glib_borrow(action_name),
-                from_glib(enabled),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    ActionGroup::from_glib_borrow(this).unsafe_cast_ref(),
+                    &glib::GString::from_glib_borrow(action_name),
+                    from_glib(enabled),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             let detailed_signal_name =
                 detail.map(|name| format!("action-enabled-changed::{name}\0"));
-            let signal_name: &[u8] = detailed_signal_name
+            let signal_name = detailed_signal_name
                 .as_ref()
-                .map_or(&b"action-enabled-changed\0"[..], |n| n.as_bytes());
+                .map_or(c"action-enabled-changed", |n| {
+                    std::ffi::CStr::from_bytes_with_nul_unchecked(n.as_bytes())
+                });
             connect_raw(
                 self.as_ptr() as *mut _,
-                signal_name.as_ptr() as *const _,
+                signal_name.as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     action_enabled_changed_trampoline::<Self, F> as *const (),
                 )),
@@ -259,21 +260,25 @@ pub trait ActionGroupExt: IsA<ActionGroup> + sealed::Sealed + 'static {
             action_name: *mut std::ffi::c_char,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                ActionGroup::from_glib_borrow(this).unsafe_cast_ref(),
-                &glib::GString::from_glib_borrow(action_name),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    ActionGroup::from_glib_borrow(this).unsafe_cast_ref(),
+                    &glib::GString::from_glib_borrow(action_name),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             let detailed_signal_name = detail.map(|name| format!("action-removed::{name}\0"));
-            let signal_name: &[u8] = detailed_signal_name
+            let signal_name = detailed_signal_name
                 .as_ref()
-                .map_or(&b"action-removed\0"[..], |n| n.as_bytes());
+                .map_or(c"action-removed", |n| {
+                    std::ffi::CStr::from_bytes_with_nul_unchecked(n.as_bytes())
+                });
             connect_raw(
                 self.as_ptr() as *mut _,
-                signal_name.as_ptr() as *const _,
+                signal_name.as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     action_removed_trampoline::<Self, F> as *const (),
                 )),
@@ -297,22 +302,26 @@ pub trait ActionGroupExt: IsA<ActionGroup> + sealed::Sealed + 'static {
             value: *mut glib::ffi::GVariant,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                ActionGroup::from_glib_borrow(this).unsafe_cast_ref(),
-                &glib::GString::from_glib_borrow(action_name),
-                &from_glib_borrow(value),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    ActionGroup::from_glib_borrow(this).unsafe_cast_ref(),
+                    &glib::GString::from_glib_borrow(action_name),
+                    &from_glib_borrow(value),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             let detailed_signal_name = detail.map(|name| format!("action-state-changed::{name}\0"));
-            let signal_name: &[u8] = detailed_signal_name
+            let signal_name = detailed_signal_name
                 .as_ref()
-                .map_or(&b"action-state-changed\0"[..], |n| n.as_bytes());
+                .map_or(c"action-state-changed", |n| {
+                    std::ffi::CStr::from_bytes_with_nul_unchecked(n.as_bytes())
+                });
             connect_raw(
                 self.as_ptr() as *mut _,
-                signal_name.as_ptr() as *const _,
+                signal_name.as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     action_state_changed_trampoline::<Self, F> as *const (),
                 )),

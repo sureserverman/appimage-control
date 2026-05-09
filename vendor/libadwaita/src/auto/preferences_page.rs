@@ -6,10 +6,10 @@
 #[cfg(feature = "v1_7")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_7")))]
 use crate::Banner;
-use crate::{ffi, PreferencesGroup};
+use crate::{PreferencesGroup, ffi};
 use glib::{
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -193,6 +193,14 @@ impl PreferencesPageBuilder {
         }
     }
 
+    #[cfg(feature = "gtk_v4_18")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "gtk_v4_18")))]
+    pub fn limit_events(self, limit_events: bool) -> Self {
+        Self {
+            builder: self.builder.property("limit-events", limit_events),
+        }
+    }
+
     pub fn margin_bottom(self, margin_bottom: i32) -> Self {
         Self {
             builder: self.builder.property("margin-bottom", margin_bottom),
@@ -348,6 +356,19 @@ pub trait PreferencesPageExt: IsA<PreferencesPage> + 'static {
         }
     }
 
+    #[cfg(feature = "v1_8")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_8")))]
+    #[doc(alias = "adw_preferences_page_get_group")]
+    #[doc(alias = "get_group")]
+    fn group(&self, index: u32) -> Option<PreferencesGroup> {
+        unsafe {
+            from_glib_none(ffi::adw_preferences_page_get_group(
+                self.as_ref().to_glib_none().0,
+                index,
+            ))
+        }
+    }
+
     #[doc(alias = "adw_preferences_page_get_icon_name")]
     #[doc(alias = "get_icon_name")]
     #[doc(alias = "icon-name")]
@@ -387,6 +408,19 @@ pub trait PreferencesPageExt: IsA<PreferencesPage> + 'static {
             from_glib(ffi::adw_preferences_page_get_use_underline(
                 self.as_ref().to_glib_none().0,
             ))
+        }
+    }
+
+    #[cfg(feature = "v1_8")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_8")))]
+    #[doc(alias = "adw_preferences_page_insert")]
+    fn insert(&self, group: &impl IsA<PreferencesGroup>, index: i32) {
+        unsafe {
+            ffi::adw_preferences_page_insert(
+                self.as_ref().to_glib_none().0,
+                group.as_ref().to_glib_none().0,
+                index,
+            );
         }
     }
 
@@ -504,14 +538,16 @@ pub trait PreferencesPageExt: IsA<PreferencesPage> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(PreferencesPage::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(PreferencesPage::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::banner".as_ptr() as *const _,
+                c"notify::banner".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_banner_trampoline::<Self, F> as *const (),
                 )),
@@ -532,14 +568,16 @@ pub trait PreferencesPageExt: IsA<PreferencesPage> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(PreferencesPage::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(PreferencesPage::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::description".as_ptr() as *const _,
+                c"notify::description".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_description_trampoline::<Self, F> as *const (),
                 )),
@@ -560,14 +598,16 @@ pub trait PreferencesPageExt: IsA<PreferencesPage> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(PreferencesPage::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(PreferencesPage::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::description-centered".as_ptr() as *const _,
+                c"notify::description-centered".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_description_centered_trampoline::<Self, F> as *const (),
                 )),
@@ -586,14 +626,16 @@ pub trait PreferencesPageExt: IsA<PreferencesPage> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(PreferencesPage::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(PreferencesPage::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::icon-name".as_ptr() as *const _,
+                c"notify::icon-name".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_icon_name_trampoline::<Self, F> as *const (),
                 )),
@@ -612,14 +654,16 @@ pub trait PreferencesPageExt: IsA<PreferencesPage> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(PreferencesPage::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(PreferencesPage::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::title".as_ptr() as *const _,
+                c"notify::title".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_title_trampoline::<Self, F> as *const (),
                 )),
@@ -638,14 +682,16 @@ pub trait PreferencesPageExt: IsA<PreferencesPage> + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(PreferencesPage::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(PreferencesPage::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                c"notify::use-underline".as_ptr() as *const _,
+                c"notify::use-underline".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_use_underline_trampoline::<Self, F> as *const (),
                 )),

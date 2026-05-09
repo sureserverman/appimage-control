@@ -12,16 +12,20 @@ repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
 
+[features]
+default = ["proc_macro_crate"]
+proc_macro_crate = ["proc-macro-crate"]
+
 [dependencies]
 heck = "0.5"
 proc-macro2 = "1.0"
 quote = "1.0"
-syn = { version = "2.0.68", features = ["full"] }
-proc-macro-crate = "3.1"
+syn = { version = "2.0.113", features = ["full"] }
+proc-macro-crate = { version = "3.3", optional = true }
 
 [lib]
 proc-macro = true
 
 [dev-dependencies]
 glib.workspace = true
-trybuild2 = "1.2"
+trybuild = "1"

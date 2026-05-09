@@ -127,7 +127,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for BlendMode {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -231,7 +231,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for Corner {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -341,7 +341,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for FillRule {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -373,6 +373,7 @@ impl From<FillRule> for glib::Value {
     }
 }
 
+#[cfg_attr(feature = "v4_16", deprecated = "Since 4.16")]
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
 #[non_exhaustive]
 #[doc(alias = "GskGLUniformType")]
@@ -397,6 +398,7 @@ pub enum GLUniformType {
     __Unknown(i32),
 }
 
+#[allow(deprecated)]
 #[doc(hidden)]
 impl IntoGlib for GLUniformType {
     type GlibType = ffi::GskGLUniformType;
@@ -417,6 +419,7 @@ impl IntoGlib for GLUniformType {
     }
 }
 
+#[allow(deprecated)]
 #[doc(hidden)]
 impl FromGlib<ffi::GskGLUniformType> for GLUniformType {
     #[inline]
@@ -437,6 +440,7 @@ impl FromGlib<ffi::GskGLUniformType> for GLUniformType {
     }
 }
 
+#[allow(deprecated)]
 impl StaticType for GLUniformType {
     #[inline]
     #[doc(alias = "gsk_gl_uniform_type_get_type")]
@@ -445,6 +449,7 @@ impl StaticType for GLUniformType {
     }
 }
 
+#[allow(deprecated)]
 impl glib::HasParamSpec for GLUniformType {
     type ParamSpec = glib::ParamSpecEnum;
     type SetValue = Self;
@@ -455,20 +460,23 @@ impl glib::HasParamSpec for GLUniformType {
     }
 }
 
+#[allow(deprecated)]
 impl glib::value::ValueType for GLUniformType {
     type Type = Self;
 }
 
+#[allow(deprecated)]
 unsafe impl<'a> glib::value::FromValue<'a> for GLUniformType {
     type Checker = glib::value::GenericValueTypeChecker<Self>;
 
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
+#[allow(deprecated)]
 impl ToValue for GLUniformType {
     #[inline]
     fn to_value(&self) -> glib::Value {
@@ -485,6 +493,7 @@ impl ToValue for GLUniformType {
     }
 }
 
+#[allow(deprecated)]
 impl From<GLUniformType> for glib::Value {
     #[inline]
     fn from(v: GLUniformType) -> Self {
@@ -579,7 +588,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for LineCap {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -697,7 +706,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for LineJoin {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -819,7 +828,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for MaskMode {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -941,7 +950,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for PathDirection {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -968,6 +977,128 @@ impl ToValue for PathDirection {
 impl From<PathDirection> for glib::Value {
     #[inline]
     fn from(v: PathDirection) -> Self {
+        skip_assert_initialized!();
+        ToValue::to_value(&v)
+    }
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
+#[non_exhaustive]
+#[doc(alias = "GskPathIntersection")]
+pub enum PathIntersection {
+    #[doc(alias = "GSK_PATH_INTERSECTION_NONE")]
+    None,
+    #[doc(alias = "GSK_PATH_INTERSECTION_NORMAL")]
+    Normal,
+    #[doc(alias = "GSK_PATH_INTERSECTION_START")]
+    Start,
+    #[doc(alias = "GSK_PATH_INTERSECTION_END")]
+    End,
+    #[doc(hidden)]
+    __Unknown(i32),
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+#[doc(hidden)]
+impl IntoGlib for PathIntersection {
+    type GlibType = ffi::GskPathIntersection;
+
+    #[inline]
+    fn into_glib(self) -> ffi::GskPathIntersection {
+        match self {
+            Self::None => ffi::GSK_PATH_INTERSECTION_NONE,
+            Self::Normal => ffi::GSK_PATH_INTERSECTION_NORMAL,
+            Self::Start => ffi::GSK_PATH_INTERSECTION_START,
+            Self::End => ffi::GSK_PATH_INTERSECTION_END,
+            Self::__Unknown(value) => value,
+        }
+    }
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+#[doc(hidden)]
+impl FromGlib<ffi::GskPathIntersection> for PathIntersection {
+    #[inline]
+    unsafe fn from_glib(value: ffi::GskPathIntersection) -> Self {
+        skip_assert_initialized!();
+
+        match value {
+            ffi::GSK_PATH_INTERSECTION_NONE => Self::None,
+            ffi::GSK_PATH_INTERSECTION_NORMAL => Self::Normal,
+            ffi::GSK_PATH_INTERSECTION_START => Self::Start,
+            ffi::GSK_PATH_INTERSECTION_END => Self::End,
+            value => Self::__Unknown(value),
+        }
+    }
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+impl StaticType for PathIntersection {
+    #[inline]
+    #[doc(alias = "gsk_path_intersection_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::gsk_path_intersection_get_type()) }
+    }
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+impl glib::HasParamSpec for PathIntersection {
+    type ParamSpec = glib::ParamSpecEnum;
+    type SetValue = Self;
+    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder_with_default
+    }
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+impl glib::value::ValueType for PathIntersection {
+    type Type = Self;
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+unsafe impl<'a> glib::value::FromValue<'a> for PathIntersection {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        skip_assert_initialized!();
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
+    }
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+impl ToValue for PathIntersection {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+#[cfg(feature = "v4_20")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+impl From<PathIntersection> for glib::Value {
+    #[inline]
+    fn from(v: PathIntersection) -> Self {
         skip_assert_initialized!();
         ToValue::to_value(&v)
     }
@@ -1071,7 +1202,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for PathOperation {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -1098,6 +1229,160 @@ impl ToValue for PathOperation {
 impl From<PathOperation> for glib::Value {
     #[inline]
     fn from(v: PathOperation) -> Self {
+        skip_assert_initialized!();
+        ToValue::to_value(&v)
+    }
+}
+
+#[cfg(feature = "v4_22")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
+#[non_exhaustive]
+#[doc(alias = "GskPorterDuff")]
+pub enum PorterDuff {
+    #[doc(alias = "GSK_PORTER_DUFF_SOURCE")]
+    Source,
+    #[doc(alias = "GSK_PORTER_DUFF_DEST")]
+    Dest,
+    #[doc(alias = "GSK_PORTER_DUFF_SOURCE_OVER_DEST")]
+    SourceOverDest,
+    #[doc(alias = "GSK_PORTER_DUFF_DEST_OVER_SOURCE")]
+    DestOverSource,
+    #[doc(alias = "GSK_PORTER_DUFF_SOURCE_IN_DEST")]
+    SourceInDest,
+    #[doc(alias = "GSK_PORTER_DUFF_DEST_IN_SOURCE")]
+    DestInSource,
+    #[doc(alias = "GSK_PORTER_DUFF_SOURCE_OUT_DEST")]
+    SourceOutDest,
+    #[doc(alias = "GSK_PORTER_DUFF_DEST_OUT_SOURCE")]
+    DestOutSource,
+    #[doc(alias = "GSK_PORTER_DUFF_SOURCE_ATOP_DEST")]
+    SourceAtopDest,
+    #[doc(alias = "GSK_PORTER_DUFF_DEST_ATOP_SOURCE")]
+    DestAtopSource,
+    #[doc(alias = "GSK_PORTER_DUFF_XOR")]
+    Xor,
+    #[doc(alias = "GSK_PORTER_DUFF_CLEAR")]
+    Clear,
+    #[doc(hidden)]
+    __Unknown(i32),
+}
+
+#[cfg(feature = "v4_22")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+#[doc(hidden)]
+impl IntoGlib for PorterDuff {
+    type GlibType = ffi::GskPorterDuff;
+
+    #[inline]
+    fn into_glib(self) -> ffi::GskPorterDuff {
+        match self {
+            Self::Source => ffi::GSK_PORTER_DUFF_SOURCE,
+            Self::Dest => ffi::GSK_PORTER_DUFF_DEST,
+            Self::SourceOverDest => ffi::GSK_PORTER_DUFF_SOURCE_OVER_DEST,
+            Self::DestOverSource => ffi::GSK_PORTER_DUFF_DEST_OVER_SOURCE,
+            Self::SourceInDest => ffi::GSK_PORTER_DUFF_SOURCE_IN_DEST,
+            Self::DestInSource => ffi::GSK_PORTER_DUFF_DEST_IN_SOURCE,
+            Self::SourceOutDest => ffi::GSK_PORTER_DUFF_SOURCE_OUT_DEST,
+            Self::DestOutSource => ffi::GSK_PORTER_DUFF_DEST_OUT_SOURCE,
+            Self::SourceAtopDest => ffi::GSK_PORTER_DUFF_SOURCE_ATOP_DEST,
+            Self::DestAtopSource => ffi::GSK_PORTER_DUFF_DEST_ATOP_SOURCE,
+            Self::Xor => ffi::GSK_PORTER_DUFF_XOR,
+            Self::Clear => ffi::GSK_PORTER_DUFF_CLEAR,
+            Self::__Unknown(value) => value,
+        }
+    }
+}
+
+#[cfg(feature = "v4_22")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+#[doc(hidden)]
+impl FromGlib<ffi::GskPorterDuff> for PorterDuff {
+    #[inline]
+    unsafe fn from_glib(value: ffi::GskPorterDuff) -> Self {
+        skip_assert_initialized!();
+
+        match value {
+            ffi::GSK_PORTER_DUFF_SOURCE => Self::Source,
+            ffi::GSK_PORTER_DUFF_DEST => Self::Dest,
+            ffi::GSK_PORTER_DUFF_SOURCE_OVER_DEST => Self::SourceOverDest,
+            ffi::GSK_PORTER_DUFF_DEST_OVER_SOURCE => Self::DestOverSource,
+            ffi::GSK_PORTER_DUFF_SOURCE_IN_DEST => Self::SourceInDest,
+            ffi::GSK_PORTER_DUFF_DEST_IN_SOURCE => Self::DestInSource,
+            ffi::GSK_PORTER_DUFF_SOURCE_OUT_DEST => Self::SourceOutDest,
+            ffi::GSK_PORTER_DUFF_DEST_OUT_SOURCE => Self::DestOutSource,
+            ffi::GSK_PORTER_DUFF_SOURCE_ATOP_DEST => Self::SourceAtopDest,
+            ffi::GSK_PORTER_DUFF_DEST_ATOP_SOURCE => Self::DestAtopSource,
+            ffi::GSK_PORTER_DUFF_XOR => Self::Xor,
+            ffi::GSK_PORTER_DUFF_CLEAR => Self::Clear,
+            value => Self::__Unknown(value),
+        }
+    }
+}
+
+#[cfg(feature = "v4_22")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+impl StaticType for PorterDuff {
+    #[inline]
+    #[doc(alias = "gsk_porter_duff_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::gsk_porter_duff_get_type()) }
+    }
+}
+
+#[cfg(feature = "v4_22")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+impl glib::HasParamSpec for PorterDuff {
+    type ParamSpec = glib::ParamSpecEnum;
+    type SetValue = Self;
+    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder_with_default
+    }
+}
+
+#[cfg(feature = "v4_22")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+impl glib::value::ValueType for PorterDuff {
+    type Type = Self;
+}
+
+#[cfg(feature = "v4_22")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+unsafe impl<'a> glib::value::FromValue<'a> for PorterDuff {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        skip_assert_initialized!();
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
+    }
+}
+
+#[cfg(feature = "v4_22")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+impl ToValue for PorterDuff {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+#[cfg(feature = "v4_22")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+impl From<PorterDuff> for glib::Value {
+    #[inline]
+    fn from(v: PorterDuff) -> Self {
         skip_assert_initialized!();
         ToValue::to_value(&v)
     }
@@ -1179,6 +1464,34 @@ pub enum RenderNodeType {
     #[cfg_attr(docsrs, doc(cfg(feature = "v4_14")))]
     #[doc(alias = "GSK_SUBSURFACE_NODE")]
     SubsurfaceNode,
+    #[cfg(feature = "v4_20")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_20")))]
+    #[doc(alias = "GSK_COMPONENT_TRANSFER_NODE")]
+    ComponentTransferNode,
+    #[cfg(feature = "v4_22")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+    #[doc(alias = "GSK_COPY_NODE")]
+    CopyNode,
+    #[cfg(feature = "v4_22")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+    #[doc(alias = "GSK_PASTE_NODE")]
+    PasteNode,
+    #[cfg(feature = "v4_22")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+    #[doc(alias = "GSK_COMPOSITE_NODE")]
+    CompositeNode,
+    #[cfg(feature = "v4_22")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+    #[doc(alias = "GSK_ISOLATION_NODE")]
+    IsolationNode,
+    #[cfg(feature = "v4_22")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+    #[doc(alias = "GSK_DISPLACEMENT_NODE")]
+    DisplacementNode,
+    #[cfg(feature = "v4_22")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v4_22")))]
+    #[doc(alias = "GSK_ARITHMETIC_NODE")]
+    ArithmeticNode,
     #[doc(hidden)]
     __Unknown(i32),
 }
@@ -1225,6 +1538,20 @@ impl IntoGlib for RenderNodeType {
             Self::StrokeNode => ffi::GSK_STROKE_NODE,
             #[cfg(feature = "v4_14")]
             Self::SubsurfaceNode => ffi::GSK_SUBSURFACE_NODE,
+            #[cfg(feature = "v4_20")]
+            Self::ComponentTransferNode => ffi::GSK_COMPONENT_TRANSFER_NODE,
+            #[cfg(feature = "v4_22")]
+            Self::CopyNode => ffi::GSK_COPY_NODE,
+            #[cfg(feature = "v4_22")]
+            Self::PasteNode => ffi::GSK_PASTE_NODE,
+            #[cfg(feature = "v4_22")]
+            Self::CompositeNode => ffi::GSK_COMPOSITE_NODE,
+            #[cfg(feature = "v4_22")]
+            Self::IsolationNode => ffi::GSK_ISOLATION_NODE,
+            #[cfg(feature = "v4_22")]
+            Self::DisplacementNode => ffi::GSK_DISPLACEMENT_NODE,
+            #[cfg(feature = "v4_22")]
+            Self::ArithmeticNode => ffi::GSK_ARITHMETIC_NODE,
             Self::__Unknown(value) => value,
         }
     }
@@ -1272,6 +1599,20 @@ impl FromGlib<ffi::GskRenderNodeType> for RenderNodeType {
             ffi::GSK_STROKE_NODE => Self::StrokeNode,
             #[cfg(feature = "v4_14")]
             ffi::GSK_SUBSURFACE_NODE => Self::SubsurfaceNode,
+            #[cfg(feature = "v4_20")]
+            ffi::GSK_COMPONENT_TRANSFER_NODE => Self::ComponentTransferNode,
+            #[cfg(feature = "v4_22")]
+            ffi::GSK_COPY_NODE => Self::CopyNode,
+            #[cfg(feature = "v4_22")]
+            ffi::GSK_PASTE_NODE => Self::PasteNode,
+            #[cfg(feature = "v4_22")]
+            ffi::GSK_COMPOSITE_NODE => Self::CompositeNode,
+            #[cfg(feature = "v4_22")]
+            ffi::GSK_ISOLATION_NODE => Self::IsolationNode,
+            #[cfg(feature = "v4_22")]
+            ffi::GSK_DISPLACEMENT_NODE => Self::DisplacementNode,
+            #[cfg(feature = "v4_22")]
+            ffi::GSK_ARITHMETIC_NODE => Self::ArithmeticNode,
             value => Self::__Unknown(value),
         }
     }
@@ -1305,7 +1646,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for RenderNodeType {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -1405,7 +1746,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for ScalingFilter {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -1528,7 +1869,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for SerializationError {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 
@@ -1644,7 +1985,7 @@ unsafe impl<'a> glib::value::FromValue<'a> for TransformCategory {
     #[inline]
     unsafe fn from_value(value: &'a glib::Value) -> Self {
         skip_assert_initialized!();
-        from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0))
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
     }
 }
 

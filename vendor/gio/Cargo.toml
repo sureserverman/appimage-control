@@ -10,12 +10,12 @@
 # See Cargo.toml.orig for the original contents.
 
 [package]
-edition = "2021"
-rust-version = "1.70"
+edition = "2024"
+rust-version = "1.92"
 name = "gio"
-version = "0.20.12"
+version = "0.22.6"
 authors = ["The gtk-rs Project Developers"]
-build = "build.rs"
+build = false
 exclude = ["gir-files/*"]
 autolib = false
 autobins = false
@@ -28,7 +28,8 @@ documentation = "https://gtk-rs.org/gtk-rs-core/stable/latest/docs/gio/"
 readme = "README.md"
 keywords = [
     "glib",
-    "gio",
+    "D-Bus",
+    "DBus",
     "gtk-rs",
     "gnome",
 ]
@@ -37,15 +38,7 @@ repository = "https://github.com/gtk-rs/gtk-rs-core"
 
 [package.metadata.docs.rs]
 all-features = true
-rustc-args = [
-    "--cfg",
-    "docsrs",
-]
-rustdoc-args = [
-    "--cfg",
-    "docsrs",
-    "--generate-link-to-definition",
-]
+rustdoc-args = ["--generate-link-to-definition"]
 
 [features]
 v2_58 = [
@@ -122,6 +115,11 @@ v2_86 = [
     "gio-sys/v2_86",
     "glib/v2_86",
 ]
+v2_88 = [
+    "v2_86",
+    "gio-sys/v2_88",
+    "glib/v2_88",
+]
 
 [lib]
 name = "gio"
@@ -130,6 +128,10 @@ path = "src/lib.rs"
 [[test]]
 name = "check_gir"
 path = "tests/check_gir.rs"
+
+[[test]]
+name = "content_type"
+path = "tests/content_type.rs"
 
 [[test]]
 name = "dbus_peer"
@@ -154,10 +156,12 @@ version = "0.3"
 default-features = false
 
 [dependencies.gio-sys]
-version = "0.20.6"
+version = "0.22.0"
 
 [dependencies.glib]
-version = "0.20.3"
+version = "0.22.0"
+features = ["futures"]
+default-features = false
 
 [dependencies.libc]
 version = "0.2"
@@ -167,6 +171,9 @@ version = "0.2"
 
 [dependencies.smallvec]
 version = "1"
+
+[dev-dependencies.async-channel]
+version = "2.5"
 
 [dev-dependencies.futures]
 version = "0.3"

@@ -3,7 +3,7 @@
 // from gir-files (https://github.com/gtk-rs/gir-files.git)
 // DO NOT EDIT
 
-use crate::{ffi, AnimationTarget};
+use crate::{AnimationTarget, ffi};
 use glib::{prelude::*, translate::*};
 use std::boxed::Box as Box_;
 
@@ -25,12 +25,16 @@ impl CallbackAnimationTarget {
             value: std::ffi::c_double,
             user_data: glib::ffi::gpointer,
         ) {
-            let callback = &*(user_data as *mut P);
-            (*callback)(value)
+            unsafe {
+                let callback = &*(user_data as *mut P);
+                (*callback)(value)
+            }
         }
         let callback = Some(callback_func::<P> as _);
         unsafe extern "C" fn destroy_func<P: Fn(f64) + 'static>(data: glib::ffi::gpointer) {
-            let _callback = Box_::from_raw(data as *mut P);
+            unsafe {
+                let _callback = Box_::from_raw(data as *mut P);
+            }
         }
         let destroy_call2 = Some(destroy_func::<P> as _);
         let super_callback0: Box_<P> = callback_data;

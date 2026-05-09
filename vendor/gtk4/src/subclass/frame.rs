@@ -1,15 +1,15 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 // rustdoc-stripper-ignore-next
-//! Traits intended for subclassing [`Frame`](crate::Frame).
+//! Traits intended for subclassing [`Frame`].
 
 use glib::translate::*;
 
-use crate::{ffi, prelude::*, subclass::prelude::*, Allocation, Frame};
+use crate::{Allocation, Frame, ffi, prelude::*, subclass::prelude::*};
 
 #[cfg_attr(feature = "v4_10", deprecated = "Since 4.10")]
 #[allow(deprecated)]
-pub trait FrameImpl: FrameImplExt + WidgetImpl {
+pub trait FrameImpl: WidgetImpl + ObjectSubclass<Type: IsA<Frame>> {
     fn compute_child_allocation(&self) -> Allocation {
         self.parent_compute_child_allocation()
     }
@@ -17,7 +17,7 @@ pub trait FrameImpl: FrameImplExt + WidgetImpl {
 
 #[cfg_attr(feature = "v4_10", deprecated = "Since 4.10")]
 #[allow(deprecated)]
-pub trait FrameImplExt: ObjectSubclass {
+pub trait FrameImplExt: FrameImpl {
     fn parent_compute_child_allocation(&self) -> Allocation {
         unsafe {
             let data = Self::type_data();
@@ -50,9 +50,11 @@ unsafe extern "C" fn frame_compute_child_allocation<T: FrameImpl>(
     ptr: *mut ffi::GtkFrame,
     allocationptr: *mut ffi::GtkAllocation,
 ) {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
 
-    let allocation = imp.compute_child_allocation();
-    *allocationptr = *allocation.to_glib_none().0;
+        let allocation = imp.compute_child_allocation();
+        *allocationptr = *allocation.to_glib_none().0;
+    }
 }

@@ -1,13 +1,16 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 // rustdoc-stripper-ignore-next
-//! Traits intended for subclassing [`MediaFile`](crate::MediaFile).
+//! Traits intended for subclassing [`MediaFile`].
 
+use gdk::Paintable;
 use glib::translate::*;
 
-use crate::{ffi, prelude::*, subclass::prelude::*, MediaFile};
+use crate::{MediaFile, ffi, prelude::*, subclass::prelude::*};
 
-pub trait MediaFileImpl: MediaFileImplExt + MediaStreamImpl {
+pub trait MediaFileImpl:
+    MediaStreamImpl + ObjectSubclass<Type: IsA<MediaFile> + IsA<Paintable>>
+{
     fn close(&self) {
         self.parent_close()
     }
@@ -16,12 +19,7 @@ pub trait MediaFileImpl: MediaFileImplExt + MediaStreamImpl {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::MediaFileImplExt> Sealed for T {}
-}
-
-pub trait MediaFileImplExt: sealed::Sealed + ObjectSubclass {
+pub trait MediaFileImplExt: MediaFileImpl {
     fn parent_close(&self) {
         unsafe {
             let data = Self::type_data();
@@ -56,15 +54,19 @@ unsafe impl<T: MediaFileImpl> IsSubclassable<T> for MediaFile {
 }
 
 unsafe extern "C" fn media_file_close<T: MediaFileImpl>(ptr: *mut ffi::GtkMediaFile) {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.close()
+        imp.close()
+    }
 }
 
 unsafe extern "C" fn media_file_open<T: MediaFileImpl>(ptr: *mut ffi::GtkMediaFile) {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.open()
+        imp.open()
+    }
 }

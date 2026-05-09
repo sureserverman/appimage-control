@@ -3,10 +3,10 @@
 // DO NOT EDIT
 #![allow(deprecated)]
 
-use crate::{ffi, CellArea};
+use crate::{CellArea, ffi};
 use glib::{
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -24,12 +24,7 @@ impl CellAreaContext {
     pub const NONE: Option<&'static CellAreaContext> = None;
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::CellAreaContext>> Sealed for T {}
-}
-
-pub trait CellAreaContextExt: IsA<CellAreaContext> + sealed::Sealed + 'static {
+pub trait CellAreaContextExt: IsA<CellAreaContext> + 'static {
     #[cfg_attr(feature = "v4_10", deprecated = "Since 4.10")]
     #[allow(deprecated)]
     #[doc(alias = "gtk_cell_area_context_allocate")]
@@ -208,14 +203,16 @@ pub trait CellAreaContextExt: IsA<CellAreaContext> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(CellAreaContext::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(CellAreaContext::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::minimum-height\0".as_ptr() as *const _,
+                c"notify::minimum-height".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_minimum_height_trampoline::<Self, F> as *const (),
                 )),
@@ -235,14 +232,16 @@ pub trait CellAreaContextExt: IsA<CellAreaContext> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(CellAreaContext::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(CellAreaContext::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::minimum-width\0".as_ptr() as *const _,
+                c"notify::minimum-width".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_minimum_width_trampoline::<Self, F> as *const (),
                 )),
@@ -262,14 +261,16 @@ pub trait CellAreaContextExt: IsA<CellAreaContext> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(CellAreaContext::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(CellAreaContext::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::natural-height\0".as_ptr() as *const _,
+                c"notify::natural-height".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_natural_height_trampoline::<Self, F> as *const (),
                 )),
@@ -289,14 +290,16 @@ pub trait CellAreaContextExt: IsA<CellAreaContext> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(CellAreaContext::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(CellAreaContext::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::natural-width\0".as_ptr() as *const _,
+                c"notify::natural-width".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_natural_width_trampoline::<Self, F> as *const (),
                 )),

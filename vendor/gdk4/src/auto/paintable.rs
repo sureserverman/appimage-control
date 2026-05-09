@@ -2,11 +2,11 @@
 // from gir-files (https://github.com/gtk-rs/gir-files)
 // DO NOT EDIT
 
-use crate::{ffi, PaintableFlags, Snapshot};
+use crate::{PaintableFlags, Snapshot, ffi};
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -35,12 +35,7 @@ impl Paintable {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::Paintable>> Sealed for T {}
-}
-
-pub trait PaintableExt: IsA<Paintable> + sealed::Sealed + 'static {
+pub trait PaintableExt: IsA<Paintable> + 'static {
     #[doc(alias = "gdk_paintable_compute_concrete_size")]
     fn compute_concrete_size(
         &self,
@@ -135,14 +130,16 @@ pub trait PaintableExt: IsA<Paintable> + sealed::Sealed + 'static {
             this: *mut ffi::GdkPaintable,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Paintable::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Paintable::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"invalidate-contents\0".as_ptr() as *const _,
+                c"invalidate-contents".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     invalidate_contents_trampoline::<Self, F> as *const (),
                 )),
@@ -157,14 +154,16 @@ pub trait PaintableExt: IsA<Paintable> + sealed::Sealed + 'static {
             this: *mut ffi::GdkPaintable,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Paintable::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Paintable::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"invalidate-size\0".as_ptr() as *const _,
+                c"invalidate-size".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     invalidate_size_trampoline::<Self, F> as *const (),
                 )),

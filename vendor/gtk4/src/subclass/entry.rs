@@ -1,24 +1,19 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 // rustdoc-stripper-ignore-next
-//! Traits intended for subclassing [`Entry`](crate::Entry).
+//! Traits intended for subclassing [`Entry`].
 
 use glib::translate::*;
 
-use crate::{ffi, prelude::*, subclass::prelude::*, Entry};
+use crate::{CellEditable, Entry, ffi, prelude::*, subclass::prelude::*};
 
-pub trait EntryImpl: EntryImplExt + WidgetImpl {
+pub trait EntryImpl: WidgetImpl + ObjectSubclass<Type: IsA<Entry> + IsA<CellEditable>> {
     fn activate(&self) {
         self.parent_activate()
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::EntryImplExt> Sealed for T {}
-}
-
-pub trait EntryImplExt: sealed::Sealed + ObjectSubclass {
+pub trait EntryImplExt: EntryImpl {
     fn parent_activate(&self) {
         unsafe {
             let data = Self::type_data();
@@ -42,8 +37,10 @@ unsafe impl<T: EntryImpl> IsSubclassable<T> for Entry {
 }
 
 unsafe extern "C" fn entry_activate<T: EntryImpl>(ptr: *mut ffi::GtkEntry) {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.activate()
+        imp.activate()
+    }
 }

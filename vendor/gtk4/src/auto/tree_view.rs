@@ -4,15 +4,15 @@
 #![allow(deprecated)]
 
 use crate::{
-    ffi, Accessible, AccessibleRole, Adjustment, Align, Buildable, CellRenderer, ConstraintTarget,
+    Accessible, AccessibleRole, Adjustment, Align, Buildable, CellRenderer, ConstraintTarget,
     Editable, LayoutManager, MovementStep, Overflow, Scrollable, ScrollablePolicy, Tooltip,
     TreeIter, TreeModel, TreePath, TreeSelection, TreeViewColumn, TreeViewDropPosition,
-    TreeViewGridLines, Widget,
+    TreeViewGridLines, Widget, ffi,
 };
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -427,12 +427,7 @@ impl TreeViewBuilder {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::TreeView>> Sealed for T {}
-}
-
-pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
+pub trait TreeViewExt: IsA<TreeView> + 'static {
     #[cfg_attr(feature = "v4_10", deprecated = "Since 4.10")]
     #[allow(deprecated)]
     #[doc(alias = "gtk_tree_view_append_column")]
@@ -1162,12 +1157,14 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             iter: *mut ffi::GtkTreeIter,
             data: glib::ffi::gpointer,
         ) {
-            let tree_column = from_glib_borrow(tree_column);
-            let cell = from_glib_borrow(cell);
-            let tree_model = from_glib_borrow(tree_model);
-            let iter = from_glib_borrow(iter);
-            let callback = &*(data as *mut P);
-            (*callback)(&tree_column, &cell, &tree_model, &iter)
+            unsafe {
+                let tree_column = from_glib_borrow(tree_column);
+                let cell = from_glib_borrow(cell);
+                let tree_model = from_glib_borrow(tree_model);
+                let iter = from_glib_borrow(iter);
+                let callback = &*(data as *mut P);
+                (*callback)(&tree_column, &cell, &tree_model, &iter)
+            }
         }
         let func = Some(func_func::<P> as _);
         unsafe extern "C" fn dnotify_func<
@@ -1175,7 +1172,9 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
         >(
             data: glib::ffi::gpointer,
         ) {
-            let _callback = Box_::from_raw(data as *mut P);
+            unsafe {
+                let _callback = Box_::from_raw(data as *mut P);
+            }
         }
         let destroy_call6 = Some(dnotify_func::<P> as _);
         let super_callback0: Box_<P> = func_data;
@@ -1248,10 +1247,12 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             path: *mut ffi::GtkTreePath,
             user_data: glib::ffi::gpointer,
         ) {
-            let tree_view = from_glib_borrow(tree_view);
-            let path = from_glib_borrow(path);
-            let callback = user_data as *mut P;
-            (*callback)(&tree_view, &path)
+            unsafe {
+                let tree_view = from_glib_borrow(tree_view);
+                let path = from_glib_borrow(path);
+                let callback = user_data as *mut P;
+                (*callback)(&tree_view, &path)
+            }
         }
         let func = Some(func_func::<P> as _);
         let super_callback0: &mut P = &mut func_data;
@@ -1386,22 +1387,24 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             next_column: *mut ffi::GtkTreeViewColumn,
             data: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let tree_view = from_glib_borrow(tree_view);
-            let column = from_glib_borrow(column);
-            let prev_column = from_glib_borrow(prev_column);
-            let next_column = from_glib_borrow(next_column);
-            let callback = &*(data as *mut Option<
-                Box_<
-                    dyn Fn(&TreeView, &TreeViewColumn, &TreeViewColumn, &TreeViewColumn) -> bool
-                        + 'static,
-                >,
-            >);
-            if let Some(ref callback) = *callback {
-                callback(&tree_view, &column, &prev_column, &next_column)
-            } else {
-                panic!("cannot get closure...")
+            unsafe {
+                let tree_view = from_glib_borrow(tree_view);
+                let column = from_glib_borrow(column);
+                let prev_column = from_glib_borrow(prev_column);
+                let next_column = from_glib_borrow(next_column);
+                let callback = &*(data as *mut Option<
+                    Box_<
+                        dyn Fn(&TreeView, &TreeViewColumn, &TreeViewColumn, &TreeViewColumn) -> bool
+                            + 'static,
+                    >,
+                >);
+                if let Some(ref callback) = *callback {
+                    callback(&tree_view, &column, &prev_column, &next_column)
+                } else {
+                    panic!("cannot get closure...")
+                }
+                .into_glib()
             }
-            .into_glib()
         }
         let func = if func_data.is_some() {
             Some(func_func as _)
@@ -1409,14 +1412,21 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             None
         };
         unsafe extern "C" fn destroy_func(data: glib::ffi::gpointer) {
-            let _callback = Box_::from_raw(
-                data as *mut Option<
-                    Box_<
-                        dyn Fn(&TreeView, &TreeViewColumn, &TreeViewColumn, &TreeViewColumn) -> bool
-                            + 'static,
+            unsafe {
+                let _callback = Box_::from_raw(
+                    data as *mut Option<
+                        Box_<
+                            dyn Fn(
+                                    &TreeView,
+                                    &TreeViewColumn,
+                                    &TreeViewColumn,
+                                    &TreeViewColumn,
+                                ) -> bool
+                                + 'static,
+                        >,
                     >,
-                >,
-            );
+                );
+            }
         }
         let destroy_call3 = Some(destroy_func as _);
         let super_callback0: Box_<
@@ -1649,16 +1659,20 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             iter: *mut ffi::GtkTreeIter,
             data: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let model = from_glib_borrow(model);
-            let iter = from_glib_borrow(iter);
-            let callback = &*(data as *mut P);
-            (*callback)(&model, &iter).into_glib()
+            unsafe {
+                let model = from_glib_borrow(model);
+                let iter = from_glib_borrow(iter);
+                let callback = &*(data as *mut P);
+                (*callback)(&model, &iter).into_glib()
+            }
         }
         let func = Some(func_func::<P> as _);
         unsafe extern "C" fn destroy_func<P: Fn(&TreeModel, &TreeIter) -> bool + 'static>(
             data: glib::ffi::gpointer,
         ) {
-            let _callback = Box_::from_raw(data as *mut P);
+            unsafe {
+                let _callback = Box_::from_raw(data as *mut P);
+            }
         }
         let destroy_call3 = Some(destroy_func::<P> as _);
         let super_callback0: Box_<P> = func_data;
@@ -1724,11 +1738,13 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             iter: *mut ffi::GtkTreeIter,
             search_data: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let model = from_glib_borrow(model);
-            let key: Borrowed<glib::GString> = from_glib_borrow(key);
-            let iter = from_glib_borrow(iter);
-            let callback = &*(search_data as *mut P);
-            (*callback)(&model, column, key.as_str(), &iter).into_glib()
+            unsafe {
+                let model = from_glib_borrow(model);
+                let key: Borrowed<glib::GString> = from_glib_borrow(key);
+                let iter = from_glib_borrow(iter);
+                let callback = &*(search_data as *mut P);
+                (*callback)(&model, column, key.as_str(), &iter).into_glib()
+            }
         }
         let search_equal_func = Some(search_equal_func_func::<P> as _);
         unsafe extern "C" fn search_destroy_func<
@@ -1736,7 +1752,9 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
         >(
             data: glib::ffi::gpointer,
         ) {
-            let _callback = Box_::from_raw(data as *mut P);
+            unsafe {
+                let _callback = Box_::from_raw(data as *mut P);
+            }
         }
         let destroy_call3 = Some(search_destroy_func::<P> as _);
         let super_callback0: Box_<P> = search_equal_func_data;
@@ -1841,14 +1859,16 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             this: *mut ffi::GtkTreeView,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"columns-changed\0".as_ptr() as *const _,
+                c"columns-changed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     columns_changed_trampoline::<Self, F> as *const (),
                 )),
@@ -1863,14 +1883,16 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             this: *mut ffi::GtkTreeView,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"cursor-changed\0".as_ptr() as *const _,
+                c"cursor-changed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     cursor_changed_trampoline::<Self, F> as *const (),
                 )),
@@ -1894,20 +1916,22 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             p1: glib::ffi::gboolean,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(
-                TreeView::from_glib_borrow(this).unsafe_cast_ref(),
-                from_glib(object),
-                from_glib(p0),
-                from_glib(p1),
-            )
-            .into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    TreeView::from_glib_borrow(this).unsafe_cast_ref(),
+                    from_glib(object),
+                    from_glib(p0),
+                    from_glib(p1),
+                )
+                .into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"expand-collapse-cursor-row\0".as_ptr() as *const _,
+                c"expand-collapse-cursor-row".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     expand_collapse_cursor_row_trampoline::<Self, F> as *const (),
                 )),
@@ -1936,21 +1960,23 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             modify: glib::ffi::gboolean,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(
-                TreeView::from_glib_borrow(this).unsafe_cast_ref(),
-                from_glib(step),
-                direction,
-                from_glib(extend),
-                from_glib(modify),
-            )
-            .into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    TreeView::from_glib_borrow(this).unsafe_cast_ref(),
+                    from_glib(step),
+                    direction,
+                    from_glib(extend),
+                    from_glib(modify),
+                )
+                .into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"move-cursor\0".as_ptr() as *const _,
+                c"move-cursor".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     move_cursor_trampoline::<Self, F> as *const (),
                 )),
@@ -1983,20 +2009,22 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             column: *mut ffi::GtkTreeViewColumn,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                TreeView::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(path),
-                Option::<TreeViewColumn>::from_glib_borrow(column)
-                    .as_ref()
-                    .as_ref(),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    TreeView::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(path),
+                    Option::<TreeViewColumn>::from_glib_borrow(column)
+                        .as_ref()
+                        .as_ref(),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"row-activated\0".as_ptr() as *const _,
+                c"row-activated".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     row_activated_trampoline::<Self, F> as *const (),
                 )),
@@ -2023,18 +2051,20 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             path: *mut ffi::GtkTreePath,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                TreeView::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(iter),
-                &from_glib_borrow(path),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    TreeView::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(iter),
+                    &from_glib_borrow(path),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"row-collapsed\0".as_ptr() as *const _,
+                c"row-collapsed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     row_collapsed_trampoline::<Self, F> as *const (),
                 )),
@@ -2057,18 +2087,20 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             path: *mut ffi::GtkTreePath,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                TreeView::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(iter),
-                &from_glib_borrow(path),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    TreeView::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(iter),
+                    &from_glib_borrow(path),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"row-expanded\0".as_ptr() as *const _,
+                c"row-expanded".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     row_expanded_trampoline::<Self, F> as *const (),
                 )),
@@ -2086,14 +2118,16 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             this: *mut ffi::GtkTreeView,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(TreeView::from_glib_borrow(this).unsafe_cast_ref()).into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TreeView::from_glib_borrow(this).unsafe_cast_ref()).into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"select-all\0".as_ptr() as *const _,
+                c"select-all".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     select_all_trampoline::<Self, F> as *const (),
                 )),
@@ -2118,14 +2152,16 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             this: *mut ffi::GtkTreeView,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(TreeView::from_glib_borrow(this).unsafe_cast_ref()).into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TreeView::from_glib_borrow(this).unsafe_cast_ref()).into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"select-cursor-parent\0".as_ptr() as *const _,
+                c"select-cursor-parent".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     select_cursor_parent_trampoline::<Self, F> as *const (),
                 )),
@@ -2151,18 +2187,20 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             object: glib::ffi::gboolean,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(
-                TreeView::from_glib_borrow(this).unsafe_cast_ref(),
-                from_glib(object),
-            )
-            .into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    TreeView::from_glib_borrow(this).unsafe_cast_ref(),
+                    from_glib(object),
+                )
+                .into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"select-cursor-row\0".as_ptr() as *const _,
+                c"select-cursor-row".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     select_cursor_row_trampoline::<Self, F> as *const (),
                 )),
@@ -2187,14 +2225,16 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             this: *mut ffi::GtkTreeView,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(TreeView::from_glib_borrow(this).unsafe_cast_ref()).into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TreeView::from_glib_borrow(this).unsafe_cast_ref()).into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"start-interactive-search\0".as_ptr() as *const _,
+                c"start-interactive-search".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     start_interactive_search_trampoline::<Self, F> as *const (),
                 )),
@@ -2223,19 +2263,21 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             path: *mut ffi::GtkTreePath,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(
-                TreeView::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(iter),
-                &from_glib_borrow(path),
-            )
-            .into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    TreeView::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(iter),
+                    &from_glib_borrow(path),
+                )
+                .into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"test-collapse-row\0".as_ptr() as *const _,
+                c"test-collapse-row".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     test_collapse_row_trampoline::<Self, F> as *const (),
                 )),
@@ -2260,19 +2302,21 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             path: *mut ffi::GtkTreePath,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(
-                TreeView::from_glib_borrow(this).unsafe_cast_ref(),
-                &from_glib_borrow(iter),
-                &from_glib_borrow(path),
-            )
-            .into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    TreeView::from_glib_borrow(this).unsafe_cast_ref(),
+                    &from_glib_borrow(iter),
+                    &from_glib_borrow(path),
+                )
+                .into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"test-expand-row\0".as_ptr() as *const _,
+                c"test-expand-row".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     test_expand_row_trampoline::<Self, F> as *const (),
                 )),
@@ -2290,14 +2334,16 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             this: *mut ffi::GtkTreeView,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(TreeView::from_glib_borrow(this).unsafe_cast_ref()).into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TreeView::from_glib_borrow(this).unsafe_cast_ref()).into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"toggle-cursor-row\0".as_ptr() as *const _,
+                c"toggle-cursor-row".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     toggle_cursor_row_trampoline::<Self, F> as *const (),
                 )),
@@ -2319,14 +2365,16 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             this: *mut ffi::GtkTreeView,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(TreeView::from_glib_borrow(this).unsafe_cast_ref()).into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TreeView::from_glib_borrow(this).unsafe_cast_ref()).into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"unselect-all\0".as_ptr() as *const _,
+                c"unselect-all".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     unselect_all_trampoline::<Self, F> as *const (),
                 )),
@@ -2352,14 +2400,16 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::activate-on-single-click\0".as_ptr() as *const _,
+                c"notify::activate-on-single-click".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_activate_on_single_click_trampoline::<Self, F> as *const (),
                 )),
@@ -2378,14 +2428,16 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-grid-lines\0".as_ptr() as *const _,
+                c"notify::enable-grid-lines".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_grid_lines_trampoline::<Self, F> as *const (),
                 )),
@@ -2404,14 +2456,16 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-search\0".as_ptr() as *const _,
+                c"notify::enable-search".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_search_trampoline::<Self, F> as *const (),
                 )),
@@ -2430,14 +2484,16 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::enable-tree-lines\0".as_ptr() as *const _,
+                c"notify::enable-tree-lines".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_enable_tree_lines_trampoline::<Self, F> as *const (),
                 )),
@@ -2456,14 +2512,16 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::expander-column\0".as_ptr() as *const _,
+                c"notify::expander-column".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_expander_column_trampoline::<Self, F> as *const (),
                 )),
@@ -2482,14 +2540,16 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::fixed-height-mode\0".as_ptr() as *const _,
+                c"notify::fixed-height-mode".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_fixed_height_mode_trampoline::<Self, F> as *const (),
                 )),
@@ -2508,14 +2568,16 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::headers-clickable\0".as_ptr() as *const _,
+                c"notify::headers-clickable".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_headers_clickable_trampoline::<Self, F> as *const (),
                 )),
@@ -2534,14 +2596,16 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::headers-visible\0".as_ptr() as *const _,
+                c"notify::headers-visible".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_headers_visible_trampoline::<Self, F> as *const (),
                 )),
@@ -2560,14 +2624,16 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::hover-expand\0".as_ptr() as *const _,
+                c"notify::hover-expand".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_hover_expand_trampoline::<Self, F> as *const (),
                 )),
@@ -2586,14 +2652,16 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::hover-selection\0".as_ptr() as *const _,
+                c"notify::hover-selection".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_hover_selection_trampoline::<Self, F> as *const (),
                 )),
@@ -2612,14 +2680,16 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::level-indentation\0".as_ptr() as *const _,
+                c"notify::level-indentation".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_level_indentation_trampoline::<Self, F> as *const (),
                 )),
@@ -2635,14 +2705,16 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::model\0".as_ptr() as *const _,
+                c"notify::model".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_model_trampoline::<Self, F> as *const (),
                 )),
@@ -2661,14 +2733,16 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::reorderable\0".as_ptr() as *const _,
+                c"notify::reorderable".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_reorderable_trampoline::<Self, F> as *const (),
                 )),
@@ -2687,14 +2761,16 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::rubber-banding\0".as_ptr() as *const _,
+                c"notify::rubber-banding".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_rubber_banding_trampoline::<Self, F> as *const (),
                 )),
@@ -2713,14 +2789,16 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::search-column\0".as_ptr() as *const _,
+                c"notify::search-column".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_search_column_trampoline::<Self, F> as *const (),
                 )),
@@ -2739,14 +2817,16 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::show-expanders\0".as_ptr() as *const _,
+                c"notify::show-expanders".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_show_expanders_trampoline::<Self, F> as *const (),
                 )),
@@ -2765,14 +2845,16 @@ pub trait TreeViewExt: IsA<TreeView> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TreeView::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::tooltip-column\0".as_ptr() as *const _,
+                c"notify::tooltip-column".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_tooltip_column_trampoline::<Self, F> as *const (),
                 )),

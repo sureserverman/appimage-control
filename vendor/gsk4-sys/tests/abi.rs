@@ -244,6 +244,13 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "GskIsolation",
+        Layout {
+            size: size_of::<GskIsolation>(),
+            alignment: align_of::<GskIsolation>(),
+        },
+    ),
+    (
         "GskLineCap",
         Layout {
             size: size_of::<GskLineCap>(),
@@ -286,6 +293,13 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "GskPathIntersection",
+        Layout {
+            size: size_of::<GskPathIntersection>(),
+            alignment: align_of::<GskPathIntersection>(),
+        },
+    ),
+    (
         "GskPathOperation",
         Layout {
             size: size_of::<GskPathOperation>(),
@@ -297,6 +311,13 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         Layout {
             size: size_of::<GskPathPoint>(),
             alignment: align_of::<GskPathPoint>(),
+        },
+    ),
+    (
+        "GskPorterDuff",
+        Layout {
+            size: size_of::<GskPorterDuff>(),
+            alignment: align_of::<GskPorterDuff>(),
         },
     ),
     (
@@ -344,6 +365,7 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
 ];
 
 const RUST_CONSTANTS: &[(&str, &str)] = &[
+    ("(gint) GSK_ARITHMETIC_NODE", "37"),
     ("(gint) GSK_BLEND_MODE_COLOR", "12"),
     ("(gint) GSK_BLEND_MODE_COLOR_BURN", "7"),
     ("(gint) GSK_BLEND_MODE_COLOR_DODGE", "6"),
@@ -367,14 +389,18 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) GSK_CLIP_NODE", "17"),
     ("(gint) GSK_COLOR_MATRIX_NODE", "15"),
     ("(gint) GSK_COLOR_NODE", "3"),
+    ("(gint) GSK_COMPONENT_TRANSFER_NODE", "31"),
+    ("(gint) GSK_COMPOSITE_NODE", "34"),
     ("(gint) GSK_CONIC_GRADIENT_NODE", "8"),
     ("(gint) GSK_CONTAINER_NODE", "1"),
+    ("(gint) GSK_COPY_NODE", "32"),
     ("(gint) GSK_CORNER_BOTTOM_LEFT", "3"),
     ("(gint) GSK_CORNER_BOTTOM_RIGHT", "2"),
     ("(gint) GSK_CORNER_TOP_LEFT", "0"),
     ("(gint) GSK_CORNER_TOP_RIGHT", "1"),
     ("(gint) GSK_CROSS_FADE_NODE", "21"),
     ("(gint) GSK_DEBUG_NODE", "24"),
+    ("(gint) GSK_DISPLACEMENT_NODE", "36"),
     ("(gint) GSK_FILL_NODE", "28"),
     ("(gint) GSK_FILL_RULE_EVEN_ODD", "1"),
     ("(gint) GSK_FILL_RULE_WINDING", "0"),
@@ -388,6 +414,11 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) GSK_GL_UNIFORM_TYPE_VEC3", "6"),
     ("(gint) GSK_GL_UNIFORM_TYPE_VEC4", "7"),
     ("(gint) GSK_INSET_SHADOW_NODE", "11"),
+    ("(guint) GSK_ISOLATION_ALL", "4294967295"),
+    ("(guint) GSK_ISOLATION_BACKGROUND", "1"),
+    ("(guint) GSK_ISOLATION_COPY_PASTE", "2"),
+    ("(gint) GSK_ISOLATION_NODE", "35"),
+    ("(guint) GSK_ISOLATION_NONE", "0"),
     ("(gint) GSK_LINEAR_GRADIENT_NODE", "4"),
     ("(gint) GSK_LINE_CAP_BUTT", "0"),
     ("(gint) GSK_LINE_CAP_ROUND", "1"),
@@ -403,6 +434,7 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) GSK_NOT_A_RENDER_NODE", "0"),
     ("(gint) GSK_OPACITY_NODE", "14"),
     ("(gint) GSK_OUTSET_SHADOW_NODE", "12"),
+    ("(gint) GSK_PASTE_NODE", "33"),
     ("(gint) GSK_PATH_CLOSE", "1"),
     ("(gint) GSK_PATH_CONIC", "5"),
     ("(gint) GSK_PATH_CUBIC", "4"),
@@ -412,11 +444,27 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(guint) GSK_PATH_FOREACH_ALLOW_QUAD", "1"),
     ("(gint) GSK_PATH_FROM_END", "3"),
     ("(gint) GSK_PATH_FROM_START", "0"),
+    ("(gint) GSK_PATH_INTERSECTION_END", "3"),
+    ("(gint) GSK_PATH_INTERSECTION_NONE", "0"),
+    ("(gint) GSK_PATH_INTERSECTION_NORMAL", "1"),
+    ("(gint) GSK_PATH_INTERSECTION_START", "2"),
     ("(gint) GSK_PATH_LINE", "2"),
     ("(gint) GSK_PATH_MOVE", "0"),
     ("(gint) GSK_PATH_QUAD", "3"),
     ("(gint) GSK_PATH_TO_END", "2"),
     ("(gint) GSK_PATH_TO_START", "1"),
+    ("(gint) GSK_PORTER_DUFF_CLEAR", "11"),
+    ("(gint) GSK_PORTER_DUFF_DEST", "1"),
+    ("(gint) GSK_PORTER_DUFF_DEST_ATOP_SOURCE", "9"),
+    ("(gint) GSK_PORTER_DUFF_DEST_IN_SOURCE", "5"),
+    ("(gint) GSK_PORTER_DUFF_DEST_OUT_SOURCE", "7"),
+    ("(gint) GSK_PORTER_DUFF_DEST_OVER_SOURCE", "3"),
+    ("(gint) GSK_PORTER_DUFF_SOURCE", "0"),
+    ("(gint) GSK_PORTER_DUFF_SOURCE_ATOP_DEST", "8"),
+    ("(gint) GSK_PORTER_DUFF_SOURCE_IN_DEST", "4"),
+    ("(gint) GSK_PORTER_DUFF_SOURCE_OUT_DEST", "6"),
+    ("(gint) GSK_PORTER_DUFF_SOURCE_OVER_DEST", "2"),
+    ("(gint) GSK_PORTER_DUFF_XOR", "10"),
     ("(gint) GSK_RADIAL_GRADIENT_NODE", "6"),
     ("(gint) GSK_REPEATING_LINEAR_GRADIENT_NODE", "5"),
     ("(gint) GSK_REPEATING_RADIAL_GRADIENT_NODE", "7"),

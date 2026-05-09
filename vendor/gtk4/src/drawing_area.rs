@@ -4,17 +4,12 @@ use std::{cell::RefCell, ptr};
 
 use glib::translate::*;
 
-use crate::{ffi, prelude::*, DrawingArea};
-
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::DrawingArea>> Sealed for T {}
-}
+use crate::{DrawingArea, ffi, prelude::*};
 
 // rustdoc-stripper-ignore-next
 /// Trait containing manually implemented methods of
 /// [`DrawingArea`](crate::DrawingArea).
-pub trait DrawingAreaExtManual: sealed::Sealed + IsA<DrawingArea> + 'static {
+pub trait DrawingAreaExtManual: IsA<DrawingArea> + 'static {
     #[doc(alias = "gtk_drawing_area_set_draw_func")]
     #[doc(alias = "set_draw_func")]
     fn unset_draw_func(&self) {
@@ -42,10 +37,12 @@ pub trait DrawingAreaExtManual: sealed::Sealed + IsA<DrawingArea> + 'static {
             height: libc::c_int,
             user_data: glib::ffi::gpointer,
         ) {
-            let drawing_area = from_glib_borrow(drawing_area);
-            let cr = from_glib_borrow(cr);
-            let callback: &RefCell<P> = &*(user_data as *mut _);
-            (callback.borrow_mut())(&drawing_area, &cr, width, height);
+            unsafe {
+                let drawing_area = from_glib_borrow(drawing_area);
+                let cr = from_glib_borrow(cr);
+                let callback: &RefCell<P> = &*(user_data as *mut _);
+                (callback.borrow_mut())(&drawing_area, &cr, width, height);
+            }
         }
 
         unsafe extern "C" fn destroy_func<
@@ -53,7 +50,9 @@ pub trait DrawingAreaExtManual: sealed::Sealed + IsA<DrawingArea> + 'static {
         >(
             data: glib::ffi::gpointer,
         ) {
-            let _callback: Box<RefCell<P>> = Box::from_raw(data as *mut _);
+            unsafe {
+                let _callback: Box<RefCell<P>> = Box::from_raw(data as *mut _);
+            }
         }
 
         let callback: Box<RefCell<P>> = Box::new(RefCell::new(draw_func));

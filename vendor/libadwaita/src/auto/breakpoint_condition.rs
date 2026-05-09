@@ -3,7 +3,7 @@
 // from gir-files (https://github.com/gtk-rs/gir-files.git)
 // DO NOT EDIT
 
-use crate::{ffi, BreakpointConditionLengthType, BreakpointConditionRatioType, LengthUnit};
+use crate::{BreakpointConditionLengthType, BreakpointConditionRatioType, LengthUnit, ffi};
 use glib::translate::*;
 
 glib::wrapper! {

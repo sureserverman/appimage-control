@@ -5,11 +5,11 @@
 #[cfg(feature = "v2_82")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v2_82")))]
 use crate::SettingsBindFlags;
-use crate::{ffi, Action, SettingsBackend, SettingsSchema};
+use crate::{Action, SettingsBackend, SettingsSchema, ffi};
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -99,12 +99,7 @@ impl Settings {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::Settings>> Sealed for T {}
-}
-
-pub trait SettingsExt: IsA<Settings> + sealed::Sealed + 'static {
+pub trait SettingsExt: IsA<Settings> + 'static {
     #[doc(alias = "g_settings_apply")]
     fn apply(&self) {
         unsafe {
@@ -521,21 +516,23 @@ pub trait SettingsExt: IsA<Settings> + sealed::Sealed + 'static {
             key: *mut std::ffi::c_char,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                Settings::from_glib_borrow(this).unsafe_cast_ref(),
-                &glib::GString::from_glib_borrow(key),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    Settings::from_glib_borrow(this).unsafe_cast_ref(),
+                    &glib::GString::from_glib_borrow(key),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             let detailed_signal_name = detail.map(|name| format!("changed::{name}\0"));
-            let signal_name: &[u8] = detailed_signal_name
-                .as_ref()
-                .map_or(&b"changed\0"[..], |n| n.as_bytes());
+            let signal_name = detailed_signal_name.as_ref().map_or(c"changed", |n| {
+                std::ffi::CStr::from_bytes_with_nul_unchecked(n.as_bytes())
+            });
             connect_raw(
                 self.as_ptr() as *mut _,
-                signal_name.as_ptr() as *const _,
+                signal_name.as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     changed_trampoline::<Self, F> as *const (),
                 )),
@@ -557,14 +554,16 @@ pub trait SettingsExt: IsA<Settings> + sealed::Sealed + 'static {
             key: std::ffi::c_uint,
             f: glib::ffi::gpointer,
         ) -> glib::ffi::gboolean {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref(), key).into_glib()
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Settings::from_glib_borrow(this).unsafe_cast_ref(), key).into_glib()
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"writable-change-event\0".as_ptr() as *const _,
+                c"writable-change-event".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     writable_change_event_trampoline::<Self, F> as *const (),
                 )),
@@ -587,21 +586,25 @@ pub trait SettingsExt: IsA<Settings> + sealed::Sealed + 'static {
             key: *mut std::ffi::c_char,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                Settings::from_glib_borrow(this).unsafe_cast_ref(),
-                &glib::GString::from_glib_borrow(key),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    Settings::from_glib_borrow(this).unsafe_cast_ref(),
+                    &glib::GString::from_glib_borrow(key),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             let detailed_signal_name = detail.map(|name| format!("writable-changed::{name}\0"));
-            let signal_name: &[u8] = detailed_signal_name
+            let signal_name = detailed_signal_name
                 .as_ref()
-                .map_or(&b"writable-changed\0"[..], |n| n.as_bytes());
+                .map_or(c"writable-changed", |n| {
+                    std::ffi::CStr::from_bytes_with_nul_unchecked(n.as_bytes())
+                });
             connect_raw(
                 self.as_ptr() as *mut _,
-                signal_name.as_ptr() as *const _,
+                signal_name.as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     writable_changed_trampoline::<Self, F> as *const (),
                 )),
@@ -620,14 +623,16 @@ pub trait SettingsExt: IsA<Settings> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Settings::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::delay-apply\0".as_ptr() as *const _,
+                c"notify::delay-apply".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_delay_apply_trampoline::<Self, F> as *const (),
                 )),
@@ -646,14 +651,16 @@ pub trait SettingsExt: IsA<Settings> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(Settings::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(Settings::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::has-unapplied\0".as_ptr() as *const _,
+                c"notify::has-unapplied".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_has_unapplied_trampoline::<Self, F> as *const (),
                 )),

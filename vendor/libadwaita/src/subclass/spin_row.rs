@@ -1,8 +1,8 @@
 use glib::prelude::*;
 use glib::subclass::prelude::*;
 
-use crate::subclass::prelude::ActionRowImpl;
 use crate::SpinRow;
+use crate::subclass::prelude::ActionRowImpl;
 
 pub trait SpinRowImpl: ActionRowImpl + ObjectSubclass<Type: IsA<SpinRow>> {}
 

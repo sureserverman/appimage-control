@@ -20,7 +20,9 @@ generate = [
     "Gsk.ClipNode",
     "Gsk.ColorMatrixNode",
     "Gsk.ColorNode",
+    "Gsk.ComponentTransfer",
     "Gsk.ConicGradientNode",
+    "Gsk.CopyNode",
     "Gsk.Corner",
     "Gsk.CrossFadeNode",
     "Gsk.DebugNode",
@@ -29,6 +31,8 @@ generate = [
     "Gsk.GLRenderer",
     "Gsk.GLUniformType",
     "Gsk.InsetShadowNode",
+    "Gsk.Isolation",
+    "Gsk.IsolationNode",
     "Gsk.LinearGradientNode",
     "Gsk.LineCap",
     "Gsk.LineJoin",
@@ -36,12 +40,20 @@ generate = [
     "Gsk.MaskNode",
     "Gsk.OpacityNode",
     "Gsk.OutsetShadowNode",
+    "Gsk.PasteNode",
     "Gsk.PathDirection",
     "Gsk.PathForeachFlags",
+    "Gsk.PathIntersection",
     "Gsk.PathMeasure",
     "Gsk.PathOperation",
+    "Gsk.PorterDuff",
     "Gsk.RadialGradientNode",
     "Gsk.RenderNodeType",
+    "Gsk.RenderReplay",
+    "Gsk.RenderReplayFontFilter",
+    "Gsk.RenderReplayNodeFilter",
+    "Gsk.RenderReplayNodeForeach",
+    "Gsk.RenderReplayTextureFilter",
     "Gsk.RepeatingLinearGradientNode",
     "Gsk.RepeatingRadialGradientNode",
     "Gsk.RepeatNode",
@@ -49,6 +61,7 @@ generate = [
     "Gsk.ScalingFilter",
     "Gsk.SerializationError",
     "Gsk.StrokeNode",
+    "Gsk.SubsurfaceNode",
     "Gsk.TextureNode",
     "Gsk.TextureScaleNode",
     "Gsk.TransformCategory",
@@ -60,6 +73,7 @@ manual = [
     "cairo.Path",
     "cairo.Region",
     "cairo.Surface",
+    "Gdk.ColorChannel",
     "Gdk.Display",
     "Gdk.RGBA",
     "Gdk.Surface",
@@ -117,6 +131,24 @@ status = "manual"
 boxed_inline = true
 
 [[object]]
+name = "Gsk.ComponentTransferNode"
+status = "generate"
+# See https://gitlab.gnome.org/GNOME/gtk/-/merge_requests/8880
+version = "4.20"
+
+    [[object.function]]
+    name = "get_transfer"
+    # Changed the parameter type in 4.22 from an i32 to a GDK
+    # enum that was only added in 4.22
+    version = "4.22"
+
+[[object]]
+status = "generate"
+name = "Gsk.CompositeNode"
+# See https://gitlab.gnome.org/GNOME/gtk/-/merge_requests/9197
+version = "4.22"
+
+[[object]]
 name = "Gsk.ContainerNode"
 status = "generate"
     [[object.function]]
@@ -157,6 +189,8 @@ status = "generate"
 [[object]]
 name = "Gsk.Path"
 status = "generate"
+    [[object.derive]]
+    name = "Debug"
     [[object.function]]
     name = "to_cairo"
         [[object.function.parameter]]
@@ -171,6 +205,9 @@ status = "generate"
     ignore = true # to_str exists
     [[object.function]]
     name = "foreach"
+    manual = true # tries to call from_glib_borrow on an enum
+    [[object.function]]
+    name = "foreach_intersection"
     manual = true # tries to call from_glib_borrow on an enum
 
 [[object]]
@@ -274,7 +311,7 @@ status = "generate"
             name = "second"
             nullable = false
     [[object.function]]
-    pattern = "(translate_3d|translate|transform|skew|scale_3d|scale|rotate_3d|rotate|invert)"
+    pattern = "(translate_3d|translate|transform|skew|scale_3d|scale|rotate_3d|rotate|invert|matrix_2d)"
     manual = true # those functions return NULL in C which represents an identity transform
     [[object.function]]
     name = "print"

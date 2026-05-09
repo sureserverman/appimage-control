@@ -1,23 +1,19 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 // rustdoc-stripper-ignore-next
-//! Traits intended for subclassing [`DrawingA£rea`](crate::DrawingA£rea).
+//! Traits intended for subclassing [`DrawingArea`].
 
 use glib::translate::*;
 
-use crate::{ffi, prelude::*, subclass::prelude::*, DrawingArea};
+use crate::{DrawingArea, ffi, prelude::*, subclass::prelude::*};
 
-pub trait DrawingAreaImpl: DrawingAreaImplExt + WidgetImpl {
+pub trait DrawingAreaImpl: WidgetImpl + ObjectSubclass<Type: IsA<DrawingArea>> {
     fn resize(&self, width: i32, height: i32) {
         self.parent_resize(width, height)
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::DrawingAreaImplExt> Sealed for T {}
-}
-pub trait DrawingAreaImplExt: sealed::Sealed + ObjectSubclass {
+pub trait DrawingAreaImplExt: DrawingAreaImpl {
     fn parent_resize(&self, width: i32, height: i32) {
         unsafe {
             let data = Self::type_data();
@@ -49,8 +45,10 @@ unsafe extern "C" fn drawing_area_resize<T: DrawingAreaImpl>(
     width: i32,
     height: i32,
 ) {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.resize(width, height)
+        imp.resize(width, height)
+    }
 }

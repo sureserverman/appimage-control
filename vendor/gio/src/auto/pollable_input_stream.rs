@@ -2,7 +2,7 @@
 // from gir-files (https://github.com/gtk-rs/gir-files)
 // DO NOT EDIT
 
-use crate::{ffi, InputStream};
+use crate::{InputStream, ffi};
 use glib::{prelude::*, translate::*};
 
 glib::wrapper! {
@@ -18,12 +18,7 @@ impl PollableInputStream {
     pub const NONE: Option<&'static PollableInputStream> = None;
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::PollableInputStream>> Sealed for T {}
-}
-
-pub trait PollableInputStreamExt: IsA<PollableInputStream> + sealed::Sealed + 'static {
+pub trait PollableInputStreamExt: IsA<PollableInputStream> + 'static {
     #[doc(alias = "g_pollable_input_stream_can_poll")]
     fn can_poll(&self) -> bool {
         unsafe {

@@ -11,7 +11,7 @@ workspace = true
 workspace = true
 
 [target."cfg(windows)".dependencies.windows-sys]
-version = ">=0.52, <=0.59"
+version = ">=0.52, <=0.61"
 features = ["Win32_Networking_WinSock"]
 
 [dev-dependencies]
@@ -34,6 +34,7 @@ v2_80 = ["v2_78"]
 v2_82 = ["v2_80"]
 v2_84 = ["v2_82"]
 v2_86 = ["v2_84"]
+v2_88 = ["v2_86"]
 
 [lib]
 name = "gio_sys"
@@ -115,9 +116,11 @@ version = "2.82"
 version = "2.84"
 
 [package.metadata.system-deps.gio_2_0.v2_86]
-version = "2.85"
+version = "2.86"
+
+[package.metadata.system-deps.gio_2_0.v2_88]
+version = "2.87"
 
 [package.metadata.docs.rs]
-rustc-args = ["--cfg", "docsrs"]
-rustdoc-args = ["--cfg", "docsrs", "--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition"]
 all-features = true

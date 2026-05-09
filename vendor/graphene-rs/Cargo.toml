@@ -10,10 +10,10 @@
 # See Cargo.toml.orig for the original contents.
 
 [package]
-edition = "2021"
-rust-version = "1.70"
+edition = "2024"
+rust-version = "1.92"
 name = "graphene-rs"
-version = "0.20.10"
+version = "0.22.0"
 authors = ["The gtk-rs Project Developers"]
 build = false
 exclude = ["gir-files/*"]
@@ -38,17 +38,10 @@ repository = "https://github.com/gtk-rs/gtk-rs-core"
 
 [package.metadata.docs.rs]
 all-features = true
-rustc-args = [
-    "--cfg",
-    "docsrs",
-]
-rustdoc-args = [
-    "--cfg",
-    "docsrs",
-    "--generate-link-to-definition",
-]
+rustdoc-args = ["--generate-link-to-definition"]
 
 [features]
+v1_12 = ["graphene-sys/v1_12"]
 
 [lib]
 name = "graphene"
@@ -59,10 +52,11 @@ name = "check_gir"
 path = "tests/check_gir.rs"
 
 [dependencies.glib]
-version = "0.20.3"
+version = "0.22.0"
+default-features = false
 
 [dependencies.graphene-sys]
-version = "0.20"
+version = "0.22.0"
 
 [dependencies.libc]
 version = "0.2"

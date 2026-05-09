@@ -1,14 +1,13 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 // rustdoc-stripper-ignore-next
-//! Traits intended for implementing the
-//! [`ShortcutManager`](crate::ShortcutManager) interface.
+//! Traits intended for implementing the [`ShortcutManager`] interface.
 
 use glib::translate::*;
 
-use crate::{ffi, prelude::*, subclass::prelude::*, ShortcutController, ShortcutManager};
+use crate::{ShortcutController, ShortcutManager, ffi, prelude::*, subclass::prelude::*};
 
-pub trait ShortcutManagerImpl: ObjectImpl {
+pub trait ShortcutManagerImpl: ObjectImpl + ObjectSubclass<Type: IsA<ShortcutManager>> {
     fn add_controller(&self, controller: &ShortcutController) {
         self.parent_add_controller(controller);
     }
@@ -18,12 +17,7 @@ pub trait ShortcutManagerImpl: ObjectImpl {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::ShortcutManagerImplExt> Sealed for T {}
-}
-
-pub trait ShortcutManagerImplExt: sealed::Sealed + ObjectSubclass {
+pub trait ShortcutManagerImplExt: ShortcutManagerImpl {
     fn parent_add_controller(&self, controller: &ShortcutController) {
         unsafe {
             let type_data = Self::type_data();
@@ -82,18 +76,22 @@ unsafe extern "C" fn shortcut_manager_add_controller<T: ShortcutManagerImpl>(
     shortcut_manager: *mut ffi::GtkShortcutManager,
     controller: *mut ffi::GtkShortcutController,
 ) {
-    let instance = &*(shortcut_manager as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(shortcut_manager as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.add_controller(&ShortcutController::from_glib_borrow(controller))
+        imp.add_controller(&ShortcutController::from_glib_borrow(controller))
+    }
 }
 
 unsafe extern "C" fn shortcut_manager_remove_controller<T: ShortcutManagerImpl>(
     shortcut_manager: *mut ffi::GtkShortcutManager,
     controller: *mut ffi::GtkShortcutController,
 ) {
-    let instance = &*(shortcut_manager as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(shortcut_manager as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.remove_controller(&ShortcutController::from_glib_borrow(controller))
+        imp.remove_controller(&ShortcutController::from_glib_borrow(controller))
+    }
 }

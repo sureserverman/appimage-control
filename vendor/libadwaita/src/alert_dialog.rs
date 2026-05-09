@@ -1,18 +1,13 @@
 use glib::object::IsA;
 use glib::translate::*;
 
-use crate::prelude::*;
 use crate::AlertDialog;
+use crate::prelude::*;
 
 use std::boxed::Box as Box_;
 use std::pin::Pin;
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::AlertDialog>> Sealed for T {}
-}
-
-pub trait AlertDialogExtManual: sealed::Sealed + IsA<AlertDialog> + 'static {
+pub trait AlertDialogExtManual: IsA<AlertDialog> + 'static {
     #[doc(alias = "adw_alert_dialog_get_response_label")]
     #[doc(alias = "get_response_label")]
     fn response_label(&self, response: &str) -> glib::GString {
@@ -36,7 +31,7 @@ pub trait AlertDialogExtManual: sealed::Sealed + IsA<AlertDialog> + 'static {
     #[doc(alias = "adw_alert_dialog_choose")]
     fn choose<P: FnOnce(glib::GString) + 'static>(
         self,
-        parent: &impl IsA<gtk::Widget>,
+        parent: Option<&impl IsA<gtk::Widget>>,
         cancellable: Option<&impl IsA<gio::Cancellable>>,
         callback: P,
     ) {
@@ -57,20 +52,22 @@ pub trait AlertDialogExtManual: sealed::Sealed + IsA<AlertDialog> + 'static {
             res: *mut gio::ffi::GAsyncResult,
             user_data: glib::ffi::gpointer,
         ) {
-            let result = from_glib_none(ffi::adw_alert_dialog_choose_finish(
-                _source_object as *mut _,
-                res,
-            ));
-            let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
-                Box_::from_raw(user_data as *mut _);
-            let callback: P = callback.into_inner();
-            callback(result);
+            unsafe {
+                let result = from_glib_none(ffi::adw_alert_dialog_choose_finish(
+                    _source_object as *mut _,
+                    res,
+                ));
+                let callback: Box_<glib::thread_guard::ThreadGuard<P>> =
+                    Box_::from_raw(user_data as *mut _);
+                let callback: P = callback.into_inner();
+                callback(result);
+            }
         }
         let callback = choose_trampoline::<P>;
         unsafe {
             ffi::adw_alert_dialog_choose(
                 self.upcast().into_glib_ptr(),
-                parent.as_ref().to_glib_none().0,
+                parent.map(|p| p.as_ref()).to_glib_none().0,
                 cancellable.map(|p| p.as_ref()).to_glib_none().0,
                 Some(callback),
                 Box_::into_raw(user_data) as *mut _,
@@ -80,15 +77,19 @@ pub trait AlertDialogExtManual: sealed::Sealed + IsA<AlertDialog> + 'static {
 
     fn choose_future(
         self,
-        parent: &impl IsA<gtk::Widget>,
+        parent: Option<&impl IsA<gtk::Widget>>,
     ) -> Pin<Box_<dyn std::future::Future<Output = glib::GString> + 'static>> {
-        let parent = parent.clone();
+        let parent = parent.map(ToOwned::to_owned);
         Box_::pin(gio::GioFuture::new(
             &self,
             move |obj: &Self, cancellable, send| {
-                obj.clone().choose(&parent, Some(cancellable), move |res| {
-                    send.resolve(res);
-                });
+                obj.clone().choose(
+                    parent.as_ref().map(::std::borrow::Borrow::borrow),
+                    Some(cancellable),
+                    move |res| {
+                        send.resolve(res);
+                    },
+                );
             },
         ))
     }

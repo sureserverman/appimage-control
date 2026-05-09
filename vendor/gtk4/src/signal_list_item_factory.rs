@@ -5,13 +5,13 @@ use std::{boxed::Box as Box_, mem::transmute};
 
 #[cfg(not(feature = "v4_8"))]
 use glib::{
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 
 use crate::SignalListItemFactory;
 #[cfg(not(feature = "v4_8"))]
-use crate::{ffi, prelude::*, ListItem};
+use crate::{ListItem, ffi, prelude::*};
 
 impl SignalListItemFactory {
     #[doc(alias = "bind")]
@@ -22,14 +22,16 @@ impl SignalListItemFactory {
             listitem: *mut ffi::GtkListItem,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this), &from_glib_borrow(listitem))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this), &from_glib_borrow(listitem))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"bind\0".as_ptr() as *const _,
+                c"bind".as_ptr() as *const _,
                 Some(transmute::<*const (), unsafe extern "C" fn()>(
                     bind_trampoline::<F> as *const (),
                 )),
@@ -48,14 +50,16 @@ impl SignalListItemFactory {
             listitem: *mut ffi::GtkListItem,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this), &from_glib_borrow(listitem))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this), &from_glib_borrow(listitem))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"setup\0".as_ptr() as *const _,
+                c"setup".as_ptr() as *const _,
                 Some(transmute::<*const (), unsafe extern "C" fn()>(
                     setup_trampoline::<F> as *const (),
                 )),
@@ -74,14 +78,16 @@ impl SignalListItemFactory {
             listitem: *mut ffi::GtkListItem,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this), &from_glib_borrow(listitem))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this), &from_glib_borrow(listitem))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"teardown\0".as_ptr() as *const _,
+                c"teardown".as_ptr() as *const _,
                 Some(transmute::<*const (), unsafe extern "C" fn()>(
                     teardown_trampoline::<F> as *const (),
                 )),
@@ -100,14 +106,16 @@ impl SignalListItemFactory {
             listitem: *mut ffi::GtkListItem,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this), &from_glib_borrow(listitem))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this), &from_glib_borrow(listitem))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"unbind\0".as_ptr() as *const _,
+                c"unbind".as_ptr() as *const _,
                 Some(transmute::<*const (), unsafe extern "C" fn()>(
                     unbind_trampoline::<F> as *const (),
                 )),

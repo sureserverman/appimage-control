@@ -1,13 +1,15 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 // rustdoc-stripper-ignore-next
-//! Traits intended for subclassing [`CheckButton`](crate::CheckButton).
+//! Traits intended for subclassing [`CheckButton`].
 
 use glib::translate::*;
 
-use crate::{ffi, prelude::*, subclass::prelude::*, CheckButton};
+use crate::{Actionable, CheckButton, ffi, prelude::*, subclass::prelude::*};
 
-pub trait CheckButtonImpl: CheckButtonImplExt + WidgetImpl {
+pub trait CheckButtonImpl:
+    WidgetImpl + ObjectSubclass<Type: IsA<CheckButton> + IsA<Actionable>>
+{
     fn toggled(&self) {
         self.parent_toggled()
     }
@@ -19,12 +21,7 @@ pub trait CheckButtonImpl: CheckButtonImplExt + WidgetImpl {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::CheckButtonImplExt> Sealed for T {}
-}
-
-pub trait CheckButtonImplExt: sealed::Sealed + ObjectSubclass {
+pub trait CheckButtonImplExt: CheckButtonImpl {
     fn parent_toggled(&self) {
         unsafe {
             let data = Self::type_data();
@@ -66,17 +63,21 @@ unsafe impl<T: CheckButtonImpl> IsSubclassable<T> for CheckButton {
 }
 
 unsafe extern "C" fn check_button_toggled<T: CheckButtonImpl>(ptr: *mut ffi::GtkCheckButton) {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.toggled()
+        imp.toggled()
+    }
 }
 
 #[cfg(feature = "v4_2")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v4_2")))]
 unsafe extern "C" fn check_button_activate<T: CheckButtonImpl>(ptr: *mut ffi::GtkCheckButton) {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.activate()
+        imp.activate()
+    }
 }

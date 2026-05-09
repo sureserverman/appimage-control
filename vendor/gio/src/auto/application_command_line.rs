@@ -2,10 +2,10 @@
 // from gir-files (https://github.com/gtk-rs/gir-files)
 // DO NOT EDIT
 
-use crate::{ffi, File, InputStream};
+use crate::{File, InputStream, ffi};
 use glib::{
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -23,14 +23,7 @@ impl ApplicationCommandLine {
     pub const NONE: Option<&'static ApplicationCommandLine> = None;
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::ApplicationCommandLine>> Sealed for T {}
-}
-
-pub trait ApplicationCommandLineExt:
-    IsA<ApplicationCommandLine> + sealed::Sealed + 'static
-{
+pub trait ApplicationCommandLineExt: IsA<ApplicationCommandLine> + 'static {
     #[doc(alias = "g_application_command_line_create_file_for_arg")]
     fn create_file_for_arg(&self, arg: impl AsRef<std::ffi::OsStr>) -> File {
         unsafe {
@@ -84,12 +77,6 @@ pub trait ApplicationCommandLineExt:
                 self.as_ref().to_glib_none().0,
             ))
         }
-    }
-
-    #[doc(alias = "g_application_command_line_get_exit_status")]
-    #[doc(alias = "get_exit_status")]
-    fn exit_status(&self) -> i32 {
-        unsafe { ffi::g_application_command_line_get_exit_status(self.as_ref().to_glib_none().0) }
     }
 
     #[doc(alias = "g_application_command_line_get_is_remote")]
@@ -177,16 +164,6 @@ pub trait ApplicationCommandLineExt:
         }
     }
 
-    #[doc(alias = "g_application_command_line_set_exit_status")]
-    fn set_exit_status(&self, exit_status: i32) {
-        unsafe {
-            ffi::g_application_command_line_set_exit_status(
-                self.as_ref().to_glib_none().0,
-                exit_status,
-            );
-        }
-    }
-
     #[doc(alias = "is-remote")]
     fn connect_is_remote_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
         unsafe extern "C" fn notify_is_remote_trampoline<
@@ -197,14 +174,16 @@ pub trait ApplicationCommandLineExt:
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(ApplicationCommandLine::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(ApplicationCommandLine::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::is-remote\0".as_ptr() as *const _,
+                c"notify::is-remote".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_is_remote_trampoline::<Self, F> as *const (),
                 )),

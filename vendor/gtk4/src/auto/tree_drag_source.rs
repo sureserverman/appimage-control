@@ -3,7 +3,7 @@
 // DO NOT EDIT
 #![allow(deprecated)]
 
-use crate::{ffi, TreePath};
+use crate::{TreePath, ffi};
 use glib::{prelude::*, translate::*};
 
 glib::wrapper! {
@@ -19,12 +19,7 @@ impl TreeDragSource {
     pub const NONE: Option<&'static TreeDragSource> = None;
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::TreeDragSource>> Sealed for T {}
-}
-
-pub trait TreeDragSourceExt: IsA<TreeDragSource> + sealed::Sealed + 'static {
+pub trait TreeDragSourceExt: IsA<TreeDragSource> + 'static {
     #[cfg_attr(feature = "v4_10", deprecated = "Since 4.10")]
     #[allow(deprecated)]
     #[doc(alias = "gtk_tree_drag_source_drag_data_delete")]

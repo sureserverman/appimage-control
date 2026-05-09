@@ -20,6 +20,7 @@ generate = [
     "Pango.CoverageLevel",
     "Pango.Direction",
     "Pango.EllipsizeMode",
+    "Pango.FontColor",
     "Pango.FontFace",
     "Pango.FontMask",
     "Pango.FontMetrics",
@@ -95,11 +96,13 @@ status = "generate"
     ignore = true
     [[object.function]]
     name = "itemize"
+    manual = true
         [[object.function.parameter]]
         name = "cached_iter"
         const = true
     [[object.function]]
     name = "itemize_with_base_dir"
+    manual = true
         [[object.function.parameter]]
         name = "cached_iter"
         const = true

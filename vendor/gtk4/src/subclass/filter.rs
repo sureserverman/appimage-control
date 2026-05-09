@@ -1,13 +1,13 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 // rustdoc-stripper-ignore-next
-//! Traits intended for subclassing [`Filter`](crate::Filter).
+//! Traits intended for subclassing [`Filter`].
 
-use glib::{translate::*, Object};
+use glib::{Object, translate::*};
 
-use crate::{ffi, prelude::*, subclass::prelude::*, Filter, FilterMatch};
+use crate::{Filter, FilterMatch, ffi, prelude::*, subclass::prelude::*};
 
-pub trait FilterImpl: FilterImplExt + ObjectImpl {
+pub trait FilterImpl: ObjectImpl + ObjectSubclass<Type: IsA<Filter>> {
     #[doc(alias = "get_strictness")]
     fn strictness(&self) -> FilterMatch {
         self.parent_strictness()
@@ -17,12 +17,7 @@ pub trait FilterImpl: FilterImplExt + ObjectImpl {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::FilterImplExt> Sealed for T {}
-}
-
-pub trait FilterImplExt: sealed::Sealed + ObjectSubclass {
+pub trait FilterImplExt: FilterImpl {
     fn parent_strictness(&self) -> FilterMatch {
         unsafe {
             let data = Self::type_data();
@@ -66,18 +61,22 @@ unsafe impl<T: FilterImpl> IsSubclassable<T> for Filter {
 unsafe extern "C" fn filter_get_strictness<T: FilterImpl>(
     ptr: *mut ffi::GtkFilter,
 ) -> ffi::GtkFilterMatch {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.strictness().into_glib()
+        imp.strictness().into_glib()
+    }
 }
 
 unsafe extern "C" fn filter_match<T: FilterImpl>(
     ptr: *mut ffi::GtkFilter,
     itemptr: *mut glib::gobject_ffi::GObject,
 ) -> glib::ffi::gboolean {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.match_(&from_glib_borrow(itemptr)).into_glib()
+        imp.match_(&from_glib_borrow(itemptr)).into_glib()
+    }
 }

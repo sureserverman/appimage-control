@@ -1,13 +1,15 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 // rustdoc-stripper-ignore-next
-//! Traits intended for subclassing [`Window`](crate::Window).
+//! Traits intended for subclassing [`Window`].
 
 use glib::translate::*;
 
-use crate::{ffi, prelude::*, subclass::prelude::*, Window};
+use crate::{Native, Root, ShortcutManager, Window, ffi, prelude::*, subclass::prelude::*};
 
-pub trait WindowImpl: WindowImplExt + WidgetImpl {
+pub trait WindowImpl:
+    WidgetImpl + ObjectSubclass<Type: IsA<Window> + IsA<Native> + IsA<Root> + IsA<ShortcutManager>>
+{
     fn activate_focus(&self) {
         self.parent_activate_focus()
     }
@@ -29,12 +31,7 @@ pub trait WindowImpl: WindowImplExt + WidgetImpl {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::WindowImplExt> Sealed for T {}
-}
-
-pub trait WindowImplExt: sealed::Sealed + ObjectSubclass {
+pub trait WindowImplExt: WindowImpl {
     fn parent_activate_focus(&self) {
         unsafe {
             let data = Self::type_data();
@@ -111,42 +108,52 @@ unsafe impl<T: WindowImpl> IsSubclassable<T> for Window {
 }
 
 unsafe extern "C" fn window_activate_focus<T: WindowImpl>(ptr: *mut ffi::GtkWindow) {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.activate_focus()
+        imp.activate_focus()
+    }
 }
 
 unsafe extern "C" fn window_activate_default<T: WindowImpl>(ptr: *mut ffi::GtkWindow) {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.activate_default()
+        imp.activate_default()
+    }
 }
 
 unsafe extern "C" fn window_keys_changed<T: WindowImpl>(ptr: *mut ffi::GtkWindow) {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.keys_changed()
+        imp.keys_changed()
+    }
 }
 
 unsafe extern "C" fn window_enable_debugging<T: WindowImpl>(
     ptr: *mut ffi::GtkWindow,
     toggleptr: glib::ffi::gboolean,
 ) -> glib::ffi::gboolean {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
-    let toggle: bool = from_glib(toggleptr);
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
+        let toggle: bool = from_glib(toggleptr);
 
-    imp.enable_debugging(toggle).into_glib()
+        imp.enable_debugging(toggle).into_glib()
+    }
 }
 
 unsafe extern "C" fn window_close_request<T: WindowImpl>(
     ptr: *mut ffi::GtkWindow,
 ) -> glib::ffi::gboolean {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.close_request().into_glib()
+        imp.close_request().into_glib()
+    }
 }

@@ -3,6 +3,7 @@ mod imp_parent {
 
     #[derive(Default)]
     pub struct TestParent {
+        #[allow(unused)]
         s: String,
     }
 
@@ -19,7 +20,13 @@ glib::wrapper! {
     pub struct TestParent(ObjectSubclass<imp_parent::TestParent>);
 }
 
-pub trait TestParentImpl: glib::subclass::prelude::ObjectImpl + Send + Sync {}
+pub trait TestParentImpl:
+    Send
+    + Sync
+    + glib::subclass::prelude::ObjectImpl
+    + glib::subclass::prelude::ObjectSubclass<Type: glib::prelude::IsA<TestParent>>
+{
+}
 
 unsafe impl<T: TestParentImpl> glib::subclass::prelude::IsSubclassable<T> for TestParent {}
 
@@ -34,6 +41,7 @@ mod imp_object {
 
     #[derive(Default)]
     pub struct TestObject {
+        #[allow(unused)]
         s: String,
     }
 

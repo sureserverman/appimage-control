@@ -1,24 +1,21 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 // rustdoc-stripper-ignore-next
-//! Traits intended for subclassing [`ScaleButton`](crate::ScaleButton).
+//! Traits intended for subclassing [`ScaleButton`].
 
 use glib::translate::*;
 
-use crate::{ffi, prelude::*, subclass::prelude::*, ScaleButton};
+use crate::{Orientable, ScaleButton, ffi, prelude::*, subclass::prelude::*};
 
-pub trait ScaleButtonImpl: ScaleButtonImplExt + WidgetImpl {
+pub trait ScaleButtonImpl:
+    WidgetImpl + ObjectSubclass<Type: IsA<ScaleButton> + IsA<Orientable>>
+{
     fn value_changed(&self, new_value: f64) {
         self.parent_value_changed(new_value)
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::ScaleButtonImplExt> Sealed for T {}
-}
-
-pub trait ScaleButtonImplExt: sealed::Sealed + ObjectSubclass {
+pub trait ScaleButtonImplExt: ScaleButtonImpl {
     fn parent_value_changed(&self, new_value: f64) {
         unsafe {
             let data = Self::type_data();
@@ -48,8 +45,10 @@ unsafe extern "C" fn scale_button_value_changed<T: ScaleButtonImpl>(
     ptr: *mut ffi::GtkScaleButton,
     new_value: f64,
 ) {
-    let instance = &*(ptr as *mut T::Instance);
-    let imp = instance.imp();
+    unsafe {
+        let instance = &*(ptr as *mut T::Instance);
+        let imp = instance.imp();
 
-    imp.value_changed(new_value)
+        imp.value_changed(new_value)
+    }
 }

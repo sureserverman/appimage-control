@@ -3,11 +3,10 @@
 // DO NOT EDIT
 
 use crate::{
-    ffi,
+    Object, ffi,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
-    Object,
 };
 use std::boxed::Box as Box_;
 
@@ -61,14 +60,16 @@ impl BindingGroup {
             _param_spec: ffi::gpointer,
             f: ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::source\0".as_ptr() as *const _,
+                c"notify::source".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_source_trampoline::<F> as *const (),
                 )),

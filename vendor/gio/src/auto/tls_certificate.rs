@@ -5,10 +5,10 @@
 #[cfg(feature = "v2_70")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v2_70")))]
 use crate::InetAddress;
-use crate::{ffi, SocketConnectable, TlsCertificateFlags};
+use crate::{SocketConnectable, TlsCertificateFlags, ffi};
 #[cfg(feature = "v2_70")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v2_70")))]
-use glib::signal::{connect_raw, SignalHandlerId};
+use glib::signal::{SignalHandlerId, connect_raw};
 use glib::{prelude::*, translate::*};
 #[cfg(feature = "v2_70")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v2_70")))]
@@ -165,12 +165,7 @@ impl TlsCertificate {
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-    impl<T: super::IsA<super::TlsCertificate>> Sealed for T {}
-}
-
-pub trait TlsCertificateExt: IsA<TlsCertificate> + sealed::Sealed + 'static {
+pub trait TlsCertificateExt: IsA<TlsCertificate> + 'static {
     #[cfg(feature = "v2_70")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v2_70")))]
     #[doc(alias = "g_tls_certificate_get_dns_names")]
@@ -330,14 +325,16 @@ pub trait TlsCertificateExt: IsA<TlsCertificate> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TlsCertificate::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TlsCertificate::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::dns-names\0".as_ptr() as *const _,
+                c"notify::dns-names".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_dns_names_trampoline::<Self, F> as *const (),
                 )),
@@ -358,14 +355,16 @@ pub trait TlsCertificateExt: IsA<TlsCertificate> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TlsCertificate::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TlsCertificate::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::ip-addresses\0".as_ptr() as *const _,
+                c"notify::ip-addresses".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_ip_addresses_trampoline::<Self, F> as *const (),
                 )),
@@ -386,14 +385,16 @@ pub trait TlsCertificateExt: IsA<TlsCertificate> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TlsCertificate::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TlsCertificate::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::issuer-name\0".as_ptr() as *const _,
+                c"notify::issuer-name".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_issuer_name_trampoline::<Self, F> as *const (),
                 )),
@@ -414,14 +415,16 @@ pub trait TlsCertificateExt: IsA<TlsCertificate> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TlsCertificate::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TlsCertificate::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::not-valid-after\0".as_ptr() as *const _,
+                c"notify::not-valid-after".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_not_valid_after_trampoline::<Self, F> as *const (),
                 )),
@@ -442,14 +445,16 @@ pub trait TlsCertificateExt: IsA<TlsCertificate> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TlsCertificate::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TlsCertificate::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::not-valid-before\0".as_ptr() as *const _,
+                c"notify::not-valid-before".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_not_valid_before_trampoline::<Self, F> as *const (),
                 )),
@@ -470,14 +475,16 @@ pub trait TlsCertificateExt: IsA<TlsCertificate> + sealed::Sealed + 'static {
             _param_spec: glib::ffi::gpointer,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(TlsCertificate::from_glib_borrow(this).unsafe_cast_ref())
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(TlsCertificate::from_glib_borrow(this).unsafe_cast_ref())
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"notify::subject-name\0".as_ptr() as *const _,
+                c"notify::subject-name".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_subject_name_trampoline::<Self, F> as *const (),
                 )),

@@ -3,7 +3,7 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 
-use crate::utils::{crate_ident_new, parse_nested_meta_items, NestedMetaItem};
+use crate::utils::{NestedMetaItem, crate_ident_new, parse_nested_meta_items};
 
 fn gen_option_to_ptr() -> TokenStream {
     quote! {
@@ -241,7 +241,7 @@ pub fn impl_boxed(input: &syn::DeriveInput) -> syn::Result<TokenStream> {
 
         impl #crate_ident::translate::IntoGlibPtr<*mut #name> for #name {
             #[inline]
-            unsafe fn into_glib_ptr(self) -> *mut #name {
+            fn into_glib_ptr(self) -> *mut #name {
                 ::std::boxed::Box::into_raw(::std::boxed::Box::new(self)) as *mut _
             }
         }

@@ -2,11 +2,11 @@
 // from gir-files (https://github.com/gtk-rs/gir-files)
 // DO NOT EDIT
 
-use crate::{ffi, Buildable, TextTag};
+use crate::{Buildable, TextTag, ffi};
 use glib::{
     object::ObjectType as _,
     prelude::*,
-    signal::{connect_raw, SignalHandlerId},
+    signal::{SignalHandlerId, connect_raw},
     translate::*,
 };
 use std::boxed::Box as Box_;
@@ -44,9 +44,11 @@ impl TextTagTable {
             tag: *mut ffi::GtkTextTag,
             data: glib::ffi::gpointer,
         ) {
-            let tag = from_glib_borrow(tag);
-            let callback = data as *mut P;
-            (*callback)(&tag)
+            unsafe {
+                let tag = from_glib_borrow(tag);
+                let callback = data as *mut P;
+                (*callback)(&tag)
+            }
         }
         let func = Some(func_func::<P> as _);
         let super_callback0: &mut P = &mut func_data;
@@ -89,14 +91,16 @@ impl TextTagTable {
             tag: *mut ffi::GtkTextTag,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this), &from_glib_borrow(tag))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this), &from_glib_borrow(tag))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"tag-added\0".as_ptr() as *const _,
+                c"tag-added".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     tag_added_trampoline::<F> as *const (),
                 )),
@@ -118,18 +122,20 @@ impl TextTagTable {
             size_changed: glib::ffi::gboolean,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(
-                &from_glib_borrow(this),
-                &from_glib_borrow(tag),
-                from_glib(size_changed),
-            )
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(
+                    &from_glib_borrow(this),
+                    &from_glib_borrow(tag),
+                    from_glib(size_changed),
+                )
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"tag-changed\0".as_ptr() as *const _,
+                c"tag-changed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     tag_changed_trampoline::<F> as *const (),
                 )),
@@ -145,14 +151,16 @@ impl TextTagTable {
             tag: *mut ffi::GtkTextTag,
             f: glib::ffi::gpointer,
         ) {
-            let f: &F = &*(f as *const F);
-            f(&from_glib_borrow(this), &from_glib_borrow(tag))
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this), &from_glib_borrow(tag))
+            }
         }
         unsafe {
             let f: Box_<F> = Box_::new(f);
             connect_raw(
                 self.as_ptr() as *mut _,
-                b"tag-removed\0".as_ptr() as *const _,
+                c"tag-removed".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     tag_removed_trampoline::<F> as *const (),
                 )),
