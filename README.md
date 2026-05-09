@@ -125,12 +125,12 @@ Treat this as the primary UI guideline for AppImage Control surfaces.
 
 Canonical application ID:
 
-- `io.github.appimagecontrol.AppImageControl`
+- `io.github.sureserverman.AppImageControl`
 
 Canonical desktop/metainfo files:
 
-- `data/io.github.appimagecontrol.AppImageControl.desktop`
-- `data/io.github.appimagecontrol.AppImageControl.metainfo.xml`
+- `data/io.github.sureserverman.AppImageControl.desktop`
+- `data/io.github.sureserverman.AppImageControl.metainfo.xml`
 
 ## Backup/Restore Contract (Stage 0)
 
@@ -161,14 +161,14 @@ Restore policy:
 
 Flatpak manifest and dependency scaffold:
 
-- `flatpak/io.github.appimagecontrol.AppImageControl.yml`
+- `flatpak/io.github.sureserverman.AppImageControl.yml`
 - `flatpak/cargo-sources.json` (populate with generator output before Flathub submission)
 
 Local metadata validation:
 
 ```bash
-desktop-file-validate data/io.github.appimagecontrol.AppImageControl.desktop
-appstreamcli validate data/io.github.appimagecontrol.AppImageControl.metainfo.xml
+desktop-file-validate data/io.github.sureserverman.AppImageControl.desktop
+appstreamcli validate data/io.github.sureserverman.AppImageControl.metainfo.xml
 ```
 
 ## Flathub Publishing (Stage 7)

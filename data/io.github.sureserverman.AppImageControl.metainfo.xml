@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.sureserverman.AppImageControl</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>AppImage Control</name>
+  <summary>Manage AppImage installs, instances, backup and restore</summary>
+  <description>
+    <p>
+      AppImage Control manages catalog-backed AppImage installations with multi-instance
+      support, update checks, migration of legacy portable directories, and deterministic
+      backup/restore of manager-owned state.
+    </p>
+    <p>
+      The application is designed for users who manage multiple AppImage applications and
+      need repeatable instance orchestration, launcher repair, cache control, and safe
+      state migration/restore flows.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.github.sureserverman.AppImageControl.desktop</launchable>
+  <provides>
+    <binary>appimage-control</binary>
+  </provides>
+  <developer id="io.github.sureserverman">
+    <name>AppImage Control Contributors</name>
+  </developer>
+  <url type="homepage">https://github.com/sureserverman/appimage-control</url>
+  <url type="bugtracker">https://github.com/sureserverman/appimage-control/issues</url>
+  <url type="vcs-browser">https://github.com/sureserverman/appimage-control</url>
+  <content_rating type="oars-1.1"/>
+  <screenshots>
+    <screenshot type="default">
+      <caption>AppImage Control catalog window with installed apps</caption>
+      <image>https://raw.githubusercontent.com/sureserverman/appimage-control/main/docs/screenshots/catalog.png</image>
+    </screenshot>
+  </screenshots>
+  <releases>
+    <release version="0.1.0" date="2026-05-09">
+      <description>
+        <p>Initial Flathub submission. GTK 4 / libadwaita catalog manager for AppImage installs with multi-instance support, backup/restore, and migration of legacy portable directories.</p>
+      </description>
+    </release>
+  </releases>
+</component>

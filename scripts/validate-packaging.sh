@@ -13,15 +13,17 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-DESKTOP="data/io.github.appimagecontrol.AppImageControl.desktop"
-METAINFO="data/io.github.appimagecontrol.AppImageControl.metainfo.xml"
-MANIFEST="flatpak/io.github.appimagecontrol.AppImageControl.yml"
+DESKTOP="data/io.github.sureserverman.AppImageControl.desktop"
+METAINFO="data/io.github.sureserverman.AppImageControl.metainfo.xml"
+MANIFEST="flatpak/io.github.sureserverman.AppImageControl.yml"
 
 echo "==> desktop-file-validate $DESKTOP"
 desktop-file-validate "$DESKTOP"
 
 echo "==> appstreamcli validate $METAINFO"
-appstreamcli validate "$METAINFO"
+# --no-net skips URL-reachability checks (repo URL and screenshot may not be live yet pre-Flathub-PR);
+# Flathub's own CI runs reachability at submission time when the repo and assets are public.
+appstreamcli validate --no-net "$METAINFO"
 
 echo "==> flatpak-builder --show-manifest $MANIFEST"
 flatpak-builder --show-manifest "$MANIFEST" >/dev/null

@@ -6,9 +6,9 @@ license.workspace = true
 description = "GTK4 desktop app to manage AppImage installations"
 
 [package.metadata.appimage-control]
-app-id = "io.github.appimagecontrol.AppImageControl"
-desktop-file = "data/io.github.appimagecontrol.AppImageControl.desktop"
-metainfo-file = "data/io.github.appimagecontrol.AppImageControl.metainfo.xml"
+app-id = "io.github.sureserverman.AppImageControl"
+desktop-file = "data/io.github.sureserverman.AppImageControl.desktop"
+metainfo-file = "data/io.github.sureserverman.AppImageControl.metainfo.xml"
 
 [[bin]]
 name = "appimage-control"

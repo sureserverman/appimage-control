@@ -1,0 +1,45 @@
+app-id: io.github.sureserverman.AppImageControl
+runtime: org.gnome.Platform
+runtime-version: "50"
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: appimage-control
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+finish-args:
+  - --share=network
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  - --device=dri
+  - --filesystem=xdg-data/appimages
+  - --filesystem=xdg-data/applications
+  - --filesystem=xdg-data/icons
+modules:
+  - name: appimage-control
+    buildsystem: simple
+    build-commands:
+      - cargo build --release -p appimage-control
+      - install -Dm755 target/release/appimage-control /app/bin/appimage-control-bin
+      - printf '%s\n' '#!/bin/sh' 'export APPIMAGE_CONTROL_CATALOG=/app/share/appimage-control/catalog.json' 'exec /app/bin/appimage-control-bin "$@"' > /app/bin/appimage-control
+      - chmod 755 /app/bin/appimage-control
+      - install -Dm644 data/io.github.sureserverman.AppImageControl.desktop /app/share/applications/io.github.sureserverman.AppImageControl.desktop
+      - install -Dm644 data/io.github.sureserverman.AppImageControl.metainfo.xml /app/share/metainfo/io.github.sureserverman.AppImageControl.metainfo.xml
+      - install -Dm644 data/catalog.json /app/share/appimage-control/catalog.json
+      - install -Dm644 crates/gui/assets/app-icon/io.github.sureserverman.AppImageControl-128.png /app/share/icons/hicolor/128x128/apps/io.github.sureserverman.AppImageControl.png
+      - install -Dm644 crates/gui/assets/app-icon/io.github.sureserverman.AppImageControl-256.png /app/share/icons/hicolor/256x256/apps/io.github.sureserverman.AppImageControl.png
+      - install -Dm644 crates/gui/assets/app-icon/io.github.sureserverman.AppImageControl-512.png /app/share/icons/hicolor/512x512/apps/io.github.sureserverman.AppImageControl.png
+    sources:
+      # Local-dev source. Used for local flatpak-builder runs from this repo.
+      # For Flathub submission, replace this block with the type:git block below
+      # (paired with a real `git tag` push at the matching commit).
+      - type: dir
+        path: ..
+      # Flathub submission source (kept commented for local builds; uncomment and
+      # remove the type:dir block above when preparing the Flathub PR):
+      # - type: git
+      #   url: https://github.com/sureserverman/appimage-control.git
+      #   tag: v0.1.0
+      #   commit: <fill in at tag time>
+

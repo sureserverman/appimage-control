@@ -41,18 +41,18 @@ jobs:
           sudo flatpak install -y flathub org.gnome.Platform//47 org.gnome.Sdk//47 org.freedesktop.Sdk.Extension.rust-stable//24.08
       - name: Validate desktop metadata
         run: |
-          desktop-file-validate data/io.github.appimagecontrol.AppImageControl.desktop
-          appstreamcli validate data/io.github.appimagecontrol.AppImageControl.metainfo.xml
+          desktop-file-validate data/io.github.sureserverman.AppImageControl.desktop
+          appstreamcli validate data/io.github.sureserverman.AppImageControl.metainfo.xml
       - name: Validate Flatpak manifest
         run: |
-          flatpak-builder --show-manifest flatpak/io.github.appimagecontrol.AppImageControl.yml >/dev/null
+          flatpak-builder --show-manifest flatpak/io.github.sureserverman.AppImageControl.yml >/dev/null
       - name: Build Flatpak bundle
         run: |
-          flatpak-builder --force-clean build-flatpak flatpak/io.github.appimagecontrol.AppImageControl.yml
+          flatpak-builder --force-clean build-flatpak flatpak/io.github.sureserverman.AppImageControl.yml
       - name: Run Flatpak smoke test
         run: |
-          flatpak-builder --run build-flatpak flatpak/io.github.appimagecontrol.AppImageControl.yml appimage-control --help >/dev/null
-          flatpak-builder --run build-flatpak flatpak/io.github.appimagecontrol.AppImageControl.yml sh -lc '
+          flatpak-builder --run build-flatpak flatpak/io.github.sureserverman.AppImageControl.yml appimage-control --help >/dev/null
+          flatpak-builder --run build-flatpak flatpak/io.github.sureserverman.AppImageControl.yml sh -lc '
             set -eux
             export HOME=/tmp/aic-ci-smoke
             export XDG_DATA_HOME=$HOME/.local/share

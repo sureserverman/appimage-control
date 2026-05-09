@@ -39,7 +39,7 @@ use gtk::{
     Orientation, ProgressBar, ScrolledWindow, SpinButton,
 };
 
-const APP_ID: &str = "io.github.appimagecontrol.AppImageControl";
+const APP_ID: &str = "io.github.sureserverman.AppImageControl";
 const THEME_CSS: &str = include_str!("theme.css");
 
 struct RowHandles {
