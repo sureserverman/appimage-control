@@ -27,7 +27,9 @@ fn backup_skips_unmanaged_desktop_files() {
     let paths = AppPaths::new(tmp.path().to_path_buf()).expect("paths");
     fs::create_dir_all(paths.manager_data_dir().join("apps/session/1")).expect("mkdir");
     fs::write(
-        paths.manager_data_dir().join("apps/session/1/session.AppImage"),
+        paths
+            .manager_data_dir()
+            .join("apps/session/1/session.AppImage"),
         b"binary",
     )
     .expect("write appimage");
@@ -47,7 +49,9 @@ fn backup_skips_unmanaged_desktop_files() {
         let e = e.expect("entry");
         names.push(e.path().expect("path").to_string_lossy().to_string());
     }
-    assert!(names.iter().any(|n| n.ends_with("appimage-control-session-1.desktop")));
+    assert!(names
+        .iter()
+        .any(|n| n.ends_with("appimage-control-session-1.desktop")));
     assert!(!names.iter().any(|n| n.ends_with("random.desktop")));
 }
 
@@ -57,7 +61,9 @@ fn backup_inventory_tolerates_missing_optional_icons() {
     let paths = AppPaths::new(tmp.path().to_path_buf()).expect("paths");
     fs::create_dir_all(paths.manager_data_dir().join("apps/session/1")).expect("mkdir");
     fs::write(
-        paths.manager_data_dir().join("apps/session/1/session.AppImage"),
+        paths
+            .manager_data_dir()
+            .join("apps/session/1/session.AppImage"),
         b"binary",
     )
     .expect("write appimage");

@@ -46,7 +46,9 @@ pub fn build_actions_menu_button() -> MenuButton {
     menu.append(Some("Migrate Legacy Dirs"), Some("win.migrate"));
     menu.append(Some("Backup"), Some("win.backup"));
     menu.append(Some("Restore form backup"), Some("win.restore_backup"));
-    let b = MenuButton::builder().icon_name("open-menu-symbolic").build();
+    let b = MenuButton::builder()
+        .icon_name("open-menu-symbolic")
+        .build();
     b.set_menu_model(Some(&menu));
     b
 }
@@ -66,9 +68,12 @@ mod tests {
             eprintln!("skipping: gtk::init failed (no display?)");
             return;
         }
-        let app =
-            gtk::Application::new(Some("io.github.appimagecontrol.ActionWireTest"), Default::default());
-        app.register(gio::Cancellable::NONE).expect("GApplication::register");
+        let app = gtk::Application::new(
+            Some("io.github.appimagecontrol.ActionWireTest"),
+            Default::default(),
+        );
+        app.register(gio::Cancellable::NONE)
+            .expect("GApplication::register");
         let window = gtk::ApplicationWindow::builder().application(&app).build();
         let noop: Rc<dyn Fn()> = Rc::new(|| ());
         install_window_actions(

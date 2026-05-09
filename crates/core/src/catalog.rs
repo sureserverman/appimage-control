@@ -234,8 +234,10 @@ impl CatalogApp {
 /// JSON shipped with the workspace (also baked into Flatpak). Used only when no catalog file is
 /// found on disk so a misconfigured `.desktop` (`Exec=appimage-control` on the host) or an empty
 /// `APPIMAGE_CONTROL_CATALOG` still yields a usable catalog.
-const SHIPPED_CATALOG_JSON: &str =
-    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../data/catalog.json"));
+const SHIPPED_CATALOG_JSON: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../data/catalog.json"
+));
 
 /// Loads `path` only if it parses and lists at least one app. Empty `{"apps":[]}` files are ignored
 /// so a stray `…/data/catalog.json` on an ancestor chain (e.g. under `$HOME`) cannot shadow the

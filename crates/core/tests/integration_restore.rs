@@ -26,7 +26,9 @@ fn fake_catalog(tmp: &tempfile::TempDir) -> Catalog {
 fn seed_managed_state(paths: &AppPaths) {
     fs::create_dir_all(paths.manager_data_dir().join("apps/session/1")).expect("mkdir");
     fs::write(
-        paths.manager_data_dir().join("apps/session/1/session.AppImage"),
+        paths
+            .manager_data_dir()
+            .join("apps/session/1/session.AppImage"),
         b"binary",
     )
     .expect("write appimage");
@@ -53,18 +55,14 @@ fn restore_into_empty_state() {
     let dst_paths = AppPaths::new(dst.path().to_path_buf()).expect("dst paths");
     restore_backup_archive(&dst_paths, &archive, false).expect("restore");
 
-    assert!(
-        dst_paths
-            .manager_data_dir()
-            .join("apps/session/1/session.AppImage")
-            .is_file()
-    );
-    assert!(
-        dst_paths
-            .applications_dir()
-            .join("appimage-control-session-1.desktop")
-            .is_file()
-    );
+    assert!(dst_paths
+        .manager_data_dir()
+        .join("apps/session/1/session.AppImage")
+        .is_file());
+    assert!(dst_paths
+        .applications_dir()
+        .join("appimage-control-session-1.desktop")
+        .is_file());
 }
 
 #[test]
@@ -89,7 +87,9 @@ fn forced_restore_replaces_managed_state_only() {
     let src_paths = AppPaths::new(src.path().to_path_buf()).expect("src paths");
     seed_managed_state(&src_paths);
     fs::write(
-        src_paths.manager_data_dir().join("apps/session/1/session.AppImage"),
+        src_paths
+            .manager_data_dir()
+            .join("apps/session/1/session.AppImage"),
         b"new-binary",
     )
     .expect("write new");
@@ -122,7 +122,9 @@ fn invalid_archive_rejected_before_writes() {
     fs::write(&bad, b"not-zstd").expect("write bad");
     let err = restore_backup_archive(&dst_paths, &bad, false).unwrap_err();
     assert!(!dst_paths.manager_data_dir().join("apps").exists());
-    assert!(err.to_string().contains("zstd decode init failed") || err.to_string().contains("IO error"));
+    assert!(
+        err.to_string().contains("zstd decode init failed") || err.to_string().contains("IO error")
+    );
 }
 
 #[test]
@@ -160,4 +162,3 @@ fn path_traversal_rejected() {
     let err = restore_backup_archive(&dst_paths, &bad, false).unwrap_err();
     assert!(err.to_string().contains("unsafe component"));
 }
-

@@ -7,16 +7,17 @@ use std::fs;
 use appimage_control_core::{Catalog, CatalogApp, InstanceStrategy, MAX_INSTANCES_PER_APP};
 
 fn catalog_has_strategy(catalog: &Catalog, strategy: InstanceStrategy) -> bool {
-    catalog
-        .apps
-        .iter()
-        .any(|a| a.instance_strategy == strategy)
+    catalog.apps.iter().any(|a| a.instance_strategy == strategy)
 }
 
 #[test]
 fn shipped_catalog_loads_and_covers_instance_strategies() {
     let path = common::shipped_catalog_path();
-    assert!(path.is_file(), "missing shipped catalog at {}", path.display());
+    assert!(
+        path.is_file(),
+        "missing shipped catalog at {}",
+        path.display()
+    );
     let raw = fs::read_to_string(&path).expect("read catalog");
     let catalog: Catalog = serde_json::from_str(&raw).expect("deserialize catalog");
 

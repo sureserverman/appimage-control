@@ -107,9 +107,9 @@ fn walk_dir_entries(root: &Path, root_logical: &str, out: &mut Vec<BackupEntry>)
             .collect();
         entries.sort();
         for p in entries {
-            let rel = p
-                .strip_prefix(root)
-                .map_err(|_| Error::InvalidPath(format!("backup strip_prefix failed: {}", p.display())))?;
+            let rel = p.strip_prefix(root).map_err(|_| {
+                Error::InvalidPath(format!("backup strip_prefix failed: {}", p.display()))
+            })?;
             let logical = if rel.as_os_str().is_empty() {
                 root_logical.to_string()
             } else {
@@ -143,11 +143,7 @@ pub fn collect_backup_inventory(paths: &AppPaths) -> Result<Vec<BackupEntry>> {
         let rel = p.strip_prefix(&hicolor_root).map_err(|_| {
             Error::InvalidPath(format!("icon not under hicolor root: {}", p.display()))
         })?;
-        push_file_entry(
-            &mut out,
-            format!("hicolor/{}", rel.to_string_lossy()),
-            &p,
-        )?;
+        push_file_entry(&mut out, format!("hicolor/{}", rel.to_string_lossy()), &p)?;
     }
     out.sort_by(|a, b| a.logical_path.cmp(&b.logical_path));
     Ok(out)
@@ -159,9 +155,12 @@ pub fn create_backup_archive(
     archive_path: &Path,
     _options: &BackupOptions,
 ) -> Result<BackupReport> {
-    let parent = archive_path
-        .parent()
-        .ok_or_else(|| Error::InvalidPath(format!("backup path has no parent: {}", archive_path.display())))?;
+    let parent = archive_path.parent().ok_or_else(|| {
+        Error::InvalidPath(format!(
+            "backup path has no parent: {}",
+            archive_path.display()
+        ))
+    })?;
     fs::create_dir_all(parent)?;
 
     let entries = collect_backup_inventory(paths)?;
@@ -169,7 +168,11 @@ pub fn create_backup_archive(
         .duration_since(UNIX_EPOCH)
         .map_err(|e| Error::Backup(format!("clock error: {e}")))?
         .as_secs();
-    let app_ids = catalog.apps.iter().map(|a| a.id.clone()).collect::<Vec<_>>();
+    let app_ids = catalog
+        .apps
+        .iter()
+        .map(|a| a.id.clone())
+        .collect::<Vec<_>>();
     let snapshot = BackupCatalogSnapshot {
         apps: catalog
             .apps
@@ -203,7 +206,10 @@ pub fn create_backup_archive(
 
     let tmp = archive_path.with_extension(format!(
         "{}.tmp",
-        archive_path.extension().and_then(|s| s.to_str()).unwrap_or("archive")
+        archive_path
+            .extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("archive")
     ));
     if tmp.exists() {
         let _ = fs::remove_file(&tmp);
@@ -439,11 +445,7 @@ fn restore_destination_path(paths: &AppPaths, logical_path: &Path) -> Result<Pat
     }
 }
 
-pub fn restore_backup_archive(
-    paths: &AppPaths,
-    archive_path: &Path,
-    force: bool,
-) -> Result<()> {
+pub fn restore_backup_archive(paths: &AppPaths, archive_path: &Path, force: bool) -> Result<()> {
     restore_preflight(paths, force)?;
     let (_manifest, _snapshot) = validate_backup_archive(archive_path)?;
     clear_managed_state_for_restore(paths)?;
@@ -555,7 +557,9 @@ mod tests {
         let paths = AppPaths::new(tmp.path().to_path_buf()).expect("paths");
         fs::create_dir_all(paths.manager_data_dir().join("apps/session/1")).expect("mkdir");
         fs::write(
-            paths.manager_data_dir().join("apps/session/1/session.AppImage"),
+            paths
+                .manager_data_dir()
+                .join("apps/session/1/session.AppImage"),
             b"binary",
         )
         .expect("write appimage");

@@ -12,7 +12,8 @@ fn app_exe() -> PathBuf {
         .unwrap_or_else(|| {
             // `cargo test` usually sets `CARGO_BIN_EXE_*`; fall back for other runners.
             let profile = std::env::var("PROFILE").unwrap_or_else(|_| "debug".into());
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("../../target/{profile}/appimage-control"))
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join(format!("../../target/{profile}/appimage-control"))
         })
 }
 
@@ -83,8 +84,7 @@ fn migrate_y_without_on_conflict_aborts_when_destination_occupied() {
     );
     let err = String::from_utf8_lossy(&out.stderr);
     assert!(
-        err.contains("migrate: destination already exists")
-            && err.contains("--on-conflict="),
+        err.contains("migrate: destination already exists") && err.contains("--on-conflict="),
         "unexpected stderr: {err}"
     );
 }
@@ -168,11 +168,7 @@ fn seed_settings_prints_summary_line() {
     let bin_dir = home.join("bin");
     fs::create_dir_all(&bin_dir).expect("bin");
     let xvfb = bin_dir.join("xvfb-run");
-    fs::write(
-        &xvfb,
-        "#!/bin/sh\nshift\nshift\nexec \"$@\"\n",
-    )
-    .expect("xvfb stub");
+    fs::write(&xvfb, "#!/bin/sh\nshift\nshift\nexec \"$@\"\n").expect("xvfb stub");
     let mut xp = fs::metadata(&xvfb).expect("xvfb meta").permissions();
     xp.set_mode(0o755);
     fs::set_permissions(&xvfb, xp).expect("chmod xvfb");
@@ -187,16 +183,15 @@ fn seed_settings_prints_summary_line() {
         .env("HOME", &home)
         .env("APPIMAGE_CONTROL_CATALOG", &catalog)
         .env("PATH", &path)
-        .args([
-            "--seed-settings",
-            "feather",
-            "--seed-preset",
-            "ubuntu",
-        ])
+        .args(["--seed-settings", "feather", "--seed-preset", "ubuntu"])
         .output()
         .expect("seed");
 
-    assert!(out.status.success(), "stderr={}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "stderr={}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let err = String::from_utf8_lossy(&out.stderr);
     assert!(
         err.contains("Seed settings summary:") && err.contains("seeded"),
@@ -220,7 +215,11 @@ fn backup_prints_created_line() {
         .output()
         .expect("backup");
 
-    assert!(out.status.success(), "stderr={}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "stderr={}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let err = String::from_utf8_lossy(&out.stderr);
     assert!(
         err.contains("Backup created:") && err.contains("entries"),

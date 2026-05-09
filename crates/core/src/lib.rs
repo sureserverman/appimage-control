@@ -1,7 +1,7 @@
 //! Manage AppImage installs under `~/.local/share/appimages` with `.desktop` integration.
 
-mod batch;
 mod backup;
+mod batch;
 mod catalog;
 mod desktop;
 mod download;
@@ -18,17 +18,17 @@ mod seed;
 mod update;
 mod version_info;
 
-pub use batch::install_batch;
 pub use backup::{
     collect_backup_inventory, create_backup_archive, restore_backup_archive, BackupCatalogSnapshot,
     BackupEntry, BackupManifest, BackupOptions, BackupReport, BACKUP_FORMAT_VERSION,
 };
+pub use batch::install_batch;
 pub use catalog::{Catalog, CatalogApp, InstanceStrategy};
-pub use download::download_to_file;
 pub use desktop::{
     app_id_from_appimage_path, build_desktop_entry, parse_desktop_file, parse_desktop_str,
     DesktopEntry, APP_ID_KEY, DESKTOP_PREFIX, MANAGED_KEY,
 };
+pub use download::download_to_file;
 pub use error::{Error, Result};
 pub use icons::{
     fetch_url_bytes, instance_icon_theme_name, resolve_icon_image_url, write_instance_icon_png,
@@ -42,8 +42,9 @@ pub use instances::{
     list_instance_indices, list_managed_instance_indices, parse_app_instance_spec,
     purge_appimage_control_state, read_installed_version, read_installed_version_fleet_max_semver,
     read_installed_version_fleet_per_instance_breakdown, read_installed_version_fleet_summary,
-    read_instance_recorded_version, reconcile_catalog_install_version_metadata, reconcile_instance_count,
-    reconcile_instance_count_for_portable_migration, reconcile_instance_count_with_report,
+    read_instance_recorded_version, reconcile_catalog_install_version_metadata,
+    reconcile_instance_count, reconcile_instance_count_for_portable_migration,
+    reconcile_instance_count_with_report,
     reconcile_instance_version_metadata_if_binary_matches_cache, repair_instance_launchers,
     update_all_installed_instances, update_instance_appimage, FleetInstalledDisplay,
     InstanceUpdateOutcome, ReconcileReport, UpdateAllReport, MAX_INSTANCES_PER_APP,

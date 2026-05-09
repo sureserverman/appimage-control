@@ -1989,7 +1989,11 @@ fn reconcile_instance_count_inner(
         .filter(|i| !removed.contains(i) && !added.contains(i))
         .collect();
 
-    Ok(ReconcileReport { kept, removed, added })
+    Ok(ReconcileReport {
+        kept,
+        removed,
+        added,
+    })
 }
 
 fn update_desktop_database_best_effort(paths: &AppPaths) {
@@ -2480,9 +2484,15 @@ mod tests {
         .unwrap();
 
         let mut lines = Vec::new();
-        let report = update_all_installed_instances(&paths, &cat, None, &mut |s| {
-            lines.push(s.to_string());
-        }, None)
+        let report = update_all_installed_instances(
+            &paths,
+            &cat,
+            None,
+            &mut |s| {
+                lines.push(s.to_string());
+            },
+            None,
+        )
         .unwrap();
         assert_eq!(
             report.skipped_up_to_date, 2,

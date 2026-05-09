@@ -20,16 +20,12 @@ fn backup_inventory_includes_managed_desktops_and_icons() {
 
     let inv = collect_backup_inventory(&paths).unwrap();
     let inv_s: Vec<String> = inv.iter().map(|e| e.logical_path.clone()).collect();
-    assert!(
-        inv_s
-            .iter()
-            .any(|p| p.ends_with("applications/appimage-control-foo-1.desktop"))
-    );
-    assert!(
-        inv_s
-            .iter()
-            .any(|p| p.contains("appimage-control-foo-1.png"))
-    );
+    assert!(inv_s
+        .iter()
+        .any(|p| p.ends_with("applications/appimage-control-foo-1.desktop")));
+    assert!(inv_s
+        .iter()
+        .any(|p| p.contains("appimage-control-foo-1.png")));
 }
 
 #[test]

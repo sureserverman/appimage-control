@@ -5,13 +5,12 @@ use std::io::{self, BufRead, IsTerminal, Write};
 use gtk::glib;
 
 use appimage_control_core::{
-    clean_catalog_download_cache, clean_installed_catalog_apps_keep_cache,
-    create_backup_archive, discover_migration_candidates, fetch_github_release_hints,
-    installed_version_fleet_display, instance_count, parse_app_instance_spec,
-    purge_appimage_control_state, restore_backup_archive, BackupOptions,
-    reconcile_catalog_install_version_metadata, reconcile_instance_count, run_portable_dir_migration,
-    seed_supported_installed_apps, update_all_installed_instances, AppPaths, Catalog, MigrationConflict,
-    MigrationResolution, SeedPreset,
+    clean_catalog_download_cache, clean_installed_catalog_apps_keep_cache, create_backup_archive,
+    discover_migration_candidates, fetch_github_release_hints, installed_version_fleet_display,
+    instance_count, parse_app_instance_spec, purge_appimage_control_state,
+    reconcile_catalog_install_version_metadata, reconcile_instance_count, restore_backup_archive,
+    run_portable_dir_migration, seed_supported_installed_apps, update_all_installed_instances,
+    AppPaths, BackupOptions, Catalog, MigrationConflict, MigrationResolution, SeedPreset,
 };
 
 pub fn want_help(args: &[String]) -> bool {
@@ -176,9 +175,9 @@ fn parse_seed_preset(args: &[String]) -> std::result::Result<Option<SeedPreset>,
     let Some(raw) = arg_value(args, "--seed-preset")? else {
         return Ok(None);
     };
-    SeedPreset::parse(raw).map(Some).ok_or_else(|| {
-        format!("invalid --seed-preset={raw} (use ubuntu or whonix)")
-    })
+    SeedPreset::parse(raw)
+        .map(Some)
+        .ok_or_else(|| format!("invalid --seed-preset={raw} (use ubuntu or whonix)"))
 }
 
 fn parse_seed_settings_targets(
@@ -396,7 +395,12 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
                 return Some(glib::ExitCode::FAILURE);
             }
         };
-        match create_backup_archive(&paths, &catalog, std::path::Path::new(path), &BackupOptions::default()) {
+        match create_backup_archive(
+            &paths,
+            &catalog,
+            std::path::Path::new(path),
+            &BackupOptions::default(),
+        ) {
             Ok(rep) => {
                 eprintln!(
                     "Backup created: {} ({} entries, {} bytes)",
@@ -562,11 +566,15 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
         }
         if arg == "-update" || arg == "--update" {
             let remotes = fetch_github_release_hints(&catalog);
-            if let Err(e) =
-                update_all_installed_instances(&paths, &catalog, Some(&remotes), &mut |m| {
+            if let Err(e) = update_all_installed_instances(
+                &paths,
+                &catalog,
+                Some(&remotes),
+                &mut |m| {
                     eprintln!("{m}");
-                }, None)
-            {
+                },
+                None,
+            ) {
                 eprintln!("{e}");
                 return Some(glib::ExitCode::FAILURE);
             }
@@ -630,19 +638,16 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
         let preset = seed_preset.expect("checked above");
         let selected_ref_storage = targets;
         let selected_ref = selected_ref_storage.as_deref();
-        let report = match seed_supported_installed_apps(
-            &paths,
-            &catalog,
-            preset,
-            selected_ref,
-            &mut |m| eprintln!("{m}"),
-        ) {
-            Ok(r) => r,
-            Err(e) => {
-                eprintln!("{e}");
-                return Some(glib::ExitCode::FAILURE);
-            }
-        };
+        let report =
+            match seed_supported_installed_apps(&paths, &catalog, preset, selected_ref, &mut |m| {
+                eprintln!("{m}")
+            }) {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!("{e}");
+                    return Some(glib::ExitCode::FAILURE);
+                }
+            };
         eprintln!(
             "Seed settings summary: {} seeded, {} failed, {} unsupported, {} missing.",
             report.seeded, report.failed, report.skipped_unsupported, report.skipped_missing
@@ -673,7 +678,11 @@ mod purge_prompt_tests {
         LOCK.get_or_init(|| Mutex::new(()))
     }
 
-    fn with_test_env<T>(home: &std::path::Path, catalog: &std::path::Path, f: impl FnOnce() -> T) -> T {
+    fn with_test_env<T>(
+        home: &std::path::Path,
+        catalog: &std::path::Path,
+        f: impl FnOnce() -> T,
+    ) -> T {
         let _g = env_lock().lock().expect("env lock");
         let old_home = std::env::var_os("HOME");
         let old_catalog = std::env::var_os("APPIMAGE_CONTROL_CATALOG");
@@ -738,7 +747,11 @@ mod purge_prompt_tests {
         fs::set_permissions(path, perms).expect("chmod");
     }
 
-    fn with_fake_xvfb<T>(home: &std::path::Path, catalog: &std::path::Path, f: impl FnOnce() -> T) -> T {
+    fn with_fake_xvfb<T>(
+        home: &std::path::Path,
+        catalog: &std::path::Path,
+        f: impl FnOnce() -> T,
+    ) -> T {
         let _g = env_lock().lock().expect("env lock");
         let old_home = std::env::var_os("HOME");
         let old_catalog = std::env::var_os("APPIMAGE_CONTROL_CATALOG");
@@ -823,10 +836,7 @@ mod purge_prompt_tests {
         let catalog = tmp.path().join("catalog.json");
         write_min_catalog(&catalog);
         let out = tmp.path().join("aic-backup.tar.zst");
-        let args = vec![
-            "--backup".to_string(),
-            out.to_string_lossy().to_string(),
-        ];
+        let args = vec!["--backup".to_string(), out.to_string_lossy().to_string()];
         let code = with_test_env(&home, &catalog, || run_cli_ops(&args));
         assert_eq!(code, Some(glib::ExitCode::SUCCESS));
         assert!(out.is_file(), "backup archive should be created");
@@ -843,11 +853,8 @@ mod purge_prompt_tests {
             Some(None)
         ));
         assert_eq!(
-            parse_seed_settings_targets(&[
-                "--seed-settings".into(),
-                "feather,electrum-btc".into()
-            ])
-            .unwrap(),
+            parse_seed_settings_targets(&["--seed-settings".into(), "feather,electrum-btc".into()])
+                .unwrap(),
             Some(Some(vec!["feather".into(), "electrum-btc".into()]))
         );
     }
@@ -882,9 +889,7 @@ mod purge_prompt_tests {
         fs::create_dir_all(&home).expect("home");
         let catalog = tmp.path().join("catalog.json");
         write_min_catalog(&catalog);
-        let code = with_test_env(&home, &catalog, || {
-            run_cli_ops(&["--list".to_string()])
-        });
+        let code = with_test_env(&home, &catalog, || run_cli_ops(&["--list".to_string()]));
         assert_eq!(code, Some(glib::ExitCode::SUCCESS));
     }
 
@@ -906,8 +911,8 @@ mod purge_prompt_tests {
         let tmp = tempfile::tempdir().expect("tmp");
         let home = tmp.path().join("home");
         fs::create_dir_all(&home).expect("home");
-        let catalog = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../data/catalog.json");
+        let catalog =
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../data/catalog.json");
         assert!(catalog.is_file(), "need shipped catalog");
         let cache = home.join(".local/share/appimages/cache/lm-studio");
         fs::create_dir_all(&cache).expect("cache dir");

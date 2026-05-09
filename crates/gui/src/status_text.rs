@@ -123,8 +123,6 @@ mod tests {
             max_instances: None,
             max_instances_tooltip: None,
         };
-        assert!(catalog_row_hint(&app)
-            .unwrap()
-            .contains("download_url"));
+        assert!(catalog_row_hint(&app).unwrap().contains("download_url"));
     }
 }

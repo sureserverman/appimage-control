@@ -565,7 +565,9 @@ fn mount_catalog_view(
             .unwrap_or(0);
 
         let row = adw::ActionRow::new();
-        row.set_title(&glib::markup_escape_text(&catalog_app.display_name_resolved()));
+        row.set_title(&glib::markup_escape_text(
+            &catalog_app.display_name_resolved(),
+        ));
         row.set_use_markup(true);
         row.set_title_lines(1);
         row.set_subtitle_lines(1);
@@ -712,8 +714,7 @@ fn mount_catalog_view(
         handle.spin.connect_value_changed(move |spin| {
             let app = &catalog_spin.apps[app_index_spin];
             let n = spin.value() as u32;
-            let installed_n =
-                instance_count(paths_spin.as_ref(), app).unwrap_or(0);
+            let installed_n = instance_count(paths_spin.as_ref(), app).unwrap_or(0);
             let cache = remote_cache_spin.borrow();
             let remote = cache
                 .get(app_index_spin)
@@ -1546,8 +1547,7 @@ fn install_window_actions_for_catalog(
             let catalog = Rc::clone(catalog);
             let window = window_for_actions.clone();
             Rc::new(move || {
-                let Some(path) =
-                    choose_save_path(&window, "Choose backup archive destination")
+                let Some(path) = choose_save_path(&window, "Choose backup archive destination")
                 else {
                     return;
                 };

@@ -471,7 +471,10 @@ impl LogSummary {
                 || lower.starts_with("skipped")
             {
                 warnings += 1;
-            } else if line.starts_with('✓') || lower.starts_with("updated") || lower.starts_with("seeded") {
+            } else if line.starts_with('✓')
+                || lower.starts_with("updated")
+                || lower.starts_with("seeded")
+            {
                 successes += 1;
             }
         }
@@ -534,7 +537,11 @@ impl LogSummary {
     }
 }
 
-fn choose_file(parent: &ApplicationWindow, title: &str, action: FileChooserAction) -> Option<PathBuf> {
+fn choose_file(
+    parent: &ApplicationWindow,
+    title: &str,
+    action: FileChooserAction,
+) -> Option<PathBuf> {
     let chooser = FileChooserNative::builder()
         .title(title)
         .transient_for(parent)
@@ -719,10 +726,7 @@ pub fn choose_seed_settings(
             .iter()
             .filter(|(_, cb)| cb.is_active())
             .count();
-        seed_btn_clone.set_label(&format!(
-            "Seed {n} app{}",
-            if n == 1 { "" } else { "s" }
-        ));
+        seed_btn_clone.set_label(&format!("Seed {n} app{}", if n == 1 { "" } else { "s" }));
         seed_btn_clone.set_sensitive(n > 0);
     });
     for (_, cb) in &checks {

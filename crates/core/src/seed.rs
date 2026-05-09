@@ -143,9 +143,15 @@ pub struct SeedRecipe {
 impl SeedRecipe {
     pub fn config_path_for(self, filename: &str) -> PathBuf {
         match self.patch {
-            SeedPatchKind::Feather => PathBuf::from(format!("{filename}.config/feather/settings.json")),
-            SeedPatchKind::ElectrumBtc => PathBuf::from(format!("{filename}.home/.electrum/config")),
-            SeedPatchKind::ElectrumLtc => PathBuf::from(format!("{filename}.home/.electrum-ltc/config")),
+            SeedPatchKind::Feather => {
+                PathBuf::from(format!("{filename}.config/feather/settings.json"))
+            }
+            SeedPatchKind::ElectrumBtc => {
+                PathBuf::from(format!("{filename}.home/.electrum/config"))
+            }
+            SeedPatchKind::ElectrumLtc => {
+                PathBuf::from(format!("{filename}.home/.electrum-ltc/config"))
+            }
         }
     }
 }
@@ -255,8 +261,8 @@ pub fn seed_supported_installed_apps(
     selected_app_ids: Option<&[String]>,
     on_progress: &mut dyn FnMut(&str),
 ) -> Result<SeedReport> {
-    let selected_set: Option<HashSet<&str>> = selected_app_ids
-        .map(|v| v.iter().map(|s| s.as_str()).collect::<HashSet<_>>());
+    let selected_set: Option<HashSet<&str>> =
+        selected_app_ids.map(|v| v.iter().map(|s| s.as_str()).collect::<HashSet<_>>());
     let mut report = SeedReport::default();
 
     if let Some(selected) = &selected_set {
@@ -281,7 +287,10 @@ pub fn seed_supported_installed_apps(
         if indices.is_empty() {
             if selected_set.is_some() {
                 report.skipped_missing += 1;
-                on_progress(&format!("{}: seeding skipped (no installed instances)", app.id));
+                on_progress(&format!(
+                    "{}: seeding skipped (no installed instances)",
+                    app.id
+                ));
             }
             continue;
         }
@@ -293,7 +302,10 @@ pub fn seed_supported_installed_apps(
                 Ok(SeedOutcome::SkippedMissingInstance) => report.skipped_missing += 1,
                 Err(e) => {
                     report.failed += 1;
-                    on_progress(&format!("{} instance {}: seeding failed: {}", app.id, index, e));
+                    on_progress(&format!(
+                        "{} instance {}: seeding failed: {}",
+                        app.id, index, e
+                    ));
                 }
             }
         }
@@ -318,7 +330,10 @@ pub fn seed_new_instances_after_reconcile(
             Ok(SeedOutcome::SkippedMissingInstance) => report.skipped_missing += 1,
             Err(e) => {
                 report.failed += 1;
-                on_progress(&format!("{} instance {}: seeding failed: {}", app.id, index, e));
+                on_progress(&format!(
+                    "{} instance {}: seeding failed: {}",
+                    app.id, index, e
+                ));
             }
         }
     }
@@ -460,7 +475,10 @@ fn patch_electrum_btc_config(path: &Path, cfg: &SeedConfig) -> Result<()> {
     map.insert("server".into(), json!(BTC_PINNED_SERVER));
     map.insert(
         "proxy".into(),
-        json!(format!("socks5:{}:{}", cfg.socks5_host, cfg.electrum_btc_port)),
+        json!(format!(
+            "socks5:{}:{}",
+            cfg.socks5_host, cfg.electrum_btc_port
+        )),
     );
     write_json_object(path, map)
 }
@@ -469,7 +487,10 @@ fn patch_electrum_ltc_config(path: &Path, cfg: &SeedConfig) -> Result<()> {
     let mut map = read_json_object(path)?;
     map.insert(
         "proxy".into(),
-        json!(format!("socks5:{}:{}", cfg.socks5_host, cfg.electrum_ltc_port)),
+        json!(format!(
+            "socks5:{}:{}",
+            cfg.socks5_host, cfg.electrum_ltc_port
+        )),
     );
     write_json_object(path, map)
 }
@@ -640,26 +661,17 @@ exec "$@"
                 false,
             );
             let mut lines = Vec::new();
-            let out = seed_instance_settings(
-                &paths_f,
-                &feather,
-                1,
-                SeedPreset::Ubuntu,
-                &mut |s| lines.push(s.to_string()),
-            )
+            let out = seed_instance_settings(&paths_f, &feather, 1, SeedPreset::Ubuntu, &mut |s| {
+                lines.push(s.to_string())
+            })
             .unwrap();
             assert_eq!(out, SeedOutcome::Seeded);
             let f: Value = serde_json::from_str(&fs::read_to_string(&cfg_f).unwrap()).unwrap();
             assert_eq!(f["socks5Port"], "9052");
 
             let btc = supported_app("electrum-btc", "eb.AppImage");
-            let (paths_b, _, cfg_b) = make_seedable_instance(
-                &tmp,
-                &btc,
-                1,
-                "eb.AppImage.home/.electrum/config",
-                true,
-            );
+            let (paths_b, _, cfg_b) =
+                make_seedable_instance(&tmp, &btc, 1, "eb.AppImage.home/.electrum/config", true);
             seed_instance_settings(&paths_b, &btc, 1, SeedPreset::Ubuntu, &mut |_| {}).unwrap();
             let b: Value = serde_json::from_str(&fs::read_to_string(&cfg_b).unwrap()).unwrap();
             assert_eq!(b["proxy"], "socks5:127.0.0.1:9054");
@@ -692,7 +704,10 @@ exec "$@"
                 false,
             );
             let catalog = Catalog {
-                apps: vec![feather.clone(), supported_app("mattermost", "Mattermost.AppImage")],
+                apps: vec![
+                    feather.clone(),
+                    supported_app("mattermost", "Mattermost.AppImage"),
+                ],
             };
             let selected = vec!["feather".to_string(), "mattermost".to_string()];
             let r1 = seed_supported_installed_apps(
