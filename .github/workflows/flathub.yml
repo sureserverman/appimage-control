@@ -38,7 +38,7 @@ jobs:
           sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
       - name: Install required runtimes
         run: |
-          sudo flatpak install -y flathub org.gnome.Platform//47 org.gnome.Sdk//47 org.freedesktop.Sdk.Extension.rust-stable//24.08
+          sudo flatpak install -y flathub org.gnome.Platform//50 org.gnome.Sdk//50 org.freedesktop.Sdk.Extension.rust-stable//25.08
       - name: Validate desktop metadata
         run: |
           desktop-file-validate data/io.github.sureserverman.AppImageControl.desktop
