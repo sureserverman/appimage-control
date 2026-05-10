@@ -135,6 +135,25 @@ impl SeedPackLibrary {
         Ok(lib)
     }
 
+    /// One row per loaded pack, in stable id order. Each row is
+    /// `(app_id, source)` where source is either the absolute path of
+    /// the on-disk pack file or the literal string `<embedded>`.
+    /// Backs the `appimage-control --list-seed-packs` CLI flag and
+    /// gives users a way to confirm which override the loader picked.
+    pub fn list_rows(&self) -> Vec<(String, String)> {
+        self.packs
+            .keys()
+            .map(|id| {
+                let src = self
+                    .sources
+                    .get(id)
+                    .map(|p| p.display().to_string())
+                    .unwrap_or_else(|| "<embedded>".into());
+                (id.clone(), src)
+            })
+            .collect()
+    }
+
     /// Load every `*.json` file in `dir` as a seed pack keyed by file
     /// stem. Returns `Ok(None)` when `dir` is missing or contains no
     /// `*.json` files; `Err` when a present `*.json` fails to parse.
@@ -806,6 +825,30 @@ mod tests {
         let err = SeedPackLibrary::load_from_dir(&dir).unwrap_err();
         let s = err.to_string();
         assert!(s.contains("bad.json"), "expected filename in error, got: {s}");
+        // serde_json's Display already includes "line N column M" for
+        // structural errors — verify that text reaches the user.
+        assert!(
+            s.contains("line ") && s.contains("column "),
+            "expected line/column from serde_json in error, got: {s}"
+        );
+    }
+
+    #[test]
+    fn load_from_dir_attributes_validation_errors_to_pack_id() {
+        // Pack parses cleanly but references a nonexistent preset
+        // field. validate() is called from inside load_from_dir, so
+        // the typo surfaces here, not at first seed.
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("seeds");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("typo.json"),
+            r#"{"config_path":"x","preset":{"k":{"from":"socks_host"}}}"#,
+        )
+        .unwrap();
+        let err = SeedPackLibrary::load_from_dir(&dir).unwrap_err().to_string();
+        assert!(err.contains("typo"), "expected pack id `typo` in error, got: {err}");
+        assert!(err.contains("socks_host"), "expected offending field name, got: {err}");
     }
 
     fn parse(raw: &str) -> SeedPack {
@@ -1099,6 +1142,39 @@ mod tests {
         ])
         .unwrap();
         lib.validate().expect("realistic packs should validate clean");
+    }
+
+    #[test]
+    fn list_rows_marks_embedded_packs_and_reports_disk_source() {
+        // Embedded packs surface as "<embedded>".
+        let emb = SeedPackLibrary::from_pairs(vec![
+            ("alpha", r#"{"config_path":"a.json"}"#),
+            ("beta", r#"{"config_path":"b.json"}"#),
+        ])
+        .unwrap();
+        let rows = emb.list_rows();
+        assert_eq!(rows.len(), 2);
+        for (id, src) in &rows {
+            assert_eq!(src, "<embedded>", "row for {id} should be embedded");
+        }
+        // Stable id order.
+        assert_eq!(rows[0].0, "alpha");
+        assert_eq!(rows[1].0, "beta");
+
+        // Disk-loaded packs surface their absolute path.
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("seeds");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("foo.json"), r#"{"config_path":"f.json"}"#).unwrap();
+        let lib = SeedPackLibrary::load_from_dir(&dir).unwrap().unwrap();
+        let rows = lib.list_rows();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].0, "foo");
+        assert!(
+            rows[0].1.ends_with("foo.json"),
+            "disk row should end with foo.json, got {}",
+            rows[0].1
+        );
     }
 
     #[test]

@@ -1,0 +1,13 @@
+{
+  "config_path": "{appimage}.config/myapp/config.json",
+  "first_run_args": [],
+  "static": {
+    "telemetry": false
+  },
+  "preset": {
+    "proxyHost": { "from": "socks5_host" }
+  },
+  "rotation": {
+    "color": { "values": ["red", "green", "blue"] }
+  }
+}

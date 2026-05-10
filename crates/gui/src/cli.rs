@@ -10,7 +10,8 @@ use appimage_control_core::{
     instance_count, parse_app_instance_spec, purge_appimage_control_state,
     reconcile_catalog_install_version_metadata, reconcile_instance_count, restore_backup_archive,
     run_portable_dir_migration, seed_supported_installed_apps, update_all_installed_instances,
-    AppPaths, BackupOptions, Catalog, MigrationConflict, MigrationResolution, SeedPreset,
+    AppPaths, BackupOptions, Catalog, MigrationConflict, MigrationResolution, SeedPackLibrary,
+    SeedPreset,
 };
 
 pub fn want_help(args: &[String]) -> bool {
@@ -46,6 +47,11 @@ When --purge, --clean, or --migrate is present, only one runs: --purge first if 
                    Seed supported app settings for installed instances. TARGETS is `all`,
                    one app id, or a comma-separated list like `feather,electrum-btc`.
   --seed-preset X  Required with --seed-settings. Use `ubuntu` or `whonix`.
+  --list-seed-packs
+                   Print one tab-separated row per loaded seed pack:
+                   `<app-id>\\t<source-path-or-embedded>`. Useful to confirm which
+                   override the discovery chain (APPIMAGE_CONTROL_SEEDS_DIR, ancestor
+                   walk, /app/share/ or /usr/share/, embedded) picked.
   -y, --yes        Use with --purge, --clean, or --migrate: skip the run confirmation prompt (for scripts).
   +APP             Add 1 instance of APP (capped by the catalog instance limit).
   +APP:N           Add N instances of APP (same cap).
@@ -91,6 +97,7 @@ pub fn has_cli_ops(args: &[String]) -> bool {
             || a == "--force"
             || a == "--seed-settings"
             || a == "--seed-preset"
+            || a == "--list-seed-packs"
             || a == "-update"
             || a == "--update"
             || (a.starts_with('+') && a.len() > 1)
@@ -324,6 +331,21 @@ fn print_list(paths: &AppPaths, catalog: &Catalog) {
 
 /// Returns `None` if nothing ran (e.g. unknown ids) so the caller can start the GUI instead.
 pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
+    if args.iter().any(|a| a == "--list-seed-packs") {
+        match SeedPackLibrary::discover_load(None) {
+            Ok(lib) => {
+                for (id, src) in lib.list_rows() {
+                    println!("{id}\t{src}");
+                }
+                return Some(glib::ExitCode::SUCCESS);
+            }
+            Err(e) => {
+                eprintln!("{e}");
+                return Some(glib::ExitCode::FAILURE);
+            }
+        }
+    }
+
     let paths = match AppPaths::from_env() {
         Ok(p) => p,
         Err(e) => {

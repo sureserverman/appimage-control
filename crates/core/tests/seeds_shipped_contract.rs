@@ -140,6 +140,21 @@ fn electrum_btc_pack_pins_an_onion_and_bookmarks_at_least_nine() {
 }
 
 #[test]
+fn example_template_parses_as_a_valid_pack() {
+    // data/seeds/example.json.txt is the doc template. It must
+    // round-trip through SeedPack so docs/seed-packs.md never drifts
+    // from the schema in seed_pack.rs. The .txt suffix keeps build.rs
+    // from picking it up as a real shipped pack.
+    let raw = fs::read_to_string(
+        common::shipped_seeds_dir().join("example.json.txt"),
+    )
+    .expect("read example template");
+    let lib = SeedPackLibrary::from_pairs(vec![("example", raw.as_str())])
+        .expect("example template parses");
+    lib.validate().expect("example template validates");
+}
+
+#[test]
 fn electrum_ltc_pack_uses_correct_proxy_template() {
     let raw = fs::read_to_string(common::shipped_seeds_dir().join("electrum-ltc.json"))
         .expect("read electrum-ltc.json");
