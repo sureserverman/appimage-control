@@ -873,4 +873,40 @@ exec "$@"
         let out = seed_instance_settings(&paths, &app, 1, SeedPreset::Ubuntu, &mut |_| {}).unwrap();
         assert_eq!(out, SeedOutcome::SkippedUnsupported);
     }
+
+    /// Pack JSON authored at `data/seeds/feather.json`. `include_str!`
+    /// keeps the test in lockstep with the file that actually ships.
+    const FEATHER_PACK_JSON: &str = include_str!("../../../data/seeds/feather.json");
+
+    #[test]
+    fn feather_pack_matches_legacy_patch() {
+        use crate::seed_pack::{apply_pack, SeedPack};
+        let pack: SeedPack = serde_json::from_str(FEATHER_PACK_JSON)
+            .expect("data/seeds/feather.json must parse");
+
+        for preset in [SeedPreset::Ubuntu, SeedPreset::Whonix] {
+            let cfg = SeedConfig::for_preset(preset);
+            for idx in [1u32, 2, 3, 4, 5, 6] {
+                let tmp = tempfile::tempdir().unwrap();
+
+                // Legacy path: write {} to a temp file, run the existing
+                // patch_feather_config, read back.
+                let legacy_path = tmp.path().join("legacy.json");
+                fs::write(&legacy_path, "{}").unwrap();
+                patch_feather_config(&legacy_path, idx, &cfg).unwrap();
+                let legacy: Value =
+                    serde_json::from_str(&fs::read_to_string(&legacy_path).unwrap()).unwrap();
+
+                // New path: apply_pack against an empty map.
+                let mut map = Map::new();
+                apply_pack(&pack, &cfg, idx, &mut map).unwrap();
+                let new_value = Value::Object(map);
+
+                assert_eq!(
+                    legacy, new_value,
+                    "feather: preset={preset:?} idx={idx}: legacy != new_pack"
+                );
+            }
+        }
+    }
 }
