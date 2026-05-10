@@ -44,6 +44,14 @@ pub const ENV_SEEDS_DIR: &str = "APPIMAGE_CONTROL_SEEDS_DIR";
 /// Same value as `crate::catalog`'s walk.
 const MAX_ANCESTOR_DEPTH: usize = 32;
 
+/// Per-user seed-pack directory under `$XDG_DATA_HOME` (defaults to
+/// `~/.local/share`). This is where companion-repo packs installed by
+/// `--update-seed-packs` land, and where users can drop ad-hoc
+/// overrides without touching system paths or exporting env vars.
+pub fn user_seeds_dir() -> Option<PathBuf> {
+    dirs::data_dir().map(|p| p.join("appimage-control").join("seeds"))
+}
+
 /// One seed pack, parsed from `data/seeds/<app-id>.json`.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -199,11 +207,14 @@ impl SeedPackLibrary {
     ///
     /// 1. `explicit` directory (must exist and contain at least one pack).
     /// 2. `APPIMAGE_CONTROL_SEEDS_DIR` env var, if non-empty and a directory.
-    /// 3. Walk cwd ancestors (depth 32) for `data/seeds/`.
-    /// 4. Walk `current_exe()` ancestors for `data/seeds/`.
-    /// 5. `/app/share/appimage-control/seeds/` (Flatpak install path).
-    /// 6. `/usr/share/appimage-control/seeds/`.
-    /// 7. Embedded slice baked in by `build.rs`.
+    /// 3. `~/.local/share/appimage-control/seeds/` — per-user override.
+    ///    This is where `--update-seed-packs` (Stage 7 of the
+    ///    seed-pack-extraction plan) installs companion-repo packs.
+    /// 4. Walk cwd ancestors (depth 32) for `data/seeds/`.
+    /// 5. Walk `current_exe()` ancestors for `data/seeds/`.
+    /// 6. `/app/share/appimage-control/seeds/` (Flatpak install path).
+    /// 7. `/usr/share/appimage-control/seeds/`.
+    /// 8. Embedded slice baked in by `build.rs`.
     pub fn discover_load(explicit: Option<&Path>) -> Result<Self> {
         if let Some(dir) = explicit {
             if !dir.is_dir() {
@@ -226,6 +237,11 @@ impl SeedPackLibrary {
                 if let Some(lib) = Self::load_from_dir(&p)? {
                     return Ok(lib);
                 }
+            }
+        }
+        if let Some(user_dir) = user_seeds_dir() {
+            if let Some(lib) = Self::load_from_dir(&user_dir)? {
+                return Ok(lib);
             }
         }
         if let Ok(cwd) = std::env::current_dir() {
@@ -774,6 +790,101 @@ mod tests {
             None => std::env::remove_var(ENV_SEEDS_DIR),
         }
         assert!(lib.get("from_env").is_some());
+    }
+
+    #[test]
+    fn user_seeds_dir_returns_xdg_data_path() {
+        // Just sanity-check the path shape — the actual location is
+        // user-environment dependent. dirs::data_dir() returns
+        // ~/.local/share on Linux unless XDG_DATA_HOME overrides.
+        let p = user_seeds_dir().expect("user_seeds_dir resolves");
+        let s = p.to_string_lossy();
+        assert!(
+            s.ends_with("appimage-control/seeds"),
+            "expected path to end with appimage-control/seeds, got: {s}"
+        );
+    }
+
+    #[test]
+    fn discover_load_user_dir_wins_over_ancestor_walk() {
+        let _g = env_lock().lock().unwrap();
+        // Point XDG_DATA_HOME at a tempdir, populate the per-user
+        // seeds dir, and verify discover_load picks it up over the
+        // cwd ancestor walk (which would otherwise hit the repo's
+        // real data/seeds during local testing).
+        let tmp = tempfile::tempdir().unwrap();
+        let xdg = tmp.path().to_path_buf();
+        let user_dir = xdg.join("appimage-control").join("seeds");
+        std::fs::create_dir_all(&user_dir).unwrap();
+        std::fs::write(
+            user_dir.join("user-priority-test.json"),
+            r#"{"config_path":"u.json"}"#,
+        )
+        .unwrap();
+
+        let prev_xdg = std::env::var("XDG_DATA_HOME").ok();
+        let prev_seeds = std::env::var(ENV_SEEDS_DIR).ok();
+        std::env::set_var("XDG_DATA_HOME", &xdg);
+        std::env::remove_var(ENV_SEEDS_DIR);
+
+        let lib = SeedPackLibrary::discover_load(None).unwrap();
+        let got = lib.get("user-priority-test").is_some();
+
+        match prev_xdg {
+            Some(v) => std::env::set_var("XDG_DATA_HOME", v),
+            None => std::env::remove_var("XDG_DATA_HOME"),
+        }
+        if let Some(v) = prev_seeds {
+            std::env::set_var(ENV_SEEDS_DIR, v);
+        }
+
+        assert!(got, "user dir should win over ancestor walk");
+    }
+
+    #[test]
+    fn discover_load_env_var_still_wins_over_user_dir() {
+        let _g = env_lock().lock().unwrap();
+        let tmp = tempfile::tempdir().unwrap();
+        let xdg = tmp.path().join("xdg");
+        let user_dir = xdg.join("appimage-control").join("seeds");
+        std::fs::create_dir_all(&user_dir).unwrap();
+        std::fs::write(
+            user_dir.join("from-user.json"),
+            r#"{"config_path":"x.json"}"#,
+        )
+        .unwrap();
+
+        let env_dir = tmp.path().join("env");
+        std::fs::create_dir_all(&env_dir).unwrap();
+        std::fs::write(
+            env_dir.join("from-env.json"),
+            r#"{"config_path":"y.json"}"#,
+        )
+        .unwrap();
+
+        let prev_xdg = std::env::var("XDG_DATA_HOME").ok();
+        let prev_seeds = std::env::var(ENV_SEEDS_DIR).ok();
+        std::env::set_var("XDG_DATA_HOME", &xdg);
+        std::env::set_var(ENV_SEEDS_DIR, &env_dir);
+
+        let lib = SeedPackLibrary::discover_load(None).unwrap();
+        let env_won = lib.get("from-env").is_some();
+        let user_present = lib.get("from-user").is_some();
+
+        match prev_xdg {
+            Some(v) => std::env::set_var("XDG_DATA_HOME", v),
+            None => std::env::remove_var("XDG_DATA_HOME"),
+        }
+        match prev_seeds {
+            Some(v) => std::env::set_var(ENV_SEEDS_DIR, v),
+            None => std::env::remove_var(ENV_SEEDS_DIR),
+        }
+
+        assert!(env_won, "env var should win");
+        assert!(
+            !user_present,
+            "user dir should not be visible when env wins"
+        );
     }
 
     #[test]
