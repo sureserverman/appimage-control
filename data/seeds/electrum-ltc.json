@@ -1,0 +1,7 @@
+{
+  "config_path": "{appimage}.home/.electrum-ltc/config",
+  "first_run_args": ["--offline"],
+  "preset": {
+    "proxy": { "format": "socks5:{socks5_host}:{electrum_ltc_port}" }
+  }
+}

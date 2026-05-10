@@ -941,4 +941,35 @@ exec "$@"
             }
         }
     }
+
+    const ELECTRUM_LTC_PACK_JSON: &str =
+        include_str!("../../../data/seeds/electrum-ltc.json");
+
+    #[test]
+    fn electrum_ltc_pack_matches_legacy_patch() {
+        use crate::seed_pack::{apply_pack, SeedPack};
+        let pack: SeedPack = serde_json::from_str(ELECTRUM_LTC_PACK_JSON)
+            .expect("data/seeds/electrum-ltc.json must parse");
+
+        for preset in [SeedPreset::Ubuntu, SeedPreset::Whonix] {
+            let cfg = SeedConfig::for_preset(preset);
+            for idx in [1u32, 7] {
+                let tmp = tempfile::tempdir().unwrap();
+                let legacy_path = tmp.path().join("legacy.json");
+                fs::write(&legacy_path, "{}").unwrap();
+                patch_electrum_ltc_config(&legacy_path, &cfg).unwrap();
+                let legacy: Value =
+                    serde_json::from_str(&fs::read_to_string(&legacy_path).unwrap()).unwrap();
+
+                let mut map = Map::new();
+                apply_pack(&pack, &cfg, idx, &mut map).unwrap();
+                let new_value = Value::Object(map);
+
+                assert_eq!(
+                    legacy, new_value,
+                    "electrum-ltc: preset={preset:?} idx={idx}: legacy != new_pack"
+                );
+            }
+        }
+    }
 }
