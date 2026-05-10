@@ -37,14 +37,11 @@ use crate::seed::{PresetField, SeedConfig};
 /// Environment variable that, when set to a non-empty path, forces the
 /// loader to use exactly that directory of `*.json` packs and skip the
 /// ancestor walk and `/app/share` / `/usr/share` fallbacks. Mirrors
-/// `APPIMAGE_CONTROL_CATALOG`'s shape. Stage 4 wires this into the
-/// seeding entry points.
-#[allow(dead_code)]
+/// `APPIMAGE_CONTROL_CATALOG`'s shape.
 pub const ENV_SEEDS_DIR: &str = "APPIMAGE_CONTROL_SEEDS_DIR";
 
 /// Bound on the ancestor walk so a misconfigured cwd can't loop forever.
 /// Same value as `crate::catalog`'s walk.
-#[allow(dead_code)]
 const MAX_ANCESTOR_DEPTH: usize = 32;
 
 /// One seed pack, parsed from `data/seeds/<app-id>.json`.
@@ -138,13 +135,9 @@ impl SeedPackLibrary {
         Ok(lib)
     }
 
-    // Stage 4 wires `load_from_dir` + `discover_load` + `try_ancestors`
-    // into the seeding entry points (today's `recipe_for_app_id` uses
-    // `embedded()` directly). Allow until then.
     /// Load every `*.json` file in `dir` as a seed pack keyed by file
     /// stem. Returns `Ok(None)` when `dir` is missing or contains no
     /// `*.json` files; `Err` when a present `*.json` fails to parse.
-    #[allow(dead_code)]
     pub fn load_from_dir(dir: &Path) -> Result<Option<Self>> {
         if !dir.is_dir() {
             return Ok(None);
@@ -192,7 +185,6 @@ impl SeedPackLibrary {
     /// 5. `/app/share/appimage-control/seeds/` (Flatpak install path).
     /// 6. `/usr/share/appimage-control/seeds/`.
     /// 7. Embedded slice baked in by `build.rs`.
-    #[allow(dead_code)]
     pub fn discover_load(explicit: Option<&Path>) -> Result<Self> {
         if let Some(dir) = explicit {
             if !dir.is_dir() {
@@ -240,7 +232,6 @@ impl SeedPackLibrary {
         Self::embedded()
     }
 
-    #[allow(dead_code)]
     fn try_ancestors(start: &Path) -> Result<Option<Self>> {
         let mut dir = start;
         for _ in 0..MAX_ANCESTOR_DEPTH {

@@ -12,6 +12,11 @@ pub fn shipped_catalog_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../data/catalog.json")
 }
 
+/// Path to the repo `data/seeds/` directory when running tests from `crates/core`.
+pub fn shipped_seeds_dir() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../data/seeds")
+}
+
 /// Bind an ephemeral port, serve one HTTP/1.1 `200` response with `body`, then close.
 /// Returns a base URL such as `http://127.0.0.1:PORT/` suitable for `reqwest` GET.
 pub fn serve_bytes_once(body: &[u8], content_type: &str) -> String {

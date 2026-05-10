@@ -179,16 +179,17 @@ pub struct SeedReport {
     pub failed: u32,
 }
 
-/// Resolve a [`CatalogApp`] to its [`SeedRecipe`] from the embedded
-/// seed-pack library. Stage 4 of the seed-pack-extraction plan replaces
-/// this with a discovered library so disk overrides and Flatpak-shipped
-/// packs participate.
+/// Resolve a [`CatalogApp`] to its [`SeedRecipe`] from the active
+/// [`SeedPackLibrary`] (discovered via the same fallback chain
+/// `Catalog::discover_load` uses for `catalog.json`: explicit dir →
+/// `APPIMAGE_CONTROL_SEEDS_DIR` env → cwd ancestor walk → exe-parent
+/// ancestor walk → `/app/share/...` → `/usr/share/...` → embedded).
 pub fn recipe_for_supported_app(app: &CatalogApp) -> Option<SeedRecipe> {
     recipe_for_app_id(&app.id)
 }
 
 fn recipe_for_app_id(app_id: &str) -> Option<SeedRecipe> {
-    let lib = SeedPackLibrary::embedded().ok()?;
+    let lib = active_seed_library().ok()?;
     let pack = lib.get(app_id)?.clone();
     Some(SeedRecipe {
         app_id: app_id.to_string(),
@@ -196,6 +197,14 @@ fn recipe_for_app_id(app_id: &str) -> Option<SeedRecipe> {
         first_run_args: pack.first_run_args.clone(),
         pack,
     })
+}
+
+/// Centralised seed-pack library lookup. `discover_load` reaches the
+/// disk-override / Flatpak / embedded chain; on any failure we fall
+/// back to the embedded slice so a malformed disk pack can't break
+/// every "is this app seedable" probe.
+fn active_seed_library() -> Result<SeedPackLibrary> {
+    SeedPackLibrary::discover_load(None).or_else(|_| SeedPackLibrary::embedded())
 }
 
 pub fn seed_instance_settings(

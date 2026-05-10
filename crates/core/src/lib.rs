@@ -64,6 +64,7 @@ pub use seed::{
     seed_new_instances_after_reconcile, seed_supported_installed_apps, SeedConfig, SeedOutcome,
     SeedPreset, SeedRecipe, SeedReport, SeedTarget, SupportedSeedApp,
 };
+pub use seed_pack::{SeedPack, SeedPackLibrary, ENV_SEEDS_DIR};
 pub use update::{appimageupdatetool_available, run_appimageupdatetool, update_from_file};
 pub use version_info::{
     catalog_cache_fresh_for_pinned, catalog_pin_matches_recorded, catalog_pinned_version,
