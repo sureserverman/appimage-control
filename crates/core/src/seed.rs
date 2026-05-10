@@ -70,6 +70,19 @@ pub struct SeedConfig {
     pub electrum_ltc_port: u16,
 }
 
+/// Typed view of one [`SeedConfig`] field, returned by
+/// [`SeedConfig::field`]. Used by the seed-pack interpreter to resolve
+/// `preset.from`, `preset.format`, and `rotation.from_preset_array`
+/// references against the active preset without each verb caring about
+/// the concrete type.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PresetField<'a> {
+    Bool(bool),
+    Str(&'a str),
+    U16(u16),
+    U16Array(&'a [u16]),
+}
+
 impl SeedConfig {
     pub fn for_preset(preset: SeedPreset) -> Self {
         match preset {
@@ -89,6 +102,22 @@ impl SeedConfig {
                 electrum_btc_port: 9054,
                 electrum_ltc_port: 9055,
             },
+        }
+    }
+
+    /// Look up a SeedConfig field by name. Single source of truth for
+    /// the legal preset-field set referenced by seed-pack `preset.from`,
+    /// `preset.format` placeholders, and `rotation.from_preset_array`.
+    /// Returns `None` for unknown names so pack validation can flag
+    /// typos.
+    pub fn field(&self, name: &str) -> Option<PresetField<'_>> {
+        match name {
+            "socks5_host" => Some(PresetField::Str(&self.socks5_host)),
+            "feather_use_local_tor" => Some(PresetField::Bool(self.feather_use_local_tor)),
+            "feather_ports" => Some(PresetField::U16Array(&self.feather_ports)),
+            "electrum_btc_port" => Some(PresetField::U16(self.electrum_btc_port)),
+            "electrum_ltc_port" => Some(PresetField::U16(self.electrum_ltc_port)),
+            _ => None,
         }
     }
 }
@@ -662,6 +691,35 @@ exec "$@"
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+        }
+    }
+
+    #[test]
+    fn preset_field_accessor_covers_every_legal_name() {
+        for preset in [SeedPreset::Ubuntu, SeedPreset::Whonix] {
+            let cfg = SeedConfig::for_preset(preset);
+            assert_eq!(
+                cfg.field("socks5_host"),
+                Some(PresetField::Str(cfg.socks5_host.as_str()))
+            );
+            assert_eq!(
+                cfg.field("feather_use_local_tor"),
+                Some(PresetField::Bool(cfg.feather_use_local_tor))
+            );
+            assert_eq!(
+                cfg.field("feather_ports"),
+                Some(PresetField::U16Array(&cfg.feather_ports))
+            );
+            assert_eq!(
+                cfg.field("electrum_btc_port"),
+                Some(PresetField::U16(cfg.electrum_btc_port))
+            );
+            assert_eq!(
+                cfg.field("electrum_ltc_port"),
+                Some(PresetField::U16(cfg.electrum_ltc_port))
+            );
+            assert_eq!(cfg.field("nope"), None);
+            assert_eq!(cfg.field(""), None);
         }
     }
 
