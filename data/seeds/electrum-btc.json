@@ -1,0 +1,22 @@
+{
+  "config_path": "{appimage}.home/.electrum/config",
+  "first_run_args": ["--offline"],
+  "static": {
+    "oneserver": true,
+    "server": "***REDACTED-ONION-ENDPOINT***",
+    "network_bookmarked_servers": [
+      "***REDACTED-ONION-ENDPOINT***",
+      "***REDACTED-ONION-ENDPOINT***",
+      "***REDACTED-ONION-ENDPOINT***",
+      "***REDACTED-ONION-ENDPOINT***",
+      "***REDACTED-ONION-ENDPOINT***",
+      "***REDACTED-ONION-ENDPOINT***",
+      "***REDACTED-ONION-ENDPOINT***",
+      "***REDACTED-ONION-ENDPOINT***",
+      "***REDACTED-ONION-ENDPOINT***"
+    ]
+  },
+  "preset": {
+    "proxy": { "format": "socks5:{socks5_host}:{electrum_btc_port}" }
+  }
+}

@@ -909,4 +909,36 @@ exec "$@"
             }
         }
     }
+
+    const ELECTRUM_BTC_PACK_JSON: &str =
+        include_str!("../../../data/seeds/electrum-btc.json");
+
+    #[test]
+    fn electrum_btc_pack_matches_legacy_patch() {
+        use crate::seed_pack::{apply_pack, SeedPack};
+        let pack: SeedPack = serde_json::from_str(ELECTRUM_BTC_PACK_JSON)
+            .expect("data/seeds/electrum-btc.json must parse");
+
+        for preset in [SeedPreset::Ubuntu, SeedPreset::Whonix] {
+            let cfg = SeedConfig::for_preset(preset);
+            // Electrum patches don't depend on instance_index; one is enough.
+            for idx in [1u32, 7] {
+                let tmp = tempfile::tempdir().unwrap();
+                let legacy_path = tmp.path().join("legacy.json");
+                fs::write(&legacy_path, "{}").unwrap();
+                patch_electrum_btc_config(&legacy_path, &cfg).unwrap();
+                let legacy: Value =
+                    serde_json::from_str(&fs::read_to_string(&legacy_path).unwrap()).unwrap();
+
+                let mut map = Map::new();
+                apply_pack(&pack, &cfg, idx, &mut map).unwrap();
+                let new_value = Value::Object(map);
+
+                assert_eq!(
+                    legacy, new_value,
+                    "electrum-btc: preset={preset:?} idx={idx}: legacy != new_pack"
+                );
+            }
+        }
+    }
 }
