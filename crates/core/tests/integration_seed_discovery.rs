@@ -1,9 +1,16 @@
 //! Disk-override discovery for seed packs.
 //!
-//! Verifies that `APPIMAGE_CONTROL_SEEDS_DIR` and the cwd ancestor walk
-//! win over the embedded slice baked in by `build.rs`, and that an
-//! override can introduce a new app id (so curating the supported set
-//! at runtime is a one-file drop, no rebuild needed).
+//! This repo ships only the seed-pack *architecture* (loader,
+//! interpreter, verifier, CLI surface). The embedded slice baked in
+//! by `build.rs` is empty by default, and authorised users install
+//! actual packs at runtime via
+//! `appimage-control --update-seed-packs` (from an operator-curated
+//! companion repo) or by dropping files into
+//! `~/.local/share/appimage-control/seeds/` or
+//! `$APPIMAGE_CONTROL_SEEDS_DIR`.
+//!
+//! These tests verify the discovery chain works against synthetic
+//! packs without depending on any specific app id being shipped.
 
 mod common;
 
@@ -48,15 +55,12 @@ fn app(id: &str) -> CatalogApp {
 }
 
 #[test]
-fn env_var_override_replaces_embedded_pack_for_known_app() {
+fn env_var_override_supplies_a_pack_for_a_synthetic_app_id() {
     let _g = env_lock().lock().unwrap();
     let tmp = tempfile::tempdir().unwrap();
-    // Ship a pack file under app id "feather" with a clearly-distinct
-    // first_run_args list and a sentinel rotation, so we can tell at a
-    // glance whether discover_load picked us up over the embedded pack.
     let pack_dir = tmp.path().to_path_buf();
     fs::write(
-        pack_dir.join("feather.json"),
+        pack_dir.join("aic-disco-test-app.json"),
         r#"{
             "config_path":"sentinel.json",
             "first_run_args":["--from-disk-override"]
@@ -67,7 +71,8 @@ fn env_var_override_replaces_embedded_pack_for_known_app() {
     let prev = std::env::var("APPIMAGE_CONTROL_SEEDS_DIR").ok();
     std::env::set_var("APPIMAGE_CONTROL_SEEDS_DIR", &pack_dir);
 
-    let recipe = recipe_for_supported_app(&app("feather")).expect("feather pack must resolve");
+    let recipe = recipe_for_supported_app(&app("aic-disco-test-app"))
+        .expect("override-supplied pack must resolve");
     assert_eq!(recipe.first_run_args, vec!["--from-disk-override"]);
     assert_eq!(recipe.config_path_doc, "sentinel.json");
 
@@ -78,11 +83,10 @@ fn env_var_override_replaces_embedded_pack_for_known_app() {
 }
 
 #[test]
-fn env_var_override_introduces_new_supported_app_id() {
+fn env_var_override_introduces_an_otherwise_unsupported_app_id() {
     let _g = env_lock().lock().unwrap();
     let tmp = tempfile::tempdir().unwrap();
     let pack_dir = tmp.path().to_path_buf();
-    // Ship an entirely new pack id not present in the embedded slice.
     fs::write(
         pack_dir.join("brand-new-app.json"),
         r#"{"config_path":"x.json"}"#,
@@ -105,22 +109,22 @@ fn env_var_override_introduces_new_supported_app_id() {
 }
 
 #[test]
-fn no_override_falls_back_to_shipped_packs() {
+fn unknown_app_id_returns_no_recipe() {
     let _g = env_lock().lock().unwrap();
     let prev = std::env::var("APPIMAGE_CONTROL_SEEDS_DIR").ok();
-    std::env::remove_var("APPIMAGE_CONTROL_SEEDS_DIR");
+    // Point env at an empty dir so the chain reliably falls through
+    // to the embedded slice (which is empty in this repo by design).
+    let empty = tempfile::tempdir().unwrap();
+    fs::create_dir_all(empty.path()).unwrap();
+    std::env::set_var("APPIMAGE_CONTROL_SEEDS_DIR", empty.path());
 
-    // The shipped library covers feather, electrum-btc, electrum-ltc.
-    // (When the test process happens to live inside a checkout whose
-    // cwd-ancestor walk hits `data/seeds/`, that's the *same* set —
-    // they're the canonical files and the embedded slice is built
-    // from them.)
-    let recipe =
-        recipe_for_supported_app(&app("feather")).expect("feather is shipped");
-    assert!(!recipe.config_path_doc.is_empty());
-    assert!(recipe_for_supported_app(&app("nonexistent-app")).is_none());
+    assert!(
+        recipe_for_supported_app(&app("an-id-with-no-pack-anywhere")).is_none(),
+        "unknown app id must yield no recipe when no override supplies one"
+    );
 
-    if let Some(v) = prev {
-        std::env::set_var("APPIMAGE_CONTROL_SEEDS_DIR", v);
+    match prev {
+        Some(v) => std::env::set_var("APPIMAGE_CONTROL_SEEDS_DIR", v),
+        None => std::env::remove_var("APPIMAGE_CONTROL_SEEDS_DIR"),
     }
 }

@@ -32,13 +32,13 @@ modules:
       - install -Dm644 data/io.github.sureserverman.AppImageControl.desktop /app/share/applications/io.github.sureserverman.AppImageControl.desktop
       - install -Dm644 data/io.github.sureserverman.AppImageControl.metainfo.xml /app/share/metainfo/io.github.sureserverman.AppImageControl.metainfo.xml
       - install -Dm644 data/catalog.json /app/share/appimage-control/catalog.json
-      # Seed packs: one file per supported app. discover_load reaches
-      # /app/share/appimage-control/seeds/ via the same fallback chain
-      # Catalog::discover_load walks for catalog.json. New packs land
-      # by dropping a *.json under data/seeds/ — no Flathub manifest
-      # change required (the wildcard install picks them up).
-      - install -d /app/share/appimage-control/seeds
-      - install -Dm644 -t /app/share/appimage-control/seeds/ data/seeds/*.json
+      # Seed packs are deliberately not bundled in this Flatpak.
+      # The manager ships only the seed-pack *architecture* (loader,
+      # interpreter, signature verifier, --update-seed-packs CLI);
+      # the actual pack files come from a separate operator-curated
+      # repo that an authorised user installs via
+      # `appimage-control --update-seed-packs`. See
+      # docs/seed-pack-companion-repo.md.
       - install -Dm644 crates/gui/assets/app-icon/io.github.sureserverman.AppImageControl-128.png /app/share/icons/hicolor/128x128/apps/io.github.sureserverman.AppImageControl.png
       - install -Dm644 crates/gui/assets/app-icon/io.github.sureserverman.AppImageControl-256.png /app/share/icons/hicolor/256x256/apps/io.github.sureserverman.AppImageControl.png
       - install -Dm644 crates/gui/assets/app-icon/io.github.sureserverman.AppImageControl-512.png /app/share/icons/hicolor/512x512/apps/io.github.sureserverman.AppImageControl.png

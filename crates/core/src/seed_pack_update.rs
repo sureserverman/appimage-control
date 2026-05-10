@@ -52,10 +52,16 @@ use crate::download::download_to_file;
 use crate::error::{Error, Result};
 use crate::seed_pack::{user_seeds_dir, SeedPackLibrary};
 
-/// Default GitHub-releases base URL for the companion repo. Override
-/// via the [`ENV_RELEASE_URL`] env var (used by tests and forks).
-pub const DEFAULT_RELEASE_URL: &str =
-    "https://github.com/sureserverman/appimage-control-seed-packs/releases/latest/download";
+/// Default release base URL for the companion repo. **Placeholder by
+/// default** — this public repo intentionally does not ship a release
+/// URL, because the companion repo is operator-curated and meant to
+/// reach only authorised users, not the general public. Authorised
+/// builds replace this const before publishing the binary (or set
+/// [`ENV_RELEASE_URL`] at runtime). While the placeholder is in
+/// source AND no env override is set, [`update_seed_packs`] returns
+/// [`Error::SeedPackSignature`](crate::error::Error::SeedPackSignature)
+/// without touching the network.
+pub const DEFAULT_RELEASE_URL: &str = "<unset-placeholder>";
 
 /// Env var that, when set to a non-empty URL, replaces
 /// [`DEFAULT_RELEASE_URL`] for one update-seed-packs invocation.
@@ -125,6 +131,17 @@ pub fn update_seed_packs(
                 .filter(|s| !s.is_empty())
         })
         .unwrap_or_else(|| DEFAULT_RELEASE_URL.to_string());
+    if base == DEFAULT_RELEASE_URL {
+        return Err(Error::SeedPackSignature(
+            "this build has no seed-pack release URL configured \
+             (DEFAULT_RELEASE_URL is still the placeholder). \
+             Either set APPIMAGE_CONTROL_SEED_PACKS_URL at runtime, \
+             or rebuild with the operator-managed release URL in \
+             crates/core/src/seed_pack_update.rs. See \
+             docs/seed-pack-companion-repo.md."
+                .into(),
+        ));
+    }
 
     let target = user_seeds_dir().ok_or(Error::NoHomeDir)?;
     let staging = target.with_extension("update-staging");

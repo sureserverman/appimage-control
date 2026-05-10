@@ -1290,15 +1290,12 @@ mod tests {
 
     #[test]
     fn embedded_library_loads_from_build_rs_output() {
+        // This repo ships no curated packs (the architecture is
+        // public, the content is in an operator-managed companion
+        // repo). The embedded slice is allowed to be empty; the
+        // contract is just that whatever build.rs emitted parses
+        // through serde without panicking and validates clean.
         let lib = SeedPackLibrary::embedded().expect("embedded packs must parse");
-        // Stage 1 ships at least one placeholder pack so the embed
-        // pipeline is exercised. Stages 3 and beyond grow this to ≥3.
-        assert!(
-            !lib.is_empty(),
-            "build.rs should have emitted at least one entry; got 0"
-        );
-        // The build.rs output is a verbatim JSON-string slice; just sanity
-        // check that every entry round-trips through serde.
         for id in lib.ids().collect::<Vec<_>>() {
             let pack = lib.get(id).expect("id from ids() resolves");
             assert!(

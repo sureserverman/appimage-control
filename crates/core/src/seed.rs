@@ -649,83 +649,70 @@ exec "$@"
         assert_eq!(w.electrum_ltc_port, 9055);
     }
 
-    fn apply_pack_to_empty_map(app_id: &str, idx: u32, preset: SeedPreset) -> Value {
-        let recipe = recipe_for_app_id(app_id).expect("pack for app must exist");
-        let cfg = SeedConfig::for_preset(preset);
-        let mut map = Map::new();
-        apply_pack(&recipe.pack, &cfg, idx, &mut map).unwrap();
-        Value::Object(map)
-    }
+    // App-specific apply_pack assertions (validating the JSON shape
+    // produced for any one curated pack) live in the operator-managed
+    // seed-pack repo alongside the pack files themselves — they
+    // assert pack content, not architecture, so they don't belong in
+    // this public repo.
+    //
+    // The architecture (every verb of every shape) is exhaustively
+    // covered by the 11 synthetic-pack tests in `crate::seed_pack::tests`.
 
-    #[test]
-    fn feather_recipe_patch_matches_installer_defaults() {
-        let v = apply_pack_to_empty_map("feather", 2, SeedPreset::Whonix);
-        assert_eq!(v["proxy"], 1);
-        assert_eq!(v["skin"], "Breeze/Dark");
-        assert_eq!(v["socks5Port"], "9053");
-        assert_eq!(v["torOnlyAllowOnion"], true);
-        assert_eq!(v["torPrivacyLevel"], 2);
-        assert_eq!(v["useLocalTor"], false);
-        assert_eq!(v["socks5Host"], "10.152.152.10");
-    }
-
-    #[test]
-    fn electrum_btc_recipe_patch_matches_installer_defaults() {
-        let v = apply_pack_to_empty_map("electrum-btc", 1, SeedPreset::Ubuntu);
-        assert_eq!(v["oneserver"], true);
-        assert_eq!(
-            v["server"],
-            "***REDACTED-ONION-ENDPOINT***"
+    /// Install a synthetic pack file under `seeds_dir` so the
+    /// discovery chain (via APPIMAGE_CONTROL_SEEDS_DIR) sees the
+    /// `<app-id>` as supported. Pack produces a deterministic
+    /// `sentinel` static key + a preset-derived `presetHost` so the
+    /// caller can assert that apply_pack actually ran.
+    fn install_pipeline_test_pack(seeds_dir: &Path, app_id: &str, appimage_filename: &str) {
+        fs::create_dir_all(seeds_dir).unwrap();
+        let cfg_path = format!("{appimage_filename}.test/config.json");
+        let body = format!(
+            r#"{{
+                "config_path": "{cfg_path}",
+                "first_run_args": ["--offline"],
+                "static": {{ "sentinel": "ran" }},
+                "preset": {{ "presetHost": {{ "from": "socks5_host" }} }}
+            }}"#
         );
-        assert_eq!(v["proxy"], "socks5:127.0.0.1:9054");
-        assert_eq!(v["network_bookmarked_servers"].as_array().unwrap().len(), 9);
+        fs::write(seeds_dir.join(format!("{app_id}.json")), body).unwrap();
     }
 
     #[test]
-    fn electrum_ltc_recipe_patch_matches_installer_defaults() {
-        let v = apply_pack_to_empty_map("electrum-ltc", 1, SeedPreset::Whonix);
-        assert_eq!(v["proxy"], "socks5:10.152.152.10:9055");
-    }
-
-    #[test]
-    fn seed_instance_settings_with_shared_pipeline_for_all_supported_apps() {
+    fn seed_instance_settings_runs_end_to_end_with_a_disk_override_pack() {
         with_fake_xvfb(tempfile::tempdir().unwrap().path(), || {
             let tmp = tempfile::tempdir().unwrap();
-            let feather = supported_app("feather", "feather.AppImage");
-            let (paths_f, _, cfg_f) = make_seedable_instance(
+            let seeds_dir = tmp.path().join("seeds");
+            let app_id = "aic-pipeline-test-app";
+            let appimage = "aic-pipeline-test-app.AppImage";
+            install_pipeline_test_pack(&seeds_dir, app_id, appimage);
+
+            let prev = std::env::var("APPIMAGE_CONTROL_SEEDS_DIR").ok();
+            std::env::set_var("APPIMAGE_CONTROL_SEEDS_DIR", &seeds_dir);
+
+            let app = supported_app(app_id, appimage);
+            let (paths, _, cfg) = make_seedable_instance(
                 &tmp,
-                &feather,
+                &app,
                 1,
-                "feather.AppImage.config/feather/settings.json",
-                false,
+                &format!("{appimage}.test/config.json"),
+                true, // offline_marker — matches first_run_args
             );
             let mut lines = Vec::new();
-            let out = seed_instance_settings(&paths_f, &feather, 1, SeedPreset::Ubuntu, &mut |s| {
+            let out = seed_instance_settings(&paths, &app, 1, SeedPreset::Ubuntu, &mut |s| {
                 lines.push(s.to_string())
             })
             .unwrap();
+
+            // Clean up env before any assertion can short-circuit.
+            match prev {
+                Some(v) => std::env::set_var("APPIMAGE_CONTROL_SEEDS_DIR", v),
+                None => std::env::remove_var("APPIMAGE_CONTROL_SEEDS_DIR"),
+            }
+
             assert_eq!(out, SeedOutcome::Seeded);
-            let f: Value = serde_json::from_str(&fs::read_to_string(&cfg_f).unwrap()).unwrap();
-            assert_eq!(f["socks5Port"], "9052");
-
-            let btc = supported_app("electrum-btc", "eb.AppImage");
-            let (paths_b, _, cfg_b) =
-                make_seedable_instance(&tmp, &btc, 1, "eb.AppImage.home/.electrum/config", true);
-            seed_instance_settings(&paths_b, &btc, 1, SeedPreset::Ubuntu, &mut |_| {}).unwrap();
-            let b: Value = serde_json::from_str(&fs::read_to_string(&cfg_b).unwrap()).unwrap();
-            assert_eq!(b["proxy"], "socks5:127.0.0.1:9054");
-
-            let ltc = supported_app("electrum-ltc", "el.AppImage");
-            let (paths_l, _, cfg_l) = make_seedable_instance(
-                &tmp,
-                &ltc,
-                1,
-                "el.AppImage.home/.electrum-ltc/config",
-                true,
-            );
-            seed_instance_settings(&paths_l, &ltc, 1, SeedPreset::Whonix, &mut |_| {}).unwrap();
-            let l: Value = serde_json::from_str(&fs::read_to_string(&cfg_l).unwrap()).unwrap();
-            assert_eq!(l["proxy"], "socks5:10.152.152.10:9055");
+            let v: Value = serde_json::from_str(&fs::read_to_string(&cfg).unwrap()).unwrap();
+            assert_eq!(v["sentinel"], "ran");
+            assert_eq!(v["presetHost"], "127.0.0.1");
             assert!(lines.iter().any(|s| s.contains("settings seeded")));
         });
     }
@@ -734,21 +721,28 @@ exec "$@"
     fn seed_supported_installed_apps_is_idempotent_and_reports_unsupported() {
         with_fake_xvfb(tempfile::tempdir().unwrap().path(), || {
             let tmp = tempfile::tempdir().unwrap();
-            let feather = supported_app("feather", "feather.AppImage");
+            let seeds_dir = tmp.path().join("seeds");
+            let supported_id = "aic-supported-app";
+            let unsupported_id = "aic-unsupported-app";
+            let supported_filename = "aic-supported-app.AppImage";
+            install_pipeline_test_pack(&seeds_dir, supported_id, supported_filename);
+
+            let prev = std::env::var("APPIMAGE_CONTROL_SEEDS_DIR").ok();
+            std::env::set_var("APPIMAGE_CONTROL_SEEDS_DIR", &seeds_dir);
+
+            let supported = supported_app(supported_id, supported_filename);
+            let unsupported = supported_app(unsupported_id, "aic-unsupported-app.AppImage");
             let (paths, _, cfg) = make_seedable_instance(
                 &tmp,
-                &feather,
+                &supported,
                 1,
-                "feather.AppImage.config/feather/settings.json",
-                false,
+                &format!("{supported_filename}.test/config.json"),
+                true,
             );
             let catalog = Catalog {
-                apps: vec![
-                    feather.clone(),
-                    supported_app("mattermost", "Mattermost.AppImage"),
-                ],
+                apps: vec![supported.clone(), unsupported.clone()],
             };
-            let selected = vec!["feather".to_string(), "mattermost".to_string()];
+            let selected = vec![supported_id.to_string(), unsupported_id.to_string()];
             let r1 = seed_supported_installed_apps(
                 &paths,
                 &catalog,
@@ -761,12 +755,18 @@ exec "$@"
                 &paths,
                 &catalog,
                 SeedPreset::Ubuntu,
-                Some(&["feather".to_string()]),
+                Some(&[supported_id.to_string()]),
                 &mut |_| {},
             )
             .unwrap();
+
+            match prev {
+                Some(v) => std::env::set_var("APPIMAGE_CONTROL_SEEDS_DIR", v),
+                None => std::env::remove_var("APPIMAGE_CONTROL_SEEDS_DIR"),
+            }
+
             let v: Value = serde_json::from_str(&fs::read_to_string(&cfg).unwrap()).unwrap();
-            assert_eq!(v["proxy"], 1);
+            assert_eq!(v["sentinel"], "ran");
             assert_eq!(r1.seeded, 1);
             assert_eq!(r1.skipped_unsupported, 1);
             assert_eq!(r2.seeded, 1);

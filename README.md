@@ -32,9 +32,11 @@ Run from the repo root so `./data/catalog.json` is found, or set:
 
 `export APPIMAGE_CONTROL_CATALOG=/path/to/catalog.json`
 
-## Seeding Feather and Electrum settings
+## Seeding app settings (architecture)
 
-For Feather and Electrum (BTC/LTC), AppImage Control can **seed and patch app settings** so they match your installer scripts (ports, Tor use, etc.). Seeding is implemented entirely in `appimage_control_core` and works the same from CLI and GUI.
+AppImage Control can **seed and patch app settings** on first run — write a config file the way you want by launching the AppImage once under `xvfb-run` and applying a declarative *seed pack* (a small JSON file) to whatever it produces.
+
+This repository ships only the **architecture** (loader, interpreter, signature verifier, CLI surface). It does **not** ship any curated pack content. Actual seed packs are operator-curated and distributed to authorised users via a separate signed companion repository — see [`docs/seed-packs.md`](docs/seed-packs.md) for the schema and [`docs/seed-pack-companion-repo.md`](docs/seed-pack-companion-repo.md) for the distribution setup.
 
 ### Requirements
 
@@ -52,19 +54,19 @@ For Feather and Electrum (BTC/LTC), AppImage Control can **seed and patch app se
 
 - Network access to download and run the upstream AppImages at least once.
 
-### CLI workflow (Feather + Electrum)
-
-From the repo root:
+### CLI surface
 
 ```bash
-# 1) Install instances from the bundled catalog
-cargo run -p appimage-control --release -- \
-  +feather +electrum-btc +electrum-ltc
+# Confirm which packs are loaded and where each came from
+appimage-control --list-seed-packs
 
-# 2) Seed and patch their settings using the Ubuntu-style preset
-cargo run -p appimage-control --release -- \
-  --seed-settings feather,electrum-btc,electrum-ltc \
-  --seed-preset ubuntu
+# Fetch + verify + install signed pack updates from the
+# operator-managed companion repo (requires an authorised build —
+# placeholders in source refuse without touching the network)
+appimage-control --update-seed-packs
+
+# Apply seeding to installed instances of one or more apps
+appimage-control --seed-settings <app-ids> --seed-preset <ubuntu|whonix>
 ```
 
 The seeding command:
