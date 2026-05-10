@@ -1,10 +1,10 @@
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use crate::desktop::{app_id_from_appimage_path, build_desktop_entry, desktop_filename_for_app_id};
 use crate::error::{Error, Result};
+use crate::host_cmd::host_command;
 use crate::paths::AppPaths;
 
 #[derive(Debug, Clone, Default)]
@@ -110,7 +110,7 @@ fn human_name_from_filename(name: &str) -> String {
 }
 
 fn update_desktop_database_best_effort(paths: &AppPaths) {
-    let _ = Command::new("update-desktop-database")
+    let _ = host_command("update-desktop-database")
         .arg(paths.applications_dir())
         .status();
 }

@@ -6,6 +6,7 @@ mod catalog;
 mod desktop;
 mod download;
 mod error;
+mod host_cmd;
 mod icons;
 mod install;
 mod instances;

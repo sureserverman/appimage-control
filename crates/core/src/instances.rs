@@ -5,7 +5,6 @@ use std::collections::HashSet;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use crate::catalog::{Catalog, CatalogApp, InstanceStrategy};
 use crate::desktop::{
@@ -13,6 +12,7 @@ use crate::desktop::{
 };
 use crate::download::download_to_file;
 use crate::error::{Error, Result};
+use crate::host_cmd::host_command;
 use crate::icons::write_instance_icon_png;
 use crate::paths::AppPaths;
 use semver::Version;
@@ -836,7 +836,7 @@ pub fn ensure_cryptomator_instance_ready(
         if squash.is_dir() {
             fs::remove_dir_all(&squash)?;
         }
-        let status = Command::new(&dest_bin)
+        let status = host_command(&dest_bin)
             .arg("--appimage-extract")
             .current_dir(instance_dir)
             .status()
@@ -1885,7 +1885,7 @@ fn best_effort_unmount_portal_doc(instance_dir: &Path, app: &CatalogApp) {
     if !doc.is_dir() {
         return;
     }
-    let _ = Command::new("fusermount3")
+    let _ = host_command("fusermount3")
         .args(["-u", doc.to_string_lossy().as_ref()])
         .status();
 }
@@ -1997,7 +1997,7 @@ fn reconcile_instance_count_inner(
 }
 
 fn update_desktop_database_best_effort(paths: &AppPaths) {
-    let _ = Command::new("update-desktop-database")
+    let _ = host_command("update-desktop-database")
         .arg(paths.applications_dir())
         .status();
 }
@@ -2005,7 +2005,7 @@ fn update_desktop_database_best_effort(paths: &AppPaths) {
 fn update_icon_cache_best_effort(paths: &AppPaths) {
     let hicolor = paths.home().join(".local/share/icons/hicolor");
     if hicolor.is_dir() {
-        let _ = Command::new("gtk-update-icon-cache")
+        let _ = host_command("gtk-update-icon-cache")
             .args(["-q", "-f", "-t"])
             .arg(&hicolor)
             .status();
@@ -2018,6 +2018,7 @@ mod tests {
     use crate::catalog::{Catalog, CatalogApp};
     use crate::desktop::desktop_filename_for_instance;
     use crate::paths::AppPaths;
+    use std::process::Command;
 
     #[test]
     fn appimage_file_identity_unchanged_same_file() {

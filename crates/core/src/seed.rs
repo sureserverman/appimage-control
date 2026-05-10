@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -9,6 +9,7 @@ use serde_json::{json, Map, Value};
 
 use crate::catalog::{Catalog, CatalogApp};
 use crate::error::{Error, Result};
+use crate::host_cmd::host_command;
 use crate::instances::list_instance_indices;
 use crate::paths::AppPaths;
 
@@ -341,16 +342,53 @@ pub fn seed_new_instances_after_reconcile(
 }
 
 fn seed_until_config(appimage: &Path, first_run_args: &[&str], expected: &Path) -> Result<()> {
-    let mut child = Command::new("xvfb-run")
-        .args(["-a", "--server-args=-screen 0 1280x1024x24"])
-        .arg(appimage)
-        .args(first_run_args)
+    // We need to take down xvfb-run *and* its descendants (Xvfb, the AppImage
+    // FUSE mount, the actual app binary which has exec'd away from
+    // <appimage> to /tmp/.mount_*/). Killing only the AppImage-path-named
+    // process leaves Xvfb + the unmounted app binary alive, which holds Qt's
+    // `qtsingleapp-*` lock and makes the next instance bail out immediately.
+    //
+    // Strategy: start the seed in a fresh session via `setsid`, write the
+    // session-leader PID to a small file under the instance dir, and on
+    // teardown send `kill -KILL -<pgid>` to that PID — that signals every
+    // process in the group at once. Works the same native or via
+    // `flatpak-spawn --host` because we capture the *host*-side session
+    // leader's PID, not the in-sandbox proxy's.
+    let pid_file = appimage
+        .parent()
+        .ok_or_else(|| Error::InvalidPath("seed: AppImage has no parent dir".into()))?
+        .join(".appimage-control-seed-host-pid");
+    let _ = fs::remove_file(&pid_file);
+
+    let pid_file_q = sh_single_quote(&pid_file.to_string_lossy());
+    let appimage_q = sh_single_quote(&appimage.to_string_lossy());
+    let extras_q = first_run_args
+        .iter()
+        .map(|a| sh_single_quote(a))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let script = format!(
+        "echo $$ > {pid_file_q}; \
+         exec xvfb-run -a '--server-args=-screen 0 1280x1024x24' {appimage_q} {extras_q}"
+    );
+
+    // `--fork` forces setsid to fork even if we already happen to be a
+    // group leader (defensive — the helper-spawned child usually isn't, but
+    // the host helper's exact PG semantics aren't documented). `--wait`
+    // makes setsid block until sh (and therefore xvfb-run + Xvfb + the
+    // AppImage tree) exits. Without `--wait` setsid returns as soon as the
+    // fork is done and our `child.try_wait()` would fire immediately,
+    // mis-reporting "seeded app exited before creating config".
+    let mut child = host_command("setsid")
+        .args(["--fork", "--wait", "sh", "-c", script.as_str()])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
         .map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
-                Error::InvalidPath("required dependency not found: xvfb-run".into())
+                Error::InvalidPath(
+                    "required dependency not found: setsid (provided by util-linux)".into(),
+                )
             } else {
                 Error::Io(e)
             }
@@ -360,7 +398,7 @@ fn seed_until_config(appimage: &Path, first_run_args: &[&str], expected: &Path) 
     let mut child_exited = false;
     while started.elapsed() < SEED_TIMEOUT {
         if expected.exists() {
-            terminate_seed_child(&mut child);
+            terminate_seed_child(&mut child, &pid_file);
             return Ok(());
         }
         if child.try_wait()?.is_some() {
@@ -370,7 +408,7 @@ fn seed_until_config(appimage: &Path, first_run_args: &[&str], expected: &Path) 
         thread::sleep(SEED_POLL_INTERVAL);
     }
 
-    terminate_seed_child(&mut child);
+    terminate_seed_child(&mut child, &pid_file);
     if expected.exists() {
         return Ok(());
     }
@@ -386,23 +424,58 @@ fn seed_until_config(appimage: &Path, first_run_args: &[&str], expected: &Path) 
     )))
 }
 
-fn terminate_seed_child(child: &mut Child) {
-    let pid = child.id();
-    let pid_s = pid.to_string();
-    let _ = Command::new("pkill")
-        .args(["-TERM", "-P", pid_s.as_str()])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status();
-    let _ = child.kill();
-    thread::sleep(Duration::from_secs(1));
-    let _ = Command::new("pkill")
-        .args(["-KILL", "-P", pid_s.as_str()])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status();
+/// Quote `s` for a POSIX shell single-quoted context (`'…'`). Embedded
+/// single quotes are emitted as `'\''`. Always safe — never interprets
+/// the input as a glob, expansion, or command.
+fn sh_single_quote(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() + 2);
+    out.push('\'');
+    for c in s.chars() {
+        if c == '\'' {
+            out.push_str("'\\''");
+        } else {
+            out.push(c);
+        }
+    }
+    out.push('\'');
+    out
+}
+
+fn terminate_seed_child(child: &mut Child, pid_file: &Path) {
+    // The host-side session leader PID was written by our `sh` wrapper before
+    // it `exec`d xvfb-run. Reading it gives us the PGID of the entire
+    // xvfb-run + Xvfb + AppImage tree. Missing file = wrapper never got far
+    // enough to write it; fall back to just killing our direct child.
+    let host_pgid = fs::read_to_string(pid_file)
+        .ok()
+        .and_then(|s| s.trim().parse::<i32>().ok())
+        .filter(|p| *p > 1);
+
+    if let Some(pgid) = host_pgid {
+        // procps-ng `kill` mis-parses `kill -KILL -<n>` (it returns exit 0
+        // but does not signal the group). Use the explicit `-s SIG --
+        // -<pgid>` form so that `--` terminates option parsing and the
+        // negative PID is unambiguously a process group.
+        let neg = format!("-{pgid}");
+        let _ = host_command("kill")
+            .args(["-s", "TERM", "--", neg.as_str()])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+        thread::sleep(Duration::from_millis(500));
+        let _ = host_command("kill")
+            .args(["-s", "KILL", "--", neg.as_str()])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    }
+
     let _ = child.kill();
     let _ = child.wait();
+    // Short grace period so the kernel reaps the group and Feather/Electrum
+    // release any /tmp lockfiles before the caller starts the next instance.
+    thread::sleep(Duration::from_millis(300));
+    let _ = fs::remove_file(pid_file);
 }
 
 fn patch_seeded_config(

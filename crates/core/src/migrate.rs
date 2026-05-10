@@ -4,10 +4,10 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use crate::catalog::{Catalog, CatalogApp, InstanceStrategy};
 use crate::error::{Error, Result};
+use crate::host_cmd::host_command;
 use crate::instances::{
     ensure_cryptomator_instance_ready, list_managed_instance_indices,
     reconcile_instance_count_for_portable_migration, MAX_INSTANCES_PER_APP,
@@ -174,7 +174,7 @@ fn best_effort_unmount_portal_doc(instance_dir: &Path, app: &CatalogApp) {
     if !doc.is_dir() {
         return;
     }
-    let _ = Command::new("fusermount3")
+    let _ = host_command("fusermount3")
         .args(["-u", doc.to_string_lossy().as_ref()])
         .status();
 }

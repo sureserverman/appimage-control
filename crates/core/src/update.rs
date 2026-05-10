@@ -2,10 +2,10 @@ use std::fs;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use crate::desktop::parse_desktop_file;
 use crate::error::{Error, Result};
+use crate::host_cmd::host_command;
 use crate::paths::AppPaths;
 
 /// Replace an installed AppImage with a new file (atomic rename). Keeps `.desktop` and app id.
@@ -65,7 +65,7 @@ pub fn update_from_file(
 
 /// Run `appimageupdatetool` if available; returns stdout+stderr combined.
 pub fn run_appimageupdatetool(appimage_path: &Path) -> Result<String> {
-    let out = Command::new("appimageupdatetool")
+    let out = host_command("appimageupdatetool")
         .arg(appimage_path)
         .output()
         .map_err(|e| Error::UpdateFailed(e.to_string()))?;
@@ -79,7 +79,7 @@ pub fn run_appimageupdatetool(appimage_path: &Path) -> Result<String> {
 }
 
 pub fn appimageupdatetool_available() -> bool {
-    Command::new("appimageupdatetool")
+    host_command("appimageupdatetool")
         .arg("--version")
         .output()
         .map(|o| o.status.success())

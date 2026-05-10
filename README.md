@@ -44,6 +44,12 @@ For Feather and Electrum (BTC/LTC), AppImage Control can **seed and patch app se
   sudo apt install xvfb
   ```
 
+  When AppImage Control runs as a Flatpak the GNOME runtime does not ship
+  `xvfb-run`, so the app uses `flatpak-spawn --host xvfb-run …` to invoke the
+  host's `xvfb-run` (along with `fusermount3`, `appimageupdatetool`,
+  `update-desktop-database`, and `gtk-update-icon-cache`). Install `xvfb` on
+  the host, not inside the Flatpak.
+
 - Network access to download and run the upstream AppImages at least once.
 
 ### CLI workflow (Feather + Electrum)

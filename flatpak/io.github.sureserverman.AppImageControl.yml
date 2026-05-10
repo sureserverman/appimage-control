@@ -16,6 +16,11 @@ finish-args:
   - --filesystem=xdg-data/appimages
   - --filesystem=xdg-data/applications
   - --filesystem=xdg-data/icons
+  # Allow `flatpak-spawn --host` so seeding (xvfb-run), AppImage execution,
+  # appimageupdatetool, fusermount3, update-desktop-database, and
+  # gtk-update-icon-cache run on the host where they actually exist and
+  # have access to FUSE / the user's PATH.
+  - --talk-name=org.freedesktop.Flatpak
 modules:
   - name: appimage-control
     buildsystem: simple
