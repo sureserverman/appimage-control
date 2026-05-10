@@ -30,12 +30,24 @@
 //!   Feather's `socks5Port` quirk).
 
 use std::collections::BTreeMap;
+use std::ffi::OsStr;
+use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
 use crate::error::{Error, Result};
+
+/// Environment variable that, when set to a non-empty path, forces the
+/// loader to use exactly that directory of `*.json` packs and skip the
+/// ancestor walk and `/app/share` / `/usr/share` fallbacks. Mirrors
+/// `APPIMAGE_CONTROL_CATALOG`'s shape.
+pub const ENV_SEEDS_DIR: &str = "APPIMAGE_CONTROL_SEEDS_DIR";
+
+/// Bound on the ancestor walk so a misconfigured cwd can't loop forever.
+/// Same value as `crate::catalog`'s walk.
+const MAX_ANCESTOR_DEPTH: usize = 32;
 
 /// One seed pack, parsed from `data/seeds/<app-id>.json`.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -117,13 +129,124 @@ pub struct SeedPackLibrary {
 impl SeedPackLibrary {
     /// Build a library from the packs baked into the binary at compile time
     /// by `build.rs`. Used as the final fallback in
-    /// [`SeedPackLibrary::discover_load`] (Task 1.3).
+    /// [`SeedPackLibrary::discover_load`].
     pub fn embedded() -> Result<Self> {
         let pairs = SHIPPED_SEED_PACKS
             .iter()
             .map(|(id, raw)| (*id, *raw))
             .collect::<Vec<_>>();
         Self::from_pairs(pairs)
+    }
+
+    /// Load every `*.json` file in `dir` as a seed pack keyed by file
+    /// stem. Returns `Ok(None)` when `dir` is missing or contains no
+    /// `*.json` files; `Err` when a present `*.json` fails to parse.
+    pub fn load_from_dir(dir: &Path) -> Result<Option<Self>> {
+        if !dir.is_dir() {
+            return Ok(None);
+        }
+        let mut lib = SeedPackLibrary::default();
+        let read = fs::read_dir(dir).map_err(Error::Io)?;
+        for entry in read {
+            let entry = entry.map_err(Error::Io)?;
+            let path = entry.path();
+            if path.extension().and_then(OsStr::to_str) != Some("json") {
+                continue;
+            }
+            let stem = path
+                .file_stem()
+                .and_then(OsStr::to_str)
+                .ok_or_else(|| {
+                    Error::InvalidPath(format!("seed pack: bad filename: {}", path.display()))
+                })?
+                .to_string();
+            let raw = fs::read_to_string(&path).map_err(Error::Io)?;
+            let pack: SeedPack = serde_json::from_str(&raw).map_err(|e| {
+                Error::InvalidPath(format!(
+                    "seed pack {}: {e}",
+                    path.display()
+                ))
+            })?;
+            lib.packs.insert(stem.clone(), pack);
+            lib.sources.insert(stem, path);
+        }
+        if lib.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(lib))
+        }
+    }
+
+    /// Resolve a seed-pack library against the same fallback chain
+    /// `Catalog::discover_load` uses for `catalog.json`:
+    ///
+    /// 1. `explicit` directory (must exist and contain at least one pack).
+    /// 2. `APPIMAGE_CONTROL_SEEDS_DIR` env var, if non-empty and a directory.
+    /// 3. Walk cwd ancestors (depth 32) for `data/seeds/`.
+    /// 4. Walk `current_exe()` ancestors for `data/seeds/`.
+    /// 5. `/app/share/appimage-control/seeds/` (Flatpak install path).
+    /// 6. `/usr/share/appimage-control/seeds/`.
+    /// 7. Embedded slice baked in by `build.rs`.
+    pub fn discover_load(explicit: Option<&Path>) -> Result<Self> {
+        if let Some(dir) = explicit {
+            if !dir.is_dir() {
+                return Err(Error::InvalidPath(format!(
+                    "seeds dir is not a directory: {}",
+                    dir.display()
+                )));
+            }
+            return Self::load_from_dir(dir)?.ok_or_else(|| {
+                Error::InvalidPath(format!(
+                    "seeds dir exists but contains no *.json packs: {}",
+                    dir.display()
+                ))
+            });
+        }
+        if let Ok(s) = std::env::var(ENV_SEEDS_DIR) {
+            let s = s.trim();
+            if !s.is_empty() {
+                let p = PathBuf::from(s);
+                if let Some(lib) = Self::load_from_dir(&p)? {
+                    return Ok(lib);
+                }
+            }
+        }
+        if let Ok(cwd) = std::env::current_dir() {
+            if let Some(lib) = Self::try_ancestors(&cwd)? {
+                return Ok(lib);
+            }
+        }
+        if let Ok(exe) = std::env::current_exe() {
+            if let Some(parent) = exe.parent() {
+                if let Some(lib) = Self::try_ancestors(parent)? {
+                    return Ok(lib);
+                }
+            }
+        }
+        for p in [
+            PathBuf::from("/app/share/appimage-control/seeds"),
+            PathBuf::from("/usr/share/appimage-control/seeds"),
+        ] {
+            if let Some(lib) = Self::load_from_dir(&p)? {
+                return Ok(lib);
+            }
+        }
+        Self::embedded()
+    }
+
+    fn try_ancestors(start: &Path) -> Result<Option<Self>> {
+        let mut dir = start;
+        for _ in 0..MAX_ANCESTOR_DEPTH {
+            let candidate = dir.join("data").join("seeds");
+            if let Some(lib) = Self::load_from_dir(&candidate)? {
+                return Ok(Some(lib));
+            }
+            match dir.parent() {
+                Some(p) => dir = p,
+                None => return Ok(None),
+            }
+        }
+        Ok(None)
     }
 }
 
@@ -278,6 +401,130 @@ mod tests {
         let err = SeedPackLibrary::from_pairs(vec![("oops", "{not json")]).unwrap_err();
         let s = err.to_string();
         assert!(s.contains("oops"), "expected pack id in error, got: {s}");
+    }
+
+    fn env_lock() -> &'static std::sync::Mutex<()> {
+        static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+        LOCK.get_or_init(|| std::sync::Mutex::new(()))
+    }
+
+    /// Build a tempdir with `data/seeds/<id>.json` files so the ancestor
+    /// walk and load_from_dir can be exercised in isolation.
+    fn write_seeds_dir(root: &std::path::Path, packs: &[(&str, &str)]) -> PathBuf {
+        let dir = root.join("data").join("seeds");
+        std::fs::create_dir_all(&dir).unwrap();
+        for (id, raw) in packs {
+            std::fs::write(dir.join(format!("{id}.json")), raw).unwrap();
+        }
+        dir
+    }
+
+    #[test]
+    fn discover_load_explicit_dir_wins() {
+        let _g = env_lock().lock().unwrap();
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = write_seeds_dir(
+            tmp.path(),
+            &[("alpha", r#"{"config_path":"a.json"}"#)],
+        );
+        let lib = SeedPackLibrary::discover_load(Some(&dir)).unwrap();
+        assert_eq!(lib.len(), 1);
+        assert!(lib.get("alpha").is_some());
+        assert_eq!(
+            lib.source_for("alpha").map(Path::to_path_buf),
+            Some(dir.join("alpha.json"))
+        );
+    }
+
+    #[test]
+    fn discover_load_explicit_missing_dir_errors() {
+        let _g = env_lock().lock().unwrap();
+        let tmp = tempfile::tempdir().unwrap();
+        let bogus = tmp.path().join("does-not-exist");
+        let err = SeedPackLibrary::discover_load(Some(&bogus)).unwrap_err();
+        assert!(err.to_string().contains("does-not-exist"));
+    }
+
+    #[test]
+    fn discover_load_explicit_empty_dir_errors() {
+        let _g = env_lock().lock().unwrap();
+        let tmp = tempfile::tempdir().unwrap();
+        let empty = tmp.path().join("empty");
+        std::fs::create_dir_all(&empty).unwrap();
+        let err = SeedPackLibrary::discover_load(Some(&empty)).unwrap_err();
+        assert!(
+            err.to_string().contains("no *.json"),
+            "expected empty-dir error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn discover_load_env_var_wins_over_walk() {
+        let _g = env_lock().lock().unwrap();
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = write_seeds_dir(
+            tmp.path(),
+            &[("from_env", r#"{"config_path":"e.json"}"#)],
+        );
+        let prev = std::env::var(ENV_SEEDS_DIR).ok();
+        std::env::set_var(ENV_SEEDS_DIR, &dir);
+        let lib = SeedPackLibrary::discover_load(None).unwrap();
+        match prev {
+            Some(v) => std::env::set_var(ENV_SEEDS_DIR, v),
+            None => std::env::remove_var(ENV_SEEDS_DIR),
+        }
+        assert!(lib.get("from_env").is_some());
+    }
+
+    #[test]
+    fn try_ancestors_finds_data_seeds_from_subdir() {
+        let _g = env_lock().lock().unwrap();
+        let tmp = tempfile::tempdir().unwrap();
+        write_seeds_dir(
+            tmp.path(),
+            &[("anc", r#"{"config_path":"a.json"}"#)],
+        );
+        let nested = tmp.path().join("a").join("b").join("c");
+        std::fs::create_dir_all(&nested).unwrap();
+        let lib = SeedPackLibrary::try_ancestors(&nested).unwrap().unwrap();
+        assert!(lib.get("anc").is_some());
+    }
+
+    #[test]
+    fn try_ancestors_returns_none_when_nothing_found() {
+        let _g = env_lock().lock().unwrap();
+        let tmp = tempfile::tempdir().unwrap();
+        // No data/seeds/ anywhere under tmp.
+        let result = SeedPackLibrary::try_ancestors(tmp.path()).unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn load_from_dir_skips_non_json_files() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("seeds");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("ok.json"),
+            r#"{"config_path":"o.json"}"#,
+        )
+        .unwrap();
+        std::fs::write(dir.join("README.md"), "just a readme").unwrap();
+        std::fs::write(dir.join("template.json.txt"), "{not json}").unwrap();
+        let lib = SeedPackLibrary::load_from_dir(&dir).unwrap().unwrap();
+        assert_eq!(lib.len(), 1);
+        assert!(lib.get("ok").is_some());
+    }
+
+    #[test]
+    fn load_from_dir_reports_filename_on_malformed_pack() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("seeds");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("bad.json"), "{not json}").unwrap();
+        let err = SeedPackLibrary::load_from_dir(&dir).unwrap_err();
+        let s = err.to_string();
+        assert!(s.contains("bad.json"), "expected filename in error, got: {s}");
     }
 
     #[test]
