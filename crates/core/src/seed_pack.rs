@@ -9,12 +9,6 @@
 //!
 //! See `docs/seed-packs.md` (Stage 5 of the seed-pack-extraction plan) for
 //! the authoring guide.
-//
-// Stage 1 of the seed-pack-extraction plan ships the schema + library types
-// without yet wiring them to a production caller (Stage 2 is the
-// interpreter; Stage 3 wires the entry points). This blanket allow goes
-// away once Stage 2 references these items in `apply_pack`.
-#![allow(dead_code)]
 //!
 //! The schema is deliberately tiny — three "verbs" cover every
 //! transformation today's hand-written `patch_*_config` functions perform:
@@ -43,11 +37,14 @@ use crate::seed::{PresetField, SeedConfig};
 /// Environment variable that, when set to a non-empty path, forces the
 /// loader to use exactly that directory of `*.json` packs and skip the
 /// ancestor walk and `/app/share` / `/usr/share` fallbacks. Mirrors
-/// `APPIMAGE_CONTROL_CATALOG`'s shape.
+/// `APPIMAGE_CONTROL_CATALOG`'s shape. Stage 4 wires this into the
+/// seeding entry points.
+#[allow(dead_code)]
 pub const ENV_SEEDS_DIR: &str = "APPIMAGE_CONTROL_SEEDS_DIR";
 
 /// Bound on the ancestor walk so a misconfigured cwd can't loop forever.
 /// Same value as `crate::catalog`'s walk.
+#[allow(dead_code)]
 const MAX_ANCESTOR_DEPTH: usize = 32;
 
 /// One seed pack, parsed from `data/seeds/<app-id>.json`.
@@ -141,9 +138,13 @@ impl SeedPackLibrary {
         Ok(lib)
     }
 
+    // Stage 4 wires `load_from_dir` + `discover_load` + `try_ancestors`
+    // into the seeding entry points (today's `recipe_for_app_id` uses
+    // `embedded()` directly). Allow until then.
     /// Load every `*.json` file in `dir` as a seed pack keyed by file
     /// stem. Returns `Ok(None)` when `dir` is missing or contains no
     /// `*.json` files; `Err` when a present `*.json` fails to parse.
+    #[allow(dead_code)]
     pub fn load_from_dir(dir: &Path) -> Result<Option<Self>> {
         if !dir.is_dir() {
             return Ok(None);
@@ -191,6 +192,7 @@ impl SeedPackLibrary {
     /// 5. `/app/share/appimage-control/seeds/` (Flatpak install path).
     /// 6. `/usr/share/appimage-control/seeds/`.
     /// 7. Embedded slice baked in by `build.rs`.
+    #[allow(dead_code)]
     pub fn discover_load(explicit: Option<&Path>) -> Result<Self> {
         if let Some(dir) = explicit {
             if !dir.is_dir() {
@@ -238,6 +240,7 @@ impl SeedPackLibrary {
         Self::embedded()
     }
 
+    #[allow(dead_code)]
     fn try_ancestors(start: &Path) -> Result<Option<Self>> {
         let mut dir = start;
         for _ in 0..MAX_ANCESTOR_DEPTH {
@@ -276,18 +279,25 @@ impl SeedPackLibrary {
         self.packs.get(app_id)
     }
 
+    // Stage 4 wires `ids` + `source_for` + `len` + `is_empty` into the
+    // shipped-pack contract test; Stage 5 wires them into the
+    // `--list-seed-packs` CLI subcommand. Allow until then.
+    #[allow(dead_code)]
     pub fn ids(&self) -> impl Iterator<Item = &str> {
         self.packs.keys().map(String::as_str)
     }
 
+    #[allow(dead_code)]
     pub fn source_for(&self, app_id: &str) -> Option<&Path> {
         self.sources.get(app_id).map(PathBuf::as_path)
     }
 
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.packs.len()
     }
 
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.packs.is_empty()
     }

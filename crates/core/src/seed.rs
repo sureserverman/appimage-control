@@ -5,30 +5,17 @@ use std::process::{Child, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value};
 
 use crate::catalog::{Catalog, CatalogApp};
 use crate::error::{Error, Result};
 use crate::host_cmd::host_command;
 use crate::instances::list_instance_indices;
 use crate::paths::AppPaths;
+use crate::seed_pack::{apply_pack, SeedPack, SeedPackLibrary};
 
 const SEED_TIMEOUT: Duration = Duration::from_secs(20);
 const SEED_POLL_INTERVAL: Duration = Duration::from_millis(250);
-const FEATHER_SKINS: [&str; 3] = ["Breeze/Light", "Breeze/Dark", "Breeze/Light"];
-const BTC_PINNED_SERVER: &str =
-    "***REDACTED-ONION-ENDPOINT***";
-const BTC_BOOKMARKED_SERVERS: &[&str] = &[
-    "***REDACTED-ONION-ENDPOINT***",
-    "***REDACTED-ONION-ENDPOINT***",
-    "***REDACTED-ONION-ENDPOINT***",
-    "***REDACTED-ONION-ENDPOINT***",
-    "***REDACTED-ONION-ENDPOINT***",
-    "***REDACTED-ONION-ENDPOINT***",
-    "***REDACTED-ONION-ENDPOINT***",
-    "***REDACTED-ONION-ENDPOINT***",
-    "***REDACTED-ONION-ENDPOINT***",
-];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SeedPreset {
@@ -122,25 +109,32 @@ impl SeedConfig {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SupportedSeedApp {
-    Feather,
-    ElectrumBtc,
-    ElectrumLtc,
+/// Marker that an app id has a registered seed pack. Returned by
+/// [`SupportedSeedApp::from_app_id`] so callers (notably the GUI) can
+/// keep using the existing `is_some()` check without learning about the
+/// seed-pack library directly.
+///
+/// Now data-driven: an app is "supported" when `data/seeds/<id>.json`
+/// exists in the active library (currently: the embedded slice baked
+/// in by `build.rs`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SupportedSeedApp {
+    app_id: String,
 }
 
 impl SupportedSeedApp {
     pub fn from_app_id(app_id: &str) -> Option<Self> {
-        match app_id {
-            "feather" => Some(Self::Feather),
-            "electrum-btc" => Some(Self::ElectrumBtc),
-            "electrum-ltc" => Some(Self::ElectrumLtc),
-            _ => None,
-        }
+        recipe_for_app_id(app_id).map(|_| Self {
+            app_id: app_id.to_string(),
+        })
     }
 
     pub fn from_catalog_app(app: &CatalogApp) -> Option<Self> {
         Self::from_app_id(&app.id)
+    }
+
+    pub fn app_id(&self) -> &str {
+        &self.app_id
     }
 }
 
@@ -150,39 +144,22 @@ pub struct SeedTarget {
     pub instance_index: u32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum SeedPatchKind {
-    Feather,
-    ElectrumBtc,
-    ElectrumLtc,
-}
-
-/// Explicit recipe model for supported seeded apps.
-///
-/// A recipe captures exactly the app-specific pieces of the unified seeding pipeline:
-/// the supported app id, the expected config path relative to the instance dir, the
-/// first-run launch arguments, and which patcher to apply after the config appears.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Pack-backed recipe for one supported seedable app. Constructed by
+/// [`recipe_for_supported_app`] from a [`SeedPack`] in the active
+/// [`SeedPackLibrary`]; carries the human-facing config-path doc string
+/// (with `{appimage}` substituted), the first-run AppImage arguments,
+/// and the underlying pack used by [`apply_pack`].
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SeedRecipe {
-    pub app: SupportedSeedApp,
-    pub config_path_doc: &'static str,
-    pub first_run_args: &'static [&'static str],
-    patch: SeedPatchKind,
+    pub app_id: String,
+    pub config_path_doc: String,
+    pub first_run_args: Vec<String>,
+    pack: SeedPack,
 }
 
 impl SeedRecipe {
-    pub fn config_path_for(self, filename: &str) -> PathBuf {
-        match self.patch {
-            SeedPatchKind::Feather => {
-                PathBuf::from(format!("{filename}.config/feather/settings.json"))
-            }
-            SeedPatchKind::ElectrumBtc => {
-                PathBuf::from(format!("{filename}.home/.electrum/config"))
-            }
-            SeedPatchKind::ElectrumLtc => {
-                PathBuf::from(format!("{filename}.home/.electrum-ltc/config"))
-            }
-        }
+    pub fn config_path_for(&self, filename: &str) -> PathBuf {
+        PathBuf::from(self.pack.config_path.replace("{appimage}", filename))
     }
 }
 
@@ -202,27 +179,23 @@ pub struct SeedReport {
     pub failed: u32,
 }
 
+/// Resolve a [`CatalogApp`] to its [`SeedRecipe`] from the embedded
+/// seed-pack library. Stage 4 of the seed-pack-extraction plan replaces
+/// this with a discovered library so disk overrides and Flatpak-shipped
+/// packs participate.
 pub fn recipe_for_supported_app(app: &CatalogApp) -> Option<SeedRecipe> {
-    match SupportedSeedApp::from_catalog_app(app)? {
-        SupportedSeedApp::Feather => Some(SeedRecipe {
-            app: SupportedSeedApp::Feather,
-            config_path_doc: "feather.AppImage.config/feather/settings.json",
-            first_run_args: &[],
-            patch: SeedPatchKind::Feather,
-        }),
-        SupportedSeedApp::ElectrumBtc => Some(SeedRecipe {
-            app: SupportedSeedApp::ElectrumBtc,
-            config_path_doc: "<AppImage>.home/.electrum/config",
-            first_run_args: &["--offline"],
-            patch: SeedPatchKind::ElectrumBtc,
-        }),
-        SupportedSeedApp::ElectrumLtc => Some(SeedRecipe {
-            app: SupportedSeedApp::ElectrumLtc,
-            config_path_doc: "<AppImage>.home/.electrum-ltc/config",
-            first_run_args: &["--offline"],
-            patch: SeedPatchKind::ElectrumLtc,
-        }),
-    }
+    recipe_for_app_id(&app.id)
+}
+
+fn recipe_for_app_id(app_id: &str) -> Option<SeedRecipe> {
+    let lib = SeedPackLibrary::embedded().ok()?;
+    let pack = lib.get(app_id)?.clone();
+    Some(SeedRecipe {
+        app_id: app_id.to_string(),
+        config_path_doc: pack.config_path.replace("{appimage}", "<AppImage>"),
+        first_run_args: pack.first_run_args.clone(),
+        pack,
+    })
 }
 
 pub fn seed_instance_settings(
@@ -261,10 +234,6 @@ pub fn seed_instance_settings_with_recipe(
         return Ok(SeedOutcome::SkippedMissingInstance);
     }
 
-    let target = SeedTarget {
-        app_id: app.id.clone(),
-        instance_index,
-    };
     let config = SeedConfig::for_preset(preset);
     let expected = dir.join(recipe.config_path_for(&filename));
     on_progress(&format!(
@@ -273,8 +242,11 @@ pub fn seed_instance_settings_with_recipe(
         instance_index,
         preset.as_str()
     ));
-    seed_until_config(&appimage, recipe.first_run_args, &expected)?;
-    patch_seeded_config(recipe, &expected, &target, &config)?;
+    let first_run_args: Vec<&str> = recipe.first_run_args.iter().map(String::as_str).collect();
+    seed_until_config(&appimage, &first_run_args, &expected)?;
+    let mut map = read_json_object(&expected)?;
+    apply_pack(&recipe.pack, &config, instance_index, &mut map)?;
+    write_json_object(&expected, map)?;
     on_progress(&format!(
         "{} instance {}: settings seeded ({})",
         app.id,
@@ -297,7 +269,7 @@ pub fn seed_supported_installed_apps(
 
     if let Some(selected) = &selected_set {
         for app_id in selected {
-            if SupportedSeedApp::from_app_id(app_id).is_none() {
+            if recipe_for_app_id(app_id).is_none() {
                 report.skipped_unsupported += 1;
                 on_progress(&format!("{app_id}: seeding skipped (unsupported app)"));
             }
@@ -507,19 +479,6 @@ fn terminate_seed_child(child: &mut Child, pid_file: &Path) {
     let _ = fs::remove_file(pid_file);
 }
 
-fn patch_seeded_config(
-    recipe: SeedRecipe,
-    config_path: &Path,
-    target: &SeedTarget,
-    config: &SeedConfig,
-) -> Result<()> {
-    match recipe.patch {
-        SeedPatchKind::Feather => patch_feather_config(config_path, target.instance_index, config),
-        SeedPatchKind::ElectrumBtc => patch_electrum_btc_config(config_path, config),
-        SeedPatchKind::ElectrumLtc => patch_electrum_ltc_config(config_path, config),
-    }
-}
-
 fn read_json_object(path: &Path) -> Result<Map<String, Value>> {
     let raw = fs::read_to_string(path)?;
     let value: Value = serde_json::from_str(&raw)?;
@@ -536,65 +495,6 @@ fn write_json_object(path: &Path, map: Map<String, Value>) -> Result<()> {
     let s = serde_json::to_string_pretty(&Value::Object(map))?;
     fs::write(path, format!("{s}\n"))?;
     Ok(())
-}
-
-fn feather_skin(instance_index: u32) -> &'static str {
-    let slot = ((instance_index.saturating_sub(1)) % 3) as usize;
-    FEATHER_SKINS[slot]
-}
-
-fn patch_feather_config(path: &Path, instance_index: u32, cfg: &SeedConfig) -> Result<()> {
-    let mut map = read_json_object(path)?;
-    map.insert("proxy".into(), json!(1));
-    map.insert("skin".into(), json!(feather_skin(instance_index)));
-    map.insert(
-        "socks5Port".into(),
-        json!(cfg.feather_ports[((instance_index.saturating_sub(1)) % 3) as usize].to_string()),
-    );
-    map.insert("torOnlyAllowOnion".into(), json!(true));
-    map.insert("torPrivacyLevel".into(), json!(2));
-    map.insert("useLocalTor".into(), json!(cfg.feather_use_local_tor));
-    if cfg.feather_use_local_tor {
-        map.remove("socks5Host");
-    } else {
-        map.insert("socks5Host".into(), json!(cfg.socks5_host));
-    }
-    write_json_object(path, map)
-}
-
-fn patch_electrum_btc_config(path: &Path, cfg: &SeedConfig) -> Result<()> {
-    let mut map = read_json_object(path)?;
-    map.insert(
-        "network_bookmarked_servers".into(),
-        Value::Array(
-            BTC_BOOKMARKED_SERVERS
-                .iter()
-                .map(|s| Value::String((*s).to_string()))
-                .collect(),
-        ),
-    );
-    map.insert("oneserver".into(), json!(true));
-    map.insert("server".into(), json!(BTC_PINNED_SERVER));
-    map.insert(
-        "proxy".into(),
-        json!(format!(
-            "socks5:{}:{}",
-            cfg.socks5_host, cfg.electrum_btc_port
-        )),
-    );
-    write_json_object(path, map)
-}
-
-fn patch_electrum_ltc_config(path: &Path, cfg: &SeedConfig) -> Result<()> {
-    let mut map = read_json_object(path)?;
-    map.insert(
-        "proxy".into(),
-        json!(format!(
-            "socks5:{}:{}",
-            cfg.socks5_host, cfg.electrum_ltc_port
-        )),
-    );
-    write_json_object(path, map)
 }
 
 #[cfg(test)]
@@ -740,13 +640,17 @@ exec "$@"
         assert_eq!(w.electrum_ltc_port, 9055);
     }
 
+    fn apply_pack_to_empty_map(app_id: &str, idx: u32, preset: SeedPreset) -> Value {
+        let recipe = recipe_for_app_id(app_id).expect("pack for app must exist");
+        let cfg = SeedConfig::for_preset(preset);
+        let mut map = Map::new();
+        apply_pack(&recipe.pack, &cfg, idx, &mut map).unwrap();
+        Value::Object(map)
+    }
+
     #[test]
     fn feather_recipe_patch_matches_installer_defaults() {
-        let tmp = tempfile::tempdir().unwrap();
-        let p = tmp.path().join("settings.json");
-        fs::write(&p, "{}").unwrap();
-        patch_feather_config(&p, 2, &SeedConfig::for_preset(SeedPreset::Whonix)).unwrap();
-        let v: Value = serde_json::from_str(&fs::read_to_string(&p).unwrap()).unwrap();
+        let v = apply_pack_to_empty_map("feather", 2, SeedPreset::Whonix);
         assert_eq!(v["proxy"], 1);
         assert_eq!(v["skin"], "Breeze/Dark");
         assert_eq!(v["socks5Port"], "9053");
@@ -758,24 +662,19 @@ exec "$@"
 
     #[test]
     fn electrum_btc_recipe_patch_matches_installer_defaults() {
-        let tmp = tempfile::tempdir().unwrap();
-        let p = tmp.path().join("config");
-        fs::write(&p, "{}").unwrap();
-        patch_electrum_btc_config(&p, &SeedConfig::for_preset(SeedPreset::Ubuntu)).unwrap();
-        let v: Value = serde_json::from_str(&fs::read_to_string(&p).unwrap()).unwrap();
+        let v = apply_pack_to_empty_map("electrum-btc", 1, SeedPreset::Ubuntu);
         assert_eq!(v["oneserver"], true);
-        assert_eq!(v["server"], BTC_PINNED_SERVER);
+        assert_eq!(
+            v["server"],
+            "***REDACTED-ONION-ENDPOINT***"
+        );
         assert_eq!(v["proxy"], "socks5:127.0.0.1:9054");
         assert_eq!(v["network_bookmarked_servers"].as_array().unwrap().len(), 9);
     }
 
     #[test]
     fn electrum_ltc_recipe_patch_matches_installer_defaults() {
-        let tmp = tempfile::tempdir().unwrap();
-        let p = tmp.path().join("config");
-        fs::write(&p, "{}").unwrap();
-        patch_electrum_ltc_config(&p, &SeedConfig::for_preset(SeedPreset::Whonix)).unwrap();
-        let v: Value = serde_json::from_str(&fs::read_to_string(&p).unwrap()).unwrap();
+        let v = apply_pack_to_empty_map("electrum-ltc", 1, SeedPreset::Whonix);
         assert_eq!(v["proxy"], "socks5:10.152.152.10:9055");
     }
 
@@ -874,102 +773,4 @@ exec "$@"
         assert_eq!(out, SeedOutcome::SkippedUnsupported);
     }
 
-    /// Pack JSON authored at `data/seeds/feather.json`. `include_str!`
-    /// keeps the test in lockstep with the file that actually ships.
-    const FEATHER_PACK_JSON: &str = include_str!("../../../data/seeds/feather.json");
-
-    #[test]
-    fn feather_pack_matches_legacy_patch() {
-        use crate::seed_pack::{apply_pack, SeedPack};
-        let pack: SeedPack = serde_json::from_str(FEATHER_PACK_JSON)
-            .expect("data/seeds/feather.json must parse");
-
-        for preset in [SeedPreset::Ubuntu, SeedPreset::Whonix] {
-            let cfg = SeedConfig::for_preset(preset);
-            for idx in [1u32, 2, 3, 4, 5, 6] {
-                let tmp = tempfile::tempdir().unwrap();
-
-                // Legacy path: write {} to a temp file, run the existing
-                // patch_feather_config, read back.
-                let legacy_path = tmp.path().join("legacy.json");
-                fs::write(&legacy_path, "{}").unwrap();
-                patch_feather_config(&legacy_path, idx, &cfg).unwrap();
-                let legacy: Value =
-                    serde_json::from_str(&fs::read_to_string(&legacy_path).unwrap()).unwrap();
-
-                // New path: apply_pack against an empty map.
-                let mut map = Map::new();
-                apply_pack(&pack, &cfg, idx, &mut map).unwrap();
-                let new_value = Value::Object(map);
-
-                assert_eq!(
-                    legacy, new_value,
-                    "feather: preset={preset:?} idx={idx}: legacy != new_pack"
-                );
-            }
-        }
-    }
-
-    const ELECTRUM_BTC_PACK_JSON: &str =
-        include_str!("../../../data/seeds/electrum-btc.json");
-
-    #[test]
-    fn electrum_btc_pack_matches_legacy_patch() {
-        use crate::seed_pack::{apply_pack, SeedPack};
-        let pack: SeedPack = serde_json::from_str(ELECTRUM_BTC_PACK_JSON)
-            .expect("data/seeds/electrum-btc.json must parse");
-
-        for preset in [SeedPreset::Ubuntu, SeedPreset::Whonix] {
-            let cfg = SeedConfig::for_preset(preset);
-            // Electrum patches don't depend on instance_index; one is enough.
-            for idx in [1u32, 7] {
-                let tmp = tempfile::tempdir().unwrap();
-                let legacy_path = tmp.path().join("legacy.json");
-                fs::write(&legacy_path, "{}").unwrap();
-                patch_electrum_btc_config(&legacy_path, &cfg).unwrap();
-                let legacy: Value =
-                    serde_json::from_str(&fs::read_to_string(&legacy_path).unwrap()).unwrap();
-
-                let mut map = Map::new();
-                apply_pack(&pack, &cfg, idx, &mut map).unwrap();
-                let new_value = Value::Object(map);
-
-                assert_eq!(
-                    legacy, new_value,
-                    "electrum-btc: preset={preset:?} idx={idx}: legacy != new_pack"
-                );
-            }
-        }
-    }
-
-    const ELECTRUM_LTC_PACK_JSON: &str =
-        include_str!("../../../data/seeds/electrum-ltc.json");
-
-    #[test]
-    fn electrum_ltc_pack_matches_legacy_patch() {
-        use crate::seed_pack::{apply_pack, SeedPack};
-        let pack: SeedPack = serde_json::from_str(ELECTRUM_LTC_PACK_JSON)
-            .expect("data/seeds/electrum-ltc.json must parse");
-
-        for preset in [SeedPreset::Ubuntu, SeedPreset::Whonix] {
-            let cfg = SeedConfig::for_preset(preset);
-            for idx in [1u32, 7] {
-                let tmp = tempfile::tempdir().unwrap();
-                let legacy_path = tmp.path().join("legacy.json");
-                fs::write(&legacy_path, "{}").unwrap();
-                patch_electrum_ltc_config(&legacy_path, &cfg).unwrap();
-                let legacy: Value =
-                    serde_json::from_str(&fs::read_to_string(&legacy_path).unwrap()).unwrap();
-
-                let mut map = Map::new();
-                apply_pack(&pack, &cfg, idx, &mut map).unwrap();
-                let new_value = Value::Object(map);
-
-                assert_eq!(
-                    legacy, new_value,
-                    "electrum-ltc: preset={preset:?} idx={idx}: legacy != new_pack"
-                );
-            }
-        }
-    }
 }
