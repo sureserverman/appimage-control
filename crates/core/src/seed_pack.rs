@@ -35,9 +35,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
-use serde_json::{Map, Value};
+use serde_json::{json, Map, Value};
 
 use crate::error::{Error, Result};
+use crate::seed::{PresetField, SeedConfig};
 
 /// Environment variable that, when set to a non-empty path, forces the
 /// loader to use exactly that directory of `*.json` packs and skip the
@@ -289,9 +290,175 @@ impl SeedPackLibrary {
     }
 }
 
+/// Apply a seed pack to a JSON object map already populated by the
+/// AppImage's first-run write. Mutates `base` in place.
+///
+/// Order of operations is fixed: `static` literals first (so subsequent
+/// preset/rotation values can override them on key collisions, though
+/// well-formed packs don't collide), then `preset`, then `rotation`.
+///
+/// `instance_index` is 1-based; the rotation index is `(idx - 1) %
+/// values.len()` to match the historical `feather_skin()` behavior in
+/// `seed.rs`.
+pub fn apply_pack(
+    pack: &SeedPack,
+    cfg: &SeedConfig,
+    instance_index: u32,
+    base: &mut Map<String, Value>,
+) -> Result<()> {
+    // 1. Static literals.
+    for (k, v) in &pack.static_keys {
+        base.insert(k.clone(), v.clone());
+    }
+
+    // 2. Preset-derived values.
+    for (key, pv) in &pack.preset {
+        match pv {
+            PresetValue::From { from, drop_if } => {
+                if drop_if_true(cfg, drop_if.as_deref())? {
+                    base.remove(key);
+                    continue;
+                }
+                let field = cfg.field(from).ok_or_else(|| {
+                    Error::InvalidPath(format!(
+                        "seed pack: preset.from references unknown field `{from}`"
+                    ))
+                })?;
+                base.insert(key.clone(), preset_field_to_json(field));
+            }
+            PresetValue::Format { format, drop_if } => {
+                if drop_if_true(cfg, drop_if.as_deref())? {
+                    base.remove(key);
+                    continue;
+                }
+                let rendered = render_format(format, cfg)?;
+                base.insert(key.clone(), Value::String(rendered));
+            }
+        }
+    }
+
+    // 3. Per-instance rotations.
+    for (key, rv) in &pack.rotation {
+        match rv {
+            RotationValue::Values { values } => {
+                if values.is_empty() {
+                    return Err(Error::InvalidPath(format!(
+                        "seed pack: rotation `{key}` has empty values list"
+                    )));
+                }
+                let idx = rotation_index(instance_index, values.len());
+                base.insert(key.clone(), values[idx].clone());
+            }
+            RotationValue::FromPresetArray {
+                from_preset_array,
+                as_string,
+            } => {
+                let arr = match cfg.field(from_preset_array) {
+                    Some(PresetField::U16Array(a)) => a,
+                    Some(_) => {
+                        return Err(Error::InvalidPath(format!(
+                            "seed pack: rotation.from_preset_array `{from_preset_array}` is not a u16 array"
+                        )));
+                    }
+                    None => {
+                        return Err(Error::InvalidPath(format!(
+                            "seed pack: rotation.from_preset_array references unknown field `{from_preset_array}`"
+                        )));
+                    }
+                };
+                if arr.is_empty() {
+                    return Err(Error::InvalidPath(format!(
+                        "seed pack: rotation.from_preset_array `{from_preset_array}` is empty"
+                    )));
+                }
+                let idx = rotation_index(instance_index, arr.len());
+                let v = arr[idx];
+                base.insert(
+                    key.clone(),
+                    if *as_string {
+                        Value::String(v.to_string())
+                    } else {
+                        json!(v)
+                    },
+                );
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn rotation_index(instance_index: u32, len: usize) -> usize {
+    (instance_index.saturating_sub(1) as usize) % len
+}
+
+/// Read a bool preset field by name. Errors when the name is unknown
+/// or refers to a non-bool field.
+fn drop_if_true(cfg: &SeedConfig, name: Option<&str>) -> Result<bool> {
+    let Some(n) = name else {
+        return Ok(false);
+    };
+    match cfg.field(n) {
+        Some(PresetField::Bool(b)) => Ok(b),
+        Some(_) => Err(Error::InvalidPath(format!(
+            "seed pack: drop_if `{n}` is not a bool field"
+        ))),
+        None => Err(Error::InvalidPath(format!(
+            "seed pack: drop_if references unknown field `{n}`"
+        ))),
+    }
+}
+
+fn preset_field_to_json(f: PresetField<'_>) -> Value {
+    match f {
+        PresetField::Bool(b) => Value::Bool(b),
+        PresetField::Str(s) => Value::String(s.to_string()),
+        PresetField::U16(n) => json!(n),
+        PresetField::U16Array(a) => Value::Array(a.iter().map(|v| json!(*v)).collect()),
+    }
+}
+
+/// Render a `preset.format` template by replacing `{field_name}`
+/// placeholders with scalar preset field values. Errors when a
+/// placeholder names an unknown field, or names a non-scalar
+/// (`feather_ports`-style) field that can't be inlined into a string.
+fn render_format(template: &str, cfg: &SeedConfig) -> Result<String> {
+    let mut out = String::with_capacity(template.len());
+    let mut rest = template;
+    while let Some(open) = rest.find('{') {
+        out.push_str(&rest[..open]);
+        let after = &rest[open + 1..];
+        let close = after.find('}').ok_or_else(|| {
+            Error::InvalidPath(format!(
+                "seed pack: format template missing closing `}}`: {template}"
+            ))
+        })?;
+        let name = &after[..close];
+        let field = cfg.field(name).ok_or_else(|| {
+            Error::InvalidPath(format!(
+                "seed pack: format template references unknown field `{name}`"
+            ))
+        })?;
+        match field {
+            PresetField::Bool(b) => out.push_str(if b { "true" } else { "false" }),
+            PresetField::Str(s) => out.push_str(s),
+            PresetField::U16(n) => out.push_str(&n.to_string()),
+            PresetField::U16Array(_) => {
+                return Err(Error::InvalidPath(format!(
+                    "seed pack: format template cannot inline non-scalar field `{name}`"
+                )));
+            }
+        }
+        rest = &after[close + 1..];
+    }
+    out.push_str(rest);
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::seed::SeedPreset;
 
     #[test]
     fn minimal_pack_parses() {
@@ -525,6 +692,208 @@ mod tests {
         let err = SeedPackLibrary::load_from_dir(&dir).unwrap_err();
         let s = err.to_string();
         assert!(s.contains("bad.json"), "expected filename in error, got: {s}");
+    }
+
+    fn parse(raw: &str) -> SeedPack {
+        serde_json::from_str(raw).expect("test pack must parse")
+    }
+
+    fn apply(pack: &SeedPack, preset: SeedPreset, idx: u32) -> Map<String, Value> {
+        let cfg = SeedConfig::for_preset(preset);
+        let mut base = Map::new();
+        apply_pack(pack, &cfg, idx, &mut base).expect("apply_pack must succeed");
+        base
+    }
+
+    #[test]
+    fn apply_static_literals_of_each_type() {
+        let pack = parse(
+            r#"{
+            "config_path":"x",
+            "static": { "n": 42, "b": true, "s": "hi", "arr": [1,2] }
+        }"#,
+        );
+        let out = apply(&pack, SeedPreset::Ubuntu, 1);
+        assert_eq!(out["n"], json!(42));
+        assert_eq!(out["b"], json!(true));
+        assert_eq!(out["s"], json!("hi"));
+        assert_eq!(out["arr"], json!([1, 2]));
+    }
+
+    #[test]
+    fn apply_preset_from_bool_and_string() {
+        let pack = parse(
+            r#"{
+            "config_path":"x",
+            "preset": {
+                "useLocalTor": { "from": "feather_use_local_tor" },
+                "socks5Host":  { "from": "socks5_host" }
+            }
+        }"#,
+        );
+        let u = apply(&pack, SeedPreset::Ubuntu, 1);
+        assert_eq!(u["useLocalTor"], json!(true));
+        assert_eq!(u["socks5Host"], json!("127.0.0.1"));
+        let w = apply(&pack, SeedPreset::Whonix, 1);
+        assert_eq!(w["useLocalTor"], json!(false));
+        assert_eq!(w["socks5Host"], json!("10.152.152.10"));
+    }
+
+    #[test]
+    fn apply_preset_from_drop_if_when_condition_true() {
+        // useLocalTor=true under Ubuntu → drop socks5Host.
+        let pack = parse(
+            r#"{
+            "config_path":"x",
+            "preset": {
+                "socks5Host": { "from":"socks5_host", "drop_if":"feather_use_local_tor" }
+            }
+        }"#,
+        );
+        let u = apply(&pack, SeedPreset::Ubuntu, 1);
+        assert!(!u.contains_key("socks5Host"));
+        // Whonix: useLocalTor=false → key kept.
+        let w = apply(&pack, SeedPreset::Whonix, 1);
+        assert_eq!(w["socks5Host"], json!("10.152.152.10"));
+    }
+
+    #[test]
+    fn apply_preset_from_drop_if_removes_existing_key() {
+        // Pre-populate base with the key; drop_if=true should remove it.
+        let pack = parse(
+            r#"{
+            "config_path":"x",
+            "preset": {
+                "socks5Host": { "from":"socks5_host", "drop_if":"feather_use_local_tor" }
+            }
+        }"#,
+        );
+        let cfg = SeedConfig::for_preset(SeedPreset::Ubuntu);
+        let mut base = Map::new();
+        base.insert("socks5Host".into(), json!("stale"));
+        apply_pack(&pack, &cfg, 1, &mut base).unwrap();
+        assert!(!base.contains_key("socks5Host"));
+    }
+
+    #[test]
+    fn apply_preset_format_composes_template() {
+        let pack = parse(
+            r#"{
+            "config_path":"x",
+            "preset": {
+                "proxy": { "format":"socks5:{socks5_host}:{electrum_btc_port}" }
+            }
+        }"#,
+        );
+        let u = apply(&pack, SeedPreset::Ubuntu, 1);
+        assert_eq!(u["proxy"], json!("socks5:127.0.0.1:9054"));
+        let w = apply(&pack, SeedPreset::Whonix, 1);
+        assert_eq!(w["proxy"], json!("socks5:10.152.152.10:9054"));
+    }
+
+    #[test]
+    fn apply_preset_format_unknown_placeholder_errors() {
+        let pack = parse(
+            r#"{
+            "config_path":"x",
+            "preset": { "k": { "format":"x{not_a_field}y" } }
+        }"#,
+        );
+        let cfg = SeedConfig::for_preset(SeedPreset::Ubuntu);
+        let mut base = Map::new();
+        let err = apply_pack(&pack, &cfg, 1, &mut base).unwrap_err();
+        assert!(err.to_string().contains("not_a_field"));
+    }
+
+    #[test]
+    fn apply_preset_from_unknown_field_errors() {
+        let pack = parse(
+            r#"{
+            "config_path":"x",
+            "preset": { "k": { "from": "no_such" } }
+        }"#,
+        );
+        let cfg = SeedConfig::for_preset(SeedPreset::Ubuntu);
+        let mut base = Map::new();
+        let err = apply_pack(&pack, &cfg, 1, &mut base).unwrap_err();
+        assert!(err.to_string().contains("no_such"));
+    }
+
+    #[test]
+    fn apply_rotation_values_indexes_by_instance() {
+        let pack = parse(
+            r#"{
+            "config_path":"x",
+            "rotation": { "skin": { "values": ["A","B","C"] } }
+        }"#,
+        );
+        assert_eq!(apply(&pack, SeedPreset::Ubuntu, 1)["skin"], json!("A"));
+        assert_eq!(apply(&pack, SeedPreset::Ubuntu, 2)["skin"], json!("B"));
+        assert_eq!(apply(&pack, SeedPreset::Ubuntu, 3)["skin"], json!("C"));
+        assert_eq!(apply(&pack, SeedPreset::Ubuntu, 4)["skin"], json!("A"));
+        // instance_index=0 should be treated as 1 (saturating_sub).
+        assert_eq!(apply(&pack, SeedPreset::Ubuntu, 0)["skin"], json!("A"));
+    }
+
+    #[test]
+    fn apply_rotation_from_preset_array_with_and_without_as_string() {
+        let pack_str = parse(
+            r#"{
+            "config_path":"x",
+            "rotation": {
+                "socks5Port": { "from_preset_array":"feather_ports", "as_string":true }
+            }
+        }"#,
+        );
+        let out = apply(&pack_str, SeedPreset::Ubuntu, 2);
+        assert_eq!(out["socks5Port"], json!("9053"));
+
+        let pack_num = parse(
+            r#"{
+            "config_path":"x",
+            "rotation": { "p": { "from_preset_array":"feather_ports" } }
+        }"#,
+        );
+        let out = apply(&pack_num, SeedPreset::Ubuntu, 2);
+        assert_eq!(out["p"], json!(9053));
+    }
+
+    #[test]
+    fn apply_rotation_unknown_or_non_array_field_errors() {
+        let cfg = SeedConfig::for_preset(SeedPreset::Ubuntu);
+        let mut base = Map::new();
+
+        let pack_unknown = parse(
+            r#"{
+            "config_path":"x",
+            "rotation": { "k": { "from_preset_array": "no_such" } }
+        }"#,
+        );
+        let err = apply_pack(&pack_unknown, &cfg, 1, &mut base).unwrap_err();
+        assert!(err.to_string().contains("no_such"));
+
+        let pack_scalar = parse(
+            r#"{
+            "config_path":"x",
+            "rotation": { "k": { "from_preset_array": "socks5_host" } }
+        }"#,
+        );
+        let err = apply_pack(&pack_scalar, &cfg, 1, &mut base).unwrap_err();
+        assert!(err.to_string().contains("socks5_host"));
+    }
+
+    #[test]
+    fn apply_rotation_empty_values_errors() {
+        let pack = parse(
+            r#"{
+            "config_path":"x",
+            "rotation": { "k": { "values": [] } }
+        }"#,
+        );
+        let cfg = SeedConfig::for_preset(SeedPreset::Ubuntu);
+        let mut base = Map::new();
+        let err = apply_pack(&pack, &cfg, 1, &mut base).unwrap_err();
+        assert!(err.to_string().contains("empty"));
     }
 
     #[test]
