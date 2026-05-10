@@ -136,7 +136,9 @@ impl SeedPackLibrary {
             .iter()
             .map(|(id, raw)| (*id, *raw))
             .collect::<Vec<_>>();
-        Self::from_pairs(pairs)
+        let lib = Self::from_pairs(pairs)?;
+        lib.validate()?;
+        Ok(lib)
     }
 
     /// Load every `*.json` file in `dir` as a seed pack keyed by file
@@ -174,6 +176,7 @@ impl SeedPackLibrary {
         if lib.is_empty() {
             Ok(None)
         } else {
+            lib.validate()?;
             Ok(Some(lib))
         }
     }
@@ -288,6 +291,116 @@ impl SeedPackLibrary {
     pub fn is_empty(&self) -> bool {
         self.packs.is_empty()
     }
+
+    /// Validate every pack against a reference [`SeedConfig`] without
+    /// mutating any disk state. Surfaces bad field names and bad
+    /// templates at load time so a typo crashes startup with a clear
+    /// message rather than the next time someone seeds.
+    ///
+    /// Both presets share the same SeedConfig field set, so checking
+    /// against Ubuntu (or Whonix) is sufficient to catch every typo.
+    pub fn validate(&self) -> Result<()> {
+        let cfg = SeedConfig::for_preset(crate::seed::SeedPreset::Ubuntu);
+        for (id, pack) in &self.packs {
+            validate_pack(id, pack, &cfg).map_err(|e| match e {
+                Error::InvalidPath(msg) => {
+                    Error::InvalidPath(format!("seed pack `{id}`: {msg}"))
+                }
+                other => other,
+            })?;
+        }
+        Ok(())
+    }
+}
+
+fn validate_pack(_id: &str, pack: &SeedPack, cfg: &SeedConfig) -> Result<()> {
+    if pack.config_path.is_empty() {
+        return Err(Error::InvalidPath("config_path must be non-empty".into()));
+    }
+    for (key, pv) in &pack.preset {
+        match pv {
+            PresetValue::From { from, drop_if } => {
+                if cfg.field(from).is_none() {
+                    return Err(Error::InvalidPath(format!(
+                        "preset `{key}`: from references unknown field `{from}`"
+                    )));
+                }
+                check_drop_if(key, drop_if.as_deref(), cfg)?;
+            }
+            PresetValue::Format { format, drop_if } => {
+                check_format_template(key, format, cfg)?;
+                check_drop_if(key, drop_if.as_deref(), cfg)?;
+            }
+        }
+    }
+    for (key, rv) in &pack.rotation {
+        match rv {
+            RotationValue::Values { values } => {
+                if values.is_empty() {
+                    return Err(Error::InvalidPath(format!(
+                        "rotation `{key}`: values list must be non-empty"
+                    )));
+                }
+            }
+            RotationValue::FromPresetArray {
+                from_preset_array, ..
+            } => match cfg.field(from_preset_array) {
+                Some(PresetField::U16Array(_)) => {}
+                Some(_) => {
+                    return Err(Error::InvalidPath(format!(
+                        "rotation `{key}`: from_preset_array `{from_preset_array}` is not a u16 array"
+                    )));
+                }
+                None => {
+                    return Err(Error::InvalidPath(format!(
+                        "rotation `{key}`: from_preset_array references unknown field `{from_preset_array}`"
+                    )));
+                }
+            },
+        }
+    }
+    Ok(())
+}
+
+fn check_drop_if(key: &str, drop_if: Option<&str>, cfg: &SeedConfig) -> Result<()> {
+    let Some(name) = drop_if else { return Ok(()) };
+    match cfg.field(name) {
+        Some(PresetField::Bool(_)) => Ok(()),
+        Some(_) => Err(Error::InvalidPath(format!(
+            "preset `{key}`: drop_if `{name}` is not a bool field"
+        ))),
+        None => Err(Error::InvalidPath(format!(
+            "preset `{key}`: drop_if references unknown field `{name}`"
+        ))),
+    }
+}
+
+fn check_format_template(key: &str, template: &str, cfg: &SeedConfig) -> Result<()> {
+    let mut rest = template;
+    while let Some(open) = rest.find('{') {
+        let after = &rest[open + 1..];
+        let close = after.find('}').ok_or_else(|| {
+            Error::InvalidPath(format!(
+                "preset `{key}`: format template missing closing `}}`: {template}"
+            ))
+        })?;
+        let name = &after[..close];
+        match cfg.field(name) {
+            Some(PresetField::U16Array(_)) => {
+                return Err(Error::InvalidPath(format!(
+                    "preset `{key}`: format template cannot inline non-scalar field `{name}`"
+                )));
+            }
+            Some(_) => {}
+            None => {
+                return Err(Error::InvalidPath(format!(
+                    "preset `{key}`: format template references unknown field `{name}`"
+                )));
+            }
+        }
+        rest = &after[close + 1..];
+    }
+    Ok(())
 }
 
 /// Apply a seed pack to a JSON object map already populated by the
@@ -894,6 +1007,97 @@ mod tests {
         let mut base = Map::new();
         let err = apply_pack(&pack, &cfg, 1, &mut base).unwrap_err();
         assert!(err.to_string().contains("empty"));
+    }
+
+    #[test]
+    fn validate_rejects_unknown_preset_from_field() {
+        let lib = SeedPackLibrary::from_pairs(vec![(
+            "p1",
+            r#"{"config_path":"x","preset":{"k":{"from":"no_such"}}}"#,
+        )])
+        .unwrap();
+        let err = lib.validate().unwrap_err().to_string();
+        assert!(err.contains("p1") && err.contains("no_such"), "got: {err}");
+    }
+
+    #[test]
+    fn validate_rejects_unknown_format_placeholder() {
+        let lib = SeedPackLibrary::from_pairs(vec![(
+            "p2",
+            r#"{"config_path":"x","preset":{"k":{"format":"a{not_a_field}b"}}}"#,
+        )])
+        .unwrap();
+        let err = lib.validate().unwrap_err().to_string();
+        assert!(err.contains("p2") && err.contains("not_a_field"), "got: {err}");
+    }
+
+    #[test]
+    fn validate_rejects_scalar_field_used_as_array() {
+        let lib = SeedPackLibrary::from_pairs(vec![(
+            "p3",
+            r#"{"config_path":"x","rotation":{"k":{"from_preset_array":"socks5_host"}}}"#,
+        )])
+        .unwrap();
+        let err = lib.validate().unwrap_err().to_string();
+        assert!(err.contains("p3") && err.contains("socks5_host"), "got: {err}");
+    }
+
+    #[test]
+    fn validate_rejects_non_bool_drop_if() {
+        let lib = SeedPackLibrary::from_pairs(vec![(
+            "p4",
+            r#"{"config_path":"x","preset":{"k":{"from":"socks5_host","drop_if":"socks5_host"}}}"#,
+        )])
+        .unwrap();
+        let err = lib.validate().unwrap_err().to_string();
+        assert!(err.contains("p4") && err.contains("not a bool"), "got: {err}");
+    }
+
+    #[test]
+    fn validate_rejects_empty_config_path() {
+        let lib = SeedPackLibrary::from_pairs(vec![(
+            "p5",
+            r#"{"config_path":""}"#,
+        )])
+        .unwrap();
+        let err = lib.validate().unwrap_err().to_string();
+        assert!(err.contains("p5"), "got: {err}");
+    }
+
+    #[test]
+    fn validate_accepts_realistic_packs() {
+        // Same JSON shapes Stage 3 will ship for the three real apps.
+        let feather = r#"{
+            "config_path":"{appimage}.config/feather/settings.json",
+            "first_run_args":[],
+            "static":{"proxy":1,"torOnlyAllowOnion":true,"torPrivacyLevel":2},
+            "preset":{
+                "useLocalTor":{"from":"feather_use_local_tor"},
+                "socks5Host":{"from":"socks5_host","drop_if":"feather_use_local_tor"}
+            },
+            "rotation":{
+                "skin":{"values":["Breeze/Light","Breeze/Dark","Breeze/Light"]},
+                "socks5Port":{"from_preset_array":"feather_ports","as_string":true}
+            }
+        }"#;
+        let btc = r#"{
+            "config_path":"{appimage}.home/.electrum/config",
+            "first_run_args":["--offline"],
+            "static":{"oneserver":true,"server":"x.onion:50002:s"},
+            "preset":{"proxy":{"format":"socks5:{socks5_host}:{electrum_btc_port}"}}
+        }"#;
+        let ltc = r#"{
+            "config_path":"{appimage}.home/.electrum-ltc/config",
+            "first_run_args":["--offline"],
+            "preset":{"proxy":{"format":"socks5:{socks5_host}:{electrum_ltc_port}"}}
+        }"#;
+        let lib = SeedPackLibrary::from_pairs(vec![
+            ("feather", feather),
+            ("electrum-btc", btc),
+            ("electrum-ltc", ltc),
+        ])
+        .unwrap();
+        lib.validate().expect("realistic packs should validate clean");
     }
 
     #[test]
