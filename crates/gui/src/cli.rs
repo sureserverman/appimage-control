@@ -10,8 +10,8 @@ use appimage_control_core::{
     instance_count, parse_app_instance_spec, purge_appimage_control_state,
     reconcile_catalog_install_version_metadata, reconcile_instance_count, restore_backup_archive,
     run_portable_dir_migration, seed_supported_installed_apps, update_all_installed_instances,
-    AppPaths, BackupOptions, Catalog, MigrationConflict, MigrationResolution, SeedPackLibrary,
-    SeedPreset,
+    update_seed_packs, AppPaths, BackupOptions, Catalog, MigrationConflict, MigrationResolution,
+    SeedPackLibrary, SeedPreset,
 };
 
 pub fn want_help(args: &[String]) -> bool {
@@ -52,6 +52,13 @@ When --purge, --clean, or --migrate is present, only one runs: --purge first if 
                    `<app-id>\\t<source-path-or-embedded>`. Useful to confirm which
                    override the discovery chain (APPIMAGE_CONTROL_SEEDS_DIR, ancestor
                    walk, /app/share/ or /usr/share/, embedded) picked.
+  --update-seed-packs
+                   Fetch the latest signed seed-pack tarball from the companion
+                   GitHub repo, verify the ed25519 signature against the embedded
+                   public key, and install into ~/.local/share/appimage-control/seeds/.
+                   Refuses if the tarball or signature does not verify, or if this
+                   build was shipped with a placeholder public key (see
+                   docs/seed-pack-companion-repo.md).
   -y, --yes        Use with --purge, --clean, or --migrate: skip the run confirmation prompt (for scripts).
   +APP             Add 1 instance of APP (capped by the catalog instance limit).
   +APP:N           Add N instances of APP (same cap).
@@ -98,6 +105,7 @@ pub fn has_cli_ops(args: &[String]) -> bool {
             || a == "--seed-settings"
             || a == "--seed-preset"
             || a == "--list-seed-packs"
+            || a == "--update-seed-packs"
             || a == "-update"
             || a == "--update"
             || (a.starts_with('+') && a.len() > 1)
@@ -337,6 +345,24 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
                 for (id, src) in lib.list_rows() {
                     println!("{id}\t{src}");
                 }
+                return Some(glib::ExitCode::SUCCESS);
+            }
+            Err(e) => {
+                eprintln!("{e}");
+                return Some(glib::ExitCode::FAILURE);
+            }
+        }
+    }
+
+    if args.iter().any(|a| a == "--update-seed-packs") {
+        match update_seed_packs(None, &mut |s| eprintln!("{s}")) {
+            Ok(report) => {
+                eprintln!(
+                    "Installed {} seed packs to {} from {}",
+                    report.installed_count,
+                    report.install_dir.display(),
+                    report.source_url
+                );
                 return Some(glib::ExitCode::SUCCESS);
             }
             Err(e) => {

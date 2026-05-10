@@ -57,6 +57,9 @@ pub enum Error {
 
     #[error("restore preflight refused: {0}")]
     RestoreRefused(String),
+
+    #[error("seed-pack signature verification failed: {0}")]
+    SeedPackSignature(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

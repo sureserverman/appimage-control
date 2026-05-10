@@ -17,6 +17,7 @@ mod paths;
 mod reset;
 mod seed;
 mod seed_pack;
+mod seed_pack_update;
 mod update;
 mod version_info;
 
@@ -64,7 +65,11 @@ pub use seed::{
     seed_new_instances_after_reconcile, seed_supported_installed_apps, SeedConfig, SeedOutcome,
     SeedPreset, SeedRecipe, SeedReport, SeedTarget, SupportedSeedApp,
 };
-pub use seed_pack::{SeedPack, SeedPackLibrary, ENV_SEEDS_DIR};
+pub use seed_pack::{user_seeds_dir, SeedPack, SeedPackLibrary, ENV_SEEDS_DIR};
+pub use seed_pack_update::{
+    update_seed_packs, UpdateReport as SeedPackUpdateReport, DEFAULT_RELEASE_URL as SEED_PACKS_DEFAULT_RELEASE_URL,
+    ENV_RELEASE_URL as SEED_PACKS_ENV_RELEASE_URL,
+};
 pub use update::{appimageupdatetool_available, run_appimageupdatetool, update_from_file};
 pub use version_info::{
     catalog_cache_fresh_for_pinned, catalog_pin_matches_recorded, catalog_pinned_version,

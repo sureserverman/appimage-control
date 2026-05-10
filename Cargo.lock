@@ -44,12 +44,14 @@ name = "appimage_control_core"
 version = "0.1.0"
 dependencies = [
  "assert_fs",
+ "base64",
  "blake3",
  "dirs",
  "image",
  "predicates",
  "regex",
  "reqwest",
+ "ring",
  "semver",
  "serde",
  "serde_json",
