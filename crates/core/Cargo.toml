@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Core logic for AppImage Control (install, list, uninstall, update, reset)"
+build = "build.rs"
 
 [dependencies]
 blake3 = "1.8.4"
