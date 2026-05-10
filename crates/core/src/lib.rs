@@ -16,6 +16,7 @@ mod model;
 mod paths;
 mod reset;
 mod seed;
+mod seed_pack;
 mod update;
 mod version_info;
 

@@ -1,0 +1,265 @@
+//! Seed-pack schema, embedded fallback, and discovery.
+//!
+//! A *seed pack* is a declarative description of how to patch one supported
+//! app's first-run config after the manager has launched it once under
+//! `xvfb-run`. Packs live as JSON files at `data/seeds/<app-id>.json` in
+//! the repo, are baked into the binary at compile time by `build.rs`, and
+//! can be overridden on disk via the same fallback chain
+//! [`crate::catalog::Catalog::discover_load`] uses for `catalog.json`.
+//!
+//! See `docs/seed-packs.md` (Stage 5 of the seed-pack-extraction plan) for
+//! the authoring guide.
+//
+// Stage 1 of the seed-pack-extraction plan ships the schema + library types
+// without yet wiring them to a production caller (Stage 2 is the
+// interpreter; Stage 3 wires the entry points). This blanket allow goes
+// away once Stage 2 references these items in `apply_pack`.
+#![allow(dead_code)]
+//!
+//! The schema is deliberately tiny — three "verbs" cover every
+//! transformation today's hand-written `patch_*_config` functions perform:
+//!
+//! - `static`: plain JSON literals merged into the config map.
+//! - `preset`: a value derived from the active [`crate::seed::SeedConfig`]
+//!   (either a direct field copy via `from`, or a `format` template that
+//!   interpolates one or more scalar preset fields), with optional
+//!   `drop_if` to omit the key when a bool preset field is true.
+//! - `rotation`: a per-instance value indexed by `(instance_index - 1) mod
+//!   N`, drawn either from inline `values` or from a named u16 preset
+//!   array (with optional `as_string` to stringify the result, matching
+//!   Feather's `socks5Port` quirk).
+
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+
+use serde::Deserialize;
+use serde_json::{Map, Value};
+
+use crate::error::{Error, Result};
+
+/// One seed pack, parsed from `data/seeds/<app-id>.json`.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct SeedPack {
+    /// Path to the JSON config the seeded AppImage is expected to write,
+    /// relative to the instance directory. May contain a single
+    /// `{appimage}` placeholder, replaced at runtime with
+    /// [`crate::catalog::CatalogApp::resolved_appimage_filename`].
+    pub config_path: String,
+
+    /// Extra arguments passed to the AppImage on its first-run seed
+    /// launch (e.g. `["--offline"]` for Electrum). Defaults to empty.
+    #[serde(default)]
+    pub first_run_args: Vec<String>,
+
+    /// Plain JSON literals merged into the config map verbatim.
+    #[serde(default, rename = "static")]
+    pub static_keys: Map<String, Value>,
+
+    /// Keys whose values come from the active [`crate::seed::SeedConfig`].
+    #[serde(default)]
+    pub preset: BTreeMap<String, PresetValue>,
+
+    /// Keys whose values rotate per instance index.
+    #[serde(default)]
+    pub rotation: BTreeMap<String, RotationValue>,
+}
+
+/// One `preset` entry. `untagged` so the JSON shape disambiguates: the
+/// presence of `from` means [`PresetValue::From`], `format` means
+/// [`PresetValue::Format`].
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields, untagged)]
+pub enum PresetValue {
+    /// Direct copy of one preset field (`socks5_host`,
+    /// `feather_use_local_tor`, etc.) into the JSON map.
+    From {
+        from: String,
+        #[serde(default)]
+        drop_if: Option<String>,
+    },
+    /// Templated string with `{field_name}` placeholders that resolve
+    /// against the active preset's scalar fields.
+    Format {
+        format: String,
+        #[serde(default)]
+        drop_if: Option<String>,
+    },
+}
+
+/// One `rotation` entry. Disambiguated by which field is present.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields, untagged)]
+pub enum RotationValue {
+    /// Rotate through an inline list of JSON literals.
+    Values { values: Vec<Value> },
+    /// Rotate through a named u16 preset array (e.g.
+    /// `feather_ports`). When `as_string` is true, the chosen u16 is
+    /// emitted as a JSON string rather than a number.
+    FromPresetArray {
+        from_preset_array: String,
+        #[serde(default)]
+        as_string: bool,
+    },
+}
+
+/// In-memory library of seed packs keyed by app id (file stem).
+#[derive(Debug, Clone, Default)]
+pub struct SeedPackLibrary {
+    packs: BTreeMap<String, SeedPack>,
+    sources: BTreeMap<String, PathBuf>,
+}
+
+impl SeedPackLibrary {
+    pub fn from_pairs<I, S>(pairs: I) -> Result<Self>
+    where
+        I: IntoIterator<Item = (S, S)>,
+        S: AsRef<str>,
+    {
+        let mut lib = SeedPackLibrary::default();
+        for (id, raw) in pairs {
+            let id = id.as_ref().to_string();
+            let pack: SeedPack = serde_json::from_str(raw.as_ref()).map_err(|e| {
+                Error::InvalidPath(format!("seed pack {id} failed to parse: {e}"))
+            })?;
+            lib.packs.insert(id.clone(), pack);
+            lib.sources.insert(id, PathBuf::from("<embedded>"));
+        }
+        Ok(lib)
+    }
+
+    pub fn get(&self, app_id: &str) -> Option<&SeedPack> {
+        self.packs.get(app_id)
+    }
+
+    pub fn ids(&self) -> impl Iterator<Item = &str> {
+        self.packs.keys().map(String::as_str)
+    }
+
+    pub fn source_for(&self, app_id: &str) -> Option<&Path> {
+        self.sources.get(app_id).map(PathBuf::as_path)
+    }
+
+    pub fn len(&self) -> usize {
+        self.packs.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.packs.is_empty()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn minimal_pack_parses() {
+        let raw = r#"{"config_path":"x.json"}"#;
+        let p: SeedPack = serde_json::from_str(raw).unwrap();
+        assert_eq!(p.config_path, "x.json");
+        assert!(p.first_run_args.is_empty());
+        assert!(p.static_keys.is_empty());
+        assert!(p.preset.is_empty());
+        assert!(p.rotation.is_empty());
+    }
+
+    #[test]
+    fn full_pack_parses_all_verbs() {
+        let raw = r#"{
+            "config_path": "{appimage}.config/feather/settings.json",
+            "first_run_args": ["--offline"],
+            "static": { "proxy": 1, "torOnlyAllowOnion": true },
+            "preset": {
+                "useLocalTor": { "from": "feather_use_local_tor" },
+                "socks5Host":  { "from": "socks5_host", "drop_if": "feather_use_local_tor" },
+                "proxy":       { "format": "socks5:{socks5_host}:{electrum_btc_port}" }
+            },
+            "rotation": {
+                "skin":       { "values": ["a","b","c"] },
+                "socks5Port": { "from_preset_array": "feather_ports", "as_string": true }
+            }
+        }"#;
+        let p: SeedPack = serde_json::from_str(raw).unwrap();
+        assert_eq!(p.first_run_args, vec!["--offline"]);
+        assert_eq!(p.static_keys.len(), 2);
+        assert!(matches!(
+            p.preset.get("useLocalTor"),
+            Some(PresetValue::From { from, drop_if: None }) if from == "feather_use_local_tor"
+        ));
+        assert!(matches!(
+            p.preset.get("socks5Host"),
+            Some(PresetValue::From { from, drop_if: Some(d) })
+                if from == "socks5_host" && d == "feather_use_local_tor"
+        ));
+        assert!(matches!(
+            p.preset.get("proxy"),
+            Some(PresetValue::Format { format, drop_if: None })
+                if format == "socks5:{socks5_host}:{electrum_btc_port}"
+        ));
+        assert!(matches!(
+            p.rotation.get("skin"),
+            Some(RotationValue::Values { values }) if values.len() == 3
+        ));
+        assert!(matches!(
+            p.rotation.get("socks5Port"),
+            Some(RotationValue::FromPresetArray { from_preset_array, as_string: true })
+                if from_preset_array == "feather_ports"
+        ));
+    }
+
+    #[test]
+    fn rejects_unknown_top_level_key() {
+        let raw = r#"{"config_path":"x","whatever":42}"#;
+        let err = serde_json::from_str::<SeedPack>(raw).unwrap_err();
+        assert!(
+            err.to_string().contains("whatever") || err.to_string().contains("unknown field"),
+            "expected unknown-field error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn rejects_unknown_preset_key() {
+        // `from` typo'd as `frm` — should fail because neither variant matches.
+        let raw = r#"{
+            "config_path":"x",
+            "preset": { "k": { "frm": "socks5_host" } }
+        }"#;
+        let err = serde_json::from_str::<SeedPack>(raw).unwrap_err();
+        // serde's untagged error is generic; just ensure parsing fails.
+        let _ = err;
+    }
+
+    #[test]
+    fn rejects_unknown_rotation_key() {
+        let raw = r#"{
+            "config_path":"x",
+            "rotation": { "k": { "vals": [1,2] } }
+        }"#;
+        assert!(serde_json::from_str::<SeedPack>(raw).is_err());
+    }
+
+    #[test]
+    fn library_from_pairs_loads_and_indexes() {
+        let lib = SeedPackLibrary::from_pairs(vec![
+            ("alpha", r#"{"config_path":"a.json"}"#),
+            ("beta", r#"{"config_path":"b.json"}"#),
+        ])
+        .unwrap();
+        assert_eq!(lib.len(), 2);
+        assert!(!lib.is_empty());
+        assert_eq!(lib.get("alpha").unwrap().config_path, "a.json");
+        assert_eq!(lib.get("beta").unwrap().config_path, "b.json");
+        assert!(lib.get("missing").is_none());
+        let mut ids: Vec<&str> = lib.ids().collect();
+        ids.sort();
+        assert_eq!(ids, vec!["alpha", "beta"]);
+    }
+
+    #[test]
+    fn library_reports_parse_errors_with_pack_id() {
+        let err = SeedPackLibrary::from_pairs(vec![("oops", "{not json")]).unwrap_err();
+        let s = err.to_string();
+        assert!(s.contains("oops"), "expected pack id in error, got: {s}");
+    }
+}
