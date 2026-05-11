@@ -50,24 +50,29 @@ impl SeedPreset {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SeedConfig {
     pub preset: SeedPreset,
+    /// Loopback hint passed to `portmux-port --host-loopback` (used
+    /// only on Ubuntu — portmux on Whonix substitutes the gateway
+    /// address). Kept around because Feather's `useLocalTor=true`
+    /// branch on Ubuntu also reads this directly.
     pub socks5_host: String,
+    /// Whether Feather should use its embedded Tor (Ubuntu) versus
+    /// dialing the workstation SOCKS pool (Whonix).
     pub feather_use_local_tor: bool,
-    pub feather_ports: [u16; 3],
-    pub electrum_btc_port: u16,
-    pub electrum_ltc_port: u16,
 }
 
 /// Typed view of one [`SeedConfig`] field, returned by
 /// [`SeedConfig::field`]. Used by the seed-pack interpreter to resolve
-/// `preset.from`, `preset.format`, and `rotation.from_preset_array`
-/// references against the active preset without each verb caring about
-/// the concrete type.
+/// `preset.from` references and `preset.format` placeholders against
+/// the active preset without each verb caring about the concrete type.
+///
+/// Numeric/array variants were retired together with the
+/// `feather_ports` / `electrum_btc_port` / `electrum_ltc_port` fields
+/// — port resolution now goes through the `port` verb backed by
+/// `portmux-port ensure` instead.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PresetField<'a> {
     Bool(bool),
     Str(&'a str),
-    U16(u16),
-    U16Array(&'a [u16]),
 }
 
 impl SeedConfig {
@@ -77,33 +82,23 @@ impl SeedConfig {
                 preset,
                 socks5_host: "127.0.0.1".into(),
                 feather_use_local_tor: true,
-                feather_ports: [9052, 9053, 9070],
-                electrum_btc_port: 9054,
-                electrum_ltc_port: 9055,
             },
             SeedPreset::Whonix => Self {
                 preset,
                 socks5_host: "10.152.152.10".into(),
                 feather_use_local_tor: false,
-                feather_ports: [9052, 9053, 9070],
-                electrum_btc_port: 9054,
-                electrum_ltc_port: 9055,
             },
         }
     }
 
     /// Look up a SeedConfig field by name. Single source of truth for
-    /// the legal preset-field set referenced by seed-pack `preset.from`,
-    /// `preset.format` placeholders, and `rotation.from_preset_array`.
-    /// Returns `None` for unknown names so pack validation can flag
-    /// typos.
+    /// the legal preset-field set referenced by seed-pack `preset.from`
+    /// and `preset.format` placeholders. Returns `None` for unknown
+    /// names so pack validation can flag typos.
     pub fn field(&self, name: &str) -> Option<PresetField<'_>> {
         match name {
             "socks5_host" => Some(PresetField::Str(&self.socks5_host)),
             "feather_use_local_tor" => Some(PresetField::Bool(self.feather_use_local_tor)),
-            "feather_ports" => Some(PresetField::U16Array(&self.feather_ports)),
-            "electrum_btc_port" => Some(PresetField::U16(self.electrum_btc_port)),
-            "electrum_ltc_port" => Some(PresetField::U16(self.electrum_ltc_port)),
             _ => None,
         }
     }
@@ -254,7 +249,7 @@ pub fn seed_instance_settings_with_recipe(
     let first_run_args: Vec<&str> = recipe.first_run_args.iter().map(String::as_str).collect();
     seed_until_config(&appimage, &first_run_args, &expected)?;
     let mut map = read_json_object(&expected)?;
-    apply_pack(&recipe.pack, &config, instance_index, &mut map)?;
+    apply_pack(&recipe.pack, &recipe.app_id, &config, instance_index, &mut map)?;
     write_json_object(&expected, map)?;
     on_progress(&format!(
         "{} instance {}: settings seeded ({})",
@@ -615,18 +610,12 @@ exec "$@"
                 cfg.field("feather_use_local_tor"),
                 Some(PresetField::Bool(cfg.feather_use_local_tor))
             );
-            assert_eq!(
-                cfg.field("feather_ports"),
-                Some(PresetField::U16Array(&cfg.feather_ports))
-            );
-            assert_eq!(
-                cfg.field("electrum_btc_port"),
-                Some(PresetField::U16(cfg.electrum_btc_port))
-            );
-            assert_eq!(
-                cfg.field("electrum_ltc_port"),
-                Some(PresetField::U16(cfg.electrum_ltc_port))
-            );
+            // Legacy port-array / port-scalar names were retired with
+            // the `port` verb; they must now be rejected so a typo'd
+            // pack fails loudly at load time.
+            assert_eq!(cfg.field("feather_ports"), None);
+            assert_eq!(cfg.field("electrum_btc_port"), None);
+            assert_eq!(cfg.field("electrum_ltc_port"), None);
             assert_eq!(cfg.field("nope"), None);
             assert_eq!(cfg.field(""), None);
         }
@@ -637,16 +626,10 @@ exec "$@"
         let u = SeedConfig::for_preset(SeedPreset::Ubuntu);
         assert_eq!(u.socks5_host, "127.0.0.1");
         assert!(u.feather_use_local_tor);
-        assert_eq!(u.feather_ports, [9052, 9053, 9070]);
-        assert_eq!(u.electrum_btc_port, 9054);
-        assert_eq!(u.electrum_ltc_port, 9055);
 
         let w = SeedConfig::for_preset(SeedPreset::Whonix);
         assert_eq!(w.socks5_host, "10.152.152.10");
         assert!(!w.feather_use_local_tor);
-        assert_eq!(w.feather_ports, [9052, 9053, 9070]);
-        assert_eq!(w.electrum_btc_port, 9054);
-        assert_eq!(w.electrum_ltc_port, 9055);
     }
 
     // App-specific apply_pack assertions (validating the JSON shape

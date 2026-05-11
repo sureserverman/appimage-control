@@ -7,11 +7,11 @@ use gtk::glib;
 use appimage_control_core::{
     clean_catalog_download_cache, clean_installed_catalog_apps_keep_cache, create_backup_archive,
     discover_migration_candidates, fetch_github_release_hints, installed_version_fleet_display,
-    instance_count, parse_app_instance_spec, purge_appimage_control_state,
-    reconcile_catalog_install_version_metadata, reconcile_instance_count, restore_backup_archive,
-    run_portable_dir_migration, seed_supported_installed_apps, update_all_installed_instances,
-    update_seed_packs, AppPaths, BackupOptions, Catalog, MigrationConflict, MigrationResolution,
-    SeedPackLibrary, SeedPreset,
+    instance_count, portmux_port_probe_runtime, parse_app_instance_spec,
+    purge_appimage_control_state, reconcile_catalog_install_version_metadata,
+    reconcile_instance_count, restore_backup_archive, run_portable_dir_migration,
+    seed_supported_installed_apps, update_all_installed_instances, update_seed_packs, AppPaths,
+    BackupOptions, Catalog, MigrationConflict, MigrationResolution, SeedPackLibrary, SeedPreset,
 };
 
 pub fn want_help(args: &[String]) -> bool {
@@ -683,6 +683,16 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
     }
 
     if let Some(targets) = seed_targets {
+        // Pre-flight: bail before the per-instance loop if the host
+        // doesn't have portmux-port installed. The seed pipeline
+        // resolves every per-app SOCKS / HTTPTunnel port through it;
+        // without it every instance would fail with the same install
+        // hint. One message at the top is the right UX.
+        if let Err(msg) = portmux_port_probe_runtime() {
+            eprintln!("{msg}");
+            return Some(glib::ExitCode::FAILURE);
+        }
+
         let preset = seed_preset.expect("checked above");
         let selected_ref_storage = targets;
         let selected_ref = selected_ref_storage.as_deref();

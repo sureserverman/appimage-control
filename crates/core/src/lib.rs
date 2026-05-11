@@ -13,6 +13,7 @@ mod instances;
 mod list;
 mod migrate;
 mod model;
+mod portmux_port;
 mod paths;
 mod reset;
 mod seed;
@@ -69,6 +70,10 @@ pub use seed_pack::{user_seeds_dir, SeedPack, SeedPackLibrary, ENV_SEEDS_DIR};
 pub use seed_pack_update::{
     update_seed_packs, UpdateReport as SeedPackUpdateReport, DEFAULT_RELEASE_URL as SEED_PACKS_DEFAULT_RELEASE_URL,
     ENV_RELEASE_URL as SEED_PACKS_ENV_RELEASE_URL,
+};
+pub use portmux_port::{
+    probe_runtime as portmux_port_probe_runtime, ProbeOutcome as PortmuxPortProbeOutcome,
+    ENV_PORTMUX_PORT_BIN, INSTALL_HINT as PORTMUX_PORT_INSTALL_HINT,
 };
 pub use update::{appimageupdatetool_available, run_appimageupdatetool, update_from_file};
 pub use version_info::{

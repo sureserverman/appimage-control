@@ -20,10 +20,11 @@ content is not. An authorised build replaces the placeholder
 `crates/core/src/seed_pack_update.rs` before publishing the binary
 to its select audience.
 
-## Schema — the closed three-verb vocabulary
+## Schema — the closed verb vocabulary
 
-Every supported transformation is one of three verbs. Adding a new
-top-level key is a hard error (`#[serde(deny_unknown_fields)]`).
+Every supported transformation is one of a fixed set of verbs.
+Adding a new top-level key is a hard error
+(`#[serde(deny_unknown_fields)]`).
 
 ### `static` — literal JSON values
 
@@ -44,7 +45,7 @@ active preset or the instance index.
 
 ### `preset` — values derived from the active preset
 
-Two forms. `from` copies one named preset field directly:
+Three forms. `from` copies one named preset field directly:
 
 ```json
 "preset": {
@@ -57,18 +58,56 @@ Two forms. `from` copies one named preset field directly:
 
 ```json
 "preset": {
-  "proxyUrl": { "format": "socks5:{socks5_host}:{electrum_btc_port}" }
+  "banner": { "format": "host={socks5_host} local={feather_use_local_tor}" }
 }
 ```
 
-Both forms accept an optional `drop_if`: when the named **bool**
-preset field is true, the key is omitted (and removed from any
-pre-existing config). Use this to drop a key conditionally based on
-the active preset.
+`port` resolves a SOCKS / HTTPTunnel port for the current
+`(app, instance)` by shelling out to the host's `portmux-port
+ensure` CLI (see `docs/integration-portmux-port.md`):
+
+```json
+"preset": {
+  "socks5Host": {
+    "port": {
+      "isolation": "dest-addr",
+      "field": "host",
+      "drop_if": "feather_use_local_tor"
+    }
+  },
+  "socks5Port": {
+    "port": {
+      "isolation": "dest-addr",
+      "field": "port",
+      "as_string": true
+    }
+  }
+}
+```
+
+`port` body fields:
+
+| Field        | Required | Values                                            | Notes |
+|--------------|----------|---------------------------------------------------|-------|
+| `app`        | no       | catalog id (`"feather"`, `"electrum-btc"`, …)     | defaults to the seed pack's own app id |
+| `purpose`    | no       | `"socks"` (default) / `"http"` / `"trans"` / `"dns"` | maps to `portmux-port --purpose` |
+| `isolation`  | yes      | `"none"` / `"dest-addr"` / `"dest-port"` / `"both"` / `"http-tunnel"` | maps to `portmux-port --isolation` |
+| `field`      | yes      | `"port"` / `"host"` / `"url"`                     | which slice of the resolved listener lands in the JSON map |
+| `as_string`  | no       | bool, default `false`                              | only valid with `field: "port"`; emits a quoted number for apps whose JSON schema expects a string |
+| `drop_if`    | no       | name of a bool preset field                       | when true, the key is omitted and `portmux-port` is never spawned |
+
+Two `port` verbs in the same pack that resolve to the same
+`(app, instance, purpose, isolation)` tuple share one
+`portmux-port` spawn — the interpreter caches the result within
+one `apply_pack` call.
+
+All three forms (`from`, `format`, `port`) accept an optional
+`drop_if`: when the named **bool** preset field is true, the key is
+omitted (and removed from any pre-existing config).
 
 ### `rotation` — per-instance values
 
-Two forms. `values` rotates through an inline list, indexed by
+One form: `values` rotates through an inline list, indexed by
 `(instance_index - 1) mod len`:
 
 ```json
@@ -77,38 +116,30 @@ Two forms. `values` rotates through an inline list, indexed by
 }
 ```
 
-`from_preset_array` rotates through a named u16 preset array:
-
-```json
-"rotation": {
-  "proxyPort": { "from_preset_array": "feather_ports", "as_string": true }
-}
-```
-
-Set `as_string: true` when the receiving JSON schema expects a
-string rather than a number.
+(The legacy `from_preset_array` variant was retired together with
+the `feather_ports` preset array — per-instance port assignment now
+goes through the `port` verb in the `preset` section, which scales
+to any instance number without a compile-time cap.)
 
 ## Legal preset field names
 
 The accessor in `crates/core/src/seed.rs::SeedConfig::field` is the
 single source of truth. Today:
 
-| Name                     | Type        | Form factor              |
-|--------------------------|-------------|--------------------------|
-| `socks5_host`            | string      | `from`, `format`         |
-| `feather_use_local_tor`  | bool        | `from`, `drop_if`, `format` |
-| `feather_ports`          | u16 array   | `from_preset_array`      |
-| `electrum_btc_port`      | u16 scalar  | `from`, `format`         |
-| `electrum_ltc_port`      | u16 scalar  | `from`, `format`         |
+| Name                     | Type    | Form factor                  |
+|--------------------------|---------|------------------------------|
+| `socks5_host`            | string  | `from`, `format`, `drop_if`-only when wrapping a string-typed field |
+| `feather_use_local_tor`  | bool    | `from`, `drop_if`, `format`  |
 
 (Field names are legacy — they predate the data-driven schema.
 Extending the preset surface to a new field is a one-line change in
-`SeedConfig::field`.)
+`SeedConfig::field`. Numeric port fields were retired in favour of
+the `port` verb, which resolves through `portmux-port` at apply
+time.)
 
-`format` cannot inline an array field; use
-`rotation.from_preset_array` for that. A typo'd field name fails
-pack-load (`SeedPackLibrary::validate`) with the offending name in
-the message — never silently at seed time.
+A typo'd field name fails pack-load
+(`SeedPackLibrary::validate`) with the offending name in the
+message — never silently at seed time.
 
 ## Discovery chain
 

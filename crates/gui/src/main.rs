@@ -23,7 +23,7 @@ use appimage_control_core::{
     catalog_row_latest_version_label, clean_catalog_download_cache,
     clean_installed_catalog_apps_keep_cache, create_backup_archive, discover_migration_candidates,
     fetch_github_release_hints, installed_version_fleet_display, instance_count,
-    list_managed_instance_indices, purge_appimage_control_state,
+    list_managed_instance_indices, portmux_port_probe_runtime, purge_appimage_control_state,
     reconcile_catalog_install_version_metadata, reconcile_instance_count_with_report,
     repair_instance_launchers, restore_backup_archive, run_portable_dir_migration,
     seed_instance_settings, update_all_installed_instances, AppPaths, BackupOptions, Catalog,
@@ -932,6 +932,11 @@ fn mount_catalog_view(
 
             std::thread::spawn(move || {
                 let mut log = String::new();
+                // Pre-flight cache: `portmux_port_probe_runtime` itself
+                // caches across the whole process, but we also want to
+                // log the install hint *once* even when several apps
+                // each add new instances in the same Apply run.
+                let mut probe_failure_logged: Option<String> = None;
                 let n = specs.len();
                 if n == 0 {
                     let _ = tx_prog.send((1.0, "Working…".to_string()));
@@ -958,23 +963,57 @@ fn mount_catalog_view(
                             match r {
                                 Ok(rep) => {
                                     if !rep.added.is_empty() {
-                                        let preset = SeedPreset::auto_default();
-                                        log.push_str(&format!(
-                                            "{}: auto-seeding {} new instance(s) with {} preset\n",
-                                            app.id,
-                                            rep.added.len(),
-                                            preset.as_str()
-                                        ));
-                                        let _ = appimage_control_core::seed_new_instances_after_reconcile(
-                                            &paths_t,
-                                            app,
-                                            &rep.added,
-                                            preset,
-                                            &mut |m| {
-                                                log.push_str(m);
-                                                log.push('\n');
+                                        // Probe lazily — only when we
+                                        // actually have new instances to
+                                        // seed. Avoids dragging the
+                                        // missing-portmux message in
+                                        // front of users who never
+                                        // touched a seedable app.
+                                        //
+                                        // First failure in this Apply
+                                        // run writes the full install
+                                        // hint; subsequent apps in the
+                                        // same run get a short line
+                                        // pointing back at it.
+                                        let probe_ok = match &probe_failure_logged {
+                                            Some(_) => {
+                                                log.push_str(&format!(
+                                                    "{}: auto-seeding skipped — portmux-port still unavailable\n",
+                                                    app.id
+                                                ));
+                                                false
+                                            }
+                                            None => match portmux_port_probe_runtime() {
+                                                Ok(_) => true,
+                                                Err(msg) => {
+                                                    log.push_str(&format!(
+                                                        "{}: auto-seeding skipped — portmux-port unavailable on the host.\n{msg}\n",
+                                                        app.id
+                                                    ));
+                                                    probe_failure_logged = Some(msg);
+                                                    false
+                                                }
                                             },
-                                        );
+                                        };
+                                        if probe_ok {
+                                            let preset = SeedPreset::auto_default();
+                                            log.push_str(&format!(
+                                                "{}: auto-seeding {} new instance(s) with {} preset\n",
+                                                app.id,
+                                                rep.added.len(),
+                                                preset.as_str()
+                                            ));
+                                            let _ = appimage_control_core::seed_new_instances_after_reconcile(
+                                                &paths_t,
+                                                app,
+                                                &rep.added,
+                                                preset,
+                                                &mut |m| {
+                                                    log.push_str(m);
+                                                    log.push('\n');
+                                                },
+                                            );
+                                        }
                                     }
                                 }
                                 Err(e) => {
@@ -1370,6 +1409,24 @@ fn install_window_actions_for_catalog(
                     let mut done = 0u32;
                     if total == 0 {
                         let _ = tx_prog.send((1.0, "Seeding settings…".to_string()));
+                    }
+                    // Pre-flight: surface a missing portmux-port up
+                    // front in the activity-log dialog instead of
+                    // letting every per-instance call fail with the
+                    // same install hint. Sets `failed = max(total, 1)`
+                    // so the status bar phrasing
+                    // (`format_seed_status_summary`) renders the
+                    // failure prominently rather than the misleading
+                    // "Seeded 0 instance(s)" zero-state.
+                    if let Err(msg) = portmux_port_probe_runtime() {
+                        log.push_str(
+                            "Seeding aborted: portmux-port is not available on the host.\n",
+                        );
+                        log.push_str(&msg);
+                        log.push('\n');
+                        failed = total.max(1);
+                        let _ = tx.send((log, seeded, failed));
+                        return;
                     }
                     for app in &catalog_t.apps {
                         if !selected_ids.iter().any(|id| id == &app.id) {
