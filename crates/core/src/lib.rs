@@ -60,6 +60,16 @@ pub use migrate::{
     MigrationConflict, MigrationResolution,
 };
 pub use model::InstalledApp;
+/// Neutral alias for the override env var holding a custom path to
+/// the port-allocation helper. Same string value as
+/// [`ENV_PORTMUX_PORT_BIN`]; the alias exists so test code and
+/// future neutral-naming refactors can reference the override
+/// without naming the underlying tool.
+pub use portmux_port::ENV_PORTMUX_PORT_BIN as ENV_PORT_HELPER_BIN;
+pub use portmux_port::{
+    probe_runtime as portmux_port_probe_runtime, ProbeOutcome as PortmuxPortProbeOutcome,
+    ENV_PORTMUX_PORT_BIN, INSTALL_HINT as PORTMUX_PORT_INSTALL_HINT,
+};
 pub use paths::AppPaths;
 pub use reset::{delete_paths, execute_reset, preview_reset_paths, ResetPreview};
 pub use seed::{
@@ -74,19 +84,10 @@ pub use seed_form::{
 };
 pub use seed_pack::{user_seeds_dir, SeedPack, SeedPackLibrary, ENV_SEEDS_DIR};
 pub use seed_pack_update::{
-    update_seed_packs, UpdateReport as SeedPackUpdateReport, DEFAULT_RELEASE_URL as SEED_PACKS_DEFAULT_RELEASE_URL,
+    update_seed_packs, UpdateReport as SeedPackUpdateReport,
+    DEFAULT_RELEASE_URL as SEED_PACKS_DEFAULT_RELEASE_URL,
     ENV_RELEASE_URL as SEED_PACKS_ENV_RELEASE_URL,
 };
-pub use portmux_port::{
-    probe_runtime as portmux_port_probe_runtime, ProbeOutcome as PortmuxPortProbeOutcome,
-    ENV_PORTMUX_PORT_BIN, INSTALL_HINT as PORTMUX_PORT_INSTALL_HINT,
-};
-/// Neutral alias for the override env var holding a custom path to
-/// the port-allocation helper. Same string value as
-/// [`ENV_PORTMUX_PORT_BIN`]; the alias exists so test code and
-/// future neutral-naming refactors can reference the override
-/// without naming the underlying tool.
-pub use portmux_port::ENV_PORTMUX_PORT_BIN as ENV_PORT_HELPER_BIN;
 pub use update::{appimageupdatetool_available, run_appimageupdatetool, update_from_file};
 pub use version_info::{
     catalog_cache_fresh_for_pinned, catalog_pin_matches_recorded, catalog_pinned_version,

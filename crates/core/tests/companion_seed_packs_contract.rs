@@ -54,10 +54,7 @@ fn companion_seed_packs_parse_and_validate() {
     assert!(!rows.is_empty(), "expected at least one companion pack");
 
     for (id, src) in &rows {
-        assert!(
-            !id.is_empty(),
-            "pack id should be non-empty (from {src})"
-        );
+        assert!(!id.is_empty(), "pack id should be non-empty (from {src})");
     }
 }
 
@@ -73,11 +70,7 @@ fn companion_packs_use_port_verb_not_legacy_port_fields() {
             continue;
         }
         let raw = std::fs::read_to_string(&path).unwrap();
-        for legacy in [
-            "feather_ports",
-            "electrum_btc_port",
-            "electrum_ltc_port",
-        ] {
+        for legacy in ["feather_ports", "electrum_btc_port", "electrum_ltc_port"] {
             assert!(
                 !raw.contains(legacy),
                 "{} still references legacy preset field `{legacy}`; \

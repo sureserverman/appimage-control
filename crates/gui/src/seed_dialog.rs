@@ -227,9 +227,7 @@ fn build_saved_forms_group(
 
     let group = adw::PreferencesGroup::new();
     group.set_title("Saved configurations");
-    group.set_description(Some(
-        "Recall a previously-saved app selection.",
-    ));
+    group.set_description(Some("Recall a previously-saved app selection."));
 
     let names = list_seed_forms(&home).unwrap_or_default();
     let store = build_named_store(&names);

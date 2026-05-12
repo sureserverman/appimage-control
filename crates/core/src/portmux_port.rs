@@ -70,8 +70,8 @@ pub struct ProbeOutcome {
 }
 
 fn probe_runtime_uncached() -> std::result::Result<ProbeOutcome, String> {
-    let bin = std::env::var_os(ENV_PORTMUX_PORT_BIN)
-        .unwrap_or_else(|| OsString::from("portmux-port"));
+    let bin =
+        std::env::var_os(ENV_PORTMUX_PORT_BIN).unwrap_or_else(|| OsString::from("portmux-port"));
     let status = host_command(&bin)
         .arg("--help")
         .stdout(Stdio::null())
@@ -181,8 +181,8 @@ pub fn ensure_port(
     isolation: IsolationClass,
     host_loopback: &str,
 ) -> Result<EnsuredPort> {
-    let bin = std::env::var_os(ENV_PORTMUX_PORT_BIN)
-        .unwrap_or_else(|| OsString::from("portmux-port"));
+    let bin =
+        std::env::var_os(ENV_PORTMUX_PORT_BIN).unwrap_or_else(|| OsString::from("portmux-port"));
     let output = host_command(&bin)
         .arg("ensure")
         .arg("--app")
@@ -218,15 +218,12 @@ pub fn ensure_port(
             2 => Error::InvalidPath(format!(
                 "Seeding helper: no free port for {app_label}#{instance} — {stderr}"
             )),
-            _ => Error::InvalidPath(format!(
-                "Seeding helper exited {code}: {stderr}"
-            )),
+            _ => Error::InvalidPath(format!("Seeding helper exited {code}: {stderr}")),
         });
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let ensured: EnsuredPort = serde_json::from_str(stdout.trim())
-        .map_err(Error::Json)?;
+    let ensured: EnsuredPort = serde_json::from_str(stdout.trim()).map_err(Error::Json)?;
     Ok(ensured)
 }
 
@@ -339,17 +336,17 @@ exit 0
         // The error prefix our code generates must not lecture about
         // the helper's identity — passthrough of the helper's own
         // stderr is allowed (the stub here is intentionally noisy).
-        assert!(msg.starts_with("invalid path: Seeding helper"), "got: {msg}");
+        assert!(
+            msg.starts_with("invalid path: Seeding helper"),
+            "got: {msg}"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn exit_nonzero_surfaces_error_message() {
         let dir = tmpdir("err");
-        let stub = write_stub(
-            &dir,
-            "#!/bin/sh\necho 'boom' 1>&2\nexit 7\n",
-        );
+        let stub = write_stub(&dir, "#!/bin/sh\necho 'boom' 1>&2\nexit 7\n");
         let err = with_bin(&stub, || {
             ensure_port(
                 "feather",

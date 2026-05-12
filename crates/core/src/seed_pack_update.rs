@@ -164,9 +164,8 @@ pub fn update_seed_packs(
     unpack_tar_zst(&tarball, &unpacked)?;
 
     on_progress("validating packs");
-    let lib = SeedPackLibrary::load_from_dir(&unpacked)?.ok_or_else(|| {
-        Error::InvalidPath("seed-pack tarball contains no *.json packs".into())
-    })?;
+    let lib = SeedPackLibrary::load_from_dir(&unpacked)?
+        .ok_or_else(|| Error::InvalidPath("seed-pack tarball contains no *.json packs".into()))?;
     let installed_count = lib.len();
 
     on_progress("installing");
@@ -295,8 +294,7 @@ mod tests {
         // A fixed test seed — never used in production. Reproducible
         // tests are nicer than non-deterministic ones for this layer.
         let seed = [42u8; 32];
-        let kp = Ed25519KeyPair::from_seed_unchecked(&seed)
-            .expect("test keypair");
+        let kp = Ed25519KeyPair::from_seed_unchecked(&seed).expect("test keypair");
         let pk_b64 = STANDARD.encode(kp.public_key().as_ref());
         (kp, pk_b64)
     }
@@ -312,7 +310,8 @@ mod tests {
             header.set_size(bytes.len() as u64);
             header.set_mode(0o644);
             header.set_cksum();
-            tar.append_data(&mut header, format!("{name}.json"), bytes).unwrap();
+            tar.append_data(&mut header, format!("{name}.json"), bytes)
+                .unwrap();
         }
         tar.finish().unwrap();
         path
@@ -339,8 +338,7 @@ mod tests {
         // in source. update_seed_packs must refuse to proceed before
         // any download attempt.
         assert_eq!(
-            SEED_PACKS_PUB_KEY,
-            "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+            SEED_PACKS_PUB_KEY, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
             "if this fails, the placeholder key was replaced — also \
              update or remove this test"
         );
@@ -360,10 +358,7 @@ mod tests {
     fn verify_signature_round_trips_a_valid_signature() {
         let tmp = tempfile::tempdir().unwrap();
         let (kp, pk_b64) = test_keypair();
-        let tarball = build_test_tarball(
-            tmp.path(),
-            &[("feather", r#"{"config_path":"a.json"}"#)],
-        );
+        let tarball = build_test_tarball(tmp.path(), &[("feather", r#"{"config_path":"a.json"}"#)]);
         let sig = sign_test_tarball(&tarball, &kp);
         verify_signature(&tarball, &sig, &pk_b64).expect("valid sig must verify");
     }
@@ -372,10 +367,7 @@ mod tests {
     fn verify_signature_rejects_tampered_tarball() {
         let tmp = tempfile::tempdir().unwrap();
         let (kp, pk_b64) = test_keypair();
-        let tarball = build_test_tarball(
-            tmp.path(),
-            &[("feather", r#"{"config_path":"a.json"}"#)],
-        );
+        let tarball = build_test_tarball(tmp.path(), &[("feather", r#"{"config_path":"a.json"}"#)]);
         let sig = sign_test_tarball(&tarball, &kp);
 
         // Tamper one byte.
@@ -472,10 +464,7 @@ mod tests {
     #[test]
     fn unpack_rejects_path_traversal() {
         let tmp = tempfile::tempdir().unwrap();
-        let archive = build_raw_tarball(
-            tmp.path(),
-            &[("../../etc/evil.json", b"{}".as_slice())],
-        );
+        let archive = build_raw_tarball(tmp.path(), &[("../../etc/evil.json", b"{}".as_slice())]);
         let err = unpack_tar_zst(&archive, &tmp.path().join("out")).unwrap_err();
         let s = err.to_string();
         assert!(
@@ -487,10 +476,7 @@ mod tests {
     #[test]
     fn unpack_rejects_subdirectory_entry() {
         let tmp = tempfile::tempdir().unwrap();
-        let archive = build_raw_tarball(
-            tmp.path(),
-            &[("nested/foo.json", b"{}".as_slice())],
-        );
+        let archive = build_raw_tarball(tmp.path(), &[("nested/foo.json", b"{}".as_slice())]);
         let err = unpack_tar_zst(&archive, &tmp.path().join("out")).unwrap_err();
         assert!(err.to_string().contains("non-flat"));
     }
@@ -498,10 +484,7 @@ mod tests {
     #[test]
     fn unpack_rejects_non_json_entries() {
         let tmp = tempfile::tempdir().unwrap();
-        let archive = build_raw_tarball(
-            tmp.path(),
-            &[("README.md", b"hello".as_slice())],
-        );
+        let archive = build_raw_tarball(tmp.path(), &[("README.md", b"hello".as_slice())]);
         let err = unpack_tar_zst(&archive, &tmp.path().join("out")).unwrap_err();
         assert!(err.to_string().contains("non-json"), "got: {err}");
     }

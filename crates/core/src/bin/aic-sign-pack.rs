@@ -104,8 +104,8 @@ fn sign(keyfile: &Path, tarball: &Path) -> Result<(), String> {
             seed.len()
         ));
     }
-    let kp = Ed25519KeyPair::from_seed_unchecked(&seed)
-        .map_err(|e| format!("parsing keyfile: {e}"))?;
+    let kp =
+        Ed25519KeyPair::from_seed_unchecked(&seed).map_err(|e| format!("parsing keyfile: {e}"))?;
 
     let body = fs::read(tarball).map_err(|e| format!("reading tarball: {e}"))?;
     let mut hasher = Sha512::new();
@@ -125,7 +125,8 @@ fn sign(keyfile: &Path, tarball: &Path) -> Result<(), String> {
 fn verify(pub_b64: &str, tarball: &Path) -> Result<(), String> {
     use ring::signature::{UnparsedPublicKey, ED25519};
     let sig_path = sig_path_for(tarball);
-    let sig_bytes = fs::read(&sig_path).map_err(|e| format!("reading {}: {e}", sig_path.display()))?;
+    let sig_bytes =
+        fs::read(&sig_path).map_err(|e| format!("reading {}: {e}", sig_path.display()))?;
     if sig_bytes.len() != 5 + 64 {
         return Err(format!(
             "signature has wrong size: expected {}, got {}",
@@ -147,7 +148,10 @@ fn verify(pub_b64: &str, tarball: &Path) -> Result<(), String> {
     let pk = UnparsedPublicKey::new(&ED25519, pk_bytes.as_slice());
     pk.verify(digest.as_slice(), &sig_bytes[5..])
         .map_err(|_| "signature does not verify".to_string())?;
-    eprintln!("OK: {} verifies against the supplied public key.", tarball.display());
+    eprintln!(
+        "OK: {} verifies against the supplied public key.",
+        tarball.display()
+    );
     Ok(())
 }
 

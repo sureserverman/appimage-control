@@ -299,7 +299,13 @@ pub fn seed_instance_settings_with_recipe(
     let first_run_args: Vec<&str> = recipe.first_run_args.iter().map(String::as_str).collect();
     seed_until_config(&appimage, &first_run_args, &expected)?;
     let mut map = read_json_object(&expected)?;
-    apply_pack(&recipe.pack, &recipe.app_id, &config, instance_index, &mut map)?;
+    apply_pack(
+        &recipe.pack,
+        &recipe.app_id,
+        &config,
+        instance_index,
+        &mut map,
+    )?;
     write_json_object(&expected, map)?;
     on_progress(&format!(
         "{} instance {}: settings seeded",
@@ -887,5 +893,4 @@ exec "$@"
         let out = seed_instance_settings(&paths, &app, 1, SeedPreset::Ubuntu, &mut |_| {}).unwrap();
         assert_eq!(out, SeedOutcome::SkippedUnsupported);
     }
-
 }

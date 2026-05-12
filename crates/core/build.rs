@@ -31,12 +31,8 @@ fn main() {
 
     let mut entries: Vec<(String, String)> = Vec::new();
     if seeds_dir.is_dir() {
-        let read = fs::read_dir(&seeds_dir).unwrap_or_else(|e| {
-            panic!(
-                "build.rs: cannot read {}: {e}",
-                seeds_dir.display()
-            )
-        });
+        let read = fs::read_dir(&seeds_dir)
+            .unwrap_or_else(|e| panic!("build.rs: cannot read {}: {e}", seeds_dir.display()));
         for entry in read.flatten() {
             let path = entry.path();
             if path.extension().and_then(OsStr::to_str) != Some("json") {
@@ -49,9 +45,8 @@ fn main() {
                 .and_then(OsStr::to_str)
                 .unwrap_or_else(|| panic!("build.rs: bad pack filename: {}", path.display()))
                 .to_string();
-            let raw = fs::read_to_string(&path).unwrap_or_else(|e| {
-                panic!("build.rs: cannot read {}: {e}", path.display())
-            });
+            let raw = fs::read_to_string(&path)
+                .unwrap_or_else(|e| panic!("build.rs: cannot read {}: {e}", path.display()));
             entries.push((stem, raw));
         }
     }
@@ -77,7 +72,6 @@ fn main() {
     }
     body.push_str("];\n");
 
-    fs::write(&out_path, body).unwrap_or_else(|e| {
-        panic!("build.rs: cannot write {}: {e}", out_path.display())
-    });
+    fs::write(&out_path, body)
+        .unwrap_or_else(|e| panic!("build.rs: cannot write {}: {e}", out_path.display()));
 }

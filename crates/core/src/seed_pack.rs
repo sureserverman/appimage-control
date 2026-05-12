@@ -273,12 +273,8 @@ impl SeedPackLibrary {
                 })?
                 .to_string();
             let raw = fs::read_to_string(&path).map_err(Error::Io)?;
-            let pack: SeedPack = serde_json::from_str(&raw).map_err(|e| {
-                Error::InvalidPath(format!(
-                    "seed pack {}: {e}",
-                    path.display()
-                ))
-            })?;
+            let pack: SeedPack = serde_json::from_str(&raw)
+                .map_err(|e| Error::InvalidPath(format!("seed pack {}: {e}", path.display())))?;
             lib.packs.insert(stem.clone(), pack);
             lib.sources.insert(stem, path);
         }
@@ -380,9 +376,8 @@ impl SeedPackLibrary {
         let mut lib = SeedPackLibrary::default();
         for (id, raw) in pairs {
             let id = id.as_ref().to_string();
-            let pack: SeedPack = serde_json::from_str(raw.as_ref()).map_err(|e| {
-                Error::InvalidPath(format!("seed pack {id} failed to parse: {e}"))
-            })?;
+            let pack: SeedPack = serde_json::from_str(raw.as_ref())
+                .map_err(|e| Error::InvalidPath(format!("seed pack {id} failed to parse: {e}")))?;
             lib.packs.insert(id.clone(), pack);
             lib.sources.insert(id, PathBuf::from("<embedded>"));
         }
@@ -427,9 +422,7 @@ impl SeedPackLibrary {
         let cfg = SeedConfig::for_preset(crate::seed::SeedPreset::Ubuntu);
         for (id, pack) in &self.packs {
             validate_pack(id, pack, &cfg).map_err(|e| match e {
-                Error::InvalidPath(msg) => {
-                    Error::InvalidPath(format!("seed pack `{id}`: {msg}"))
-                }
+                Error::InvalidPath(msg) => Error::InvalidPath(format!("seed pack `{id}`: {msg}")),
                 other => other,
             })?;
         }
@@ -554,8 +547,7 @@ pub fn apply_pack(
     // resolve to the same `(app, instance, purpose, isolation)` tuple
     // — typical for Feather where one verb emits `host` and a sibling
     // emits `port`.
-    let mut port_cache: BTreeMap<PortCacheKey, crate::portmux_port::EnsuredPort> =
-        BTreeMap::new();
+    let mut port_cache: BTreeMap<PortCacheKey, crate::portmux_port::EnsuredPort> = BTreeMap::new();
     for (key, pv) in &pack.preset {
         match pv {
             PresetValue::From { from, drop_if } => {
@@ -583,13 +575,8 @@ pub fn apply_pack(
                     base.remove(key);
                     continue;
                 }
-                let resolved = resolve_port_lookup(
-                    port,
-                    app_id,
-                    cfg,
-                    instance_index,
-                    &mut port_cache,
-                )?;
+                let resolved =
+                    resolve_port_lookup(port, app_id, cfg, instance_index, &mut port_cache)?;
                 let v = match port.field {
                     PortFieldSpec::Host => Value::String(resolved.host.clone()),
                     PortFieldSpec::Port => {
@@ -599,10 +586,9 @@ pub fn apply_pack(
                             json!(resolved.port)
                         }
                     }
-                    PortFieldSpec::Url => Value::String(format!(
-                        "socks5:{}:{}",
-                        resolved.host, resolved.port
-                    )),
+                    PortFieldSpec::Url => {
+                        Value::String(format!("socks5:{}:{}", resolved.host, resolved.port))
+                    }
                 };
                 base.insert(key.clone(), v);
             }
@@ -868,10 +854,7 @@ mod tests {
     fn discover_load_explicit_dir_wins() {
         let _g = env_lock().lock().unwrap();
         let tmp = tempfile::tempdir().unwrap();
-        let dir = write_seeds_dir(
-            tmp.path(),
-            &[("alpha", r#"{"config_path":"a.json"}"#)],
-        );
+        let dir = write_seeds_dir(tmp.path(), &[("alpha", r#"{"config_path":"a.json"}"#)]);
         let lib = SeedPackLibrary::discover_load(Some(&dir)).unwrap();
         assert_eq!(lib.len(), 1);
         assert!(lib.get("alpha").is_some());
@@ -907,10 +890,7 @@ mod tests {
     fn discover_load_env_var_wins_over_walk() {
         let _g = env_lock().lock().unwrap();
         let tmp = tempfile::tempdir().unwrap();
-        let dir = write_seeds_dir(
-            tmp.path(),
-            &[("from_env", r#"{"config_path":"e.json"}"#)],
-        );
+        let dir = write_seeds_dir(tmp.path(), &[("from_env", r#"{"config_path":"e.json"}"#)]);
         let prev = std::env::var(ENV_SEEDS_DIR).ok();
         std::env::set_var(ENV_SEEDS_DIR, &dir);
         let lib = SeedPackLibrary::discover_load(None).unwrap();
@@ -985,11 +965,7 @@ mod tests {
 
         let env_dir = tmp.path().join("env");
         std::fs::create_dir_all(&env_dir).unwrap();
-        std::fs::write(
-            env_dir.join("from-env.json"),
-            r#"{"config_path":"y.json"}"#,
-        )
-        .unwrap();
+        std::fs::write(env_dir.join("from-env.json"), r#"{"config_path":"y.json"}"#).unwrap();
 
         let prev_xdg = std::env::var("XDG_DATA_HOME").ok();
         let prev_seeds = std::env::var(ENV_SEEDS_DIR).ok();
@@ -1020,10 +996,7 @@ mod tests {
     fn try_ancestors_finds_data_seeds_from_subdir() {
         let _g = env_lock().lock().unwrap();
         let tmp = tempfile::tempdir().unwrap();
-        write_seeds_dir(
-            tmp.path(),
-            &[("anc", r#"{"config_path":"a.json"}"#)],
-        );
+        write_seeds_dir(tmp.path(), &[("anc", r#"{"config_path":"a.json"}"#)]);
         let nested = tmp.path().join("a").join("b").join("c");
         std::fs::create_dir_all(&nested).unwrap();
         let lib = SeedPackLibrary::try_ancestors(&nested).unwrap().unwrap();
@@ -1044,11 +1017,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let dir = tmp.path().join("seeds");
         std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(
-            dir.join("ok.json"),
-            r#"{"config_path":"o.json"}"#,
-        )
-        .unwrap();
+        std::fs::write(dir.join("ok.json"), r#"{"config_path":"o.json"}"#).unwrap();
         std::fs::write(dir.join("README.md"), "just a readme").unwrap();
         std::fs::write(dir.join("template.json.txt"), "{not json}").unwrap();
         let lib = SeedPackLibrary::load_from_dir(&dir).unwrap().unwrap();
@@ -1064,7 +1033,10 @@ mod tests {
         std::fs::write(dir.join("bad.json"), "{not json}").unwrap();
         let err = SeedPackLibrary::load_from_dir(&dir).unwrap_err();
         let s = err.to_string();
-        assert!(s.contains("bad.json"), "expected filename in error, got: {s}");
+        assert!(
+            s.contains("bad.json"),
+            "expected filename in error, got: {s}"
+        );
         // serde_json's Display already includes "line N column M" for
         // structural errors — verify that text reaches the user.
         assert!(
@@ -1086,9 +1058,17 @@ mod tests {
             r#"{"config_path":"x","preset":{"k":{"from":"socks_host"}}}"#,
         )
         .unwrap();
-        let err = SeedPackLibrary::load_from_dir(&dir).unwrap_err().to_string();
-        assert!(err.contains("typo"), "expected pack id `typo` in error, got: {err}");
-        assert!(err.contains("socks_host"), "expected offending field name, got: {err}");
+        let err = SeedPackLibrary::load_from_dir(&dir)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains("typo"),
+            "expected pack id `typo` in error, got: {err}"
+        );
+        assert!(
+            err.contains("socks_host"),
+            "expected offending field name, got: {err}"
+        );
     }
 
     fn parse(raw: &str) -> SeedPack {
@@ -1288,7 +1268,10 @@ mod tests {
         )])
         .unwrap();
         let err = lib.validate().unwrap_err().to_string();
-        assert!(err.contains("p2") && err.contains("not_a_field"), "got: {err}");
+        assert!(
+            err.contains("p2") && err.contains("not_a_field"),
+            "got: {err}"
+        );
     }
 
     // `validate_rejects_scalar_field_used_as_array` was retired with
@@ -1306,16 +1289,15 @@ mod tests {
         )])
         .unwrap();
         let err = lib.validate().unwrap_err().to_string();
-        assert!(err.contains("p4") && err.contains("not a bool"), "got: {err}");
+        assert!(
+            err.contains("p4") && err.contains("not a bool"),
+            "got: {err}"
+        );
     }
 
     #[test]
     fn validate_rejects_empty_config_path() {
-        let lib = SeedPackLibrary::from_pairs(vec![(
-            "p5",
-            r#"{"config_path":""}"#,
-        )])
-        .unwrap();
+        let lib = SeedPackLibrary::from_pairs(vec![("p5", r#"{"config_path":""}"#)]).unwrap();
         let err = lib.validate().unwrap_err().to_string();
         assert!(err.contains("p5"), "got: {err}");
     }
@@ -1355,7 +1337,8 @@ mod tests {
             ("electrum-ltc", ltc),
         ])
         .unwrap();
-        lib.validate().expect("realistic packs should validate clean");
+        lib.validate()
+            .expect("realistic packs should validate clean");
     }
 
     #[test]
@@ -1488,19 +1471,12 @@ printf '{{\"host\":\"10.152.152.10\",\"port\":%s,\"isolation\":\"%s\",\"source_f
         // SAFETY: `env_gate` serialises access to this process-wide
         // env var across this test module's parallel test threads,
         // and we restore the previous value before returning.
-        unsafe {
-            std::env::set_var(crate::portmux_port::ENV_PORTMUX_PORT_BIN, stub)
-        };
+        unsafe { std::env::set_var(crate::portmux_port::ENV_PORTMUX_PORT_BIN, stub) };
         let out = f();
         unsafe {
             match prev {
-                Some(p) => std::env::set_var(
-                    crate::portmux_port::ENV_PORTMUX_PORT_BIN,
-                    p,
-                ),
-                None => std::env::remove_var(
-                    crate::portmux_port::ENV_PORTMUX_PORT_BIN,
-                ),
+                Some(p) => std::env::set_var(crate::portmux_port::ENV_PORTMUX_PORT_BIN, p),
+                None => std::env::remove_var(crate::portmux_port::ENV_PORTMUX_PORT_BIN),
             }
         }
         drop(guard);
@@ -1726,10 +1702,7 @@ printf '{{\"host\":\"10.152.152.10\",\"port\":%s,\"isolation\":\"%s\",\"source_f
         lib.packs.insert("feather".into(), pack);
         let err = lib.validate().unwrap_err();
         let msg = format!("{err}");
-        assert!(
-            msg.contains("as_string only applies"),
-            "got: {msg}"
-        );
+        assert!(msg.contains("as_string only applies"), "got: {msg}");
     }
 
     #[test]
@@ -1762,10 +1735,7 @@ printf '{{\"host\":\"10.152.152.10\",\"port\":%s,\"isolation\":\"%s\",\"source_f
         }
         // Stub returns 9160+instance — verify each call produced a
         // distinct port and no panic / cap was hit.
-        assert_eq!(
-            ports,
-            (1..=12u64).map(|n| 9160 + n).collect::<Vec<_>>()
-        );
+        assert_eq!(ports, (1..=12u64).map(|n| 9160 + n).collect::<Vec<_>>());
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
