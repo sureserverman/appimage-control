@@ -168,17 +168,23 @@ if [ "$HAVE_GTK" = "1" ]; then
     BIN="$ROOT/target/debug/appimage-control"
 
     if [ -x "$BIN" ]; then
-        info "→ run with APPIMAGE_CONTROL_PORTMUX_PORT_BIN=/nonexistent/portmux-port"
+        info "→ run with APPIMAGE_CONTROL_PORTMUX_PORT_BIN=/nonexistent/port-helper"
         OUT_FILE="$TMPDIR/missing-mp.log"
         set +e
-        APPIMAGE_CONTROL_PORTMUX_PORT_BIN=/nonexistent/portmux-port \
-            "$BIN" --seed-settings feather --seed-preset ubuntu \
+        APPIMAGE_CONTROL_PORTMUX_PORT_BIN=/nonexistent/port-helper \
+            "$BIN" --seed-settings feather \
             > "$OUT_FILE" 2>&1
         RC=$?
         set -e
         info "  exit code: $RC"
         sed 's/^/    | /' < "$OUT_FILE"
-        if [ "$RC" -ne 0 ] && grep -q "portmux-port" "$OUT_FILE" \
+        # Assertion targets the neutralized install-hint wording in
+        # PORTMUX_PORT_INSTALL_HINT (core): the user must learn the
+        # helper is missing AND learn the install command. The
+        # `system helper` phrasing is shared by the probe-error path
+        # and the install-hint body.
+        if [ "$RC" -ne 0 ] \
+                && grep -qE "Seeding helper|system helper" "$OUT_FILE" \
                 && grep -q "sudo apt install portmux" "$OUT_FILE"; then
             pass "4a: pre-flight bailed with non-zero exit + install hint"
         else
@@ -221,7 +227,7 @@ if [ "$HAVE_GTK" = "1" ] && [ -x "${BIN:-}" ]; then
     OUT_FILE="$TMPDIR/stub-mp.log"
     set +e
     APPIMAGE_CONTROL_PORTMUX_PORT_BIN="$STUB" \
-        "$BIN" --seed-settings feather --seed-preset ubuntu \
+        "$BIN" --seed-settings feather \
         > "$OUT_FILE" 2>&1
     RC=$?
     set -e

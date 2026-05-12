@@ -173,6 +173,31 @@ fn seed_settings_prints_summary_line() {
     xp.set_mode(0o755);
     fs::set_permissions(&xvfb, xp).expect("chmod xvfb");
 
+    // Fake port-allocation helper so the seed pre-flight + per-instance
+    // lookups don't depend on an installed system helper. Accepts
+    // `--help` (probe path) and `ensure …` (per-instance lookup); both
+    // succeed. The JSON shape matches the real helper's documented
+    // contract.
+    let port_helper = bin_dir.join("port-helper");
+    fs::write(
+        &port_helper,
+        "#!/bin/sh\n\
+         if [ \"$1\" = \"--help\" ]; then exit 0; fi\n\
+         if [ \"$1\" = \"ensure\" ]; then\n  \
+           printf '%s\\n' '{\"host\":\"127.0.0.1\",\"port\":9168,\
+                            \"isolation\":\"dest-addr\",\
+                            \"source_file\":\"/tmp/stub\",\
+                            \"tor_reload_done\":false,\
+                            \"already_assigned\":false}'\n  \
+           exit 0\n\
+         fi\n\
+         exit 0\n",
+    )
+    .expect("port-helper stub");
+    let mut pp = fs::metadata(&port_helper).expect("ph meta").permissions();
+    pp.set_mode(0o755);
+    fs::set_permissions(&port_helper, pp).expect("chmod port-helper");
+
     let mut path = bin_dir.as_os_str().to_os_string();
     path.push(":");
     if let Ok(p) = std::env::var("PATH") {
@@ -183,7 +208,11 @@ fn seed_settings_prints_summary_line() {
         .env("HOME", &home)
         .env("APPIMAGE_CONTROL_CATALOG", &catalog)
         .env("PATH", &path)
-        .args(["--seed-settings", "feather", "--seed-preset", "ubuntu"])
+        .env(
+            appimage_control_core::ENV_PORT_HELPER_BIN,
+            port_helper.as_os_str(),
+        )
+        .args(["--seed-settings", "feather"])
         .output()
         .expect("seed");
 
