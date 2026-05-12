@@ -17,6 +17,7 @@ mod portmux_port;
 mod paths;
 mod reset;
 mod seed;
+mod seed_form;
 mod seed_pack;
 mod seed_pack_update;
 mod update;
@@ -62,9 +63,14 @@ pub use model::InstalledApp;
 pub use paths::AppPaths;
 pub use reset::{delete_paths, execute_reset, preview_reset_paths, ResetPreview};
 pub use seed::{
-    recipe_for_supported_app, seed_instance_settings, seed_instance_settings_with_recipe,
-    seed_new_instances_after_reconcile, seed_supported_installed_apps, SeedConfig, SeedOutcome,
-    SeedPreset, SeedRecipe, SeedReport, SeedTarget, SupportedSeedApp,
+    is_whonix_environment, recipe_for_supported_app, seed_instance_settings,
+    seed_instance_settings_with_recipe, seed_new_instances_after_reconcile,
+    seed_supported_installed_apps, SeedConfig, SeedOutcome, SeedPreset, SeedRecipe, SeedReport,
+    SeedTarget, SupportedSeedApp, ENV_WHONIX_MARKER,
+};
+pub use seed_form::{
+    default_seed_forms_dir, delete_form as delete_seed_form, list_forms as list_seed_forms,
+    load_form as load_seed_form, save_form as save_seed_form, seed_forms_dir_in, SavedSeedForm,
 };
 pub use seed_pack::{user_seeds_dir, SeedPack, SeedPackLibrary, ENV_SEEDS_DIR};
 pub use seed_pack_update::{
@@ -75,6 +81,12 @@ pub use portmux_port::{
     probe_runtime as portmux_port_probe_runtime, ProbeOutcome as PortmuxPortProbeOutcome,
     ENV_PORTMUX_PORT_BIN, INSTALL_HINT as PORTMUX_PORT_INSTALL_HINT,
 };
+/// Neutral alias for the override env var holding a custom path to
+/// the port-allocation helper. Same string value as
+/// [`ENV_PORTMUX_PORT_BIN`]; the alias exists so test code and
+/// future neutral-naming refactors can reference the override
+/// without naming the underlying tool.
+pub use portmux_port::ENV_PORTMUX_PORT_BIN as ENV_PORT_HELPER_BIN;
 pub use update::{appimageupdatetool_available, run_appimageupdatetool, update_from_file};
 pub use version_info::{
     catalog_cache_fresh_for_pinned, catalog_pin_matches_recorded, catalog_pinned_version,

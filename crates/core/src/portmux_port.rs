@@ -28,16 +28,17 @@ use crate::host_cmd::host_command;
 /// which `host_command` resolves through the host shell's `PATH`.
 pub const ENV_PORTMUX_PORT_BIN: &str = "APPIMAGE_CONTROL_PORTMUX_PORT_BIN";
 
-/// User-facing summary of the portmux-port runtime dependency.
-/// Surfaced when [`probe_runtime`] fails so installers / GUIs can
-/// suggest the right command without each call site having to spell
-/// it out.
+/// User-facing summary of the runtime dependency. Surfaced when
+/// [`probe_runtime`] fails so installers / GUIs can suggest the right
+/// command without each call site having to spell it out. Worded to
+/// keep the underlying helper opaque to end users — only an install
+/// recipe + an optional override env var for power users.
 pub const INSTALL_HINT: &str = "\
-portmux-port is the host-side helper that allocates SOCKS / HTTPTunnel \
-ports for seeded apps. Install with:\n\
+A required system helper for seeding is not installed. Install the \
+support package with:\n\
   sudo apt install portmux\n\
-or set APPIMAGE_CONTROL_PORTMUX_PORT_BIN=/path/to/portmux-port to \
-point at a non-default location.";
+Power users can point at a non-default location by setting \
+APPIMAGE_CONTROL_PORTMUX_PORT_BIN=/path/to/binary.";
 
 /// One-shot probe of the host's `portmux-port` binary. Result is
 /// cached for the lifetime of the process so subsequent calls (one
@@ -81,11 +82,11 @@ fn probe_runtime_uncached() -> std::result::Result<ProbeOutcome, String> {
             invocation: bin.to_string_lossy().into_owned(),
         }),
         Ok(s) => Err(format!(
-            "portmux-port --help exited {} on the host.\n{INSTALL_HINT}",
+            "Seeding helper exited {} on the host.\n{INSTALL_HINT}",
             s.code().unwrap_or(-1)
         )),
         Err(e) => Err(format!(
-            "could not spawn portmux-port: {e}.\n{INSTALL_HINT}"
+            "Could not start seeding helper: {e}.\n{INSTALL_HINT}"
         )),
     }
 }
@@ -201,8 +202,9 @@ pub fn ensure_port(
         .map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
                 Error::InvalidPath(format!(
-                    "portmux-port not found on host PATH. Install portmux \
-                     (sudo apt install portmux) or set {ENV_PORTMUX_PORT_BIN}=/path/to/portmux-port"
+                    "Seeding helper not found on host PATH. Install the \
+                     support package (sudo apt install portmux) or set \
+                     {ENV_PORTMUX_PORT_BIN}=/path/to/binary"
                 ))
             } else {
                 Error::Io(e)
@@ -214,10 +216,10 @@ pub fn ensure_port(
         let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
         return Err(match code {
             2 => Error::InvalidPath(format!(
-                "portmux-port: no free port for {app_label}#{instance} — {stderr}"
+                "Seeding helper: no free port for {app_label}#{instance} — {stderr}"
             )),
             _ => Error::InvalidPath(format!(
-                "portmux-port exited {code}: {stderr}"
+                "Seeding helper exited {code}: {stderr}"
             )),
         });
     }
@@ -334,6 +336,10 @@ exit 0
         });
         let msg = format!("{err}");
         assert!(msg.contains("no free port for feather#999"), "got: {msg}");
+        // The error prefix our code generates must not lecture about
+        // the helper's identity — passthrough of the helper's own
+        // stderr is allowed (the stub here is intentionally noisy).
+        assert!(msg.starts_with("invalid path: Seeding helper"), "got: {msg}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -377,7 +383,7 @@ exit 0
         });
         let msg = format!("{err}");
         assert!(
-            msg.contains("portmux-port not found") || msg.contains("IO error"),
+            msg.contains("Seeding helper not found") || msg.contains("IO error"),
             "got: {msg}"
         );
         let _ = std::fs::remove_dir_all(&dir);
@@ -402,8 +408,8 @@ exit 0
             let r = super::probe_runtime_uncached();
             let err = r.unwrap_err();
             assert!(
-                err.contains("portmux-port"),
-                "missing helper name in error: {err}"
+                err.contains("Seeding helper") || err.contains("seeding helper"),
+                "missing helper mention in error: {err}"
             );
             assert!(
                 err.contains("sudo apt install portmux")

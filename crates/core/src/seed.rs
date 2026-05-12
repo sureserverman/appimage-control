@@ -39,12 +39,64 @@ impl SeedPreset {
         }
     }
 
+    /// Auto-resolve the preset for this host. Order of precedence:
+    /// 1. `APPIMAGE_CONTROL_SEED_PRESET=ubuntu|whonix` env var (used in
+    ///    tests and by power users who want to force one branch).
+    /// 2. Presence of a Whonix workstation marker file (see
+    ///    [`is_whonix_environment`]) → `Whonix`.
+    /// 3. Fallback → `Ubuntu`.
     pub fn auto_default() -> Self {
-        std::env::var("APPIMAGE_CONTROL_SEED_PRESET")
+        if let Some(forced) = std::env::var("APPIMAGE_CONTROL_SEED_PRESET")
             .ok()
             .and_then(|v| Self::parse(&v))
-            .unwrap_or(Self::Ubuntu)
+        {
+            return forced;
+        }
+        Self::auto_detect()
     }
+
+    /// Filesystem-only resolution (no env var). Returns `Whonix` when
+    /// a Whonix workstation marker file is present on disk, otherwise
+    /// `Ubuntu`. Split out from [`Self::auto_default`] so tests can
+    /// target the filesystem path independently of env state.
+    pub fn auto_detect() -> Self {
+        if is_whonix_environment() {
+            Self::Whonix
+        } else {
+            Self::Ubuntu
+        }
+    }
+}
+
+/// Env var holding an alternate path to probe for the Whonix
+/// workstation marker. Set by tests to inject a temp-dir path.
+pub const ENV_WHONIX_MARKER: &str = "APPIMAGE_CONTROL_WHONIX_MARKER";
+
+/// Canonical on-disk markers shipped by the Whonix base packages.
+/// Any of these existing is a positive signal. The first entry is the
+/// most reliable: `anon-ws-base-files` installs that file only on a
+/// Whonix workstation, and it's the same signal the host-side helper
+/// already uses for branch selection. The second is a generic Whonix
+/// version stamp present on both gateway and workstation builds.
+const WHONIX_MARKERS: &[&str] = &[
+    "/usr/share/anon-ws-base-files/workstation",
+    "/etc/whonix_version",
+];
+
+/// True when this host appears to be a Whonix workstation. The
+/// `APPIMAGE_CONTROL_WHONIX_MARKER` env var, if set, names a single
+/// alternate path used in place of the built-in list — that's the
+/// test-injection point. Production paths are the entries in
+/// [`WHONIX_MARKERS`].
+pub fn is_whonix_environment() -> bool {
+    if let Ok(custom) = std::env::var(ENV_WHONIX_MARKER) {
+        if !custom.is_empty() {
+            return std::path::Path::new(&custom).exists();
+        }
+    }
+    WHONIX_MARKERS
+        .iter()
+        .any(|p| std::path::Path::new(p).exists())
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -241,10 +293,8 @@ pub fn seed_instance_settings_with_recipe(
     let config = SeedConfig::for_preset(preset);
     let expected = dir.join(recipe.config_path_for(&filename));
     on_progress(&format!(
-        "{} instance {}: seeding settings with {} preset …",
-        app.id,
-        instance_index,
-        preset.as_str()
+        "{} instance {}: seeding settings …",
+        app.id, instance_index
     ));
     let first_run_args: Vec<&str> = recipe.first_run_args.iter().map(String::as_str).collect();
     seed_until_config(&appimage, &first_run_args, &expected)?;
@@ -252,10 +302,8 @@ pub fn seed_instance_settings_with_recipe(
     apply_pack(&recipe.pack, &recipe.app_id, &config, instance_index, &mut map)?;
     write_json_object(&expected, map)?;
     on_progress(&format!(
-        "{} instance {}: settings seeded ({})",
-        app.id,
-        instance_index,
-        preset.as_str()
+        "{} instance {}: settings seeded",
+        app.id, instance_index
     ));
     Ok(SeedOutcome::Seeded)
 }
@@ -618,6 +666,81 @@ exec "$@"
             assert_eq!(cfg.field("electrum_ltc_port"), None);
             assert_eq!(cfg.field("nope"), None);
             assert_eq!(cfg.field(""), None);
+        }
+    }
+
+    #[test]
+    fn auto_detect_returns_whonix_when_marker_file_present() {
+        let _g = env_lock().lock().unwrap();
+        let tmp = tempfile::tempdir().unwrap();
+        let marker = tmp.path().join("workstation");
+        fs::write(&marker, b"").unwrap();
+        let old_marker = std::env::var(ENV_WHONIX_MARKER).ok();
+        let old_preset = std::env::var("APPIMAGE_CONTROL_SEED_PRESET").ok();
+        std::env::set_var(ENV_WHONIX_MARKER, &marker);
+        std::env::remove_var("APPIMAGE_CONTROL_SEED_PRESET");
+
+        assert!(is_whonix_environment());
+        assert_eq!(SeedPreset::auto_detect(), SeedPreset::Whonix);
+        assert_eq!(SeedPreset::auto_default(), SeedPreset::Whonix);
+
+        match old_marker {
+            Some(v) => std::env::set_var(ENV_WHONIX_MARKER, v),
+            None => std::env::remove_var(ENV_WHONIX_MARKER),
+        }
+        match old_preset {
+            Some(v) => std::env::set_var("APPIMAGE_CONTROL_SEED_PRESET", v),
+            None => std::env::remove_var("APPIMAGE_CONTROL_SEED_PRESET"),
+        }
+    }
+
+    #[test]
+    fn auto_detect_returns_ubuntu_when_marker_absent() {
+        let _g = env_lock().lock().unwrap();
+        let tmp = tempfile::tempdir().unwrap();
+        let absent = tmp.path().join("no-such-file");
+        let old_marker = std::env::var(ENV_WHONIX_MARKER).ok();
+        let old_preset = std::env::var("APPIMAGE_CONTROL_SEED_PRESET").ok();
+        std::env::set_var(ENV_WHONIX_MARKER, &absent);
+        std::env::remove_var("APPIMAGE_CONTROL_SEED_PRESET");
+
+        assert!(!is_whonix_environment());
+        assert_eq!(SeedPreset::auto_detect(), SeedPreset::Ubuntu);
+        assert_eq!(SeedPreset::auto_default(), SeedPreset::Ubuntu);
+
+        match old_marker {
+            Some(v) => std::env::set_var(ENV_WHONIX_MARKER, v),
+            None => std::env::remove_var(ENV_WHONIX_MARKER),
+        }
+        match old_preset {
+            Some(v) => std::env::set_var("APPIMAGE_CONTROL_SEED_PRESET", v),
+            None => std::env::remove_var("APPIMAGE_CONTROL_SEED_PRESET"),
+        }
+    }
+
+    #[test]
+    fn explicit_env_var_overrides_marker_detection() {
+        let _g = env_lock().lock().unwrap();
+        let tmp = tempfile::tempdir().unwrap();
+        let marker = tmp.path().join("workstation");
+        fs::write(&marker, b"").unwrap();
+        let old_marker = std::env::var(ENV_WHONIX_MARKER).ok();
+        let old_preset = std::env::var("APPIMAGE_CONTROL_SEED_PRESET").ok();
+        std::env::set_var(ENV_WHONIX_MARKER, &marker);
+        std::env::set_var("APPIMAGE_CONTROL_SEED_PRESET", "ubuntu");
+
+        // Marker says Whonix, env override says Ubuntu — env wins.
+        assert_eq!(SeedPreset::auto_default(), SeedPreset::Ubuntu);
+        // But filesystem-only resolution still reports the marker truth.
+        assert_eq!(SeedPreset::auto_detect(), SeedPreset::Whonix);
+
+        match old_marker {
+            Some(v) => std::env::set_var(ENV_WHONIX_MARKER, v),
+            None => std::env::remove_var(ENV_WHONIX_MARKER),
+        }
+        match old_preset {
+            Some(v) => std::env::set_var("APPIMAGE_CONTROL_SEED_PRESET", v),
+            None => std::env::remove_var("APPIMAGE_CONTROL_SEED_PRESET"),
         }
     }
 

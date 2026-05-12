@@ -34,6 +34,7 @@ name = "appimage-control"
 version = "0.1.0"
 dependencies = [
  "appimage_control_core",
+ "dirs",
  "gtk4",
  "libadwaita",
  "tempfile",

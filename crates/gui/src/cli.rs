@@ -6,12 +6,13 @@ use gtk::glib;
 
 use appimage_control_core::{
     clean_catalog_download_cache, clean_installed_catalog_apps_keep_cache, create_backup_archive,
-    discover_migration_candidates, fetch_github_release_hints, installed_version_fleet_display,
-    instance_count, portmux_port_probe_runtime, parse_app_instance_spec,
-    purge_appimage_control_state, reconcile_catalog_install_version_metadata,
-    reconcile_instance_count, restore_backup_archive, run_portable_dir_migration,
-    seed_supported_installed_apps, update_all_installed_instances, update_seed_packs, AppPaths,
-    BackupOptions, Catalog, MigrationConflict, MigrationResolution, SeedPackLibrary, SeedPreset,
+    delete_seed_form, discover_migration_candidates, fetch_github_release_hints,
+    installed_version_fleet_display, instance_count, list_seed_forms, load_seed_form,
+    portmux_port_probe_runtime, parse_app_instance_spec, purge_appimage_control_state,
+    reconcile_catalog_install_version_metadata, reconcile_instance_count, restore_backup_archive,
+    run_portable_dir_migration, save_seed_form, seed_supported_installed_apps,
+    update_all_installed_instances, update_seed_packs, AppPaths, BackupOptions, Catalog,
+    MigrationConflict, MigrationResolution, SavedSeedForm, SeedPackLibrary, SeedPreset,
 };
 
 pub fn want_help(args: &[String]) -> bool {
@@ -46,7 +47,19 @@ When --purge, --clean, or --migrate is present, only one runs: --purge first if 
   --seed-settings TARGETS
                    Seed supported app settings for installed instances. TARGETS is `all`,
                    one app id, or a comma-separated list like `feather,electrum-btc`.
-  --seed-preset X  Required with --seed-settings. Use `ubuntu` or `whonix`.
+                   The host is auto-detected to pick the right networking source of truth;
+                   no manual switch needed.
+  --seed-save NAME Save the current --seed-settings selection under NAME for later recall,
+                   then run the seed. Form is stored under
+                   ~/.local/share/appimage-control/seed-forms/<NAME>.json. Name must match
+                   [A-Za-z0-9._-]+ (≤ 64 chars) and must not start with '.'.
+  --seed-load NAME Load a previously-saved seed form named NAME and run it. Mutually
+                   exclusive with --seed-settings.
+  --seed-list-forms
+                   Print one saved seed-form name per line (alphabetical) and exit.
+  --seed-delete-form NAME
+                   Delete a saved seed form by name and exit. Idempotent — missing forms
+                   exit 0 with a note.
   --list-seed-packs
                    Print one tab-separated row per loaded seed pack:
                    `<app-id>\\t<source-path-or-embedded>`. Useful to confirm which
@@ -79,8 +92,12 @@ Examples:
   appimage-control --migrate -y --on-conflict=renumber
   appimage-control --backup /tmp/aic-backup.tar.zst
   appimage-control --restore-backup /tmp/aic-backup.tar.zst --force
-  appimage-control --seed-settings all --seed-preset ubuntu
-  appimage-control +feather --seed-settings feather --seed-preset whonix
+  appimage-control --seed-settings all
+  appimage-control +feather --seed-settings feather
+  appimage-control --seed-settings feather,electrum-btc --seed-save daily
+  appimage-control --seed-load daily
+  appimage-control --seed-list-forms
+  appimage-control --seed-delete-form tor-trio
   appimage-control +mattermost:3
   appimage-control -feather
   appimage-control -feather:2 -update
@@ -103,7 +120,10 @@ pub fn has_cli_ops(args: &[String]) -> bool {
             || a == "--restore-backup"
             || a == "--force"
             || a == "--seed-settings"
-            || a == "--seed-preset"
+            || a == "--seed-save"
+            || a == "--seed-load"
+            || a == "--seed-list-forms"
+            || a == "--seed-delete-form"
             || a == "--list-seed-packs"
             || a == "--update-seed-packs"
             || a == "-update"
@@ -184,15 +204,6 @@ fn arg_value<'a>(args: &'a [String], flag: &str) -> std::result::Result<Option<&
         i += 1;
     }
     Ok(None)
-}
-
-fn parse_seed_preset(args: &[String]) -> std::result::Result<Option<SeedPreset>, String> {
-    let Some(raw) = arg_value(args, "--seed-preset")? else {
-        return Ok(None);
-    };
-    SeedPreset::parse(raw)
-        .map(Some)
-        .ok_or_else(|| format!("invalid --seed-preset={raw} (use ubuntu or whonix)"))
 }
 
 fn parse_seed_settings_targets(
@@ -337,8 +348,64 @@ fn print_list(paths: &AppPaths, catalog: &Catalog) {
     }
 }
 
+fn home_dir_or_exit() -> std::result::Result<std::path::PathBuf, glib::ExitCode> {
+    match dirs::home_dir() {
+        Some(h) => Ok(h),
+        None => {
+            eprintln!("Cannot resolve home directory ($HOME unset).");
+            Err(glib::ExitCode::FAILURE)
+        }
+    }
+}
+
 /// Returns `None` if nothing ran (e.g. unknown ids) so the caller can start the GUI instead.
 pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
+    if args.iter().any(|a| a == "--seed-list-forms") {
+        let home = match home_dir_or_exit() {
+            Ok(h) => h,
+            Err(code) => return Some(code),
+        };
+        match list_seed_forms(&home) {
+            Ok(names) => {
+                for n in names {
+                    println!("{n}");
+                }
+                return Some(glib::ExitCode::SUCCESS);
+            }
+            Err(e) => {
+                eprintln!("{e}");
+                return Some(glib::ExitCode::FAILURE);
+            }
+        }
+    }
+
+    if let Some(name) = match arg_value(args, "--seed-delete-form") {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("{e}");
+            return Some(glib::ExitCode::FAILURE);
+        }
+    } {
+        let home = match home_dir_or_exit() {
+            Ok(h) => h,
+            Err(code) => return Some(code),
+        };
+        match delete_seed_form(&home, name) {
+            Ok(true) => {
+                eprintln!("Deleted saved seed form '{name}'.");
+                return Some(glib::ExitCode::SUCCESS);
+            }
+            Ok(false) => {
+                eprintln!("No saved seed form named '{name}'.");
+                return Some(glib::ExitCode::SUCCESS);
+            }
+            Err(e) => {
+                eprintln!("{e}");
+                return Some(glib::ExitCode::FAILURE);
+            }
+        }
+    }
+
     if args.iter().any(|a| a == "--list-seed-packs") {
         match SeedPackLibrary::discover_load(None) {
             Ok(lib) => {
@@ -395,15 +462,22 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
         }
     };
     let force_restore = args.iter().any(|a| a == "--force");
-    let seed_targets = match parse_seed_settings_targets(args) {
+    let mut seed_targets = match parse_seed_settings_targets(args) {
         Ok(v) => v,
         Err(e) => {
             eprintln!("{e}");
             return Some(glib::ExitCode::FAILURE);
         }
     };
-    let seed_preset = match parse_seed_preset(args) {
-        Ok(v) => v,
+    let seed_save_name = match arg_value(args, "--seed-save") {
+        Ok(v) => v.map(|s| s.to_string()),
+        Err(e) => {
+            eprintln!("{e}");
+            return Some(glib::ExitCode::FAILURE);
+        }
+    };
+    let seed_load_name = match arg_value(args, "--seed-load") {
+        Ok(v) => v.map(|s| s.to_string()),
         Err(e) => {
             eprintln!("{e}");
             return Some(glib::ExitCode::FAILURE);
@@ -424,14 +498,75 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
         eprintln!("Backup/restore flags cannot be combined with --purge/--clean/--migrate.");
         return Some(glib::ExitCode::FAILURE);
     }
-    if seed_targets.is_some() != seed_preset.is_some() {
-        eprintln!("--seed-settings and --seed-preset must be used together.");
-        return Some(glib::ExitCode::FAILURE);
+
+    if let Some(name) = seed_load_name.as_deref() {
+        if seed_targets.is_some() {
+            eprintln!("--seed-load is mutually exclusive with --seed-settings.");
+            return Some(glib::ExitCode::FAILURE);
+        }
+        if seed_save_name.is_some() {
+            eprintln!("--seed-load cannot be combined with --seed-save.");
+            return Some(glib::ExitCode::FAILURE);
+        }
+        let home = match home_dir_or_exit() {
+            Ok(h) => h,
+            Err(code) => return Some(code),
+        };
+        match load_seed_form(&home, name) {
+            // The saved preset is intentionally ignored: networking
+            // source-of-truth is resolved fresh from the runtime
+            // environment, not whatever happened to be active at save
+            // time. We only restore the app-id selection.
+            Ok(form) => {
+                seed_targets = Some(Some(form.app_ids));
+            }
+            Err(e) => {
+                eprintln!("{e}");
+                return Some(glib::ExitCode::FAILURE);
+            }
+        }
     }
+
     if seed_targets.is_some()
         && (args_contain_purge(args) || args_contain_clean(args) || args_contain_migrate(args))
     {
         eprintln!("--seed-settings cannot be combined with --purge/--clean/--migrate.");
+        return Some(glib::ExitCode::FAILURE);
+    }
+    if seed_save_name.is_some() && seed_targets.is_none() {
+        eprintln!("--seed-save requires --seed-settings.");
+        return Some(glib::ExitCode::FAILURE);
+    }
+
+    if let (Some(name), Some(Some(ids))) = (seed_save_name.as_deref(), seed_targets.clone()) {
+        let home = match home_dir_or_exit() {
+            Ok(h) => h,
+            Err(code) => return Some(code),
+        };
+        // Persist with the runtime-resolved preset so the file is
+        // self-describing for diagnostics; the value will be ignored
+        // on subsequent --seed-load runs (host is re-detected each
+        // time).
+        match SavedSeedForm::new(name, SeedPreset::auto_default(), ids) {
+            Ok(form) => {
+                if let Err(e) = save_seed_form(&home, &form) {
+                    eprintln!("{e}");
+                    return Some(glib::ExitCode::FAILURE);
+                }
+                eprintln!("Saved seed form '{}'.", form.name);
+            }
+            Err(e) => {
+                eprintln!("{e}");
+                return Some(glib::ExitCode::FAILURE);
+            }
+        }
+    } else if seed_save_name.is_some() && matches!(seed_targets, Some(None)) {
+        // `--seed-settings all` doesn't yield a concrete app-id list,
+        // so refuse to save a form that means "everything installed at
+        // some past moment" — that's not a stable selection.
+        eprintln!(
+            "--seed-save needs an explicit app-id list (cannot save `--seed-settings all` as a form)."
+        );
         return Some(glib::ExitCode::FAILURE);
     }
 
@@ -684,16 +819,16 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
 
     if let Some(targets) = seed_targets {
         // Pre-flight: bail before the per-instance loop if the host
-        // doesn't have portmux-port installed. The seed pipeline
-        // resolves every per-app SOCKS / HTTPTunnel port through it;
-        // without it every instance would fail with the same install
-        // hint. One message at the top is the right UX.
+        // is missing the required system helper. The seed pipeline
+        // resolves every per-app port through it; without it every
+        // instance would fail with the same install hint. One message
+        // at the top is the right UX.
         if let Err(msg) = portmux_port_probe_runtime() {
             eprintln!("{msg}");
             return Some(glib::ExitCode::FAILURE);
         }
 
-        let preset = seed_preset.expect("checked above");
+        let preset = SeedPreset::auto_default();
         let selected_ref_storage = targets;
         let selected_ref = selected_ref_storage.as_deref();
         let report =
@@ -725,7 +860,7 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
 
 #[cfg(test)]
 mod purge_prompt_tests {
-    use super::{parse_seed_preset, parse_seed_settings_targets, parse_y_n_default_y, run_cli_ops};
+    use super::{parse_seed_settings_targets, parse_y_n_default_y, run_cli_ops};
     use gtk::glib;
     use std::fs;
     use std::os::unix::fs::PermissionsExt;
@@ -805,20 +940,56 @@ mod purge_prompt_tests {
         fs::set_permissions(path, perms).expect("chmod");
     }
 
-    fn with_fake_xvfb<T>(
+    /// Hermetic environment for end-to-end seed tests:
+    /// - pinned HOME + catalog;
+    /// - a fake `xvfb-run` so AppImage launches are no-ops;
+    /// - a fake port-allocation helper wired through the documented
+    ///   override env var so the seed pre-flight + per-instance
+    ///   lookups don't depend on an installed system helper;
+    /// - optional seed-pack directory override so callers can inject
+    ///   synthetic packs without shipping anything in this repo.
+    ///
+    /// The stub helper returns a deterministic JSON record sized to
+    /// match the real helper's documented contract. Test bodies do
+    /// not need to know which binary is being stubbed — that's the
+    /// point of the abstraction.
+    fn with_fake_seed_env<T>(
         home: &std::path::Path,
         catalog: &std::path::Path,
+        seeds_dir: Option<&std::path::Path>,
         f: impl FnOnce() -> T,
     ) -> T {
+        use appimage_control_core::{ENV_PORT_HELPER_BIN, ENV_SEEDS_DIR};
+
         let _g = env_lock().lock().expect("env lock");
         let old_home = std::env::var_os("HOME");
         let old_catalog = std::env::var_os("APPIMAGE_CONTROL_CATALOG");
         let old_path = std::env::var_os("PATH");
+        let old_helper = std::env::var_os(ENV_PORT_HELPER_BIN);
+        let old_seeds = std::env::var_os(ENV_SEEDS_DIR);
         let bin = home.join("bin");
         fs::create_dir_all(&bin).expect("bin");
         write_exec(
             &bin.join("xvfb-run"),
             "#!/bin/sh\nshift\nshift\nexec \"$@\"\n",
+        );
+        // Fake port-allocation helper. Accepts `--help` (probe path)
+        // and `ensure …` (per-instance lookup); both succeed. The
+        // JSON shape matches the real helper's documented contract.
+        let helper = bin.join("port-helper");
+        write_exec(
+            &helper,
+            "#!/bin/sh\n\
+             if [ \"$1\" = \"--help\" ]; then exit 0; fi\n\
+             if [ \"$1\" = \"ensure\" ]; then\n  \
+               printf '%s\\n' '{\"host\":\"10.152.152.10\",\"port\":9168,\
+                                \"isolation\":\"dest-addr\",\
+                                \"source_file\":\"/tmp/stub\",\
+                                \"tor_reload_done\":false,\
+                                \"already_assigned\":false}'\n  \
+               exit 0\n\
+             fi\n\
+             exit 0\n",
         );
         let mut path = bin.as_os_str().to_os_string();
         path.push(":");
@@ -828,6 +999,12 @@ mod purge_prompt_tests {
         std::env::set_var("HOME", home);
         std::env::set_var("APPIMAGE_CONTROL_CATALOG", catalog);
         std::env::set_var("PATH", path);
+        std::env::set_var(ENV_PORT_HELPER_BIN, &helper);
+        if let Some(sd) = seeds_dir {
+            std::env::set_var(ENV_SEEDS_DIR, sd);
+        } else {
+            std::env::remove_var(ENV_SEEDS_DIR);
+        }
         let out = f();
         match old_home {
             Some(v) => std::env::set_var("HOME", v),
@@ -840,6 +1017,14 @@ mod purge_prompt_tests {
         match old_path {
             Some(v) => std::env::set_var("PATH", v),
             None => std::env::remove_var("PATH"),
+        }
+        match old_helper {
+            Some(v) => std::env::set_var(ENV_PORT_HELPER_BIN, v),
+            None => std::env::remove_var(ENV_PORT_HELPER_BIN),
+        }
+        match old_seeds {
+            Some(v) => std::env::set_var(ENV_SEEDS_DIR, v),
+            None => std::env::remove_var(ENV_SEEDS_DIR),
         }
         out
     }
@@ -903,10 +1088,6 @@ mod purge_prompt_tests {
     #[test]
     fn seed_flag_parsing_accepts_expected_forms() {
         assert!(matches!(
-            parse_seed_preset(&["--seed-preset".into(), "ubuntu".into()]).unwrap(),
-            Some(super::SeedPreset::Ubuntu)
-        ));
-        assert!(matches!(
             parse_seed_settings_targets(&["--seed-settings".into(), "all".into()]).unwrap(),
             Some(None)
         ));
@@ -918,8 +1099,13 @@ mod purge_prompt_tests {
     }
 
     #[test]
-    fn seed_requires_matching_preset_flag() {
-        let code = run_cli_ops(&["--seed-settings".to_string(), "all".to_string()]);
+    fn seed_load_and_seed_settings_are_mutually_exclusive() {
+        let code = run_cli_ops(&[
+            "--seed-settings".to_string(),
+            "feather".to_string(),
+            "--seed-load".to_string(),
+            "anything".to_string(),
+        ]);
         assert_eq!(code, Some(glib::ExitCode::FAILURE));
     }
 
@@ -1005,13 +1191,41 @@ mod purge_prompt_tests {
             ),
         );
 
-        let args = vec![
-            "--seed-settings".to_string(),
-            "feather".to_string(),
-            "--seed-preset".to_string(),
-            "whonix".to_string(),
-        ];
-        let code = with_fake_xvfb(&home, &catalog, || run_cli_ops(&args));
+        // Curated packs are no longer shipped in this repo (Stage 8).
+        // Inject a synthetic feather-shaped pack that exercises the
+        // `preset.from` pipeline so the assertions on socks5Host /
+        // useLocalTor have something to render.
+        let seeds_dir = tmp.path().join("seeds");
+        fs::create_dir_all(&seeds_dir).expect("seeds dir");
+        fs::write(
+            seeds_dir.join("feather.json"),
+            r#"{
+                "config_path": "feather.AppImage.config/feather/settings.json",
+                "first_run_args": [],
+                "preset": {
+                    "socks5Host": { "from": "socks5_host" },
+                    "useLocalTor": { "from": "feather_use_local_tor" }
+                }
+            }"#,
+        )
+        .expect("seed pack");
+
+        let args = vec!["--seed-settings".to_string(), "feather".to_string()];
+        let code = with_fake_seed_env(&home, &catalog, Some(&seeds_dir), || {
+            // Pin the networking branch deterministically — without
+            // this the assertion would flip when the test host happens
+            // to have the workstation marker file present. Done inside
+            // the closure so it's serialised by the env-lock guard the
+            // helper already holds.
+            let prev_preset = std::env::var("APPIMAGE_CONTROL_SEED_PRESET").ok();
+            std::env::set_var("APPIMAGE_CONTROL_SEED_PRESET", "whonix");
+            let r = run_cli_ops(&args);
+            match prev_preset {
+                Some(v) => std::env::set_var("APPIMAGE_CONTROL_SEED_PRESET", v),
+                None => std::env::remove_var("APPIMAGE_CONTROL_SEED_PRESET"),
+            }
+            r
+        });
         assert_eq!(code, Some(glib::ExitCode::SUCCESS));
         let body = fs::read_to_string(&cfg).expect("cfg");
         assert!(body.contains("\"socks5Host\": \"10.152.152.10\""));

@@ -6,6 +6,7 @@ mod catalog_icons;
 mod cli;
 mod dialogs;
 mod embedded_icons;
+mod seed_dialog;
 mod status_text;
 mod ui;
 
@@ -15,9 +16,10 @@ use std::sync::mpsc;
 
 use crate::catalog_icons::batch_catalog_icons;
 use crate::dialogs::{
-    ask_confirmation, choose_open_path, choose_save_path, choose_seed_settings,
-    present_activity_log_dialog, present_message_window, ConfirmKind,
+    ask_confirmation, choose_open_path, choose_save_path, present_activity_log_dialog,
+    present_message_window, ConfirmKind,
 };
+use crate::seed_dialog::choose_seed_settings;
 use adw::prelude::*;
 use appimage_control_core::{
     catalog_row_latest_version_label, clean_catalog_download_cache,
@@ -295,6 +297,8 @@ fn mount_empty_state(
         migrate: Rc::clone(&unavailable),
         backup: Rc::clone(&unavailable),
         restore_backup: Rc::clone(&unavailable),
+        update_seed_packs: Rc::clone(&unavailable),
+        list_seed_packs: Rc::clone(&unavailable),
     };
     actions::install_window_actions(&window_for_actions, hooks);
     let _ = (app_for_actions, error_msg);
@@ -978,7 +982,7 @@ fn mount_catalog_view(
                                         let probe_ok = match &probe_failure_logged {
                                             Some(_) => {
                                                 log.push_str(&format!(
-                                                    "{}: auto-seeding skipped — portmux-port still unavailable\n",
+                                                    "{}: auto-seeding skipped — required system helper still unavailable\n",
                                                     app.id
                                                 ));
                                                 false
@@ -987,7 +991,7 @@ fn mount_catalog_view(
                                                 Ok(_) => true,
                                                 Err(msg) => {
                                                     log.push_str(&format!(
-                                                        "{}: auto-seeding skipped — portmux-port unavailable on the host.\n{msg}\n",
+                                                        "{}: auto-seeding skipped — required system helper unavailable.\n{msg}\n",
                                                         app.id
                                                     ));
                                                     probe_failure_logged = Some(msg);
@@ -998,10 +1002,9 @@ fn mount_catalog_view(
                                         if probe_ok {
                                             let preset = SeedPreset::auto_default();
                                             log.push_str(&format!(
-                                                "{}: auto-seeding {} new instance(s) with {} preset\n",
+                                                "{}: auto-seeding {} new instance(s)\n",
                                                 app.id,
                                                 rep.added.len(),
-                                                preset.as_str()
                                             ));
                                             let _ = appimage_control_core::seed_new_instances_after_reconcile(
                                                 &paths_t,
@@ -1420,7 +1423,7 @@ fn install_window_actions_for_catalog(
                     // "Seeded 0 instance(s)" zero-state.
                     if let Err(msg) = portmux_port_probe_runtime() {
                         log.push_str(
-                            "Seeding aborted: portmux-port is not available on the host.\n",
+                            "Seeding aborted: a required system helper is not available on the host.\n",
                         );
                         log.push_str(&msg);
                         log.push('\n');
@@ -1663,6 +1666,48 @@ fn install_window_actions_for_catalog(
                 }
                 present_activity_log_dialog(&window, &log);
                 refresh();
+            })
+        },
+        update_seed_packs: {
+            let window = window_for_actions.clone();
+            let refresh = Rc::clone(&refresh_fn);
+            Rc::new(move || {
+                let mut log = String::new();
+                match appimage_control_core::update_seed_packs(None, &mut |s| {
+                    log.push_str(s);
+                    log.push('\n');
+                }) {
+                    Ok(report) => log.push_str(&format!(
+                        "Installed {} seed packs to {} from {}\n",
+                        report.installed_count,
+                        report.install_dir.display(),
+                        report.source_url
+                    )),
+                    Err(e) => log.push_str(&format!("Update seed packs failed: {e}\n")),
+                }
+                present_activity_log_dialog(&window, &log);
+                refresh();
+            })
+        },
+        list_seed_packs: {
+            let window = window_for_actions.clone();
+            Rc::new(move || {
+                let mut log = String::new();
+                match appimage_control_core::SeedPackLibrary::discover_load(None) {
+                    Ok(lib) => {
+                        let rows = lib.list_rows();
+                        if rows.is_empty() {
+                            log.push_str("No seed packs loaded.\n");
+                        } else {
+                            log.push_str("Loaded seed packs:\n");
+                            for (id, src) in rows {
+                                log.push_str(&format!("  {id}\t{src}\n"));
+                            }
+                        }
+                    }
+                    Err(e) => log.push_str(&format!("Could not enumerate seed packs: {e}\n")),
+                }
+                present_activity_log_dialog(&window, &log);
             })
         },
     };
