@@ -191,6 +191,24 @@
       "reset_data_dirs": []
     },
     {
+      "id": "qnote",
+      "display_name": "qnote",
+      "homepage": "https://github.com/Omibranch/qnote",
+      "icon_url": "https://raw.githubusercontent.com/Omibranch/qnote/main/src-tauri/icons/128x128.png",
+      "download_url": "https://github.com/Omibranch/qnote/releases/download/v0.2.11/qnote_0.2.11_amd64.AppImage",
+      "appimage_filename": "qnote.AppImage",
+      "wayland_app_id": "qnote",
+      "reset_config_dirs": [
+        "com.suicore.qnote"
+      ],
+      "reset_cache_dirs": [
+        "com.suicore.qnote"
+      ],
+      "reset_data_dirs": [
+        "com.suicore.qnote"
+      ]
+    },
+    {
       "id": "zulip",
       "display_name": "Zulip",
       "homepage": "https://zulip.com/",
