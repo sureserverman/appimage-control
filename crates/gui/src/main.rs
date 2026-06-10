@@ -1491,6 +1491,10 @@ fn install_window_actions_for_catalog(
             let catalog = Rc::clone(catalog);
             let window = window_for_actions.clone();
             let refresh = Rc::clone(&refresh_fn);
+            let apply_btn = apply_btn.clone();
+            let update_btn = update_btn.clone();
+            let progress = progress.clone();
+            let statusbar = statusbar.clone();
             Rc::new(move || {
                 if !ask_confirmation(
                     &window,
@@ -1505,20 +1509,60 @@ fn install_window_actions_for_catalog(
                 ) {
                     return;
                 }
-                let mut log = String::new();
-                let r = clean_installed_catalog_apps_keep_cache(
-                    paths.as_ref(),
-                    catalog.as_ref(),
-                    &mut |m| {
-                        log.push_str(m);
-                        log.push('\n');
-                    },
-                );
-                if let Err(e) = r {
-                    log.push_str(&format!("Clean failed: {e}\n"));
-                }
-                present_activity_log_dialog(&window, &log);
-                refresh();
+
+                apply_btn.set_sensitive(false);
+                update_btn.set_sensitive(false);
+                progress.set_visible(true);
+                progress.set_fraction(0.0);
+                progress.set_text(Some("Cleaning…"));
+                statusbar.set_text("Cleaning…");
+
+                let (tx, rx) = mpsc::channel::<String>();
+                let paths_t = (*paths).clone();
+                let catalog_t = (*catalog).clone();
+
+                let progress_done = progress.clone();
+                let apply_done = apply_btn.clone();
+                let update_done = update_btn.clone();
+                let status_idle = statusbar.clone();
+                let window_idle = window.clone();
+                let refresh_idle = Rc::clone(&refresh);
+                glib::idle_add_local(move || match rx.try_recv() {
+                    Ok(log) => {
+                        progress_done.set_visible(false);
+                        progress_done.set_fraction(0.0);
+                        present_activity_log_dialog(&window_idle, &log);
+                        refresh_idle();
+                        apply_done.set_sensitive(true);
+                        update_done.set_sensitive(true);
+                        status_idle.set_text("Ready");
+                        glib::ControlFlow::Break
+                    }
+                    Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
+                    Err(mpsc::TryRecvError::Disconnected) => {
+                        progress_done.set_visible(false);
+                        status_idle.set_text("Clean interrupted.");
+                        apply_done.set_sensitive(true);
+                        update_done.set_sensitive(true);
+                        glib::ControlFlow::Break
+                    }
+                });
+
+                std::thread::spawn(move || {
+                    let mut log = String::new();
+                    let r = clean_installed_catalog_apps_keep_cache(
+                        &paths_t,
+                        &catalog_t,
+                        &mut |m| {
+                            log.push_str(m);
+                            log.push('\n');
+                        },
+                    );
+                    if let Err(e) = r {
+                        log.push_str(&format!("Clean failed: {e}\n"));
+                    }
+                    let _ = tx.send(log);
+                });
             })
         },
         purge: {
@@ -1526,6 +1570,10 @@ fn install_window_actions_for_catalog(
             let catalog = Rc::clone(catalog);
             let window = window_for_actions.clone();
             let refresh = Rc::clone(&refresh_fn);
+            let apply_btn = apply_btn.clone();
+            let update_btn = update_btn.clone();
+            let progress = progress.clone();
+            let statusbar = statusbar.clone();
             Rc::new(move || {
                 if !ask_confirmation(
                     &window,
@@ -1541,20 +1589,60 @@ fn install_window_actions_for_catalog(
                 ) {
                     return;
                 }
-                let mut log = String::new();
-                let r = purge_appimage_control_state(
-                    paths.as_ref(),
-                    Some(catalog.as_ref()),
-                    &mut |m| {
-                        log.push_str(m);
-                        log.push('\n');
-                    },
-                );
-                if let Err(e) = r {
-                    log.push_str(&format!("Purge failed: {e}\n"));
-                }
-                present_activity_log_dialog(&window, &log);
-                refresh();
+
+                apply_btn.set_sensitive(false);
+                update_btn.set_sensitive(false);
+                progress.set_visible(true);
+                progress.set_fraction(0.0);
+                progress.set_text(Some("Purging…"));
+                statusbar.set_text("Purging…");
+
+                let (tx, rx) = mpsc::channel::<String>();
+                let paths_t = (*paths).clone();
+                let catalog_t = (*catalog).clone();
+
+                let progress_done = progress.clone();
+                let apply_done = apply_btn.clone();
+                let update_done = update_btn.clone();
+                let status_idle = statusbar.clone();
+                let window_idle = window.clone();
+                let refresh_idle = Rc::clone(&refresh);
+                glib::idle_add_local(move || match rx.try_recv() {
+                    Ok(log) => {
+                        progress_done.set_visible(false);
+                        progress_done.set_fraction(0.0);
+                        present_activity_log_dialog(&window_idle, &log);
+                        refresh_idle();
+                        apply_done.set_sensitive(true);
+                        update_done.set_sensitive(true);
+                        status_idle.set_text("Ready");
+                        glib::ControlFlow::Break
+                    }
+                    Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
+                    Err(mpsc::TryRecvError::Disconnected) => {
+                        progress_done.set_visible(false);
+                        status_idle.set_text("Purge interrupted.");
+                        apply_done.set_sensitive(true);
+                        update_done.set_sensitive(true);
+                        glib::ControlFlow::Break
+                    }
+                });
+
+                std::thread::spawn(move || {
+                    let mut log = String::new();
+                    let r = purge_appimage_control_state(
+                        &paths_t,
+                        Some(&catalog_t),
+                        &mut |m| {
+                            log.push_str(m);
+                            log.push('\n');
+                        },
+                    );
+                    if let Err(e) = r {
+                        log.push_str(&format!("Purge failed: {e}\n"));
+                    }
+                    let _ = tx.send(log);
+                });
             })
         },
         migrate: {
@@ -1606,87 +1694,280 @@ fn install_window_actions_for_catalog(
             let paths = Rc::clone(paths);
             let catalog = Rc::clone(catalog);
             let window = window_for_actions.clone();
+            let apply_btn = apply_btn.clone();
+            let update_btn = update_btn.clone();
+            let progress = progress.clone();
+            let statusbar = statusbar.clone();
             Rc::new(move || {
-                let Some(path) = choose_save_path(&window, "Choose backup archive destination")
+                let Some(dest_path) =
+                    choose_save_path(&window, "Choose backup archive destination")
                 else {
                     return;
                 };
-                let mut log = String::new();
-                match create_backup_archive(
-                    paths.as_ref(),
-                    catalog.as_ref(),
-                    &path,
-                    &BackupOptions::default(),
-                ) {
-                    Ok(rep) => log.push_str(&format!(
-                        "Backup created: {} ({} entries, {} bytes)\n",
-                        rep.archive_path.display(),
-                        rep.entry_count,
-                        rep.total_bytes
-                    )),
-                    Err(e) => log.push_str(&format!("Backup failed: {e}\n")),
-                }
-                present_activity_log_dialog(&window, &log);
+
+                apply_btn.set_sensitive(false);
+                update_btn.set_sensitive(false);
+                progress.set_visible(true);
+                progress.set_fraction(0.0);
+                progress.set_text(Some("Backing up…"));
+                statusbar.set_text("Backing up…");
+
+                let (tx, rx) = mpsc::channel::<String>();
+                let paths_t = (*paths).clone();
+                let catalog_t = (*catalog).clone();
+
+                let progress_done = progress.clone();
+                let apply_done = apply_btn.clone();
+                let update_done = update_btn.clone();
+                let status_idle = statusbar.clone();
+                let window_idle = window.clone();
+                glib::idle_add_local(move || match rx.try_recv() {
+                    Ok(log) => {
+                        progress_done.set_visible(false);
+                        progress_done.set_fraction(0.0);
+                        present_activity_log_dialog(&window_idle, &log);
+                        apply_done.set_sensitive(true);
+                        update_done.set_sensitive(true);
+                        status_idle.set_text("Ready");
+                        glib::ControlFlow::Break
+                    }
+                    Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
+                    Err(mpsc::TryRecvError::Disconnected) => {
+                        progress_done.set_visible(false);
+                        status_idle.set_text("Backup interrupted.");
+                        apply_done.set_sensitive(true);
+                        update_done.set_sensitive(true);
+                        glib::ControlFlow::Break
+                    }
+                });
+
+                std::thread::spawn(move || {
+                    let mut log = String::new();
+                    match create_backup_archive(
+                        &paths_t,
+                        &catalog_t,
+                        &dest_path,
+                        &BackupOptions::default(),
+                    ) {
+                        Ok(rep) => log.push_str(&format!(
+                            "Backup created: {} ({} entries, {} bytes)\n",
+                            rep.archive_path.display(),
+                            rep.entry_count,
+                            rep.total_bytes
+                        )),
+                        Err(e) => log.push_str(&format!("Backup failed: {e}\n")),
+                    }
+                    let _ = tx.send(log);
+                });
             })
         },
         restore_backup: {
             let paths = Rc::clone(paths);
             let window = window_for_actions.clone();
             let refresh = Rc::clone(&refresh_fn);
+            let apply_btn = apply_btn.clone();
+            let update_btn = update_btn.clone();
+            let progress = progress.clone();
+            let statusbar = statusbar.clone();
             Rc::new(move || {
-                let Some(path) = choose_open_path(&window, "Choose backup archive to restore")
+                let Some(src_path) =
+                    choose_open_path(&window, "Choose backup archive to restore")
                 else {
                     return;
                 };
-                let mut log = String::new();
-                match restore_backup_archive(paths.as_ref(), &path, false) {
-                    Ok(()) => log.push_str("Restore finished.\n"),
-                    Err(e) => {
-                        let msg = e.to_string();
-                        if msg.contains("managed state already exists")
-                            && ask_confirmation(
-                                &window,
+
+                apply_btn.set_sensitive(false);
+                update_btn.set_sensitive(false);
+                progress.set_visible(true);
+                progress.set_fraction(0.0);
+                progress.set_text(Some("Restoring…"));
+                statusbar.set_text("Restoring…");
+
+                // Channel carries: (log_so_far, needs_force_confirm).
+                // `needs_force_confirm = true` means the first attempt hit
+                // "managed state already exists"; the idle handler then asks
+                // the user and, if confirmed, spawns the force-restore thread.
+                let (tx, rx) = mpsc::channel::<(String, bool)>();
+                let paths_t = (*paths).clone();
+                // src_path_t goes into the idle closure (for a potential
+                // force-retry); src_path_spawn is the independent copy for
+                // the first-pass thread.
+                let src_path_t = src_path.clone();
+                let src_path_spawn = src_path.clone();
+
+                let progress_done = progress.clone();
+                let apply_done = apply_btn.clone();
+                let update_done = update_btn.clone();
+                let status_idle = statusbar.clone();
+                let window_idle = window.clone();
+                let refresh_idle = Rc::clone(&refresh);
+                let paths_idle = (*paths).clone();
+                glib::idle_add_local(move || match rx.try_recv() {
+                    Ok((log, needs_force)) => {
+                        if needs_force {
+                            // Ask the user on the main thread; if they confirm,
+                            // run a second thread for the force restore.
+                            if ask_confirmation(
+                                &window_idle,
                                 ConfirmKind::Danger,
                                 "Overwrite existing managed state?",
                                 "Managed state already exists. Force restore and overwrite manager-owned state?",
                                 None,
                                 "Overwrite",
-                            )
-                        {
-                            match restore_backup_archive(paths.as_ref(), &path, true) {
-                                Ok(()) => log.push_str("Forced restore finished.\n"),
-                                Err(e2) => {
-                                    log.push_str(&format!("Forced restore failed: {e2}\n"))
-                                }
+                            ) {
+                                progress_done.set_text(Some("Restoring (forced)…"));
+                                status_idle.set_text("Restoring (forced)…");
+                                let (tx2, rx2) = mpsc::channel::<String>();
+                                let paths_f = paths_idle.clone();
+                                let src_f = src_path_t.clone();
+                                let progress_f = progress_done.clone();
+                                let apply_f = apply_done.clone();
+                                let update_f = update_done.clone();
+                                let status_f = status_idle.clone();
+                                let window_f = window_idle.clone();
+                                let refresh_f = Rc::clone(&refresh_idle);
+                                glib::idle_add_local(move || match rx2.try_recv() {
+                                    Ok(log2) => {
+                                        progress_f.set_visible(false);
+                                        progress_f.set_fraction(0.0);
+                                        present_activity_log_dialog(&window_f, &log2);
+                                        refresh_f();
+                                        apply_f.set_sensitive(true);
+                                        update_f.set_sensitive(true);
+                                        status_f.set_text("Ready");
+                                        glib::ControlFlow::Break
+                                    }
+                                    Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
+                                    Err(mpsc::TryRecvError::Disconnected) => {
+                                        progress_f.set_visible(false);
+                                        status_f.set_text("Restore interrupted.");
+                                        apply_f.set_sensitive(true);
+                                        update_f.set_sensitive(true);
+                                        glib::ControlFlow::Break
+                                    }
+                                });
+                                std::thread::spawn(move || {
+                                    let mut log2 = String::new();
+                                    match restore_backup_archive(&paths_f, &src_f, true) {
+                                        Ok(()) => log2.push_str("Forced restore finished.\n"),
+                                        Err(e2) => log2
+                                            .push_str(&format!("Forced restore failed: {e2}\n")),
+                                    }
+                                    let _ = tx2.send(log2);
+                                });
+                            } else {
+                                // User declined the overwrite — show what we have and re-enable.
+                                progress_done.set_visible(false);
+                                progress_done.set_fraction(0.0);
+                                present_activity_log_dialog(&window_idle, &log);
+                                apply_done.set_sensitive(true);
+                                update_done.set_sensitive(true);
+                                status_idle.set_text("Ready");
                             }
                         } else {
-                            log.push_str(&format!("Restore failed: {e}\n"));
+                            progress_done.set_visible(false);
+                            progress_done.set_fraction(0.0);
+                            present_activity_log_dialog(&window_idle, &log);
+                            refresh_idle();
+                            apply_done.set_sensitive(true);
+                            update_done.set_sensitive(true);
+                            status_idle.set_text("Ready");
+                        }
+                        glib::ControlFlow::Break
+                    }
+                    Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
+                    Err(mpsc::TryRecvError::Disconnected) => {
+                        progress_done.set_visible(false);
+                        status_idle.set_text("Restore interrupted.");
+                        apply_done.set_sensitive(true);
+                        update_done.set_sensitive(true);
+                        glib::ControlFlow::Break
+                    }
+                });
+
+                std::thread::spawn(move || {
+                    let mut log = String::new();
+                    match restore_backup_archive(&paths_t, &src_path_spawn, false) {
+                        Ok(()) => {
+                            log.push_str("Restore finished.\n");
+                            let _ = tx.send((log, false));
+                        }
+                        Err(e) => {
+                            let msg = e.to_string();
+                            if msg.contains("managed state already exists") {
+                                // Signal the idle handler to ask the user; include
+                                // the original error text for context.
+                                log.push_str(&format!("Restore failed: {e}\n"));
+                                let _ = tx.send((log, true));
+                            } else {
+                                log.push_str(&format!("Restore failed: {e}\n"));
+                                let _ = tx.send((log, false));
+                            }
                         }
                     }
-                }
-                present_activity_log_dialog(&window, &log);
-                refresh();
+                });
             })
         },
         update_seed_packs: {
             let window = window_for_actions.clone();
             let refresh = Rc::clone(&refresh_fn);
+            let apply_btn = apply_btn.clone();
+            let update_btn = update_btn.clone();
+            let progress = progress.clone();
+            let statusbar = statusbar.clone();
             Rc::new(move || {
-                let mut log = String::new();
-                match appimage_control_core::update_seed_packs(None, &mut |s| {
-                    log.push_str(s);
-                    log.push('\n');
-                }) {
-                    Ok(report) => log.push_str(&format!(
-                        "Installed {} seed packs to {} from {}\n",
-                        report.installed_count,
-                        report.install_dir.display(),
-                        report.source_url
-                    )),
-                    Err(e) => log.push_str(&format!("Update seed packs failed: {e}\n")),
-                }
-                present_activity_log_dialog(&window, &log);
-                refresh();
+                apply_btn.set_sensitive(false);
+                update_btn.set_sensitive(false);
+                progress.set_visible(true);
+                progress.set_fraction(0.0);
+                progress.set_text(Some("Updating seed packs…"));
+                statusbar.set_text("Updating seed packs…");
+
+                let (tx, rx) = mpsc::channel::<String>();
+
+                let progress_done = progress.clone();
+                let apply_done = apply_btn.clone();
+                let update_done = update_btn.clone();
+                let status_idle = statusbar.clone();
+                let window_idle = window.clone();
+                let refresh_idle = Rc::clone(&refresh);
+                glib::idle_add_local(move || match rx.try_recv() {
+                    Ok(log) => {
+                        progress_done.set_visible(false);
+                        progress_done.set_fraction(0.0);
+                        present_activity_log_dialog(&window_idle, &log);
+                        refresh_idle();
+                        apply_done.set_sensitive(true);
+                        update_done.set_sensitive(true);
+                        status_idle.set_text("Ready");
+                        glib::ControlFlow::Break
+                    }
+                    Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
+                    Err(mpsc::TryRecvError::Disconnected) => {
+                        progress_done.set_visible(false);
+                        status_idle.set_text("Update seed packs interrupted.");
+                        apply_done.set_sensitive(true);
+                        update_done.set_sensitive(true);
+                        glib::ControlFlow::Break
+                    }
+                });
+
+                std::thread::spawn(move || {
+                    let mut log = String::new();
+                    match appimage_control_core::update_seed_packs(None, &mut |s| {
+                        log.push_str(s);
+                        log.push('\n');
+                    }) {
+                        Ok(report) => log.push_str(&format!(
+                            "Installed {} seed packs to {} from {}\n",
+                            report.installed_count,
+                            report.install_dir.display(),
+                            report.source_url
+                        )),
+                        Err(e) => log.push_str(&format!("Update seed packs failed: {e}\n")),
+                    }
+                    let _ = tx.send(log);
+                });
             })
         },
         list_seed_packs: {
