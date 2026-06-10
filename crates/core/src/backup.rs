@@ -204,16 +204,24 @@ pub fn create_backup_archive(
             .collect::<Vec<_>>(),
     };
 
-    let tmp = archive_path.with_extension(format!(
-        "{}.tmp",
-        archive_path
-            .extension()
-            .and_then(|s| s.to_str())
-            .unwrap_or("archive")
-    ));
-    if tmp.exists() {
-        let _ = fs::remove_file(&tmp);
-    }
+    // Use a PID-qualified staging filename so two concurrent backups targeting
+    // the same archive path cannot overwrite each other's in-flight staging
+    // file.  Pattern matches the `{path}.aic-tmp-{pid}` convention used in
+    // seed.rs.  We do NOT pre-remove an existing staging file: with unique-pid
+    // naming there is no legitimate prior occupant, and any stale file from a
+    // crashed previous run will be overwritten by fs::File::create below.
+    let tmp = {
+        let file_name = archive_path
+            .file_name()
+            .ok_or_else(|| {
+                Error::InvalidPath(format!(
+                    "backup path has no file name: {}",
+                    archive_path.display()
+                ))
+            })?
+            .to_string_lossy();
+        archive_path.with_file_name(format!("{}.aic-tmp-{}", file_name, std::process::id()))
+    };
 
     let result = (|| -> Result<BackupReport> {
         let file = fs::File::create(&tmp)?;
