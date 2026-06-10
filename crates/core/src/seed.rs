@@ -549,10 +549,49 @@ fn read_json_object(path: &Path) -> Result<Map<String, Value>> {
     }
 }
 
+/// Write `map` as pretty-printed JSON to `path` atomically.
+///
+/// The serialised bytes are first written to a sibling temp file
+/// (`<path>.aic-tmp-<pid>`) in the same directory as `path` (so both
+/// live on the same filesystem and `rename` is atomic), fsynced, then
+/// renamed over `path`. On any failure the original file remains
+/// byte-identical and the temp file is removed if it was created.
 fn write_json_object(path: &Path, map: Map<String, Value>) -> Result<()> {
+    use std::io::Write as _;
+
     let s = serde_json::to_string_pretty(&Value::Object(map))?;
-    fs::write(path, format!("{s}\n"))?;
-    Ok(())
+    let content = format!("{s}\n");
+
+    let dir = path.parent().ok_or_else(|| {
+        Error::InvalidPath(format!(
+            "write_json_object: path has no parent: {}",
+            path.display()
+        ))
+    })?;
+
+    let tmp_path = dir.join(format!(
+        "{}.aic-tmp-{}",
+        path.file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "config".into()),
+        std::process::id()
+    ));
+
+    // Inner closure so we have one error-exit point that cleans up.
+    let result = (|| -> Result<()> {
+        let mut file = fs::File::create(&tmp_path)?;
+        file.write_all(content.as_bytes())?;
+        file.sync_all()?;
+        drop(file);
+        fs::rename(&tmp_path, path)?;
+        Ok(())
+    })();
+
+    if result.is_err() {
+        let _ = fs::remove_file(&tmp_path);
+    }
+
+    result
 }
 
 #[cfg(test)]
@@ -892,5 +931,125 @@ exec "$@"
         let app = supported_app("mattermost", "Mattermost.AppImage");
         let out = seed_instance_settings(&paths, &app, 1, SeedPreset::Ubuntu, &mut |_| {}).unwrap();
         assert_eq!(out, SeedOutcome::SkippedUnsupported);
+    }
+
+    // ── atomic write tests ────────────────────────────────────────────
+
+    /// Happy path: write_json_object produces the expected JSON content,
+    /// the rename succeeds, and no temp file is left behind.
+    #[test]
+    fn write_json_object_happy_path_content_and_no_temp_residue() {
+        let tmp = tempfile::tempdir().unwrap();
+        let target = tmp.path().join("config.json");
+
+        // Write an initial file so the target already exists (simulates
+        // the real seeding scenario where the app wrote its own config
+        // first and we overwrite it).
+        fs::write(&target, b"{}").unwrap();
+
+        let mut map = serde_json::Map::new();
+        map.insert("key".into(), serde_json::Value::String("value".into()));
+        map.insert("num".into(), serde_json::Value::Number(42.into()));
+
+        write_json_object(&target, map).expect("write_json_object failed");
+
+        // Content is correct.
+        let raw = fs::read_to_string(&target).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&raw).unwrap();
+        assert_eq!(v["key"], "value");
+        assert_eq!(v["num"], 42);
+        // Trailing newline present (matches the existing format).
+        assert!(raw.ends_with('\n'), "expected trailing newline");
+
+        // No temp residue in the directory.
+        let residue: Vec<_> = fs::read_dir(tmp.path())
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| {
+                e.file_name()
+                    .to_string_lossy()
+                    .contains(".aic-tmp-")
+            })
+            .collect();
+        assert!(
+            residue.is_empty(),
+            "unexpected temp files left behind: {:?}",
+            residue
+        );
+    }
+
+    /// Failure injection: when the parent directory is read-only the
+    /// write must fail, the original file must be byte-identical, and
+    /// no temp file may be left behind.
+    ///
+    /// Skipped when running as root (root bypasses Unix permission
+    /// checks and the test would produce a false pass).
+    #[test]
+    fn write_json_object_failure_leaves_original_intact_and_no_temp_residue() {
+        // Skip if running as root.
+        if libc_getuid() == 0 {
+            eprintln!("write_json_object_failure test: skipped (running as root)");
+            return;
+        }
+
+        let tmp = tempfile::tempdir().unwrap();
+        let target = tmp.path().join("config.json");
+        let original_content = b"{\"original\": true}\n";
+        fs::write(&target, original_content).unwrap();
+
+        // Make the directory read-only so creating the temp file fails.
+        let mut perms = fs::metadata(tmp.path()).unwrap().permissions();
+        perms.set_mode(0o555);
+        fs::set_permissions(tmp.path(), perms.clone()).unwrap();
+
+        let mut map = serde_json::Map::new();
+        map.insert(
+            "injected".into(),
+            serde_json::Value::String("should not appear".into()),
+        );
+
+        let result = write_json_object(&target, map);
+
+        // Restore permissions before any assertion (so the TempDir
+        // destructor can clean up even on test failure).
+        perms.set_mode(0o755);
+        fs::set_permissions(tmp.path(), perms).unwrap();
+
+        // Must have returned an error.
+        assert!(result.is_err(), "expected Err, got Ok");
+
+        // Original content unchanged.
+        let after = fs::read(&target).unwrap();
+        assert_eq!(
+            after, original_content,
+            "original file was modified despite write failure"
+        );
+
+        // No temp residue.
+        let residue: Vec<_> = fs::read_dir(tmp.path())
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| {
+                e.file_name()
+                    .to_string_lossy()
+                    .contains(".aic-tmp-")
+            })
+            .collect();
+        assert!(
+            residue.is_empty(),
+            "temp file was not cleaned up: {:?}",
+            residue
+        );
+    }
+
+    /// Thin shim so we can call `getuid(2)` without pulling in a new
+    /// dependency. Only used by the test above.
+    fn libc_getuid() -> u32 {
+        extern "C" {
+            fn getuid() -> u32;
+        }
+        // SAFETY: getuid(2) is a pure syscall with no preconditions;
+        // it never fails and has no side effects.
+        unsafe { getuid() }
     }
 }
