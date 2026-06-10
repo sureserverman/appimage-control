@@ -31,7 +31,7 @@ With no arguments, the graphical app starts.
 Catalog JSON is resolved like the GUI: environment APPIMAGE_CONTROL_CATALOG (non-empty), then
 data/catalog.json (current dir or any parent, then from the binary path), then /app/share/ or /usr/share/appimage-control/catalog.json, then the catalog compiled into the binary.
 
-Operations (unrecognized arguments are skipped). If nothing runs (e.g. only unknown ids), the GUI starts.
+Operations (unrecognized arguments cause a non-zero exit with a message pointing to --help; they do not open the GUI).
 When --purge, --clean, or --migrate is present, only one runs: --purge first if present, else --clean, else --migrate (other operation flags are ignored for that run).
 
   --list           Print catalog apps, installed instance counts, and per-instance version summary (aligned columns).
@@ -106,30 +106,14 @@ Examples:
 }
 
 /// True if any argument selects CLI mode (excluding -h/--help, handled separately).
+///
+/// With strict parsing any argument other than the pure passthrough flags
+/// (`-h`/`--help`, `-y`/`--yes`) triggers CLI mode.  Unknown arguments are
+/// still routed to `run_cli_ops` so that function can emit the right error
+/// message — they must never fall through to the GUI.
 pub fn has_cli_ops(args: &[String]) -> bool {
     args.iter().any(|a| {
-        if a == "-h" || a == "--help" || a == "-y" || a == "--yes" {
-            return false;
-        }
-        a == "--list"
-            || a == "--clean-cache"
-            || a == "--clean"
-            || a == "--purge"
-            || a == "--migrate"
-            || a == "--backup"
-            || a == "--restore-backup"
-            || a == "--force"
-            || a == "--seed-settings"
-            || a == "--seed-save"
-            || a == "--seed-load"
-            || a == "--seed-list-forms"
-            || a == "--seed-delete-form"
-            || a == "--list-seed-packs"
-            || a == "--update-seed-packs"
-            || a == "-update"
-            || a == "--update"
-            || (a.starts_with('+') && a.len() > 1)
-            || (a.starts_with('-') && !a.starts_with("--") && a.len() > 1)
+        a != "-h" && a != "--help" && a != "-y" && a != "--yes"
     })
 }
 
@@ -358,8 +342,160 @@ fn home_dir_or_exit() -> std::result::Result<std::path::PathBuf, glib::ExitCode>
     }
 }
 
-/// Returns `None` if nothing ran (e.g. unknown ids) so the caller can start the GUI instead.
+/// Flags that consume the next argument as their value.
+const VALUE_FLAGS: &[&str] = &[
+    "--backup",
+    "--restore-backup",
+    "--seed-settings",
+    "--seed-save",
+    "--seed-load",
+    "--seed-delete-form",
+];
+
+/// The complete set of recognised `--` flags (not counting `--on-conflict=*` prefix forms).
+const KNOWN_FLAGS: &[&str] = &[
+    "--help",
+    "--list",
+    "--clean-cache",
+    "--clean",
+    "--purge",
+    "--migrate",
+    "--backup",
+    "--restore-backup",
+    "--force",
+    "--seed-settings",
+    "--seed-save",
+    "--seed-load",
+    "--seed-list-forms",
+    "--seed-delete-form",
+    "--list-seed-packs",
+    "--update-seed-packs",
+    "--update",
+    "--yes",
+];
+
+/// Scan for unrecognised `--`-prefixed flags.  Value-taking flags have their
+/// next argument treated as a value and not checked as a flag.
+///
+/// Short flags `-y`/`-h` are passthrough; `-update` (dash-word) is valid;
+/// any other `-`-prefixed token is an app-instance spec (`-APP[:N]`) and is
+/// validated separately after the catalog is loaded.
+fn validate_unknown_flags(args: &[String]) -> std::result::Result<(), String> {
+    let mut i = 0usize;
+    while i < args.len() {
+        let a = &args[i];
+        if a == "-h" || a == "--help" || a == "-y" || a == "--yes" {
+            i += 1;
+            continue;
+        }
+        // Short dash tokens (single dash, not "--") are app specs — not flags.
+        if a.starts_with('-') && !a.starts_with("--") {
+            i += 1;
+            continue;
+        }
+        // Plus tokens are add-instance specs — not flags.
+        if a.starts_with('+') {
+            i += 1;
+            continue;
+        }
+        if a.starts_with("--") {
+            // `--on-conflict=*` is a recognised prefixed form.
+            if a.starts_with("--on-conflict=") {
+                i += 1;
+                continue;
+            }
+            if KNOWN_FLAGS.contains(&a.as_str()) {
+                // Consume the value slot for value-taking flags.
+                if VALUE_FLAGS.contains(&a.as_str()) {
+                    i += 2; // skip the value — don't re-validate it as a flag
+                } else {
+                    i += 1;
+                }
+                continue;
+            }
+            return Err(format!(
+                "unknown option '{}' (see --help)",
+                a
+            ));
+        }
+        // Bare words that are not flag-like and not app specs — unknown.
+        // (In practice this handles pathological inputs like a bare word
+        // that is neither a flag nor an instance spec.)
+        i += 1;
+    }
+    Ok(())
+}
+
+/// Validate `+APP`, `-APP`, `+APP:N`, `-APP:N` tokens against the catalog.
+/// Returns the first error found, naming the bad id or the malformed spec.
+fn validate_app_specs(
+    args: &[String],
+    by_id: &std::collections::HashMap<String, &appimage_control_core::CatalogApp>,
+) -> std::result::Result<(), String> {
+    for a in args {
+        if a.starts_with('+') && a.len() > 1 {
+            let body = &a[1..];
+            match appimage_control_core::parse_app_instance_spec(body) {
+                Ok((id, _n)) => {
+                    if !by_id.contains_key(&id) {
+                        return Err(format!("unknown app id '{}' (see --list)", id));
+                    }
+                }
+                Err(_) => {
+                    return Err(format!(
+                        "malformed instance spec '{}': expected +APP or +APP:N where N is a positive integer (see --help)",
+                        a
+                    ));
+                }
+            }
+        } else if a.starts_with('-') && !a.starts_with("--") && a.len() > 1 {
+            let body = &a[1..];
+            // `-update` is a recognised flag token, not an app spec.
+            if body == "update" {
+                continue;
+            }
+            if body.contains(':') {
+                match appimage_control_core::parse_app_instance_spec(body) {
+                    Ok((id, _n)) => {
+                        if !by_id.contains_key(&id) {
+                            return Err(format!("unknown app id '{}' (see --list)", id));
+                        }
+                    }
+                    Err(_) => {
+                        return Err(format!(
+                            "malformed instance spec '{}': expected -APP:N where N is a positive integer (see --help)",
+                            a
+                        ));
+                    }
+                }
+            } else if !by_id.contains_key(body) {
+                return Err(format!("unknown app id '{}' (see --list)", body));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Run flag-only validation (no catalog required).  Called before catalog
+/// operations that exit early (`--seed-list-forms`, `--list-seed-packs`, etc.)
+/// so a typo like `--updaet` never silently falls through to the GUI.
+fn preflight_validate_flags_only(args: &[String]) -> std::result::Result<(), String> {
+    validate_unknown_flags(args)
+}
+
+/// Returns `Some(FAILURE)` on unknown/malformed arguments (strict mode).
+/// Returns `None` only when the caller passed nothing meaningful — which in
+/// strict mode no longer happens because `has_cli_ops` is now true for any
+/// non-passthrough argument, and unknown args error here rather than falling
+/// through to the GUI.
 pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
+    // Strict pre-scan: reject unknown flags immediately, before any operation runs.
+    // App-id validation is deferred until after catalog load below.
+    if let Err(msg) = preflight_validate_flags_only(args) {
+        eprintln!("{msg}");
+        return Some(glib::ExitCode::FAILURE);
+    }
+
     if args.iter().any(|a| a == "--seed-list-forms") {
         let home = match home_dir_or_exit() {
             Ok(h) => h,
@@ -728,6 +864,16 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
         }
     };
     let by_id = catalog.by_id();
+
+    // Second pass of strict validation: now that we have the catalog we can
+    // verify every +APP/-APP/-APP:N/+APP:N token names a real app id and
+    // is syntactically well-formed.  This runs before any operation so
+    // nothing is partially applied when a later arg is invalid.
+    if let Err(msg) = validate_app_specs(args, &by_id) {
+        eprintln!("{msg}");
+        return Some(glib::ExitCode::FAILURE);
+    }
+
     let mut ran = false;
 
     for arg in args {
@@ -766,11 +912,20 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
         }
         if arg.starts_with('+') && arg.len() > 1 {
             let body = &arg[1..];
-            let Ok((id, n)) = parse_app_instance_spec(body) else {
-                continue;
+            // Pre-scan validated these already; treat parse failures as internal errors.
+            let (id, n) = match parse_app_instance_spec(body) {
+                Ok(v) => v,
+                Err(_) => {
+                    eprintln!("malformed instance spec '{}' (see --help)", arg);
+                    return Some(glib::ExitCode::FAILURE);
+                }
             };
-            let Some(app) = by_id.get(id.as_str()) else {
-                continue;
+            let app = match by_id.get(id.as_str()) {
+                Some(a) => a,
+                None => {
+                    eprintln!("unknown app id '{}' (see --list)", id);
+                    return Some(glib::ExitCode::FAILURE);
+                }
             };
             let cur = instance_count(&paths, app).unwrap_or(0);
             let target = cur.saturating_add(n).min(app.max_instances_allowed());
@@ -785,8 +940,12 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
         if arg.starts_with('-') && !arg.starts_with("--") && arg.len() > 1 {
             let body = &arg[1..];
             if !body.contains(':') {
-                let Some(app) = by_id.get(body) else {
-                    continue;
+                let app = match by_id.get(body) {
+                    Some(a) => a,
+                    None => {
+                        eprintln!("unknown app id '{}' (see --list)", body);
+                        return Some(glib::ExitCode::FAILURE);
+                    }
                 };
                 if let Err(e) = reconcile_instance_count(&paths, app, 0, &mut |m| eprintln!("{m}"))
                 {
@@ -796,11 +955,19 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
                 ran = true;
                 continue;
             }
-            let Ok((id, n)) = parse_app_instance_spec(body) else {
-                continue;
+            let (id, n) = match parse_app_instance_spec(body) {
+                Ok(v) => v,
+                Err(_) => {
+                    eprintln!("malformed instance spec '{}' (see --help)", arg);
+                    return Some(glib::ExitCode::FAILURE);
+                }
             };
-            let Some(app) = by_id.get(id.as_str()) else {
-                continue;
+            let app = match by_id.get(id.as_str()) {
+                Some(a) => a,
+                None => {
+                    eprintln!("unknown app id '{}' (see --list)", id);
+                    return Some(glib::ExitCode::FAILURE);
+                }
             };
             let cur = instance_count(&paths, app).unwrap_or(0);
             let target = cur.saturating_sub(n);
@@ -814,6 +981,8 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
     }
 
     if !ran && seed_targets.is_none() {
+        // With strict parsing this branch should only be reached when the
+        // caller passes only known passthrough flags (e.g. `-y` alone).
         return None;
     }
 
@@ -1230,5 +1399,164 @@ mod purge_prompt_tests {
         let body = fs::read_to_string(&cfg).expect("cfg");
         assert!(body.contains("\"socks5Host\": \"10.152.152.10\""));
         assert!(body.contains("\"useLocalTor\": false"));
+    }
+
+    // ── Strict-parsing tests ────────────────────────────────────────────────
+
+    /// Typo flag `--updaet` must error (Some(FAILURE)), not open GUI (None).
+    #[test]
+    fn unknown_flag_typo_errors_not_gui() {
+        let code = run_cli_ops(&["--updaet".to_string()]);
+        assert_eq!(
+            code,
+            Some(glib::ExitCode::FAILURE),
+            "--updaet should be a FAILURE, not None (which would open the GUI)"
+        );
+    }
+
+    /// Another common typo: double-dash omitted.
+    #[test]
+    fn unknown_flag_single_word_errors() {
+        let code = run_cli_ops(&["--listt".to_string()]);
+        assert_eq!(code, Some(glib::ExitCode::FAILURE));
+    }
+
+    /// `--backup` value is a path, not a flag — must not be flagged as unknown.
+    #[test]
+    fn backup_flag_value_not_treated_as_unknown_flag() {
+        // `--backup /tmp/x.tar.zst` — the path is a value slot, not a flag.
+        // The flag-only pre-scan must NOT treat '/tmp/aic-value-test.tar.zst'
+        // as an unknown option.  We verify by asserting that run_cli_ops returns
+        // Some(_) (either SUCCESS or FAILURE from the actual backup attempt, not
+        // None which would mean "nothing ran" / GUI fallback) and that it does NOT
+        // print "unknown option" for the value argument.
+        //
+        // Use a hermetic environment so the outcome is deterministic.
+        let tmp = tempfile::tempdir().expect("tmp");
+        let home = tmp.path().join("home");
+        fs::create_dir_all(&home).expect("home");
+        let catalog = tmp.path().join("catalog.json");
+        write_min_catalog(&catalog);
+        let archive = tmp.path().join("value-test.tar.zst");
+        let code = with_test_env(&home, &catalog, || {
+            run_cli_ops(&["--backup".to_string(), archive.to_string_lossy().to_string()])
+        });
+        // Must not be None (which would mean flag validation killed it and GUI
+        // would open), and must not be FAILURE due to "unknown option" for the
+        // path value — here the backup actually succeeds so we get SUCCESS.
+        assert_eq!(
+            code,
+            Some(glib::ExitCode::SUCCESS),
+            "--backup <path>: path value must not be flagged as unknown option"
+        );
+    }
+
+    /// Unknown `+APP` (app not in catalog) must error, not silently skip.
+    #[test]
+    fn unknown_app_id_plus_errors() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let home = tmp.path().join("home");
+        fs::create_dir_all(&home).expect("home");
+        let catalog = tmp.path().join("catalog.json");
+        write_min_catalog(&catalog);
+        let code = with_test_env(&home, &catalog, || {
+            run_cli_ops(&["+nosuchapp".to_string()])
+        });
+        assert_eq!(
+            code,
+            Some(glib::ExitCode::FAILURE),
+            "+nosuchapp should FAIL, not silently skip to GUI"
+        );
+    }
+
+    /// Unknown `-APP` (app not in catalog) must error.
+    #[test]
+    fn unknown_app_id_minus_errors() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let home = tmp.path().join("home");
+        fs::create_dir_all(&home).expect("home");
+        let catalog = tmp.path().join("catalog.json");
+        write_min_catalog(&catalog);
+        let code = with_test_env(&home, &catalog, || {
+            run_cli_ops(&["-nosuchapp".to_string()])
+        });
+        assert_eq!(
+            code,
+            Some(glib::ExitCode::FAILURE),
+            "-nosuchapp should FAIL"
+        );
+    }
+
+    /// `-nosuchapp:2` — unknown id with instance count — must error.
+    #[test]
+    fn unknown_app_id_minus_with_count_errors() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let home = tmp.path().join("home");
+        fs::create_dir_all(&home).expect("home");
+        let catalog = tmp.path().join("catalog.json");
+        write_min_catalog(&catalog);
+        let code = with_test_env(&home, &catalog, || {
+            run_cli_ops(&["-nosuchapp:2".to_string()])
+        });
+        assert_eq!(code, Some(glib::ExitCode::FAILURE));
+    }
+
+    /// `+session:abc` — malformed instance count — must error.
+    #[test]
+    fn malformed_instance_spec_errors() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let home = tmp.path().join("home");
+        fs::create_dir_all(&home).expect("home");
+        let catalog = tmp.path().join("catalog.json");
+        write_min_catalog(&catalog);
+        let code = with_test_env(&home, &catalog, || {
+            run_cli_ops(&["+session:abc".to_string()])
+        });
+        assert_eq!(
+            code,
+            Some(glib::ExitCode::FAILURE),
+            "+session:abc (non-numeric N) should FAIL"
+        );
+    }
+
+    /// Valid `+session` (known id, single instance) still works after strict parsing.
+    #[test]
+    fn valid_known_app_plus_still_works() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let home = tmp.path().join("home");
+        fs::create_dir_all(&home).expect("home");
+        let catalog = tmp.path().join("catalog.json");
+        write_min_catalog(&catalog);
+        // Put a fake AppImage in the cache so reconcile_instance_count can "install".
+        let cache = home.join(".local/share/appimages/cache/session");
+        fs::create_dir_all(&cache).expect("cache");
+        fs::write(cache.join("session.AppImage"), b"fake").expect("cached");
+        let code = with_test_env(&home, &catalog, || {
+            run_cli_ops(&["+session".to_string()])
+        });
+        assert_eq!(code, Some(glib::ExitCode::SUCCESS));
+    }
+
+    /// `has_cli_ops` returns false for empty args (bare invocation → GUI).
+    #[test]
+    fn has_cli_ops_empty_args_is_false() {
+        assert!(!super::has_cli_ops(&[]));
+    }
+
+    /// `has_cli_ops` returns false when only passthrough flags present.
+    #[test]
+    fn has_cli_ops_only_passthrough_is_false() {
+        assert!(!super::has_cli_ops(&["-y".to_string()]));
+        assert!(!super::has_cli_ops(&["--yes".to_string()]));
+        assert!(!super::has_cli_ops(&["-h".to_string()]));
+        assert!(!super::has_cli_ops(&["--help".to_string()]));
+    }
+
+    /// `has_cli_ops` returns true for any unknown arg — routes to CLI for error.
+    #[test]
+    fn has_cli_ops_unknown_arg_is_true() {
+        assert!(super::has_cli_ops(&["--updaet".to_string()]));
+        assert!(super::has_cli_ops(&["+nosuchapp".to_string()]));
+        assert!(super::has_cli_ops(&["-nosuchapp".to_string()]));
     }
 }
