@@ -208,17 +208,55 @@ fn try_rename_or_copy_tree(src: &Path, dst: &Path) -> Result<()> {
         Err(e) => {
             let cross = e.raw_os_error() == Some(18); // EXDEV
             if cross {
-                copy_tree(src, dst)?;
-                if src.is_dir() {
-                    fs::remove_dir_all(src)?;
-                } else {
-                    let _ = fs::remove_file(src);
-                }
-                Ok(())
+                move_tree_via_staged_copy(src, dst)
             } else {
                 Err(e.into())
             }
         }
+    }
+}
+
+/// Cross-device move: copy `src` to a staging sibling of `dst`, rename the
+/// completed copy into place, and only then delete `src`. A failure at any
+/// step leaves `src` untouched and no partial `dst` (or staging residue)
+/// behind, so a re-run never mistakes a half-copied tree for a migrated home.
+fn move_tree_via_staged_copy(src: &Path, dst: &Path) -> Result<()> {
+    let staging = staging_sibling_path(dst)?;
+    remove_path_best_effort(&staging);
+    if let Err(copy_err) = copy_tree(src, &staging) {
+        remove_path_best_effort(&staging);
+        return Err(copy_err);
+    }
+    if let Err(rename_err) = fs::rename(&staging, dst) {
+        remove_path_best_effort(&staging);
+        return Err(rename_err.into());
+    }
+    if src.is_dir() {
+        fs::remove_dir_all(src)?;
+    } else {
+        let _ = fs::remove_file(src);
+    }
+    Ok(())
+}
+
+fn staging_sibling_path(dst: &Path) -> Result<PathBuf> {
+    let Some(name) = dst.file_name().and_then(|n| n.to_str()) else {
+        return Err(Error::InvalidPath(format!(
+            "migrate: destination has no usable file name: {}",
+            dst.display()
+        )));
+    };
+    Ok(dst.with_file_name(format!(
+        ".{name}.aic-staging-{}",
+        std::process::id()
+    )))
+}
+
+fn remove_path_best_effort(p: &Path) {
+    if p.is_dir() {
+        let _ = fs::remove_dir_all(p);
+    } else {
+        let _ = fs::remove_file(p);
     }
 }
 
@@ -745,5 +783,122 @@ mod tests {
         assert!(h2.join("new.txt").is_file());
         assert!(h1.join("occupied.txt").is_file());
         assert!(!legacy.exists());
+    }
+
+    fn is_root() -> bool {
+        unsafe extern "C" {
+            fn getuid() -> u32;
+        }
+        (unsafe { getuid() }) == 0
+    }
+
+    #[test]
+    fn migration_move_failure_leaves_source_intact() {
+        use std::os::unix::fs::PermissionsExt;
+        if is_root() {
+            return; // permission-based failure injection needs a non-root uid
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let paths = AppPaths::new(tmp.path().to_path_buf()).unwrap();
+        let app = fake_session();
+        let cat = Catalog {
+            apps: vec![app.clone()],
+        };
+
+        let cache = paths.catalog_cache_dir("session");
+        fs::create_dir_all(&cache).unwrap();
+        fs::write(cache.join("session.AppImage"), b"fake").unwrap();
+        reconcile_instance_count(&paths, &app, 1, &mut |_| {}).unwrap();
+
+        let legacy = tmp.path().join("session");
+        fs::create_dir_all(&legacy).unwrap();
+        fs::write(legacy.join("precious.txt"), b"keep me").unwrap();
+
+        // Make the instance dir read-only so the rename into *.home fails.
+        let inst_dir = paths.instance_dir_for(&app, 1);
+        let home_dest = portable_home_path(&paths, &app, 1);
+        if home_dest.exists() {
+            fs::remove_dir_all(&home_dest).unwrap();
+        }
+        let mut ro = fs::metadata(&inst_dir).unwrap().permissions();
+        ro.set_mode(0o555);
+        fs::set_permissions(&inst_dir, ro).unwrap();
+
+        let c = MigrationCandidate {
+            dir_name: "session".into(),
+            source_path: legacy.clone(),
+            catalog_app_index: 0,
+            instance_index: 1,
+        };
+        let r = run_portable_dir_migration(
+            &paths,
+            &cat,
+            &[c],
+            Some(MigrationResolution::Replace),
+            false,
+            |_| unreachable!(),
+            &mut |_| {},
+        );
+
+        let mut rw = fs::metadata(&inst_dir).unwrap().permissions();
+        rw.set_mode(0o755);
+        fs::set_permissions(&inst_dir, rw).unwrap();
+
+        assert!(r.is_err(), "move into read-only instance dir must fail");
+        assert!(
+            legacy.join("precious.txt").is_file(),
+            "failed migration must leave the source dir intact"
+        );
+    }
+
+    #[test]
+    fn staged_copy_failure_keeps_source_no_partial_dest() {
+        use std::os::unix::fs::PermissionsExt;
+        if is_root() {
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let src = tmp.path().join("src");
+        fs::create_dir_all(src.join("sub")).unwrap();
+        fs::write(src.join("sub/data.txt"), b"payload").unwrap();
+
+        let dest_parent = tmp.path().join("dest_parent");
+        fs::create_dir_all(&dest_parent).unwrap();
+        let mut ro = fs::metadata(&dest_parent).unwrap().permissions();
+        ro.set_mode(0o555);
+        fs::set_permissions(&dest_parent, ro).unwrap();
+
+        let dst = dest_parent.join("moved.home");
+        let r = move_tree_via_staged_copy(&src, &dst);
+
+        let mut rw = fs::metadata(&dest_parent).unwrap().permissions();
+        rw.set_mode(0o755);
+        fs::set_permissions(&dest_parent, rw).unwrap();
+
+        assert!(r.is_err(), "staged copy into read-only parent must fail");
+        assert!(src.join("sub/data.txt").is_file(), "source must survive");
+        assert!(!dst.exists(), "no partial destination may remain");
+        let residue: Vec<_> = fs::read_dir(&dest_parent).unwrap().collect();
+        assert!(residue.is_empty(), "no staging residue may remain");
+    }
+
+    #[test]
+    fn staged_copy_success_moves_tree_and_removes_source() {
+        let tmp = tempfile::tempdir().unwrap();
+        let src = tmp.path().join("src");
+        fs::create_dir_all(src.join("sub")).unwrap();
+        fs::write(src.join("sub/data.txt"), b"payload").unwrap();
+        let dst = tmp.path().join("moved.home");
+
+        move_tree_via_staged_copy(&src, &dst).unwrap();
+
+        assert_eq!(fs::read(dst.join("sub/data.txt")).unwrap(), b"payload");
+        assert!(!src.exists(), "source removed after completed move");
+        let residue: Vec<_> = fs::read_dir(tmp.path())
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_name().to_string_lossy().contains("aic-staging"))
+            .collect();
+        assert!(residue.is_empty(), "no staging residue after success");
     }
 }
