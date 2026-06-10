@@ -1588,11 +1588,26 @@ fn update_instance_appimage_with_shared_cache(
                     Some(recorded.as_str()),
                 )
             });
-            let tag_newer_no_asset = remote_hint.is_some_and(|h| {
-                h.appimage_download_url.is_none()
-                    && crate::version_info::remote_release_newer_than_installed(&h.tag, recorded)
+            // Evaluate the remote tag comparison using the three-state result so that
+            // non-semver tags (e.g. "latest", "unstable", date-tags) are not silently
+            // treated as "not newer" and cause the run to claim up-to-date.
+            let remote_cmp = remote_hint.map(|h| {
+                (
+                    h,
+                    crate::version_info::remote_release_comparison(&h.tag, recorded),
+                )
             });
-            if !pull_gh && !tag_newer_no_asset {
+            let tag_newer_no_asset = remote_cmp.is_some_and(|(h, cmp)| {
+                h.appimage_download_url.is_none()
+                    && cmp == crate::version_info::VersionComparison::Newer
+            });
+            let tag_unknown_no_asset = remote_cmp.is_some_and(|(h, cmp)| {
+                h.appimage_download_url.is_none()
+                    && cmp == crate::version_info::VersionComparison::Unknown
+            });
+            // Only claim up-to-date when comparison is conclusively NotNewer.
+            // Unknown (unparseable remote tag) must not suppress the update check.
+            if !pull_gh && !tag_newer_no_asset && !tag_unknown_no_asset {
                 on_progress(&format!(
                     "{} instance {}: already at catalog version {}; skipping.",
                     app.id, instance_index, pinned
@@ -1611,6 +1626,13 @@ fn update_instance_appimage_with_shared_cache(
                     on_progress(&format!(
                         "{} instance {}: GitHub tag {} is newer than install but no AppImage asset was selected; trying appimageupdatetool …",
                         app.id, instance_index, h.tag
+                    ));
+                }
+            } else if tag_unknown_no_asset {
+                if let Some(h) = remote_hint {
+                    on_progress(&format!(
+                        "{} instance {}: remote tag \"{}\" cannot be compared to installed version \"{}\" (not semver) — trying appimageupdatetool; check manually if no update is found.",
+                        app.id, instance_index, h.tag, recorded
                     ));
                 }
             }

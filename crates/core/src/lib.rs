@@ -92,7 +92,7 @@ pub use update::{appimageupdatetool_available, run_appimageupdatetool, update_fr
 pub use version_info::{
     catalog_cache_fresh_for_pinned, catalog_pin_matches_recorded, catalog_pinned_version,
     fetch_github_release_hints, fetch_remote_latest_versions, github_owner_repo_from_url,
-    recorded_release_matches_tag, remote_release_newer_than_installed,
+    recorded_release_matches_tag, remote_release_comparison, remote_release_newer_than_installed,
     should_use_github_latest_asset, version_from_appimage_filename, version_from_download_url,
-    GithubReleaseHint,
+    GithubReleaseHint, VersionComparison,
 };

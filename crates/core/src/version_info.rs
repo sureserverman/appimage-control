@@ -9,18 +9,55 @@ use semver::Version;
 
 use crate::catalog::{Catalog, CatalogApp};
 
-/// True when both `remote` and `recorded` parse as [`semver::Version`] and `remote` is strictly greater.
+/// Three-state outcome of comparing a remote release tag against an installed version string.
 ///
-/// Used so “Update installed” does not skip when the embedded catalog URL is satisfied but GitHub
-/// GitHub `releases/latest` reports a newer tag than the install.
-pub fn remote_release_newer_than_installed(remote: &str, recorded: &str) -> bool {
+/// `Unknown` is returned when either side cannot be parsed as semver (e.g. `latest`, `unstable`,
+/// `v2024.1`, date-style tags).  Callers that would normally skip an update because “remote is
+/// not newer” **must not** claim “up to date” when the result is `Unknown` — they should surface
+/// the remote tag with a “(check manually)” marker instead.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VersionComparison {
+    /// `remote` parsed as semver and is strictly greater than `recorded`.
+    Newer,
+    /// Both parsed as semver and `remote` is not strictly greater (equal or older).
+    NotNewer,
+    /// At least one side could not be parsed as semver; comparison is inconclusive.
+    Unknown,
+}
+
+/// Three-state comparison of a remote release tag against a recorded installed version.
+///
+/// Returns [`VersionComparison::Unknown`] when either string fails to parse as semver, so callers
+/// can distinguish “definitely not newer” from “cannot determine” and avoid falsely reporting
+/// “up to date” for non-semver tags such as `latest`, `unstable`, or date-based releases.
+///
+/// Semver-vs-semver behavior is identical to the original bool function.
+pub fn remote_release_comparison(remote: &str, recorded: &str) -> VersionComparison {
     match (
         Version::parse(recorded.trim()),
         Version::parse(remote.trim()),
     ) {
-        (Ok(v_rec), Ok(v_rem)) => v_rem > v_rec,
-        _ => false,
+        (Ok(v_rec), Ok(v_rem)) => {
+            if v_rem > v_rec {
+                VersionComparison::Newer
+            } else {
+                VersionComparison::NotNewer
+            }
+        }
+        _ => VersionComparison::Unknown,
     }
+}
+
+/// True when both `remote` and `recorded` parse as [`semver::Version`] and `remote` is strictly greater.
+///
+/// Used so “Update installed” does not skip when the embedded catalog URL is satisfied but GitHub
+/// `releases/latest` reports a newer tag than the install.
+///
+/// **Note:** returns `false` for non-semver tags on either side.  Use [`remote_release_comparison`]
+/// when you need to distinguish “not newer” from “unparseable” (e.g. to avoid silently hiding
+/// updates for `latest`, date-style, or other non-semver tags).
+pub fn remote_release_newer_than_installed(remote: &str, recorded: &str) -> bool {
+    matches!(remote_release_comparison(remote, recorded), VersionComparison::Newer)
 }
 
 /// GitHub `releases/latest` tag plus a chosen `.AppImage` asset URL (when the API lists one we can select).
@@ -539,6 +576,73 @@ mod tests {
         assert!(!super::remote_release_newer_than_installed(
             "1.17.16", "1.17.17"
         ));
+    }
+
+    // --- Three-state VersionComparison tests ---
+
+    #[test]
+    fn version_comparison_newer() {
+        assert_eq!(
+            super::remote_release_comparison("2.0.0", "1.0.0"),
+            super::VersionComparison::Newer
+        );
+    }
+
+    #[test]
+    fn version_comparison_not_newer_equal() {
+        assert_eq!(
+            super::remote_release_comparison("1.0.0", "1.0.0"),
+            super::VersionComparison::NotNewer
+        );
+    }
+
+    #[test]
+    fn version_comparison_not_newer_older() {
+        assert_eq!(
+            super::remote_release_comparison("0.9.0", "1.0.0"),
+            super::VersionComparison::NotNewer
+        );
+    }
+
+    #[test]
+    fn version_comparison_unknown_non_semver_remote() {
+        // Non-semver remote tag must yield Unknown, not NotNewer.
+        assert_eq!(
+            super::remote_release_comparison("latest", "1.0.0"),
+            super::VersionComparison::Unknown
+        );
+        assert_eq!(
+            super::remote_release_comparison("unstable", "1.0.0"),
+            super::VersionComparison::Unknown
+        );
+        assert_eq!(
+            super::remote_release_comparison("v2024.1", "1.0.0"),
+            super::VersionComparison::Unknown
+        );
+    }
+
+    #[test]
+    fn version_comparison_unknown_non_semver_installed() {
+        assert_eq!(
+            super::remote_release_comparison("1.0.0", "not-a-version"),
+            super::VersionComparison::Unknown
+        );
+    }
+
+    #[test]
+    fn version_comparison_unknown_both_garbage() {
+        assert_eq!(
+            super::remote_release_comparison("nightly", "bleeding-edge"),
+            super::VersionComparison::Unknown
+        );
+    }
+
+    /// The legacy bool function must preserve its original semver-vs-semver semantics.
+    #[test]
+    fn bool_wrapper_still_returns_false_for_non_semver() {
+        // old contract: non-semver returns false (not newer)
+        assert!(!super::remote_release_newer_than_installed("latest", "1.0.0"));
+        assert!(!super::remote_release_newer_than_installed("1.0.0", "bad-ver"));
     }
 
     #[test]
