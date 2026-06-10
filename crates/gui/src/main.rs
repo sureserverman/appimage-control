@@ -836,6 +836,54 @@ fn mount_catalog_view(
                 specs.push((h.app_index, target, h.can_install));
             }
 
+            // Confirm before removing any instance data.  Build the removal
+            // summary now, on the main thread, before any thread is spawned.
+            {
+                let rows_b = rows.borrow();
+                let mut removal_lines: Vec<String> = Vec::new();
+                for h in rows_b.iter() {
+                    let target = h.spin.value() as u32;
+                    let current = h.last_applied.get();
+                    if target < current {
+                        // Mirror reconcile_instance_count_inner: to_remove = indices
+                        // in current set that are NOT in 1..=target, sorted descending.
+                        let mut to_remove: Vec<u32> = (target + 1..=current).collect();
+                        to_remove.sort_by(|a, b| b.cmp(a));
+                        let count = to_remove.len();
+                        let first = to_remove[0];
+                        let last = *to_remove.last().expect("non-empty removal list");
+                        let app = &catalog.apps[h.app_index];
+                        let name = app.display_name_resolved();
+                        let range_label = if count == 1 {
+                            format!("instance {first}")
+                        } else {
+                            format!("instances {first}–{last}")
+                        };
+                        removal_lines.push(format!(
+                            "<b>{}</b>: {} ({} instance{})",
+                            glib::markup_escape_text(&name),
+                            range_label,
+                            count,
+                            if count == 1 { "" } else { "s" },
+                        ));
+                    }
+                }
+                if !removal_lines.is_empty() {
+                    let detail = removal_lines.join("\n");
+                    if !ask_confirmation(
+                        &window_for_apply,
+                        ConfirmKind::Warn,
+                        "Remove instance data?",
+                        "Lowering the instance count will permanently delete the home directory \
+                         data for the removed instances. This cannot be undone.",
+                        Some(&format!("<small>{detail}</small>")),
+                        "Remove and Apply",
+                    ) {
+                        return;
+                    }
+                }
+            }
+
             let paths_t = (*paths).clone();
             let catalog_t = (*catalog).clone();
             let rows_idle = Rc::clone(&rows);
