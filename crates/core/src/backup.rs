@@ -303,6 +303,9 @@ fn safe_relative_archive_path(p: &Path) -> Result<PathBuf> {
     for c in p.components() {
         match c {
             Component::Normal(seg) => out.push(seg),
+            // CurDir (`.`) components are silently skipped; they cannot mask
+            // subsequent `..` because `Path::components()` always exposes every
+            // `ParentDir` regardless of interleaved CurDir segments.
             Component::CurDir => {}
             Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
                 return Err(Error::Backup(format!(
@@ -311,6 +314,14 @@ fn safe_relative_archive_path(p: &Path) -> Result<PathBuf> {
                 )));
             }
         }
+    }
+    // Reject an all-CurDir input like `./././` that collapses to an empty path;
+    // writing to `stage_dir.join("")` would silently target the staging root.
+    if out.as_os_str().is_empty() {
+        return Err(Error::Backup(format!(
+            "archive entry resolves to empty path: {}",
+            p.display()
+        )));
     }
     Ok(out)
 }
@@ -499,6 +510,16 @@ pub fn restore_backup_archive(paths: &AppPaths, archive_path: &Path, force: bool
             // This is a lightweight check; restore_destination_path does the authoritative
             // mapping in the swap phase below.
             let stage_path = stage_dir.join(&logical);
+            // Defense-in-depth: confirm the join did not escape the staging dir.
+            // `safe_relative_archive_path` already rejects all escape-capable components;
+            // this check closes any future sanitizer gap without relying on canonicalize
+            // (which would require the path to already exist on disk).
+            if !stage_path.starts_with(&stage_dir) {
+                return Err(Error::Backup(format!(
+                    "archive entry would escape staging directory: {}",
+                    logical.display()
+                )));
+            }
             if let Some(parent) = stage_path.parent() {
                 fs::create_dir_all(parent).map_err(|e| {
                     Error::Backup(format!(
