@@ -910,7 +910,10 @@ fn mount_catalog_view(
             statusbar.set_text("Working…");
 
             let (tx_prog, rx_prog) = mpsc::channel::<(f64, String)>();
-            let (tx, rx) = mpsc::channel::<String>();
+            // (log, seed_failed, helper_missing): seed_failed = seeding
+            // errors from seed_new_instances_after_reconcile; helper_missing
+            // = instances skipped because portmux-port probe failed.
+            let (tx, rx) = mpsc::channel::<(String, u32, u32)>();
 
             let remote_for_idle = Rc::clone(&remote_latest_cache);
             let window_idle = window_for_apply.clone();
@@ -924,10 +927,25 @@ fn mount_catalog_view(
                     progress_done.set_text(Some(&label));
                 }
                 match rx.try_recv() {
-                    Ok(log_final) => {
+                    Ok((log_final, seed_failed, helper_missing)) => {
                         progress_done.set_visible(false);
                         progress_done.set_fraction(0.0);
-                        present_activity_log_dialog(&window_idle, &log_final);
+                        let not_seeded = seed_failed + helper_missing;
+                        let display_log = if not_seeded > 0 {
+                            format!(
+                                "{log_final}\nWARNING: {not_seeded} instance(s) installed but NOT seeded — see log above"
+                            )
+                        } else {
+                            log_final
+                        };
+                        present_activity_log_dialog(&window_idle, &display_log);
+                        if not_seeded > 0 {
+                            status_idle.set_text(&format!(
+                                "Applied — {not_seeded} instance(s) NOT seeded (see activity log)"
+                            ));
+                        } else {
+                            status_idle.set_text("Applied.");
+                        }
                         let rem = remote_for_idle.borrow();
                         for h in rows_idle.borrow_mut().iter_mut() {
                             let app = &catalog_idle.apps[h.app_index];
@@ -962,7 +980,6 @@ fn mount_catalog_view(
                         }
                         update_total_label(&total_idle, &paths_total, &catalog_total);
                         (recompute_done)();
-                        let _ = status_idle;
                         glib::ControlFlow::Break
                     }
                     Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
@@ -991,6 +1008,13 @@ fn mount_catalog_view(
                 // log the install hint *once* even when several apps
                 // each add new instances in the same Apply run.
                 let mut probe_failure_logged: Option<String> = None;
+                // Counts propagated to the idle handler so the status
+                // bar and activity-log dialog can surface seeding failures
+                // visibly rather than leaving the user on a plain "Applied."
+                let mut seed_failed: u32 = 0;
+                // Instances that were installed but skipped at the probe
+                // stage (portmux-port helper not found / not working).
+                let mut helper_missing: u32 = 0;
                 let n = specs.len();
                 if n == 0 {
                     let _ = tx_prog.send((1.0, "Working…".to_string()));
@@ -1035,6 +1059,8 @@ fn mount_catalog_view(
                                                     "{}: auto-seeding skipped — required system helper still unavailable\n",
                                                     app.id
                                                 ));
+                                                helper_missing +=
+                                                    rep.added.len() as u32;
                                                 false
                                             }
                                             None => match portmux_port_probe_runtime() {
@@ -1044,6 +1070,8 @@ fn mount_catalog_view(
                                                         "{}: auto-seeding skipped — required system helper unavailable.\n{msg}\n",
                                                         app.id
                                                     ));
+                                                    helper_missing +=
+                                                        rep.added.len() as u32;
                                                     probe_failure_logged = Some(msg);
                                                     false
                                                 }
@@ -1056,7 +1084,7 @@ fn mount_catalog_view(
                                                 app.id,
                                                 rep.added.len(),
                                             ));
-                                            let _ = appimage_control_core::seed_new_instances_after_reconcile(
+                                            match appimage_control_core::seed_new_instances_after_reconcile(
                                                 &paths_t,
                                                 app,
                                                 &rep.added,
@@ -1065,7 +1093,19 @@ fn mount_catalog_view(
                                                     log.push_str(m);
                                                     log.push('\n');
                                                 },
-                                            );
+                                            ) {
+                                                Ok(seed_rep) => {
+                                                    seed_failed += seed_rep.failed;
+                                                }
+                                                Err(e) => {
+                                                    log.push_str(&format!(
+                                                        "{}: seeding error: {e}\n",
+                                                        app.id
+                                                    ));
+                                                    seed_failed +=
+                                                        rep.added.len() as u32;
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -1083,7 +1123,7 @@ fn mount_catalog_view(
                 if log.is_empty() {
                     log.push_str("No changes applied.\n");
                 }
-                let _ = tx.send(log);
+                let _ = tx.send((log, seed_failed, helper_missing));
             });
         }
     });
