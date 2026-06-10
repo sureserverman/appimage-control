@@ -763,8 +763,11 @@ pub fn ensure_cached_appimage(
                 "Cache {} is outdated for this catalog; replacing …",
                 filename
             ));
-            let _ = fs::remove_file(&dest);
-            let _ = fs::remove_file(dir.join(crate::version_info::GITHUB_CACHE_TAG_FILENAME));
+            // Do NOT remove the stale file here.  `download_to_file` writes to a
+            // `.partdownload` sibling first and renames into `dest` only on success
+            // (atomic replace).  Removing the stale copy pre-emptively means a
+            // failed download leaves no usable binary at all.  The stale file
+            // survives any download error and is replaced atomically on success.
         }
     }
 
@@ -2647,24 +2650,99 @@ mod tests {
         }
     }
 
+    /// A failed download must not destroy a pre-existing (stale) cache file.
+    /// Before the fix, `ensure_cached_appimage` removed the stale file before
+    /// attempting the download; a network error then left no binary at all, making
+    /// scale-up impossible.  The new contract: on download failure the stale file
+    /// is preserved and an `Err` is returned.
     #[test]
-    fn ensure_cached_removes_stale_file_before_download_attempt() {
+    fn ensure_cached_preserves_stale_file_on_failed_download() {
         let tmp = tempfile::tempdir().unwrap();
         let paths = AppPaths::new(tmp.path().to_path_buf()).unwrap();
+        // URL has a version bump (2.8.1) so the cached 2.8.0 file is considered stale.
         let app = versioned_catalog_app(
             "stalecat",
             "feather-2.8.0.AppImage",
-            "https://example.invalid/wont/fetch/feather-2.8.1.AppImage",
+            "http://127.0.0.1:9/feather-2.8.1.AppImage",
         );
         let cache = paths.catalog_cache_dir("stalecat");
         fs::create_dir_all(&cache).unwrap();
         let dest = cache.join("feather-2.8.0.AppImage");
-        fs::write(&dest, b"old").unwrap();
+        fs::write(&dest, b"old-binary").unwrap();
         let r = ensure_cached_appimage(&paths, &app, &mut |_| {});
-        assert!(r.is_err());
+        assert!(r.is_err(), "download to unroutable address must fail");
         assert!(
-            !dest.exists(),
-            "stale cache file should be removed before failed download"
+            dest.exists(),
+            "stale cache file must survive a failed download attempt"
+        );
+        assert_eq!(
+            fs::read(&dest).unwrap(),
+            b"old-binary",
+            "stale cache file contents must be unmodified after a failed download"
+        );
+        // No .partdownload residue — download_to_file cleans up on failure.
+        let part = cache.join("feather-2.8.0.AppImage.partdownload");
+        assert!(
+            !part.exists(),
+            ".partdownload residue must not be left on download failure"
+        );
+    }
+
+    /// A successful download must atomically replace the stale cache file and
+    /// update (or remove) the GitHub tag sidecar so freshness checks stay consistent.
+    #[test]
+    fn ensure_cached_replaces_stale_file_on_successful_download() {
+        use std::io::{Read as _, Write as _};
+        use std::net::TcpListener;
+
+        // Spin up a minimal one-shot HTTP/1.0 server in a background thread.
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let body = b"new-binary-content";
+        let body_len = body.len();
+        std::thread::spawn(move || {
+            if let Ok((mut stream, _)) = listener.accept() {
+                // Drain the request.
+                let mut buf = [0u8; 4096];
+                let _ = stream.read(&mut buf);
+                let response = format!(
+                    "HTTP/1.0 200 OK\r\nContent-Length: {body_len}\r\n\r\n",
+                );
+                let _ = stream.write_all(response.as_bytes());
+                let _ = stream.write_all(body);
+            }
+        });
+
+        let tmp = tempfile::tempdir().unwrap();
+        let paths = AppPaths::new(tmp.path().to_path_buf()).unwrap();
+        // The URL embeds version 2.8.1; the cached file is 2.8.0 → stale.
+        let url = format!("http://127.0.0.1:{}/feather-2.8.1.AppImage", addr.port());
+        let app = versioned_catalog_app("stalecat2", "feather-2.8.0.AppImage", &url);
+        let cache = paths.catalog_cache_dir("stalecat2");
+        fs::create_dir_all(&cache).unwrap();
+        let dest = cache.join("feather-2.8.0.AppImage");
+        fs::write(&dest, b"old-binary").unwrap();
+        // Place a GitHub tag sidecar that should be cleared after a catalog download.
+        let sidecar = cache.join(crate::version_info::GITHUB_CACHE_TAG_FILENAME);
+        fs::write(&sidecar, b"2.8.0").unwrap();
+
+        let result_path = ensure_cached_appimage(&paths, &app, &mut |_| {}).unwrap();
+        assert_eq!(result_path, dest, "returned path must be the final cache path");
+        assert_eq!(
+            fs::read(&dest).unwrap(),
+            b"new-binary-content",
+            "stale cache file must be replaced with the new download"
+        );
+        // GitHub tag sidecar must be removed after a catalog-URL download.
+        assert!(
+            !sidecar.exists(),
+            "GitHub tag sidecar must be removed after successful catalog download"
+        );
+        // No .partdownload residue after success.
+        let part = cache.join("feather-2.8.0.AppImage.partdownload");
+        assert!(
+            !part.exists(),
+            ".partdownload must not persist after a successful download"
         );
     }
 
