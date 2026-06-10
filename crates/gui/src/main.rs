@@ -10,7 +10,7 @@ mod seed_dialog;
 mod status_text;
 mod ui;
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::sync::mpsc;
 
@@ -54,8 +54,10 @@ struct RowHandles {
     /// Resolved URL exists for this process CPU architecture.
     can_install: bool,
     /// Mirror of `instance_count` at last refresh — used for purely-client-side
-    /// pending detection on every spin change.
-    last_applied: u32,
+    /// pending detection on every spin change.  Wrapped in `Rc<Cell<u32>>` so
+    /// the `value-changed` closure always reads the live post-Apply value rather
+    /// than the copy that was frozen at row-construction time.
+    last_applied: Rc<Cell<u32>>,
 }
 
 /// Renders the row's subtitle/meta string and updates the per-row "Update available" pill.
@@ -658,7 +660,7 @@ fn mount_catalog_view(
             pending_pill: pending_pill.clone(),
             update_pill: update_pill.clone(),
             can_install,
-            last_applied: installed,
+            last_applied: Rc::new(Cell::new(installed)),
         });
     }
 
@@ -676,7 +678,7 @@ fn mount_catalog_view(
             let pending_count = rows
                 .borrow()
                 .iter()
-                .filter(|h| (h.spin.value() as u32) != h.last_applied)
+                .filter(|h| (h.spin.value() as u32) != h.last_applied.get())
                 .count();
             if let Some(a) = apply_weak.upgrade() {
                 let label = if pending_count == 0 {
@@ -714,7 +716,7 @@ fn mount_catalog_view(
         let row_w = handle.row.clone();
         let pending_pill_w = handle.pending_pill.clone();
         let update_pill_w = handle.update_pill.clone();
-        let last_applied = handle.last_applied;
+        let last_applied = Rc::clone(&handle.last_applied);
         handle.spin.connect_value_changed(move |spin| {
             let app = &catalog_spin.apps[app_index_spin];
             let n = spin.value() as u32;
@@ -728,7 +730,7 @@ fn mount_catalog_view(
                 app,
                 installed_n,
                 n,
-                last_applied,
+                last_applied.get(),
                 remote,
                 &row_w,
                 &update_pill_w,
@@ -799,7 +801,7 @@ fn mount_catalog_view(
                     app,
                     installed_n,
                     n,
-                    h.last_applied,
+                    h.last_applied.get(),
                     remote.as_ref().map(|hint| hint.tag.as_str()),
                     &h.row,
                     &h.update_pill,
@@ -884,7 +886,7 @@ fn mount_catalog_view(
                             let n = instance_count(paths_idle.as_ref(), app).unwrap_or(0);
                             let cap = app.max_instances_allowed();
                             h.spin.set_value(n.min(cap) as f64);
-                            h.last_applied = n;
+                            h.last_applied.set(n);
                             let can = h.can_install;
                             let has_any = catalog_idle.apps[h.app_index].has_any_download_url();
                             h.spin.set_sensitive(has_any && can);
@@ -896,7 +898,7 @@ fn mount_catalog_view(
                                 app,
                                 n,
                                 h.spin.value() as u32,
-                                h.last_applied,
+                                h.last_applied.get(),
                                 remote,
                                 &h.row,
                                 &h.update_pill,
@@ -1102,7 +1104,7 @@ fn mount_catalog_view(
                             let n = instance_count(paths_idle.as_ref(), app).unwrap_or(0);
                             let cap = app.max_instances_allowed();
                             h.spin.set_value(n.min(cap) as f64);
-                            h.last_applied = n;
+                            h.last_applied.set(n);
                             let can = h.can_install;
                             let has_any = catalog_idle.apps[h.app_index].has_any_download_url();
                             h.spin.set_sensitive(has_any && can);
@@ -1114,7 +1116,7 @@ fn mount_catalog_view(
                                 app,
                                 n,
                                 h.spin.value() as u32,
-                                h.last_applied,
+                                h.last_applied.get(),
                                 remote,
                                 &h.row,
                                 &h.update_pill,
@@ -1223,7 +1225,7 @@ fn refresh_all_rows(
             app,
             installed_n,
             h.spin.value() as u32,
-            h.last_applied,
+            h.last_applied.get(),
             remote,
             &h.row,
             &h.update_pill,
@@ -1277,7 +1279,7 @@ fn install_window_actions_for_catalog(
                 let app = &catalog.apps[h.app_index];
                 let n = instance_count(paths.as_ref(), app).unwrap_or(0);
                 h.spin.set_value(n.min(app.max_instances_allowed()) as f64);
-                h.last_applied = n;
+                h.last_applied.set(n);
             }
             refresh_all_rows(&paths, &catalog, &remote, &rows);
             update_total_label(&total_label, &paths, &catalog);
