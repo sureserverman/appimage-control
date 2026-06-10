@@ -460,11 +460,13 @@ fn seed_until_config(appimage: &Path, first_run_args: &[&str], expected: &Path) 
         .ok_or_else(|| Error::InvalidPath("seed: AppImage has no parent dir".into()))?;
 
     // Remove stale PID files from crashed prior runs before we spawn.
-    // "Stale" means created before this process started (mtime < now).
-    // We use `std::time::SystemTime::now()` at the point of the sweep so
-    // any file we don't manage to create yet cannot be swept by a
-    // concurrent caller either.
-    let sweep_before = std::time::SystemTime::now();
+    // The cutoff must be far in the past, NOT `now()`: a concurrent seed
+    // of the same instance dir may have written its PID file milliseconds
+    // ago, and sweeping it would orphan that run's process group (its
+    // teardown could no longer find the PGID to kill). A legitimate seed
+    // lives for at most the config-wait timeout (~20 s), so anything older
+    // than an hour can only be a crashed run's leftover.
+    let sweep_before = std::time::SystemTime::now() - std::time::Duration::from_secs(3600);
     sweep_stale_pid_files(instance_dir, sweep_before);
 
     let appimage_q = sh_single_quote(&appimage.to_string_lossy());
@@ -586,6 +588,28 @@ fn sh_single_quote(s: &str) -> String {
     out
 }
 
+/// Signal an entire process group. Native: the `kill(2)` syscall with a
+/// negative PID — immune to the CLI parsing differences between procps-ng
+/// (needs `kill -s SIG -- -<pgid>`) and util-linux (rejects that exact form
+/// with "cannot find process"). Inside Flatpak the kill must happen on the
+/// HOST pid namespace, so we shell out via `flatpak-spawn --host kill` with
+/// the procps-ng-compatible form (Flatpak hosts in scope ship procps-ng).
+fn signal_process_group(pgid: i32, sig_name: &str, sig_no: i32) {
+    if crate::host_cmd::in_flatpak() {
+        let neg = format!("-{pgid}");
+        let _ = host_command("kill")
+            .args(["-s", sig_name, "--", neg.as_str()])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    } else {
+        unsafe extern "C" {
+            fn kill(pid: i32, sig: i32) -> i32;
+        }
+        let _ = unsafe { kill(-pgid, sig_no) };
+    }
+}
+
 fn terminate_seed_child(child: &mut Child, pid_file: &Path) {
     // The host-side session leader PID was written by our `sh` wrapper before
     // it `exec`d xvfb-run. Reading it gives us the PGID of the entire
@@ -597,22 +621,9 @@ fn terminate_seed_child(child: &mut Child, pid_file: &Path) {
         .filter(|p| *p > 1);
 
     if let Some(pgid) = host_pgid {
-        // procps-ng `kill` mis-parses `kill -KILL -<n>` (it returns exit 0
-        // but does not signal the group). Use the explicit `-s SIG --
-        // -<pgid>` form so that `--` terminates option parsing and the
-        // negative PID is unambiguously a process group.
-        let neg = format!("-{pgid}");
-        let _ = host_command("kill")
-            .args(["-s", "TERM", "--", neg.as_str()])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status();
+        signal_process_group(pgid, "TERM", 15);
         thread::sleep(Duration::from_millis(500));
-        let _ = host_command("kill")
-            .args(["-s", "KILL", "--", neg.as_str()])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status();
+        signal_process_group(pgid, "KILL", 9);
     }
 
     let _ = child.kill();
@@ -1176,9 +1187,10 @@ exec "$@"
             let stale_pid_file =
                 instance_dir.join(format!("{PID_FILE_PREFIX}.99999999.0"));
             fs::write(&stale_pid_file, b"99999\n").unwrap();
-            // Back-date the file so the sweep treats it as stale (mtime in the past).
+            // Back-date the file past the 1-hour staleness window so the
+            // sweep treats it as a crashed prior run's leftover.
             let past = std::time::SystemTime::now()
-                - std::time::Duration::from_secs(60);
+                - std::time::Duration::from_secs(2 * 3600);
             let past_secs = past
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
@@ -1256,6 +1268,51 @@ exec "$@"
                     .collect::<Vec<_>>()
             );
             result2.expect("seed 2 failed");
+
+            match prev {
+                Some(v) => std::env::set_var("APPIMAGE_CONTROL_SEEDS_DIR", v),
+                None => std::env::remove_var("APPIMAGE_CONTROL_SEEDS_DIR"),
+            }
+        });
+    }
+
+    /// Regression (Stage 3 gate): a PID file freshly written by a CONCURRENT
+    /// seed of the same instance dir must survive another run's pre-spawn
+    /// sweep. With a `now()` cutoff the second run swept the first run's
+    /// file, orphaning its process group — children leaked because teardown
+    /// could no longer find the PGID to kill.
+    #[test]
+    fn fresh_concurrent_pid_file_survives_sweep_of_new_run() {
+        with_fake_xvfb(tempfile::tempdir().unwrap().path(), || {
+            let tmp = tempfile::tempdir().unwrap();
+            let seeds_dir = tmp.path().join("seeds");
+            let app_id = "aic-pidfile-fresh-app";
+            let appimage_filename = "aic-pidfile-fresh-app.AppImage";
+            install_pipeline_test_pack(&seeds_dir, app_id, appimage_filename);
+
+            let prev = std::env::var("APPIMAGE_CONTROL_SEEDS_DIR").ok();
+            std::env::set_var("APPIMAGE_CONTROL_SEEDS_DIR", &seeds_dir);
+
+            let app = supported_app(app_id, appimage_filename);
+            let rel_cfg = format!("{appimage_filename}.test/config.json");
+            let (paths, appimage, _cfg) = make_seedable_instance(&tmp, &app, 1, &rel_cfg, true);
+            let instance_dir = appimage.parent().unwrap().to_path_buf();
+
+            // Simulate a concurrent run's freshly written PID file (mtime = now).
+            let foreign = instance_dir.join(format!("{PID_FILE_PREFIX}.424242.7"));
+            fs::write(&foreign, b"424242\n").unwrap();
+
+            let mut progress = Vec::<String>::new();
+            seed_instance_settings(&paths, &app, 1, SeedPreset::Ubuntu, &mut |s| {
+                progress.push(s.to_string())
+            })
+            .expect("seed failed");
+
+            assert!(
+                foreign.exists(),
+                "fresh concurrent PID file must NOT be swept by another run"
+            );
+            let _ = fs::remove_file(&foreign);
 
             match prev {
                 Some(v) => std::env::set_var("APPIMAGE_CONTROL_SEEDS_DIR", v),
