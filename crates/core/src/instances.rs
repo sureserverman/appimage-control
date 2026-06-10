@@ -688,7 +688,7 @@ pub fn clean_installed_catalog_apps_keep_cache(
     prune_empty_catalog_app_roots(paths, catalog)?;
     sweep_appimage_control_desktop_files(paths)?;
     sweep_appimage_control_hicolor_png_files(paths)?;
-    update_desktop_database_best_effort(paths);
+    update_desktop_database_best_effort(paths, Some(on_progress));
     update_icon_cache_best_effort(paths);
     on_progress("Clean finished (cache preserved).");
     Ok(())
@@ -725,7 +725,7 @@ pub fn purge_appimage_control_state(
     sweep_appimage_control_desktop_files(paths)?;
     sweep_appimage_control_hicolor_png_files(paths)?;
 
-    update_desktop_database_best_effort(paths);
+    update_desktop_database_best_effort(paths, Some(on_progress));
     update_icon_cache_best_effort(paths);
     on_progress("Purge finished.");
     Ok(())
@@ -923,12 +923,36 @@ fn patch_cryptomator_cfg(
 /// When `provision_portable_dirs` is false, empty `*.home` / `*.config` are not created (except
 /// Cryptomator, which still runs [`ensure_cryptomator_instance_ready`]). Used by portable CLI
 /// migration so an empty scaffold does not hide a real destination conflict.
+///
+/// Internal callers use [`install_instance_from_cache_inner`] directly so they can surface
+/// version-sidecar write failures via a progress callback. This wrapper is kept for callers
+/// that have no progress context (direct test helpers, future CLI one-shots).
+// Progress-less callers get a no-op callback; version-sidecar failures are silent for them.
+#[allow(dead_code)]
 pub fn install_instance_from_cache(
     paths: &AppPaths,
     app: &CatalogApp,
     instance_index: u32,
     cached_appimage: &Path,
     provision_portable_dirs: bool,
+) -> Result<()> {
+    install_instance_from_cache_inner(
+        paths,
+        app,
+        instance_index,
+        cached_appimage,
+        provision_portable_dirs,
+        &mut |_| {},
+    )
+}
+
+fn install_instance_from_cache_inner(
+    paths: &AppPaths,
+    app: &CatalogApp,
+    instance_index: u32,
+    cached_appimage: &Path,
+    provision_portable_dirs: bool,
+    on_progress: &mut dyn FnMut(&str),
 ) -> Result<()> {
     if instance_index == 0 || instance_index > MAX_INSTANCES_PER_APP {
         return Err(Error::InvalidPath(format!(
@@ -967,11 +991,21 @@ pub fn install_instance_from_cache(
     if let Some(v) = crate::version_info::read_catalog_cache_release_for_install(&cache_dir) {
         let t = v.trim();
         if !t.is_empty() {
-            let _ = fs::write(&meta, format!("{t}\n"));
+            if let Err(e) = fs::write(&meta, format!("{t}\n")) {
+                on_progress(&format!(
+                    "warning: could not record installed version for {} instance {}: {}",
+                    app.id, instance_index, e
+                ));
+            }
         }
     } else if let Ok(url) = app.resolved_download_url() {
         if let Some(v) = crate::version_info::version_from_download_url(url) {
-            let _ = fs::write(&meta, format!("{}\n", v));
+            if let Err(e) = fs::write(&meta, format!("{}\n", v)) {
+                on_progress(&format!(
+                    "warning: could not record installed version for {} instance {}: {}",
+                    app.id, instance_index, e
+                ));
+            }
         }
     }
 
@@ -1076,7 +1110,7 @@ fn write_instance_desktop_and_icon(
         }
     };
     if launcher_changed || desktop_changed {
-        update_desktop_database_best_effort(paths);
+        update_desktop_database_best_effort(paths, None);
         update_icon_cache_best_effort(paths);
     }
 
@@ -1630,7 +1664,7 @@ fn update_instance_appimage_with_shared_cache(
                         "{} instance {}: appimageupdatetool finished (binary replaced)",
                         app.id, instance_index
                     ));
-                    refresh_instance_version_metadata(paths, app, instance_index, None)?;
+                    refresh_instance_version_metadata(paths, app, instance_index, None, on_progress)?;
                     ensure_cryptomator_instance_ready(&dir, app, true)?;
                     let _ = write_instance_desktop_and_icon(paths, app, instance_index, &dest_bin)?;
                     return Ok(InstanceUpdateOutcome::Updated);
@@ -1713,13 +1747,18 @@ fn update_instance_appimage_with_shared_cache(
     } else {
         None
     };
-    refresh_instance_version_metadata(paths, app, instance_index, gh_ver)?;
+    refresh_instance_version_metadata(paths, app, instance_index, gh_ver, on_progress)?;
 
     if use_gh {
         let cache_dir = paths.catalog_cache_dir(&app.id);
         fs::create_dir_all(&cache_dir)?;
         let cache_path = cache_dir.join(&filename);
-        let _ = fs::copy(&dest_bin, &cache_path);
+        if let Err(e) = fs::copy(&dest_bin, &cache_path) {
+            on_progress(&format!(
+                "warning: could not backfill GitHub cache for {} instance {}: {}",
+                app.id, instance_index, e
+            ));
+        }
         if let Some(h) = remote_hint {
             crate::version_info::write_github_cache_tag_sidecar(&cache_dir, &h.tag)?;
             crate::version_info::write_catalog_cache_recorded_version(&cache_dir, &h.tag)?;
@@ -1741,6 +1780,7 @@ fn refresh_instance_version_metadata(
     app: &CatalogApp,
     instance_index: u32,
     version_override: Option<&str>,
+    on_progress: &mut dyn FnMut(&str),
 ) -> Result<()> {
     let v = if let Some(v) = version_override {
         Some(v.to_string())
@@ -1754,7 +1794,12 @@ fn refresh_instance_version_metadata(
         let meta = paths
             .instance_dir_for(app, instance_index)
             .join(crate::version_info::INSTANCE_VERSION_FILENAME);
-        let _ = fs::write(meta, format!("{}\n", v));
+        if let Err(e) = fs::write(&meta, format!("{}\n", v)) {
+            on_progress(&format!(
+                "warning: could not record installed version for {} instance {}: {}",
+                app.id, instance_index, e
+            ));
+        }
     }
     Ok(())
 }
@@ -1896,7 +1941,7 @@ pub fn repair_instance_launchers(
                     let _ = fs::create_dir_all(&portable_config);
                     let _ = fs::create_dir_all(&portable_home);
 
-                    let _ = refresh_instance_version_metadata(paths, app, i, None);
+                    let _ = refresh_instance_version_metadata(paths, app, i, None, on_progress);
                 } else {
                     on_progress(&format!(
                         "{} instance {}: skipped (missing AppImage: {}; cache missing: {})",
@@ -1960,7 +2005,7 @@ pub fn remove_instance(paths: &AppPaths, app: &CatalogApp, instance_index: u32) 
         fs::remove_file(&desktop)?;
     }
 
-    update_desktop_database_best_effort(paths);
+    update_desktop_database_best_effort(paths, None);
     Ok(())
 }
 
@@ -2053,7 +2098,7 @@ fn reconcile_instance_count_inner(
     if !to_add.is_empty() {
         let cached = ensure_cached_appimage(paths, app, on_progress)?;
         for i in to_add {
-            install_instance_from_cache(paths, app, i, &cached, provision_portable_dirs)?;
+            install_instance_from_cache_inner(paths, app, i, &cached, provision_portable_dirs, on_progress)?;
             on_progress(&format!("Installed {} instance {} …", app.id, i));
             added.push(i);
         }
@@ -2070,10 +2115,25 @@ fn reconcile_instance_count_inner(
     })
 }
 
-fn update_desktop_database_best_effort(paths: &AppPaths) {
-    let _ = host_command("update-desktop-database")
+fn update_desktop_database_best_effort(
+    paths: &AppPaths,
+    on_progress: Option<&mut dyn FnMut(&str)>,
+) {
+    match host_command("update-desktop-database")
         .arg(paths.applications_dir())
-        .status();
+        .status()
+    {
+        Ok(status) if !status.success() => {
+            if let Some(cb) = on_progress {
+                cb(&format!(
+                    "warning: update-desktop-database exited with {}",
+                    status
+                ));
+            }
+        }
+        // Command absent (NotFound) or any other I/O error: keep silent — normal outside DEs.
+        _ => {}
+    }
 }
 
 fn update_icon_cache_best_effort(paths: &AppPaths) {
@@ -4257,6 +4317,160 @@ java-options=-Dcryptomator.ipcSocketPath=@{userhome}/.config/Cryptomator/ipc.soc
         assert!(
             !desktop2.is_file(),
             "launcher for instance 2 must be gone after successful retry"
+        );
+    }
+
+    // ── Metadata-warning tests ────────────────────────────────────────────────
+
+    /// install_instance_from_cache_inner emits a "warning:" progress line when the
+    /// version sidecar write fails (e.g. pre-existing 0o000 file in the instance dir),
+    /// but the overall install still succeeds.
+    #[test]
+    fn install_version_sidecar_failure_warns_and_install_succeeds() {
+        use crate::version_info::INSTANCE_VERSION_FILENAME;
+        use std::os::unix::fs::PermissionsExt;
+        if is_root() {
+            return; // permission-based injection bypassed as root
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let paths = AppPaths::new(tmp.path().to_path_buf()).unwrap();
+        let app = fake_app("warn-ver-app", "warn.AppImage");
+
+        // Cache dir: place both the AppImage and a version sidecar so the
+        // `read_catalog_cache_release_for_install` branch fires.
+        let cache_dir = paths.catalog_cache_dir("warn-ver-app");
+        fs::create_dir_all(&cache_dir).unwrap();
+        let cached = cache_dir.join("warn.AppImage");
+        fs::write(&cached, b"fake appimage").unwrap();
+        fs::write(
+            cache_dir.join(INSTANCE_VERSION_FILENAME),
+            b"1.2.3\n",
+        )
+        .unwrap();
+
+        // Pre-create the instance dir and a 0o000 version sidecar so the write
+        // into it will fail (EACCES), but the dir itself stays writable for
+        // copy_or_hardlink and desktop writes.
+        let instance_dir = paths.instance_dir_for(&app, 1);
+        fs::create_dir_all(&instance_dir).unwrap();
+        let meta_path = instance_dir.join(INSTANCE_VERSION_FILENAME);
+        fs::write(&meta_path, b"").unwrap();
+        fs::set_permissions(&meta_path, fs::Permissions::from_mode(0o000)).unwrap();
+
+        // Ensure applications dir exists so the .desktop write succeeds.
+        fs::create_dir_all(paths.applications_dir()).unwrap();
+
+        let mut progress_log: Vec<String> = Vec::new();
+        let result = install_instance_from_cache_inner(
+            &paths,
+            &app,
+            1,
+            &cached,
+            false,
+            &mut |m| progress_log.push(m.to_string()),
+        );
+
+        // Restore so tempdir cleanup works.
+        fs::set_permissions(&meta_path, fs::Permissions::from_mode(0o644)).unwrap();
+
+        // Install must succeed despite the sidecar write failure.
+        assert!(
+            result.is_ok(),
+            "install must succeed even when version sidecar write fails; got: {:?}",
+            result.err()
+        );
+
+        // Progress log must contain exactly one warning about the version record.
+        let warnings: Vec<&String> = progress_log
+            .iter()
+            .filter(|l| l.starts_with("warning: could not record installed version"))
+            .collect();
+        assert!(
+            !warnings.is_empty(),
+            "expected a version-sidecar warning in progress; got: {:?}",
+            progress_log
+        );
+        assert!(
+            warnings[0].contains("warn-ver-app"),
+            "warning must name the app id; got: {}",
+            warnings[0]
+        );
+        assert!(
+            warnings[0].contains('1'),
+            "warning must mention instance index; got: {}",
+            warnings[0]
+        );
+    }
+
+    /// refresh_instance_version_metadata emits a "warning:" progress line when the
+    /// version sidecar write fails (0o000 file), and the function still returns Ok.
+    #[test]
+    fn refresh_version_metadata_failure_warns_and_returns_ok() {
+        use crate::version_info::INSTANCE_VERSION_FILENAME;
+        use std::os::unix::fs::PermissionsExt;
+        if is_root() {
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let paths = AppPaths::new(tmp.path().to_path_buf()).unwrap();
+        // URL filename contains a version token that version_from_download_url can parse.
+        let app = CatalogApp {
+            id: "refresh-warn-app".into(),
+            display_name: Some("RefreshWarnApp".into()),
+            homepage: None,
+            download_url: Some("https://example.invalid/app-1.5.0.AppImage".into()),
+            download_url_aarch64: None,
+            appimage_filename: Some("app.AppImage".into()),
+            instance_strategy: crate::catalog::InstanceStrategy::None,
+            instance_exec_args_template: None,
+            instance_name_template: None,
+            desktop_name_template: None,
+            reset_config_dirs: vec![],
+            reset_cache_dirs: vec![],
+            reset_data_dirs: vec![],
+            icon_url: None,
+            wayland_app_id: None,
+            desktop_pass_file_urls: None,
+            instance_subdir: None,
+            isolate_dbus_session: None,
+            max_instances: None,
+            max_instances_tooltip: None,
+        };
+
+        let instance_dir = paths.instance_dir_for(&app, 1);
+        fs::create_dir_all(&instance_dir).unwrap();
+        let meta_path = instance_dir.join(INSTANCE_VERSION_FILENAME);
+        fs::write(&meta_path, b"").unwrap();
+        fs::set_permissions(&meta_path, fs::Permissions::from_mode(0o000)).unwrap();
+
+        let mut progress_log: Vec<String> = Vec::new();
+        let result = refresh_instance_version_metadata(
+            &paths,
+            &app,
+            1,
+            None,
+            &mut |m| progress_log.push(m.to_string()),
+        );
+
+        fs::set_permissions(&meta_path, fs::Permissions::from_mode(0o644)).unwrap();
+
+        assert!(
+            result.is_ok(),
+            "refresh_instance_version_metadata must return Ok even when write fails"
+        );
+        let warnings: Vec<&String> = progress_log
+            .iter()
+            .filter(|l| l.starts_with("warning: could not record installed version"))
+            .collect();
+        assert!(
+            !warnings.is_empty(),
+            "expected a version-sidecar warning; got: {:?}",
+            progress_log
+        );
+        assert!(
+            warnings[0].contains("refresh-warn-app"),
+            "warning must name the app id; got: {}",
+            warnings[0]
         );
     }
 
