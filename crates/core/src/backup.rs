@@ -448,9 +448,25 @@ fn restore_destination_path(paths: &AppPaths, logical_path: &Path) -> Result<Pat
 pub fn restore_backup_archive(paths: &AppPaths, archive_path: &Path, force: bool) -> Result<()> {
     restore_preflight(paths, force)?;
     let (_manifest, _snapshot) = validate_backup_archive(archive_path)?;
-    clear_managed_state_for_restore(paths)?;
 
-    let stage_dir = paths.manager_data_dir().join(".restore-stage");
+    // Phase 1 — extract the ENTIRE archive into a staging directory that lives
+    // OUTSIDE manager_data_dir so it is not touched by clear_managed_state_for_restore.
+    // If extraction fails for any reason we clean up the staging dir and return Err
+    // with the original managed state fully intact.
+    let stage_dir = {
+        let parent = paths
+            .manager_data_dir()
+            .parent()
+            .ok_or_else(|| {
+                Error::Backup("manager_data_dir has no parent directory".to_string())
+            })?
+            .to_path_buf();
+        parent.join(format!(
+            ".appimages-restore-stage.{}",
+            std::process::id()
+        ))
+    };
+
     if stage_dir.exists() {
         let _ = fs::remove_dir_all(&stage_dir);
     }
@@ -461,7 +477,9 @@ pub fn restore_backup_archive(paths: &AppPaths, archive_path: &Path, force: bool
         ))
     })?;
 
-    let apply_result = (|| -> Result<()> {
+    // Extract all payload entries into the staging area.  Any I/O error here
+    // leaves managed state untouched.
+    let extract_result = (|| -> Result<()> {
         let f = fs::File::open(archive_path)?;
         let dec = zstd::stream::Decoder::new(f)
             .map_err(|e| Error::Backup(format!("zstd decode init failed: {e}")))?;
@@ -477,7 +495,9 @@ pub fn restore_backup_archive(paths: &AppPaths, archive_path: &Path, force: bool
                 continue;
             }
 
-            // extract under temp stage first
+            // Validate the logical path maps to a known managed root before extracting.
+            // This is a lightweight check; restore_destination_path does the authoritative
+            // mapping in the swap phase below.
             let stage_path = stage_dir.join(&logical);
             if let Some(parent) = stage_path.parent() {
                 fs::create_dir_all(parent).map_err(|e| {
@@ -487,37 +507,72 @@ pub fn restore_backup_archive(paths: &AppPaths, archive_path: &Path, force: bool
                     ))
                 })?;
             }
-            let mut out = fs::File::create(&stage_path).map_err(|e| {
+            let mut out_file = fs::File::create(&stage_path).map_err(|e| {
                 Error::Backup(format!(
                     "failed to create staged file {}: {e}",
                     stage_path.display()
                 ))
             })?;
-            std::io::copy(&mut ent, &mut out)?;
-            drop(out);
-
-            let dst = restore_destination_path(paths, &logical)?;
-            if let Some(parent) = dst.parent() {
-                fs::create_dir_all(parent).map_err(|e| {
-                    Error::Backup(format!(
-                        "failed to create restore parent {}: {e}",
-                        parent.display()
-                    ))
-                })?;
-            }
-            fs::copy(&stage_path, &dst).map_err(|e| {
-                Error::Backup(format!(
-                    "failed to copy staged file {} to {}: {e}",
-                    stage_path.display(),
-                    dst.display()
-                ))
-            })?;
+            std::io::copy(&mut ent, &mut out_file)?;
         }
         Ok(())
     })();
+
+    if let Err(e) = extract_result {
+        // Extraction failed — original managed state is fully intact.
+        let _ = fs::remove_dir_all(&stage_dir);
+        return Err(e);
+    }
+
+    // Phase 2 — swap: only now clear managed state and install from the staging area.
+    // Any error here has already committed us to the swap (we cleared state), but that
+    // mirrors the pre-existing behaviour; the critical invariant is that corruption in
+    // the archive itself is caught in Phase 1.
+    let swap_result = (|| -> Result<()> {
+        clear_managed_state_for_restore(paths)?;
+
+        // Walk all staged files and copy each to its final destination.
+        let mut stack = vec![stage_dir.clone()];
+        while let Some(dir) = stack.pop() {
+            let mut children: Vec<PathBuf> = fs::read_dir(&dir)?
+                .filter_map(|e| e.ok().map(|x| x.path()))
+                .collect();
+            children.sort();
+            for child in children {
+                if child.is_dir() {
+                    stack.push(child);
+                } else if child.is_file() {
+                    let logical = child.strip_prefix(&stage_dir).map_err(|_| {
+                        Error::Backup(format!(
+                            "staged file not under stage root: {}",
+                            child.display()
+                        ))
+                    })?;
+                    let dst = restore_destination_path(paths, logical)?;
+                    if let Some(parent) = dst.parent() {
+                        fs::create_dir_all(parent).map_err(|e| {
+                            Error::Backup(format!(
+                                "failed to create restore parent {}: {e}",
+                                parent.display()
+                            ))
+                        })?;
+                    }
+                    fs::copy(&child, &dst).map_err(|e| {
+                        Error::Backup(format!(
+                            "failed to copy staged file {} to {}: {e}",
+                            child.display(),
+                            dst.display()
+                        ))
+                    })?;
+                }
+            }
+        }
+        Ok(())
+    })();
+
+    // Best-effort staging cleanup regardless of swap outcome.
     let _ = fs::remove_dir_all(&stage_dir);
-    apply_result?;
-    Ok(())
+    swap_result
 }
 
 #[cfg(test)]

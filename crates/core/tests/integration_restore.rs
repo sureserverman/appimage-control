@@ -127,6 +127,127 @@ fn invalid_archive_rejected_before_writes() {
     );
 }
 
+/// A truncated (corrupt) archive must not destroy pre-existing managed state.
+/// Specifically: with `force=true`, the old state must remain fully intact when
+/// extraction fails before the swap phase is reached.
+#[test]
+fn truncated_archive_leaves_existing_state_intact() {
+    // Build source state and archive.
+    let src = tempfile::tempdir().expect("src tempdir");
+    let src_paths = AppPaths::new(src.path().to_path_buf()).expect("src paths");
+    seed_managed_state(&src_paths);
+    let cat = fake_catalog(&src);
+    let archive = src.path().join("backup.tar.zst");
+    create_backup_archive(&src_paths, &cat, &archive, &BackupOptions::default()).expect("backup");
+
+    // Truncate the archive to 60% of its original length.
+    {
+        let orig_len = fs::metadata(&archive).expect("meta").len();
+        let truncated_len = (orig_len as f64 * 0.6) as u64;
+        let f = fs::OpenOptions::new()
+            .write(true)
+            .open(&archive)
+            .expect("open for truncate");
+        f.set_len(truncated_len).expect("truncate");
+    }
+
+    // Set up a destination that already has managed state, including a desktop file.
+    let dst = tempfile::tempdir().expect("dst tempdir");
+    let dst_paths = AppPaths::new(dst.path().to_path_buf()).expect("dst paths");
+    fs::create_dir_all(dst_paths.manager_data_dir().join("apps/session/1")).expect("mkdir");
+    fs::write(
+        dst_paths
+            .manager_data_dir()
+            .join("apps/session/1/session.AppImage"),
+        b"original-binary",
+    )
+    .expect("write original appimage");
+    fs::create_dir_all(dst_paths.applications_dir()).expect("apps dir");
+    let managed_desktop = dst_paths
+        .applications_dir()
+        .join("appimage-control-session-1.desktop");
+    fs::write(&managed_desktop, b"[Desktop Entry]\nName=OriginalSession\n")
+        .expect("write managed desktop");
+
+    // Restore with force=true must fail (archive is corrupt).
+    let result = restore_backup_archive(&dst_paths, &archive, true);
+    assert!(result.is_err(), "expected Err from truncated archive, got Ok");
+
+    // Pre-existing managed state must be fully intact.
+    let appimage = dst_paths
+        .manager_data_dir()
+        .join("apps/session/1/session.AppImage");
+    assert!(
+        appimage.is_file(),
+        "AppImage should still exist after failed restore"
+    );
+    assert_eq!(
+        fs::read(&appimage).expect("read appimage"),
+        b"original-binary",
+        "AppImage content must be the original, not overwritten"
+    );
+    assert!(
+        managed_desktop.is_file(),
+        "managed .desktop file should still exist after failed restore"
+    );
+    assert_eq!(
+        fs::read(&managed_desktop).expect("read desktop"),
+        b"[Desktop Entry]\nName=OriginalSession\n",
+        ".desktop content must be the original"
+    );
+}
+
+/// A valid archive can still be restored after the extract-then-swap refactor.
+/// This complements the existing restore_into_empty_state test by verifying
+/// the forced-overwrite path with the new ordering as well.
+#[test]
+fn valid_archive_forced_restore_succeeds() {
+    let src = tempfile::tempdir().expect("src tempdir");
+    let src_paths = AppPaths::new(src.path().to_path_buf()).expect("src paths");
+    fs::create_dir_all(src_paths.manager_data_dir().join("apps/session/1")).expect("mkdir");
+    fs::write(
+        src_paths
+            .manager_data_dir()
+            .join("apps/session/1/session.AppImage"),
+        b"fresh-binary",
+    )
+    .expect("write appimage");
+    fs::create_dir_all(src_paths.applications_dir()).expect("apps dir");
+    fs::write(
+        src_paths
+            .applications_dir()
+            .join("appimage-control-session-1.desktop"),
+        b"[Desktop Entry]\nName=Session\n",
+    )
+    .expect("write desktop");
+    let cat = fake_catalog(&src);
+    let archive = src.path().join("backup.tar.zst");
+    create_backup_archive(&src_paths, &cat, &archive, &BackupOptions::default()).expect("backup");
+
+    let dst = tempfile::tempdir().expect("dst tempdir");
+    let dst_paths = AppPaths::new(dst.path().to_path_buf()).expect("dst paths");
+    // Pre-seed stale state to verify it gets replaced.
+    seed_managed_state(&dst_paths);
+
+    restore_backup_archive(&dst_paths, &archive, true).expect("forced restore of valid archive");
+
+    assert_eq!(
+        fs::read(
+            dst_paths
+                .manager_data_dir()
+                .join("apps/session/1/session.AppImage")
+        )
+        .expect("read restored"),
+        b"fresh-binary"
+    );
+    assert!(
+        dst_paths
+            .applications_dir()
+            .join("appimage-control-session-1.desktop")
+            .is_file()
+    );
+}
+
 #[test]
 fn path_traversal_rejected() {
     let dst = tempfile::tempdir().expect("dst tempdir");
