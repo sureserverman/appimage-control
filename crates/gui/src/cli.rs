@@ -297,7 +297,9 @@ fn cell_display_width(s: &str) -> usize {
 }
 
 fn print_list(paths: &AppPaths, catalog: &Catalog) {
-    let _ = reconcile_catalog_install_version_metadata(paths, catalog, &mut |_| {});
+    if let Err(e) = reconcile_catalog_install_version_metadata(paths, catalog, &mut |_| {}) {
+        eprintln!("warning: version metadata reconcile failed: {e}");
+    }
     let headers = ["id", "display_name", "instances", "version"];
     let mut rows: Vec<[String; 4]> = Vec::new();
     for app in &catalog.apps {
@@ -910,28 +912,71 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
         return Some(glib::ExitCode::FAILURE);
     }
 
-    let mut ran = false;
+    // Collect per-op outcomes so we can print a summary and skip remaining
+    // ops after the first failure (SKIP policy: once an op fails, later ops
+    // in the same invocation are listed as "skipped" in the summary).
+    //
+    // `OpOutcome` is intentionally local — it is only meaningful inside this
+    // dispatch loop and is not part of any public API.
+    struct OpOutcome {
+        label: String,
+        /// `None` = op was skipped because a prior op failed.
+        /// `Some(Ok(()))` = op succeeded.
+        /// `Some(Err(msg))` = op failed with `msg`.
+        result: Option<Result<(), String>>,
+    }
+
+    let mut outcomes: Vec<OpOutcome> = Vec::new();
+    let mut any_failed = false;
 
     for arg in args {
         if arg == "-h" || arg == "--help" {
             continue;
         }
-        if arg == "--list" {
-            print_list(&paths, &catalog);
-            ran = true;
-            continue;
-        }
-        if arg == "--clean-cache" {
-            if let Err(e) = clean_catalog_download_cache(&paths) {
-                eprintln!("{e}");
-                return Some(glib::ExitCode::FAILURE);
+
+        // Determine the human-readable label for this op before executing it.
+        let label: String = if arg == "--list" {
+            "--list".into()
+        } else if arg == "--clean-cache" {
+            "--clean-cache".into()
+        } else if arg == "-update" || arg == "--update" {
+            "-update".into()
+        } else if arg.starts_with('+') && arg.len() > 1 {
+            arg.clone()
+        } else if arg.starts_with('-') && !arg.starts_with("--") && arg.len() > 1 {
+            // Covers `-APP`, `-APP:N`, and the already-filtered `-update`.
+            let body = &arg[1..];
+            if body == "update" {
+                // `-update` already handled above; this branch is unreachable
+                // but kept for exhaustiveness.
+                arg.clone()
+            } else {
+                arg.clone()
             }
-            ran = true;
+        } else {
+            // Not a dispatchable op (e.g. `--yes`, value-slots of other flags).
+            continue;
+        };
+
+        // If a prior op failed, mark this one skipped and continue collecting
+        // labels without executing.
+        if any_failed {
+            outcomes.push(OpOutcome {
+                label,
+                result: None,
+            });
             continue;
         }
-        if arg == "-update" || arg == "--update" {
+
+        // Execute the op and record the outcome.
+        let outcome: Result<(), String> = if arg == "--list" {
+            print_list(&paths, &catalog);
+            Ok(())
+        } else if arg == "--clean-cache" {
+            clean_catalog_download_cache(&paths).map_err(|e| e.to_string())
+        } else if arg == "-update" || arg == "--update" {
             let remotes = fetch_github_release_hints(&catalog);
-            if let Err(e) = update_all_installed_instances(
+            update_all_installed_instances(
                 &paths,
                 &catalog,
                 Some(&remotes),
@@ -939,87 +984,105 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
                     eprintln!("{m}");
                 },
                 None,
-            ) {
-                eprintln!("{e}");
-                return Some(glib::ExitCode::FAILURE);
-            }
-            ran = true;
-            continue;
-        }
-        if arg.starts_with('+') && arg.len() > 1 {
+            )
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+        } else if arg.starts_with('+') && arg.len() > 1 {
             let body = &arg[1..];
             // Pre-scan validated these already; treat parse failures as internal errors.
-            let (id, n) = match parse_app_instance_spec(body) {
-                Ok(v) => v,
-                Err(_) => {
-                    eprintln!("malformed instance spec '{}' (see --help)", arg);
-                    return Some(glib::ExitCode::FAILURE);
-                }
-            };
-            let app = match by_id.get(id.as_str()) {
-                Some(a) => a,
-                None => {
-                    eprintln!("unknown app id '{}' (see --list)", id);
-                    return Some(glib::ExitCode::FAILURE);
-                }
-            };
-            let cur = instance_count(&paths, app).unwrap_or(0);
-            let target = cur.saturating_add(n).min(app.max_instances_allowed());
-            if let Err(e) = reconcile_instance_count(&paths, app, target, &mut |m| eprintln!("{m}"))
-            {
-                eprintln!("{e}");
-                return Some(glib::ExitCode::FAILURE);
-            }
-            ran = true;
-            continue;
-        }
-        if arg.starts_with('-') && !arg.starts_with("--") && arg.len() > 1 {
-            let body = &arg[1..];
-            if !body.contains(':') {
-                let app = match by_id.get(body) {
-                    Some(a) => a,
-                    None => {
-                        eprintln!("unknown app id '{}' (see --list)", body);
-                        return Some(glib::ExitCode::FAILURE);
+            match parse_app_instance_spec(body) {
+                Ok((id, n)) => match by_id.get(id.as_str()) {
+                    Some(app) => {
+                        let cur = instance_count(&paths, app).unwrap_or(0);
+                        let target = cur.saturating_add(n).min(app.max_instances_allowed());
+                        reconcile_instance_count(&paths, app, target, &mut |m| eprintln!("{m}"))
+                            .map_err(|e| e.to_string())
                     }
-                };
-                if let Err(e) = reconcile_instance_count(&paths, app, 0, &mut |m| eprintln!("{m}"))
-                {
-                    eprintln!("{e}");
-                    return Some(glib::ExitCode::FAILURE);
-                }
-                ran = true;
-                continue;
+                    None => Err(format!("unknown app id '{}' (see --list)", id)),
+                },
+                Err(_) => Err(format!(
+                    "malformed instance spec '{}' (see --help)",
+                    arg
+                )),
             }
-            let (id, n) = match parse_app_instance_spec(body) {
-                Ok(v) => v,
-                Err(_) => {
-                    eprintln!("malformed instance spec '{}' (see --help)", arg);
-                    return Some(glib::ExitCode::FAILURE);
+        } else if arg.starts_with('-') && !arg.starts_with("--") && arg.len() > 1 {
+            let body = &arg[1..];
+            if body == "update" {
+                // Already dispatched above; unreachable.
+                Ok(())
+            } else if !body.contains(':') {
+                match by_id.get(body) {
+                    Some(app) => {
+                        reconcile_instance_count(&paths, app, 0, &mut |m| eprintln!("{m}"))
+                            .map_err(|e| e.to_string())
+                    }
+                    None => Err(format!("unknown app id '{}' (see --list)", body)),
                 }
-            };
-            let app = match by_id.get(id.as_str()) {
-                Some(a) => a,
-                None => {
-                    eprintln!("unknown app id '{}' (see --list)", id);
-                    return Some(glib::ExitCode::FAILURE);
+            } else {
+                match parse_app_instance_spec(body) {
+                    Ok((id, n)) => match by_id.get(id.as_str()) {
+                        Some(app) => {
+                            let cur = instance_count(&paths, app).unwrap_or(0);
+                            let target = cur.saturating_sub(n);
+                            reconcile_instance_count(
+                                &paths,
+                                app,
+                                target,
+                                &mut |m| eprintln!("{m}"),
+                            )
+                            .map_err(|e| e.to_string())
+                        }
+                        None => Err(format!("unknown app id '{}' (see --list)", id)),
+                    },
+                    Err(_) => Err(format!(
+                        "malformed instance spec '{}' (see --help)",
+                        arg
+                    )),
                 }
-            };
-            let cur = instance_count(&paths, app).unwrap_or(0);
-            let target = cur.saturating_sub(n);
-            if let Err(e) = reconcile_instance_count(&paths, app, target, &mut |m| eprintln!("{m}"))
-            {
-                eprintln!("{e}");
-                return Some(glib::ExitCode::FAILURE);
             }
-            ran = true;
+        } else {
+            // Passthrough flag handled by earlier arms; skip without recording.
+            continue;
+        };
+
+        if outcome.is_err() {
+            // Print the error immediately (terse, same as before).
+            if let Err(ref msg) = outcome {
+                eprintln!("{msg}");
+            }
+            any_failed = true;
         }
+        outcomes.push(OpOutcome {
+            label,
+            result: Some(outcome),
+        });
     }
+
+    let ran = !outcomes.is_empty();
 
     if !ran && seed_targets.is_none() {
         // With strict parsing this branch should only be reached when the
         // caller passes only known passthrough flags (e.g. `-y` alone).
         return None;
+    }
+
+    // Emit a multi-op summary to stderr when 2 or more ops were dispatched.
+    // Single-op invocations keep the existing terse output (no summary line).
+    if outcomes.len() >= 2 {
+        let parts: Vec<String> = outcomes
+            .iter()
+            .map(|o| match &o.result {
+                None => format!("{} SKIPPED", o.label),
+                Some(Ok(())) => format!("{} OK", o.label),
+                Some(Err(msg)) => {
+                    // Truncate long error messages for readability in the summary line.
+                    let short: String = msg.chars().take(60).collect();
+                    let suffix = if msg.len() > 60 { "..." } else { "" };
+                    format!("{} FAILED ({}{})", o.label, short, suffix)
+                }
+            })
+            .collect();
+        eprintln!("Summary: {}", parts.join("; "));
     }
 
     if let Some(targets) = seed_targets {
@@ -1053,11 +1116,17 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
         if report.failed > 0 {
             return Some(glib::ExitCode::FAILURE);
         }
-        ran = true;
+        // Seed ran successfully — mark ran so we don't fall through to the
+        // "nothing dispatched → GUI" path below.
+        return Some(glib::ExitCode::SUCCESS);
     }
 
     if !ran {
         return None;
+    }
+
+    if any_failed {
+        return Some(glib::ExitCode::FAILURE);
     }
 
     Some(glib::ExitCode::SUCCESS)
@@ -1748,6 +1817,139 @@ mod purge_prompt_tests {
     #[test]
     fn force_without_restore_backup_is_failure() {
         let code = run_cli_ops(&["--force".to_string()]);
+        assert_eq!(code, Some(glib::ExitCode::FAILURE));
+    }
+
+    // ── Mixed-op summary + skip-after-failure (task 4.3) ───────────────────
+    //
+    // These tests verify the SKIP policy: when the first op in a multi-op
+    // invocation fails, subsequent ops are not executed.  We confirm the
+    // skip behaviour by checking whether the second app's instance directory
+    // was created on disk (it must NOT be when the preceding op failed).
+    //
+    // A catalog with two apps is used:
+    //   - "feather"  download_url = http://127.0.0.1:9/x.AppImage (connection refused, no cache)
+    //   - "session"  download_url = irrelevant; we pre-seed the cache so install succeeds
+    //
+    // Summary printing itself goes to stderr; in-process tests cannot capture
+    // stderr, so the subprocess tests in cli_subprocess.rs cover the summary
+    // text assertions.  These in-process tests cover exit code and side-effects.
+
+    fn write_two_app_catalog(path: &std::path::Path) {
+        fs::write(
+            path,
+            r#"{
+  "apps": [
+    {
+      "id": "feather",
+      "display_name": "Feather Wallet",
+      "download_url": "http://127.0.0.1:9/x.AppImage",
+      "appimage_filename": "feather.AppImage"
+    },
+    {
+      "id": "session",
+      "display_name": "Session",
+      "download_url": "http://127.0.0.1:9/y.AppImage",
+      "appimage_filename": "session.AppImage"
+    }
+  ]
+}"#,
+        )
+        .expect("write two-app catalog");
+    }
+
+    /// `+feather +session` where feather fails (no cache, refused URL) but session
+    /// has a cache file: exit FAILURE, session directory NOT created (skip policy).
+    #[test]
+    fn mixed_ops_fail_first_skips_second() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let home = tmp.path().join("home");
+        fs::create_dir_all(&home).expect("home");
+        let catalog = tmp.path().join("catalog.json");
+        write_two_app_catalog(&catalog);
+
+        // Pre-seed session's cache so it *would* succeed if it ran.
+        let session_cache = home.join(".local/share/appimages/cache/session");
+        fs::create_dir_all(&session_cache).expect("session cache dir");
+        fs::write(session_cache.join("session.AppImage"), b"fake").expect("session cache");
+
+        // No cache for feather — download will be attempted and fail (connection refused).
+        let code = with_test_env(&home, &catalog, || {
+            run_cli_ops(&["+feather".to_string(), "+session".to_string()])
+        });
+
+        assert_eq!(code, Some(glib::ExitCode::FAILURE), "+feather (fail) +session must exit FAILURE");
+
+        // Session must NOT have been installed (skip policy).
+        let session_inst = home.join(".local/share/appimages/apps/session");
+        assert!(
+            !session_inst.exists(),
+            "session instance dir must not exist: skip policy requires no execution after failure"
+        );
+    }
+
+    /// `+session +feather` where session succeeds (has cache) but feather fails:
+    /// exit FAILURE, session IS installed (it ran before the failure).
+    #[test]
+    fn mixed_ops_ok_first_then_fail() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let home = tmp.path().join("home");
+        fs::create_dir_all(&home).expect("home");
+        let catalog = tmp.path().join("catalog.json");
+        write_two_app_catalog(&catalog);
+
+        // Pre-seed session's cache so its install succeeds.
+        let session_cache = home.join(".local/share/appimages/cache/session");
+        fs::create_dir_all(&session_cache).expect("session cache dir");
+        fs::write(session_cache.join("session.AppImage"), b"fake").expect("session cache");
+
+        // No cache for feather — download will fail.
+        let code = with_test_env(&home, &catalog, || {
+            run_cli_ops(&["+session".to_string(), "+feather".to_string()])
+        });
+
+        assert_eq!(code, Some(glib::ExitCode::FAILURE), "+session (ok) +feather (fail) must exit FAILURE");
+
+        // Session MUST have been installed (it ran before feather failed).
+        let session_inst = home.join(".local/share/appimages/apps/session/1");
+        assert!(
+            session_inst.exists(),
+            "session instance dir must exist: it ran before the failure"
+        );
+    }
+
+    /// Single-op invocation that succeeds: still exits SUCCESS (no regression).
+    #[test]
+    fn single_op_success_exits_success() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let home = tmp.path().join("home");
+        fs::create_dir_all(&home).expect("home");
+        let catalog = tmp.path().join("catalog.json");
+        write_two_app_catalog(&catalog);
+
+        let session_cache = home.join(".local/share/appimages/cache/session");
+        fs::create_dir_all(&session_cache).expect("session cache dir");
+        fs::write(session_cache.join("session.AppImage"), b"fake").expect("session cache");
+
+        let code = with_test_env(&home, &catalog, || {
+            run_cli_ops(&["+session".to_string()])
+        });
+        assert_eq!(code, Some(glib::ExitCode::SUCCESS));
+    }
+
+    /// Single-op invocation that fails: exits FAILURE (no regression).
+    #[test]
+    fn single_op_failure_exits_failure() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let home = tmp.path().join("home");
+        fs::create_dir_all(&home).expect("home");
+        let catalog = tmp.path().join("catalog.json");
+        write_two_app_catalog(&catalog);
+
+        // No cache for feather — download will fail.
+        let code = with_test_env(&home, &catalog, || {
+            run_cli_ops(&["+feather".to_string()])
+        });
         assert_eq!(code, Some(glib::ExitCode::FAILURE));
     }
 }

@@ -256,6 +256,121 @@ fn backup_prints_created_line() {
     );
 }
 
+// ── Mixed-op summary (task 4.3) ─────────────────────────────────────────────
+
+fn write_two_app_catalog_sub(path: &Path) {
+    fs::write(
+        path,
+        r#"{
+  "apps": [
+    {
+      "id": "feather",
+      "display_name": "Feather Wallet",
+      "download_url": "http://127.0.0.1:9/x.AppImage",
+      "appimage_filename": "feather.AppImage"
+    },
+    {
+      "id": "session",
+      "display_name": "Session",
+      "download_url": "http://127.0.0.1:9/y.AppImage",
+      "appimage_filename": "session.AppImage"
+    }
+  ]
+}"#,
+    )
+    .expect("two-app catalog");
+}
+
+/// `+feather +session`: feather has no cache (download refused) → FAILURE.
+/// Summary must appear on stderr naming feather as FAILED and session as SKIPPED.
+/// Session instance directory must NOT exist on disk.
+#[test]
+fn mixed_ops_fail_first_summary_shows_skipped() {
+    let tmp = tempfile::tempdir().expect("tmp");
+    let home = tmp.path().join("home");
+    fs::create_dir_all(&home).expect("home");
+    let catalog = tmp.path().join("catalog.json");
+    write_two_app_catalog_sub(&catalog);
+
+    // Pre-seed session cache so it would succeed if run.
+    let session_cache = home.join(".local/share/appimages/cache/session");
+    fs::create_dir_all(&session_cache).expect("session cache");
+    fs::write(session_cache.join("session.AppImage"), b"fake").expect("session cache file");
+
+    let out = Command::new(app_exe())
+        .env("HOME", &home)
+        .env("APPIMAGE_CONTROL_CATALOG", &catalog)
+        .args(["+feather", "+session"])
+        .output()
+        .expect("spawn");
+
+    assert!(
+        !out.status.success(),
+        "exit must be FAILURE; stderr={}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        err.contains("Summary:"),
+        "summary line must appear on stderr; got: {err}"
+    );
+    assert!(
+        err.contains("+feather") && err.contains("FAILED"),
+        "+feather must appear as FAILED in summary; got: {err}"
+    );
+    assert!(
+        err.contains("+session") && err.contains("SKIPPED"),
+        "+session must appear as SKIPPED in summary; got: {err}"
+    );
+    // Skip policy: session directory must not exist.
+    assert!(
+        !home.join(".local/share/appimages/apps/session").exists(),
+        "session must not be installed (skip policy)"
+    );
+}
+
+/// `+session +feather`: session succeeds (has cache), feather fails.
+/// Summary must name session OK and feather FAILED.  Exit FAILURE.
+#[test]
+fn mixed_ops_ok_first_summary_shows_ok_then_failed() {
+    let tmp = tempfile::tempdir().expect("tmp");
+    let home = tmp.path().join("home");
+    fs::create_dir_all(&home).expect("home");
+    let catalog = tmp.path().join("catalog.json");
+    write_two_app_catalog_sub(&catalog);
+
+    // Pre-seed session cache so install succeeds.
+    let session_cache = home.join(".local/share/appimages/cache/session");
+    fs::create_dir_all(&session_cache).expect("session cache");
+    fs::write(session_cache.join("session.AppImage"), b"fake").expect("session cache file");
+
+    let out = Command::new(app_exe())
+        .env("HOME", &home)
+        .env("APPIMAGE_CONTROL_CATALOG", &catalog)
+        .args(["+session", "+feather"])
+        .output()
+        .expect("spawn");
+
+    assert!(
+        !out.status.success(),
+        "exit must be FAILURE; stderr={}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        err.contains("Summary:"),
+        "summary line must appear; got: {err}"
+    );
+    assert!(
+        err.contains("+session") && err.contains("OK"),
+        "+session must appear as OK in summary; got: {err}"
+    );
+    assert!(
+        err.contains("+feather") && err.contains("FAILED"),
+        "+feather must appear as FAILED in summary; got: {err}"
+    );
+}
+
 #[test]
 fn restore_refuses_stderr_matches_preflight() {
     let tmp = tempfile::tempdir().expect("tmp");
