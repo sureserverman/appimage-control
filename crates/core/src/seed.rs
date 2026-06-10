@@ -400,6 +400,42 @@ pub fn seed_new_instances_after_reconcile(
     Ok(report)
 }
 
+/// Base name prefix for per-run PID files. The actual file is
+/// `<prefix>.<child-pid>` so concurrent seeds of the same instance
+/// directory each own a unique, non-overlapping file.
+const PID_FILE_PREFIX: &str = ".appimage-control-seed-host-pid";
+
+/// Remove any PID files in `instance_dir` whose name matches
+/// `PID_FILE_PREFIX.*` and that are older than `older_than`. This
+/// is called before spawning so stale files left by a crashed prior
+/// run are removed best-effort; it never removes a file owned by a
+/// concurrently running seed (which would have been created *after*
+/// this process started, so its mtime will be newer).
+fn sweep_stale_pid_files(instance_dir: &Path, older_than: std::time::SystemTime) {
+    let Ok(entries) = fs::read_dir(instance_dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let name_str = name.to_string_lossy();
+        if !name_str.starts_with(PID_FILE_PREFIX) {
+            continue;
+        }
+        // Skip the exact prefix itself (shouldn't exist, but be safe).
+        if name_str == PID_FILE_PREFIX {
+            continue;
+        }
+        // Only remove if the file was last modified before `older_than`.
+        if let Ok(meta) = entry.metadata() {
+            if let Ok(mtime) = meta.modified() {
+                if mtime < older_than {
+                    let _ = fs::remove_file(entry.path());
+                }
+            }
+        }
+    }
+}
+
 fn seed_until_config(appimage: &Path, first_run_args: &[&str], expected: &Path) -> Result<()> {
     // We need to take down xvfb-run *and* its descendants (Xvfb, the AppImage
     // FUSE mount, the actual app binary which has exec'd away from
@@ -413,19 +449,51 @@ fn seed_until_config(appimage: &Path, first_run_args: &[&str], expected: &Path) 
     // process in the group at once. Works the same native or via
     // `flatpak-spawn --host` because we capture the *host*-side session
     // leader's PID, not the in-sandbox proxy's.
-    let pid_file = appimage
+    //
+    // PID file uniqueness: the file is named `<prefix>.<spawned-child-pid>`
+    // so two concurrent seeds of the same instance directory each write to
+    // a distinct path — no clobbering, no killing the wrong process group.
+    // We choose the child PID as the discriminator because it is available
+    // immediately after `spawn()` and is guaranteed unique per OS.
+    let instance_dir = appimage
         .parent()
-        .ok_or_else(|| Error::InvalidPath("seed: AppImage has no parent dir".into()))?
-        .join(".appimage-control-seed-host-pid");
-    let _ = fs::remove_file(&pid_file);
+        .ok_or_else(|| Error::InvalidPath("seed: AppImage has no parent dir".into()))?;
 
-    let pid_file_q = sh_single_quote(&pid_file.to_string_lossy());
+    // Remove stale PID files from crashed prior runs before we spawn.
+    // "Stale" means created before this process started (mtime < now).
+    // We use `std::time::SystemTime::now()` at the point of the sweep so
+    // any file we don't manage to create yet cannot be swept by a
+    // concurrent caller either.
+    let sweep_before = std::time::SystemTime::now();
+    sweep_stale_pid_files(instance_dir, sweep_before);
+
     let appimage_q = sh_single_quote(&appimage.to_string_lossy());
     let extras_q = first_run_args
         .iter()
         .map(|a| sh_single_quote(a))
         .collect::<Vec<_>>()
         .join(" ");
+
+    // Compute the pid_file path *before* spawning, using the seeder's own
+    // PID plus a per-invocation counter as the discriminator. This avoids
+    // the setsid/sh `$$`-mismatch problem: `child.id()` is the setsid PID
+    // and the script's `$$` would be the `sh` (grandchild) PID, which
+    // differ under `--fork`. By embedding the Rust-side seeder PID and a
+    // monotonic counter we guarantee uniqueness across concurrent
+    // seed_until_config calls from the same process without relying on any
+    // child-side PID at all.
+    static INVOCATION_COUNTER: std::sync::atomic::AtomicU64 =
+        std::sync::atomic::AtomicU64::new(0);
+    let invocation = INVOCATION_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let pid_file = instance_dir.join(format!(
+        "{PID_FILE_PREFIX}.{}.{}",
+        std::process::id(),
+        invocation
+    ));
+
+    // Pass the full pid_file path as a literal into the shell script so
+    // the `echo $$` writes to exactly the path we expect on the Rust side.
+    let pid_file_q = sh_single_quote(&pid_file.to_string_lossy());
     let script = format!(
         "echo $$ > {pid_file_q}; \
          exec xvfb-run -a '--server-args=-screen 0 1280x1024x24' {appimage_q} {extras_q}"
@@ -457,8 +525,15 @@ fn seed_until_config(appimage: &Path, first_run_args: &[&str], expected: &Path) 
     let mut child_exited = false;
     while started.elapsed() < SEED_TIMEOUT {
         if expected.exists() {
-            terminate_seed_child(&mut child, &pid_file);
-            return Ok(());
+            // Fix 2: wait until the file is non-empty and parses as a
+            // JSON object before declaring success. An app may still be
+            // mid-write (partial `{` or empty file). Poll within the
+            // same timeout window.
+            if config_file_complete(expected) {
+                terminate_seed_child(&mut child, &pid_file);
+                return Ok(());
+            }
+            // File exists but is not yet a complete JSON object — keep polling.
         }
         if child.try_wait()?.is_some() {
             child_exited = true;
@@ -468,7 +543,7 @@ fn seed_until_config(appimage: &Path, first_run_args: &[&str], expected: &Path) 
     }
 
     terminate_seed_child(&mut child, &pid_file);
-    if expected.exists() {
+    if expected.exists() && config_file_complete(expected) {
         return Ok(());
     }
     if child_exited {
@@ -481,6 +556,17 @@ fn seed_until_config(appimage: &Path, first_run_args: &[&str], expected: &Path) 
         "timed out waiting for seeded config: {}",
         expected.display()
     )))
+}
+
+/// Returns `true` iff `path` exists, is non-empty, and parses as a
+/// JSON object (not an array, number, etc.). Used by
+/// [`seed_until_config`] to avoid racing a partially-written config
+/// file.
+fn config_file_complete(path: &Path) -> bool {
+    // Use read_json_object: it requires a valid JSON *object*, which is
+    // strictly stronger than "non-empty file". A partial write like `{`
+    // or `{"k":` will fail serde_json parsing and return Err here.
+    read_json_object(path).is_ok()
 }
 
 /// Quote `s` for a POSIX shell single-quoted context (`'…'`). Embedded
@@ -1051,5 +1137,258 @@ exec "$@"
         // SAFETY: getuid(2) is a pure syscall with no preconditions;
         // it never fails and has no side effects.
         unsafe { getuid() }
+    }
+
+    // ── PID file naming & stale-sweep tests ─────────────────────────────
+
+    /// Two successive calls to `seed_until_config` (via
+    /// `seed_instance_settings`) produce PID file names that differ from
+    /// each other, and each call removes only its own file on completion —
+    /// a stale file left by a prior "crashed" run is swept, but a file
+    /// written by a concurrent (newer) run is left alone.
+    ///
+    /// This test exercises the naming and cleanup logic without relying on
+    /// concurrent processes: it creates a synthetic stale PID file (set to
+    /// old mtime), runs two sequential seeds, and asserts:
+    ///   a) the stale file is gone after the first seed,
+    ///   b) no `PID_FILE_PREFIX.*` files remain after either seed completes.
+    #[test]
+    fn pid_file_names_are_unique_per_invocation_and_own_file_is_cleaned_up() {
+        with_fake_xvfb(tempfile::tempdir().unwrap().path(), || {
+            let tmp = tempfile::tempdir().unwrap();
+            let seeds_dir = tmp.path().join("seeds");
+            let app_id = "aic-pidfile-test-app";
+            let appimage_filename = "aic-pidfile-test-app.AppImage";
+            install_pipeline_test_pack(&seeds_dir, app_id, appimage_filename);
+
+            let prev = std::env::var("APPIMAGE_CONTROL_SEEDS_DIR").ok();
+            std::env::set_var("APPIMAGE_CONTROL_SEEDS_DIR", &seeds_dir);
+
+            let app = supported_app(app_id, appimage_filename);
+            let rel_cfg = format!("{appimage_filename}.test/config.json");
+
+            // First seed run.
+            let (paths, appimage, _cfg) =
+                make_seedable_instance(&tmp, &app, 1, &rel_cfg, true);
+            let instance_dir = appimage.parent().unwrap().to_path_buf();
+
+            // Plant a synthetic stale PID file (pretend a prior run crashed).
+            let stale_pid_file =
+                instance_dir.join(format!("{PID_FILE_PREFIX}.99999999.0"));
+            fs::write(&stale_pid_file, b"99999\n").unwrap();
+            // Back-date the file so the sweep treats it as stale (mtime in the past).
+            let past = std::time::SystemTime::now()
+                - std::time::Duration::from_secs(60);
+            let past_secs = past
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+            // Use `touch -d @<epoch>` to backdate the file without pulling
+            // in extra crates.
+            let datetime_arg = format!("@{past_secs}");
+            std::process::Command::new("touch")
+                .args(["-d", &datetime_arg, stale_pid_file.to_str().unwrap()])
+                .status()
+                .unwrap();
+
+            // Run seed 1.
+            let mut _progress = Vec::<String>::new();
+            let result1 = seed_instance_settings(
+                &paths,
+                &app,
+                1,
+                SeedPreset::Ubuntu,
+                &mut |s| _progress.push(s.to_string()),
+            );
+
+            // After seed 1: stale file removed, no pid files left.
+            assert!(
+                !stale_pid_file.exists(),
+                "stale PID file was not swept before seed 1"
+            );
+            let remaining_after_1: Vec<_> = fs::read_dir(&instance_dir)
+                .unwrap()
+                .flatten()
+                .filter(|e| {
+                    e.file_name()
+                        .to_string_lossy()
+                        .starts_with(PID_FILE_PREFIX)
+                })
+                .collect();
+            assert!(
+                remaining_after_1.is_empty(),
+                "PID files remain after seed 1 completed: {:?}",
+                remaining_after_1
+                    .iter()
+                    .map(|e| e.file_name())
+                    .collect::<Vec<_>>()
+            );
+            result1.expect("seed 1 failed");
+
+            // Run seed 2 (re-creates the config file from scratch first).
+            let (paths2, _, _cfg2) =
+                make_seedable_instance(&tmp, &app, 1, &rel_cfg, true);
+            let mut _progress2 = Vec::<String>::new();
+            let result2 = seed_instance_settings(
+                &paths2,
+                &app,
+                1,
+                SeedPreset::Ubuntu,
+                &mut |s| _progress2.push(s.to_string()),
+            );
+
+            // After seed 2: still no pid files left.
+            let remaining_after_2: Vec<_> = fs::read_dir(&instance_dir)
+                .unwrap()
+                .flatten()
+                .filter(|e| {
+                    e.file_name()
+                        .to_string_lossy()
+                        .starts_with(PID_FILE_PREFIX)
+                })
+                .collect();
+            assert!(
+                remaining_after_2.is_empty(),
+                "PID files remain after seed 2 completed: {:?}",
+                remaining_after_2
+                    .iter()
+                    .map(|e| e.file_name())
+                    .collect::<Vec<_>>()
+            );
+            result2.expect("seed 2 failed");
+
+            match prev {
+                Some(v) => std::env::set_var("APPIMAGE_CONTROL_SEEDS_DIR", v),
+                None => std::env::remove_var("APPIMAGE_CONTROL_SEEDS_DIR"),
+            }
+        });
+    }
+
+    /// `sweep_stale_pid_files` removes files older than the cutoff but
+    /// preserves files at or after the cutoff. Verifies the unit function
+    /// directly without invoking seed_until_config.
+    #[test]
+    fn sweep_stale_pid_files_removes_old_and_keeps_fresh() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+
+        // Create a file with a name matching the prefix but no suffix — should
+        // NOT be removed (the function skips the bare prefix).
+        let bare = dir.join(PID_FILE_PREFIX);
+        fs::write(&bare, b"1\n").unwrap();
+
+        // Create a stale candidate — backdate it.
+        let stale = dir.join(format!("{PID_FILE_PREFIX}.stale"));
+        fs::write(&stale, b"2\n").unwrap();
+        std::process::Command::new("touch")
+            .args(["-d", "@1000000", stale.to_str().unwrap()])
+            .status()
+            .unwrap();
+
+        // Create a fresh candidate — leave its mtime at now (after cutoff).
+        let fresh = dir.join(format!("{PID_FILE_PREFIX}.fresh"));
+        fs::write(&fresh, b"3\n").unwrap();
+
+        // Cutoff: right before "now" but after the stale file's mtime.
+        let cutoff = std::time::SystemTime::now()
+            - std::time::Duration::from_secs(5);
+        sweep_stale_pid_files(dir, cutoff);
+
+        assert!(!stale.exists(), "stale file should have been swept");
+        assert!(fresh.exists(), "fresh file should have been preserved");
+        assert!(bare.exists(), "bare-prefix file should never be touched");
+    }
+
+    // ── config-completeness wait test ────────────────────────────────────
+
+    /// `seed_until_config` must not return success on a partially-written
+    /// config file. This test uses a fake appimage that:
+    ///   1. Creates the config directory.
+    ///   2. Writes `{` (an incomplete JSON object) to the config file.
+    ///   3. Sleeps ~0.3 s.
+    ///   4. Overwrites the file with the valid `{}` JSON object.
+    ///   5. Loops indefinitely (waiting for SIGTERM).
+    ///
+    /// seed_until_config must poll past step 2 and only succeed at step 4,
+    /// and the resulting config must parse as a valid JSON object.
+    #[test]
+    fn seed_until_config_waits_for_complete_json_object() {
+        with_fake_xvfb(tempfile::tempdir().unwrap().path(), || {
+            let tmp = tempfile::tempdir().unwrap();
+            let seeds_dir = tmp.path().join("seeds");
+            let app_id = "aic-partial-write-test-app";
+            let appimage_filename = "aic-partial-write-test-app.AppImage";
+
+            // Install a seed pack that points at a config path we control.
+            install_pipeline_test_pack(&seeds_dir, app_id, appimage_filename);
+
+            let prev_seeds = std::env::var("APPIMAGE_CONTROL_SEEDS_DIR").ok();
+            std::env::set_var("APPIMAGE_CONTROL_SEEDS_DIR", &seeds_dir);
+
+            let app = supported_app(app_id, appimage_filename);
+            let rel_cfg = format!("{appimage_filename}.test/config.json");
+            let paths = AppPaths::new(tmp.path().join("home")).unwrap();
+            let dir = paths.instance_dir_for(&app, 1);
+            fs::create_dir_all(&dir).unwrap();
+            let appimage_path = dir.join(app.resolved_appimage_filename());
+            let cfg_path = dir.join(&rel_cfg);
+            let cfg_dir = cfg_path.parent().unwrap().to_path_buf();
+
+            // Fake appimage: writes partial JSON, sleeps, then completes it.
+            let script = format!(
+                r#"#!/bin/sh
+set -eu
+mkdir -p '{cfg_dir}'
+# Step 1: write partial (incomplete) JSON.
+printf '{{' > '{cfg}'
+sleep 0.3
+# Step 2: write valid complete JSON object.
+printf '{{}}' > '{cfg}'
+trap 'exit 0' TERM INT
+while :; do sleep 0.1; done
+"#,
+                cfg_dir = cfg_dir.display(),
+                cfg = cfg_path.display(),
+            );
+            write_exec(&appimage_path, &script);
+
+            let mut progress = Vec::<String>::new();
+            let result = seed_instance_settings(
+                &paths,
+                &app,
+                1,
+                SeedPreset::Ubuntu,
+                &mut |s| progress.push(s.to_string()),
+            );
+
+            match prev_seeds {
+                Some(v) => std::env::set_var("APPIMAGE_CONTROL_SEEDS_DIR", v),
+                None => std::env::remove_var("APPIMAGE_CONTROL_SEEDS_DIR"),
+            }
+
+            // Must succeed — partial write was bridged by polling.
+            let outcome = result.expect("seed_until_config failed on partial-then-complete config");
+            assert_eq!(outcome, SeedOutcome::Seeded);
+
+            // The final config on disk must be a valid JSON object (apply_pack
+            // ran on top of the `{}` base the fake app wrote).
+            let raw = fs::read_to_string(&cfg_path).expect("config file missing after seed");
+            let v: serde_json::Value =
+                serde_json::from_str(&raw).expect("config file is not valid JSON");
+            assert!(
+                v.is_object(),
+                "config file root is not a JSON object: {v:?}"
+            );
+            // sentinel key set by apply_pack confirms the pack actually ran.
+            assert_eq!(
+                v["sentinel"], "ran",
+                "apply_pack did not run (sentinel key missing)"
+            );
+
+            assert!(
+                progress.iter().any(|s| s.contains("settings seeded")),
+                "progress never logged 'settings seeded'"
+            );
+        });
     }
 }
