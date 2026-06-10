@@ -25,6 +25,42 @@ fn fetch_url_bytes_loads_local_icon_bytes() {
     assert_eq!(got.len(), png.len());
 }
 
+/// A server that advertises Content-Length N but closes the connection after sending fewer
+/// bytes must cause `download_to_file` to return an error, leave no final file, and clean
+/// up the `.partdownload` scratch file.
+#[test]
+fn download_to_file_truncated_body_is_rejected() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dest = tmp.path().join("out.bin");
+    let part = tmp.path().join("out.bin.partdownload");
+
+    // Send 5 bytes but advertise 100 — simulates a dropped connection.
+    let url = common::serve_truncated_once(b"hello", 100);
+    let result = download_to_file(&url, &dest);
+
+    assert!(
+        result.is_err(),
+        "expected an error for truncated download, got Ok"
+    );
+    assert!(!dest.exists(), "final file must not exist after truncation");
+    assert!(
+        !part.exists(),
+        ".partdownload scratch file must be cleaned up after truncation"
+    );
+}
+
+/// An exact-length download (Content-Length matches body) must still succeed end-to-end.
+#[test]
+fn download_to_file_exact_content_length_succeeds() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dest = tmp.path().join("out.bin");
+    let body = b"exact-content-length-fixture";
+    // serve_bytes_once already sets Content-Length == body.len().
+    let url = common::serve_bytes_once(body, "application/octet-stream");
+    download_to_file(&url, &dest).expect("exact-length download should succeed");
+    assert_eq!(fs::read(&dest).unwrap(), body);
+}
+
 #[test]
 fn resolve_icon_image_url_prefers_explicit_icon_url() {
     let url = common::serve_bytes_once(b"x", "image/png");

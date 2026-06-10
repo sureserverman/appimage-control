@@ -37,7 +37,39 @@ pub fn serve_bytes_once(body: &[u8], content_type: &str) -> String {
     format!("http://{addr}/")
 }
 
-/// Placeholder “AppImage”: executable shell that exits 0 (good enough for paths that exec it).
+/// Serve one HTTP/1.1 `200` response that advertises `advertised_len` in `Content-Length` but
+/// closes the connection after sending only `body`, where `body.len() < advertised_len`.
+/// This simulates a dropped connection that delivers a truncated response body.
+///
+/// Returns the URL the caller should GET.
+pub fn serve_truncated_once(body: &[u8], advertised_len: usize) -> String {
+    assert!(
+        body.len() < advertised_len,
+        "body must be shorter than advertised_len for a truncation test"
+    );
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind localhost");
+    let addr = listener.local_addr().expect("local_addr");
+    let body = body.to_vec();
+    thread::spawn(move || {
+        let Ok((mut stream, _)) = listener.accept() else {
+            return;
+        };
+        let mut buf = [0u8; 2048];
+        let _ = stream.read(&mut buf);
+        let header = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            advertised_len,
+        );
+        let _ = stream.write_all(header.as_bytes());
+        // Write only the (short) body, then drop the stream to close the connection early.
+        let _ = stream.write_all(&body);
+        // stream is dropped here, simulating connection close mid-transfer.
+    });
+    thread::sleep(Duration::from_millis(10));
+    format!("http://{addr}/")
+}
+
+/// Placeholder "AppImage": executable shell that exits 0 (good enough for paths that exec it).
 pub fn write_executable_sh(path: &Path, script_body: &str) {
     use std::fs;
     use std::os::unix::fs::PermissionsExt;
