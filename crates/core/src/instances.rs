@@ -972,7 +972,13 @@ pub fn install_instance_from_cache(
         }
     }
 
-    let _ = write_instance_desktop_and_icon(paths, app, instance_index, &dest_bin)?;
+    if let Err(e) = write_instance_desktop_and_icon(paths, app, instance_index, &dest_bin) {
+        // Launcher write failed — remove the just-created instance dir so no ghost instance
+        // remains (binary present but unlaunhable). Best-effort: if cleanup itself fails we
+        // still surface the original launcher error to the caller.
+        let _ = fs::remove_dir_all(&dir);
+        return Err(e);
+    }
     Ok(())
 }
 
@@ -3849,6 +3855,102 @@ java-options=-Dcryptomator.ipcSocketPath=@{userhome}/.config/Cryptomator/ipc.soc
                 .iter()
                 .map(|e| e.path())
                 .collect::<Vec<_>>()
+        );
+    }
+
+    fn is_root() -> bool {
+        // SAFETY: getuid() is always safe to call; it never fails and has no side-effects.
+        unsafe extern "C" {
+            fn getuid() -> u32;
+        }
+        (unsafe { getuid() }) == 0
+    }
+
+    /// install_instance_from_cache must roll back the instance directory when
+    /// write_instance_desktop_and_icon fails (e.g. applications dir is read-only).
+    /// After failure: Err is returned, instance dir is absent, no .desktop residue.
+    #[test]
+    fn install_instance_from_cache_launcher_failure_rolls_back() {
+        use std::os::unix::fs::PermissionsExt;
+        if is_root() {
+            return; // permission-based failure injection needs a non-root uid
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let paths = AppPaths::new(tmp.path().to_path_buf()).unwrap();
+        let app = fake_app("rollback-app", "rollback.AppImage");
+
+        // Pre-create the cache dir with a fake AppImage.
+        let cache = paths.catalog_cache_dir("rollback-app");
+        fs::create_dir_all(&cache).unwrap();
+        let cached = cache.join("rollback.AppImage");
+        fs::write(&cached, b"fake appimage").unwrap();
+
+        // Make the applications dir read-only so the .desktop write fails.
+        let apps_dir = paths.applications_dir();
+        fs::create_dir_all(&apps_dir).unwrap();
+        fs::set_permissions(&apps_dir, fs::Permissions::from_mode(0o555)).unwrap();
+
+        let result = install_instance_from_cache(&paths, &app, 1, &cached, true);
+
+        // Restore permissions so tempdir cleanup can proceed.
+        fs::set_permissions(&apps_dir, fs::Permissions::from_mode(0o755)).unwrap();
+
+        // The call must have failed.
+        assert!(
+            result.is_err(),
+            "expected Err when launcher write fails, got Ok"
+        );
+
+        // The instance directory must not exist (rolled back).
+        let instance_dir = paths.instance_dir_for(&app, 1);
+        assert!(
+            !instance_dir.exists(),
+            "instance dir must be absent after rollback, found: {}",
+            instance_dir.display()
+        );
+
+        // No .desktop residue.
+        let desktop_path = apps_dir.join(desktop_filename_for_instance("rollback-app", 1));
+        assert!(
+            !desktop_path.exists(),
+            ".desktop must not exist after rollback"
+        );
+    }
+
+    /// reconcile_instance_count does not count a failed install in its `added` list.
+    #[test]
+    fn reconcile_does_not_count_failed_launcher_install_as_added() {
+        use std::os::unix::fs::PermissionsExt;
+        if is_root() {
+            return; // permission-based failure injection needs a non-root uid
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let paths = AppPaths::new(tmp.path().to_path_buf()).unwrap();
+        let app = fake_app("reconcile-fail-app", "rfail.AppImage");
+
+        let cache = paths.catalog_cache_dir("reconcile-fail-app");
+        fs::create_dir_all(&cache).unwrap();
+        fs::write(cache.join("rfail.AppImage"), b"fake appimage").unwrap();
+
+        let apps_dir = paths.applications_dir();
+        fs::create_dir_all(&apps_dir).unwrap();
+        fs::set_permissions(&apps_dir, fs::Permissions::from_mode(0o555)).unwrap();
+
+        let result = reconcile_instance_count_with_report(&paths, &app, 1, &mut |_| {});
+
+        fs::set_permissions(&apps_dir, fs::Permissions::from_mode(0o755)).unwrap();
+
+        // reconcile must propagate the launcher error.
+        assert!(
+            result.is_err(),
+            "expected reconcile to fail when launcher write fails, got Ok"
+        );
+
+        // The instance dir must be absent (no ghost instance).
+        let instance_dir = paths.instance_dir_for(&app, 1);
+        assert!(
+            !instance_dir.exists(),
+            "instance dir must be absent after reconcile failure"
         );
     }
 
