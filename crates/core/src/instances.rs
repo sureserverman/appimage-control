@@ -785,13 +785,39 @@ pub fn ensure_cached_appimage(
 }
 
 fn copy_or_hardlink(src: &Path, dst: &Path) -> Result<()> {
-    if dst.exists() {
-        fs::remove_file(dst)?;
+    // Build a unique temp name in the same directory as `dst` so that the final
+    // `fs::rename` is always on the same filesystem (and therefore atomic).
+    let dst_dir = dst.parent().ok_or_else(|| {
+        Error::InvalidPath(format!("dst has no parent: {}", dst.display()))
+    })?;
+    let tmp = dst_dir.join(format!(
+        ".{}.new.{}",
+        dst.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("appimage"),
+        uuid::Uuid::new_v4()
+    ));
+
+    // Attempt hard-link first (zero-copy on same filesystem). Fall back to a
+    // real copy. Either way, if the operation fails we clean up the temp file
+    // and leave `dst` untouched.
+    let result = if fs::hard_link(src, &tmp).is_ok() {
+        Ok(())
+    } else {
+        fs::copy(src, &tmp).map(|_| ())
+    };
+
+    if let Err(e) = result {
+        let _ = fs::remove_file(&tmp);
+        return Err(e.into());
     }
-    if fs::hard_link(src, dst).is_ok() {
-        return Ok(());
+
+    // Atomic swap: replaces `dst` if it already exists.
+    if let Err(e) = fs::rename(&tmp, dst) {
+        let _ = fs::remove_file(&tmp);
+        return Err(e.into());
     }
-    fs::copy(src, dst)?;
+
     Ok(())
 }
 
@@ -1613,50 +1639,65 @@ fn update_instance_appimage_with_shared_cache(
     let tmp_name = format!(".{}.new.{}", filename, uuid::Uuid::new_v4());
     let tmp_path = dir.join(tmp_name);
 
-    if use_gh {
-        let hint = remote_hint.ok_or_else(|| {
-            Error::InvalidPath("internal: GitHub upgrade without release hint".into())
-        })?;
-        let gh_url = hint.appimage_download_url.as_ref().ok_or_else(|| {
-            Error::InvalidPath("internal: GitHub upgrade without asset URL".into())
-        })?;
-        let cache_dir = paths.catalog_cache_dir(&app.id);
-        let cache_path = cache_dir.join(&filename);
-        if crate::version_info::github_catalog_cache_looks_fresh(&cache_dir, &filename, &hint.tag) {
-            on_progress(&format!(
-                "{} instance {}: using cached GitHub release {} …",
-                app.id, instance_index, hint.tag
-            ));
-            fs::copy(&cache_path, &tmp_path)?;
-            // Backfill markers so the next instance does not re-download after a partial metadata layout.
-            crate::version_info::write_github_cache_tag_sidecar(&cache_dir, &hint.tag)?;
-            crate::version_info::write_catalog_cache_recorded_version(&cache_dir, &hint.tag)?;
+    // Inner closure so that any `?` propagation is caught here and we can
+    // clean up the temp file before returning the error to the caller.
+    // This guarantees `dest_bin` is never left missing or truncated on failure.
+    let stage_result = (|| -> Result<()> {
+        if use_gh {
+            let hint = remote_hint.ok_or_else(|| {
+                Error::InvalidPath("internal: GitHub upgrade without release hint".into())
+            })?;
+            let gh_url = hint.appimage_download_url.as_ref().ok_or_else(|| {
+                Error::InvalidPath("internal: GitHub upgrade without asset URL".into())
+            })?;
+            let cache_dir = paths.catalog_cache_dir(&app.id);
+            let cache_path = cache_dir.join(&filename);
+            if crate::version_info::github_catalog_cache_looks_fresh(
+                &cache_dir,
+                &filename,
+                &hint.tag,
+            ) {
+                on_progress(&format!(
+                    "{} instance {}: using cached GitHub release {} …",
+                    app.id, instance_index, hint.tag
+                ));
+                fs::copy(&cache_path, &tmp_path)?;
+                // Backfill markers so the next instance does not re-download after a partial metadata layout.
+                crate::version_info::write_github_cache_tag_sidecar(&cache_dir, &hint.tag)?;
+                crate::version_info::write_catalog_cache_recorded_version(&cache_dir, &hint.tag)?;
+            } else {
+                on_progress(&format!(
+                    "{} instance {}: downloading GitHub release {} …",
+                    app.id, instance_index, hint.tag
+                ));
+                download_to_file(gh_url, &tmp_path)?;
+            }
         } else {
+            let cached = if let Some(ref p) = shared_catalog_blob {
+                p.clone()
+            } else {
+                let p = ensure_cached_appimage(paths, app, on_progress)?;
+                *shared_catalog_blob = Some(p.clone());
+                p
+            };
             on_progress(&format!(
-                "{} instance {}: downloading GitHub release {} …",
-                app.id, instance_index, hint.tag
+                "{} instance {}: applying build from catalog cache …",
+                app.id, instance_index
             ));
-            download_to_file(gh_url, &tmp_path)?;
+            fs::copy(&cached, &tmp_path)?;
         }
-    } else {
-        let cached = if let Some(ref p) = shared_catalog_blob {
-            p.clone()
-        } else {
-            let p = ensure_cached_appimage(paths, app, on_progress)?;
-            *shared_catalog_blob = Some(p.clone());
-            p
-        };
-        on_progress(&format!(
-            "{} instance {}: applying build from catalog cache …",
-            app.id, instance_index
-        ));
-        fs::copy(&cached, &tmp_path)?;
-    }
 
-    let mut perms = fs::metadata(&tmp_path)?.permissions();
-    perms.set_mode(0o755);
-    fs::set_permissions(&tmp_path, perms)?;
-    fs::rename(&tmp_path, &dest_bin)?;
+        let mut perms = fs::metadata(&tmp_path)?.permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&tmp_path, perms)?;
+        fs::rename(&tmp_path, &dest_bin)?;
+        Ok(())
+    })();
+
+    if let Err(e) = stage_result {
+        let _ = fs::remove_file(&tmp_path);
+        return Err(e);
+    }
 
     let gh_ver = if use_gh {
         remote_hint.map(|h| h.tag.as_str())
@@ -3719,5 +3760,124 @@ java-options=-Dcryptomator.ipcSocketPath=@{userhome}/.config/Cryptomator/ipc.soc
                 );
             }
         }
+    }
+
+    // --- copy_or_hardlink atomicity tests ---
+
+    /// Happy path: copy_or_hardlink with no pre-existing dst writes correct content.
+    #[test]
+    fn copy_or_hardlink_happy_path_no_preexisting_dst() {
+        let dir = tempfile::tempdir().unwrap();
+        let src = dir.path().join("src.AppImage");
+        let dst = dir.path().join("dst.AppImage");
+        fs::write(&src, b"v2-content").unwrap();
+
+        copy_or_hardlink(&src, &dst).unwrap();
+
+        assert_eq!(fs::read(&dst).unwrap(), b"v2-content");
+    }
+
+    /// Happy path: copy_or_hardlink replaces pre-existing dst atomically — dst content
+    /// reflects the new source, not the old value.
+    #[test]
+    fn copy_or_hardlink_replaces_preexisting_dst_content() {
+        let dir = tempfile::tempdir().unwrap();
+        let src = dir.path().join("src.AppImage");
+        let dst = dir.path().join("dst.AppImage");
+        fs::write(&dst, b"old-content").unwrap();
+        fs::write(&src, b"new-content").unwrap();
+
+        copy_or_hardlink(&src, &dst).unwrap();
+
+        assert_eq!(
+            fs::read(&dst).unwrap(),
+            b"new-content",
+            "dst must contain the new content after successful copy_or_hardlink"
+        );
+    }
+
+    /// Failure path: when src does not exist, copy_or_hardlink returns Err AND any
+    /// pre-existing dst is left intact (not removed or truncated).
+    #[test]
+    fn copy_or_hardlink_missing_src_leaves_preexisting_dst_intact() {
+        let dir = tempfile::tempdir().unwrap();
+        let src = dir.path().join("nonexistent.AppImage");
+        let dst = dir.path().join("dst.AppImage");
+        fs::write(&dst, b"original").unwrap();
+
+        let result = copy_or_hardlink(&src, &dst);
+
+        assert!(
+            result.is_err(),
+            "copy_or_hardlink with missing src must return Err"
+        );
+        assert!(
+            dst.is_file(),
+            "pre-existing dst must still exist after failed copy_or_hardlink"
+        );
+        assert_eq!(
+            fs::read(&dst).unwrap(),
+            b"original",
+            "pre-existing dst must be unmodified after failed copy_or_hardlink"
+        );
+    }
+
+    /// No temp-file residue: after a successful copy_or_hardlink there must be no
+    /// `.*.new.*` sibling left in the destination directory.
+    #[test]
+    fn copy_or_hardlink_no_temp_residue_after_success() {
+        let dir = tempfile::tempdir().unwrap();
+        let src = dir.path().join("src.AppImage");
+        let dst = dir.path().join("dst.AppImage");
+        fs::write(&src, b"payload").unwrap();
+
+        copy_or_hardlink(&src, &dst).unwrap();
+
+        let leftovers: Vec<_> = fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| {
+                e.file_name()
+                    .to_string_lossy()
+                    .contains(".new.")
+            })
+            .collect();
+        assert!(
+            leftovers.is_empty(),
+            "no temp-file residue expected after success; found: {:?}",
+            leftovers
+                .iter()
+                .map(|e| e.path())
+                .collect::<Vec<_>>()
+        );
+    }
+
+    /// No temp-file residue: after a failed copy_or_hardlink (missing src) the
+    /// destination directory must contain no `.*.new.*` temp files.
+    #[test]
+    fn copy_or_hardlink_no_temp_residue_after_failure() {
+        let dir = tempfile::tempdir().unwrap();
+        let src = dir.path().join("nonexistent.AppImage");
+        let dst = dir.path().join("dst.AppImage");
+
+        let _ = copy_or_hardlink(&src, &dst);
+
+        let leftovers: Vec<_> = fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| {
+                e.file_name()
+                    .to_string_lossy()
+                    .contains(".new.")
+            })
+            .collect();
+        assert!(
+            leftovers.is_empty(),
+            "no temp-file residue expected after failure; found: {:?}",
+            leftovers
+                .iter()
+                .map(|e| e.path())
+                .collect::<Vec<_>>()
+        );
     }
 }
