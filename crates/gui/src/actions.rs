@@ -55,7 +55,7 @@ pub fn build_actions_menu_button() -> MenuButton {
     menu.append(Some("Purge State"), Some("win.purge"));
     menu.append(Some("Migrate Legacy Dirs"), Some("win.migrate"));
     menu.append(Some("Backup"), Some("win.backup"));
-    menu.append(Some("Restore form backup"), Some("win.restore_backup"));
+    menu.append(Some("Restore from backup"), Some("win.restore_backup"));
     let b = MenuButton::builder()
         .icon_name("open-menu-symbolic")
         .build();
