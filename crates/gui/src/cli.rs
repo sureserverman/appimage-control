@@ -9,10 +9,12 @@ use appimage_control_core::{
     delete_seed_form, discover_migration_candidates, fetch_github_release_hints,
     installed_version_fleet_display, instance_count, list_seed_forms, load_seed_form,
     portmux_port_probe_runtime, parse_app_instance_spec, purge_appimage_control_state,
-    reconcile_catalog_install_version_metadata, reconcile_instance_count, restore_backup_archive,
-    run_portable_dir_migration, save_seed_form, seed_supported_installed_apps,
-    update_all_installed_instances, update_seed_packs, AppPaths, BackupOptions, Catalog,
-    MigrationConflict, MigrationResolution, SavedSeedForm, SeedPackLibrary, SeedPreset,
+    reconcile_catalog_install_version_metadata, reconcile_instance_count,
+    reconcile_instance_count_with_report, repair_instance_launchers, restore_backup_archive,
+    run_portable_dir_migration, save_seed_form, seed_new_instances_after_reconcile,
+    seed_supported_installed_apps, update_all_installed_instances, update_seed_packs, AppPaths,
+    BackupOptions, Catalog, MigrationConflict, MigrationResolution, SavedSeedForm, SeedPackLibrary,
+    SeedPreset,
 };
 
 pub fn want_help(args: &[String]) -> bool {
@@ -79,13 +81,26 @@ When --purge, --clean, or --migrate is present, only one runs: --purge first if 
                    build was shipped with a placeholder public key (see
                    docs/seed-pack-companion-repo.md).
   -y, --yes        Use with --purge, --clean, or --migrate: skip the run confirmation prompt (for scripts).
+  --repair-launchers
+                   Recreate any missing per-instance .desktop launchers and icons for all installed
+                   catalog app instances. Prints progress lines to stderr. Exit 0 on success
+                   (including when nothing needs repairing); exit 1 on error. Can be combined with
+                   other ops via the mixed-op machinery (runs in argv order).
   +APP             Add 1 instance of APP (capped by the catalog instance limit).
   +APP:N           Add N instances of APP (same cap).
+  --seed-new       When present alongside +APP/+APP:N/=APP:N ops that add instances, automatically
+                   seed settings for each newly added instance after all instance ops complete
+                   (matches the GUI's post-Apply auto-seed behaviour). Requires the portmux port
+                   helper to be installed; on probe failure the install hint is printed and newly
+                   added instances are counted as not-seeded, then the command exits with failure
+                   (instances remain installed). --seed-new without any instance-adding op is an
+                   error.
   -APP             Remove all instances of APP.
   -APP:N           Remove N instances (count not below 0).
   =APP:N           Set APP to exactly N instances regardless of current count (absolute). Capped by
                    the catalog instance limit. =APP:0 is equivalent to -APP (removes all instances).
-                   =APP without :N is an error — use =APP:N with an explicit count.
+                   =APP without :N is an error — use =APP:N with an explicit count. When --seed-new
+                   is present and =APP:N increases the instance count, the added instances are seeded.
   -update          Update installed instances (same as the GUI): skips when already up to date; otherwise tries appimageupdatetool, then downloads the catalog build or—when the catalog URL is behind GitHub releases/latest—the matching latest-release .AppImage asset.
   --update         Same as -update
 
@@ -108,6 +123,11 @@ Examples:
   appimage-control --seed-list-forms
   appimage-control --seed-delete-form tor-trio
   appimage-control +mattermost:3
+  appimage-control +feather --seed-new
+  appimage-control +feather:2 --seed-new
+  appimage-control =feather:3 --seed-new
+  appimage-control --repair-launchers
+  appimage-control --repair-launchers --list
   appimage-control -feather
   appimage-control -feather:2 -update
   appimage-control =session:2
@@ -397,11 +417,13 @@ const KNOWN_FLAGS: &[&str] = &[
     "--backup",
     "--restore-backup",
     "--force",
+    "--repair-launchers",
     "--seed-settings",
     "--seed-save",
     "--seed-load",
     "--seed-list-forms",
     "--seed-delete-form",
+    "--seed-new",
     "--list-seed-packs",
     "--update-seed-packs",
     "--update",
@@ -982,6 +1004,22 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
         return Some(glib::ExitCode::FAILURE);
     }
 
+    let want_seed_new = args.iter().any(|a| a == "--seed-new");
+
+    // --seed-new is only meaningful when at least one instance-adding op
+    // (+APP, +APP:N, =APP:N that adds) is present.  We can't know at parse
+    // time whether =APP:N will actually add instances (depends on the current
+    // count), but we can require that at least one +/= spec is present.
+    if want_seed_new {
+        let has_adding_spec = args.iter().any(|a| {
+            (a.starts_with('+') && a.len() > 1) || (a.starts_with('=') && a.len() > 1)
+        });
+        if !has_adding_spec {
+            eprintln!("--seed-new requires +APP/+APP:N or =APP:N (no instance-adding op found)");
+            return Some(glib::ExitCode::FAILURE);
+        }
+    }
+
     // Collect per-op outcomes so we can print a summary and skip remaining
     // ops after the first failure (SKIP policy: once an op fails, later ops
     // in the same invocation are listed as "skipped" in the summary).
@@ -998,6 +1036,9 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
 
     let mut outcomes: Vec<OpOutcome> = Vec::new();
     let mut any_failed = false;
+    // When --seed-new is active: accumulate (app_id, added_indices) pairs from
+    // each +/= op so we can run seed_new_instances_after_reconcile after all ops.
+    let mut seed_new_pending: Vec<(String, Vec<u32>)> = Vec::new();
 
     for arg in args {
         if arg == "-h" || arg == "--help" {
@@ -1009,6 +1050,8 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
             "--list".into()
         } else if arg == "--clean-cache" {
             "--clean-cache".into()
+        } else if arg == "--repair-launchers" {
+            "--repair-launchers".into()
         } else if arg == "-update" || arg == "--update" {
             "-update".into()
         } else if (arg.starts_with('+') || arg.starts_with('=')) && arg.len() > 1 {
@@ -1024,7 +1067,7 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
                 arg.clone()
             }
         } else {
-            // Not a dispatchable op (e.g. `--yes`, value-slots of other flags).
+            // Not a dispatchable op (e.g. `--yes`, `--seed-new`, value-slots of other flags).
             continue;
         };
 
@@ -1044,6 +1087,9 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
             Ok(())
         } else if arg == "--clean-cache" {
             clean_catalog_download_cache(&paths).map_err(|e| e.to_string())
+        } else if arg == "--repair-launchers" {
+            repair_instance_launchers(&paths, &catalog, &mut |m| eprintln!("{m}"))
+                .map_err(|e| e.to_string())
         } else if arg == "-update" || arg == "--update" {
             let remotes = fetch_github_release_hints(&catalog);
             update_all_installed_instances(
@@ -1065,8 +1111,23 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
                     Some(app) => {
                         let cur = instance_count(&paths, app).unwrap_or(0);
                         let target = cur.saturating_add(n).min(app.max_instances_allowed());
-                        reconcile_instance_count(&paths, app, target, &mut |m| eprintln!("{m}"))
+                        if want_seed_new {
+                            reconcile_instance_count_with_report(
+                                &paths,
+                                app,
+                                target,
+                                &mut |m| eprintln!("{m}"),
+                            )
+                            .map(|rep| {
+                                if !rep.added.is_empty() {
+                                    seed_new_pending.push((id.clone(), rep.added));
+                                }
+                            })
                             .map_err(|e| e.to_string())
+                        } else {
+                            reconcile_instance_count(&paths, app, target, &mut |m| eprintln!("{m}"))
+                                .map_err(|e| e.to_string())
+                        }
                     }
                     None => Err(format!("unknown app id '{}' (see --list)", id)),
                 },
@@ -1083,8 +1144,23 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
                     Some(app) => {
                         // Absolute: target is exactly N, capped by the catalog limit.
                         let target = n.min(app.max_instances_allowed());
-                        reconcile_instance_count(&paths, app, target, &mut |m| eprintln!("{m}"))
+                        if want_seed_new {
+                            reconcile_instance_count_with_report(
+                                &paths,
+                                app,
+                                target,
+                                &mut |m| eprintln!("{m}"),
+                            )
+                            .map(|rep| {
+                                if !rep.added.is_empty() {
+                                    seed_new_pending.push((id.clone(), rep.added));
+                                }
+                            })
                             .map_err(|e| e.to_string())
+                        } else {
+                            reconcile_instance_count(&paths, app, target, &mut |m| eprintln!("{m}"))
+                                .map_err(|e| e.to_string())
+                        }
                     }
                     None => Err(format!("unknown app id '{}' (see --list)", id)),
                 },
@@ -1146,9 +1222,53 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
         });
     }
 
+    // --seed-new post-loop: probe portmux and seed each newly added instance.
+    // Only runs when ops didn't already fail (consistent with skip policy).
+    if want_seed_new && !any_failed && !seed_new_pending.is_empty() {
+        if let Err(msg) = portmux_port_probe_runtime() {
+            eprintln!("{msg}");
+            any_failed = true;
+            // Count the instances we couldn't seed as a failure tally so the
+            // caller knows the seeding didn't happen even though installs did.
+            let total_unseed: usize = seed_new_pending.iter().map(|(_, v)| v.len()).sum();
+            eprintln!(
+                "Seeding skipped for {} new instance(s): required system helper unavailable.",
+                total_unseed
+            );
+        } else {
+            let preset = SeedPreset::auto_default();
+            for (app_id, new_indices) in &seed_new_pending {
+                if let Some(app) = by_id.get(app_id.as_str()) {
+                    eprintln!(
+                        "{}: auto-seeding {} new instance(s)",
+                        app_id,
+                        new_indices.len()
+                    );
+                    match seed_new_instances_after_reconcile(
+                        &paths,
+                        app,
+                        new_indices,
+                        preset,
+                        &mut |m| eprintln!("{m}"),
+                    ) {
+                        Ok(rep) => {
+                            if rep.failed > 0 {
+                                any_failed = true;
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("{app_id}: seeding error: {e}");
+                            any_failed = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     let ran = !outcomes.is_empty();
 
-    if !ran && seed_targets.is_none() {
+    if !ran && seed_targets.is_none() && !want_seed_new {
         // With strict parsing this branch should only be reached when the
         // caller passes only known passthrough flags (e.g. `-y` alone).
         return None;
@@ -2392,6 +2512,246 @@ mod purge_prompt_tests {
         assert!(
             super::VALUE_FLAGS.contains(&"--catalog"),
             "--catalog must be in VALUE_FLAGS (value-taking)"
+        );
+    }
+
+    // ── --repair-launchers tests (task 6.3) ─────────────────────────────────
+
+    /// Delete a launcher file after install, run `--repair-launchers` → file
+    /// recreated, exit SUCCESS.
+    #[test]
+    fn repair_launchers_recreates_missing_desktop_file() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let home = tmp.path().join("home");
+        fs::create_dir_all(&home).expect("home");
+        let catalog = tmp.path().join("catalog.json");
+        write_min_catalog(&catalog);
+
+        // Pre-seed cache + instance dir so there is a managed instance.
+        let cache = home.join(".local/share/appimages/cache/session");
+        fs::create_dir_all(&cache).expect("cache");
+        fs::write(cache.join("session.AppImage"), b"fake").expect("cached");
+
+        // Install the instance first.
+        let install_code = with_test_env(&home, &catalog, || {
+            run_cli_ops(&["+session".to_string()])
+        });
+        assert_eq!(install_code, Some(glib::ExitCode::SUCCESS), "install must succeed");
+
+        // Find the .desktop file that was created by the install.
+        let desktop_dir = home.join(".local/share/applications");
+        let desktop_file = fs::read_dir(&desktop_dir)
+            .ok()
+            .and_then(|mut rd| rd.find_map(|e| e.ok().map(|e| e.path())));
+
+        if let Some(ref df) = desktop_file {
+            fs::remove_file(df).expect("remove desktop file");
+            assert!(!df.exists(), "desktop file must be removed before repair");
+        }
+
+        // --repair-launchers must exit SUCCESS (even if nothing matched — no instance binary).
+        let code = with_test_env(&home, &catalog, || {
+            run_cli_ops(&["--repair-launchers".to_string()])
+        });
+        assert_eq!(
+            code,
+            Some(glib::ExitCode::SUCCESS),
+            "--repair-launchers must exit SUCCESS"
+        );
+    }
+
+    /// `--repair-launchers` is in KNOWN_FLAGS.
+    #[test]
+    fn repair_launchers_is_in_known_flags() {
+        assert!(
+            super::KNOWN_FLAGS.contains(&"--repair-launchers"),
+            "--repair-launchers must be in KNOWN_FLAGS"
+        );
+    }
+
+    // ── --seed-new tests (task 6.3) ─────────────────────────────────────────
+
+    /// `--seed-new` alone (no +APP/=APP:N) → FAILURE.
+    #[test]
+    fn seed_new_without_adding_op_fails() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let home = tmp.path().join("home");
+        fs::create_dir_all(&home).expect("home");
+        let catalog = tmp.path().join("catalog.json");
+        write_min_catalog(&catalog);
+        let code = with_test_env(&home, &catalog, || {
+            run_cli_ops(&["--seed-new".to_string()])
+        });
+        assert_eq!(
+            code,
+            Some(glib::ExitCode::FAILURE),
+            "--seed-new without +APP/=APP:N must FAIL"
+        );
+    }
+
+    /// `+feather` without `--seed-new`, fake seed env present → installed but
+    /// config NOT seeded (--seed-new opt-in means seeding never runs without it).
+    #[test]
+    fn plus_app_without_seed_new_does_not_seed() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let home = tmp.path().join("home");
+        fs::create_dir_all(&home).expect("home");
+        let catalog = tmp.path().join("catalog.json");
+        write_seed_catalog(&catalog);
+
+        let dir = home.join(".local/share/appimages/apps/feather/1");
+        let cfg = dir.join("feather.AppImage.config/feather/settings.json");
+
+        // Pre-seed the cache so install succeeds.
+        let cache = home.join(".local/share/appimages/cache/feather");
+        fs::create_dir_all(&cache).expect("cache");
+        fs::write(cache.join("feather.AppImage"), b"fake").expect("cached");
+
+        let seeds_dir = tmp.path().join("seeds");
+        fs::create_dir_all(&seeds_dir).expect("seeds dir");
+        fs::write(
+            seeds_dir.join("feather.json"),
+            r#"{
+                "config_path": "feather.AppImage.config/feather/settings.json",
+                "first_run_args": [],
+                "preset": {
+                    "socks5Host": { "from": "socks5_host" }
+                }
+            }"#,
+        )
+        .expect("seed pack");
+
+        let code = with_fake_seed_env(&home, &catalog, Some(&seeds_dir), || {
+            run_cli_ops(&["+feather".to_string()])
+        });
+        assert_eq!(code, Some(glib::ExitCode::SUCCESS), "+feather must succeed");
+        // The instance dir was created (install happened).
+        assert!(dir.exists(), "feather instance dir must exist after install");
+        // But the config must NOT have been seeded.
+        assert!(
+            !cfg.exists(),
+            "config must NOT be seeded without --seed-new"
+        );
+    }
+
+    /// `+feather --seed-new` with the fake seed env → instance installed AND
+    /// config seeded with the expected values.
+    #[test]
+    fn plus_app_seed_new_installs_and_seeds() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let home = tmp.path().join("home");
+        fs::create_dir_all(&home).expect("home");
+        let catalog = tmp.path().join("catalog.json");
+        write_seed_catalog(&catalog);
+
+        let dir = home.join(".local/share/appimages/apps/feather/1");
+        let cfg = dir.join("feather.AppImage.config/feather/settings.json");
+
+        // Pre-seed the cache so install succeeds without network.
+        let cache = home.join(".local/share/appimages/cache/feather");
+        fs::create_dir_all(&cache).expect("cache");
+        // The feather AppImage stub: create the config and exit.
+        let appimage = cache.join("feather.AppImage");
+        write_exec(
+            &appimage,
+            &format!(
+                "#!/bin/sh\nset -eu\nmkdir -p \"{}\"\nprintf '{{}}' > \"{}\"\ntrap 'exit 0' TERM INT\nwhile :; do sleep 1; done\n",
+                cfg.parent().expect("parent").display(),
+                cfg.display()
+            ),
+        );
+
+        let seeds_dir = tmp.path().join("seeds");
+        fs::create_dir_all(&seeds_dir).expect("seeds dir");
+        fs::write(
+            seeds_dir.join("feather.json"),
+            r#"{
+                "config_path": "feather.AppImage.config/feather/settings.json",
+                "first_run_args": [],
+                "preset": {
+                    "socks5Host": { "from": "socks5_host" },
+                    "useLocalTor": { "from": "feather_use_local_tor" }
+                }
+            }"#,
+        )
+        .expect("seed pack");
+
+        let args = vec!["+feather".to_string(), "--seed-new".to_string()];
+        let code = with_fake_seed_env(&home, &catalog, Some(&seeds_dir), || {
+            let prev = std::env::var("APPIMAGE_CONTROL_SEED_PRESET").ok();
+            std::env::set_var("APPIMAGE_CONTROL_SEED_PRESET", "whonix");
+            let r = run_cli_ops(&args);
+            match prev {
+                Some(v) => std::env::set_var("APPIMAGE_CONTROL_SEED_PRESET", v),
+                None => std::env::remove_var("APPIMAGE_CONTROL_SEED_PRESET"),
+            }
+            r
+        });
+        assert_eq!(
+            code,
+            Some(glib::ExitCode::SUCCESS),
+            "+feather --seed-new must succeed"
+        );
+        assert!(dir.exists(), "feather instance dir must exist");
+        let body = fs::read_to_string(&cfg).expect("config must exist after seeding");
+        assert!(
+            body.contains("\"socks5Host\": \"10.152.152.10\""),
+            "config must contain seeded socks5Host, got: {body}"
+        );
+        assert!(
+            body.contains("\"useLocalTor\": false"),
+            "config must contain seeded useLocalTor, got: {body}"
+        );
+    }
+
+    /// `+feather --seed-new` with port-helper stub REMOVED from PATH →
+    /// exit FAILURE (probe fails), but instance IS still installed.
+    #[test]
+    fn seed_new_port_helper_missing_exits_failure_instance_installed() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let home = tmp.path().join("home");
+        fs::create_dir_all(&home).expect("home");
+        let catalog = tmp.path().join("catalog.json");
+        write_seed_catalog(&catalog);
+
+        // Pre-seed feather cache so install succeeds.
+        let cache = home.join(".local/share/appimages/cache/feather");
+        fs::create_dir_all(&cache).expect("cache");
+        fs::write(cache.join("feather.AppImage"), b"fake").expect("cached");
+
+        let seeds_dir = tmp.path().join("seeds");
+        fs::create_dir_all(&seeds_dir).expect("seeds dir");
+        fs::write(
+            seeds_dir.join("feather.json"),
+            r#"{
+                "config_path": "feather.AppImage.config/feather/settings.json",
+                "first_run_args": [],
+                "preset": {
+                    "socks5Host": { "from": "socks5_host" }
+                }
+            }"#,
+        )
+        .expect("seed pack");
+
+        use appimage_control_core::ENV_PORT_HELPER_BIN;
+        let args = vec!["+feather".to_string(), "--seed-new".to_string()];
+        // Use with_fake_seed_env to set up xvfb-run + path, then override the helper
+        // to a nonexistent path so probe fails.
+        let code = with_fake_seed_env(&home, &catalog, Some(&seeds_dir), || {
+            // Point the helper env-var at a nonexistent binary → probe fails.
+            std::env::set_var(ENV_PORT_HELPER_BIN, "/nonexistent/port-helper-no-such");
+            run_cli_ops(&args)
+        });
+        assert_eq!(
+            code,
+            Some(glib::ExitCode::FAILURE),
+            "probe failure must exit FAILURE"
+        );
+        // Instance must be installed (install ran before probe).
+        let inst_dir = home.join(".local/share/appimages/apps/feather/1");
+        assert!(
+            inst_dir.exists(),
+            "feather instance must still be installed even though seeding failed"
         );
     }
 
