@@ -850,14 +850,14 @@ fn mount_catalog_view(
                         let mut to_remove: Vec<u32> = (target + 1..=current).collect();
                         to_remove.sort_by(|a, b| b.cmp(a));
                         let count = to_remove.len();
-                        let first = to_remove[0];
-                        let last = *to_remove.last().expect("non-empty removal list");
+                        let highest = to_remove[0];
+                        let lowest = *to_remove.last().expect("non-empty removal list");
                         let app = &catalog.apps[h.app_index];
                         let name = app.display_name_resolved();
                         let range_label = if count == 1 {
-                            format!("instance {first}")
+                            format!("instance {highest}")
                         } else {
-                            format!("instances {first}–{last}")
+                            format!("instances {lowest}–{highest}")
                         };
                         removal_lines.push(format!(
                             "<b>{}</b>: {} ({} instance{})",
@@ -869,8 +869,15 @@ fn mount_catalog_view(
                     }
                 }
                 if !removal_lines.is_empty() {
+                    // Disable Apply for the duration of the nested modal loop:
+                    // the dialog's modality is only advisory to the WM, so
+                    // without this a second click could spawn a concurrent
+                    // apply worker while the dialog is up.
+                    if let Some(a) = apply_weak.upgrade() {
+                        a.set_sensitive(false);
+                    }
                     let detail = removal_lines.join("\n");
-                    if !ask_confirmation(
+                    let confirmed = ask_confirmation(
                         &window_for_apply,
                         ConfirmKind::Warn,
                         "Remove instance data?",
@@ -878,7 +885,11 @@ fn mount_catalog_view(
                          data for the removed instances. This cannot be undone.",
                         Some(&format!("<small>{detail}</small>")),
                         "Remove and Apply",
-                    ) {
+                    );
+                    if !confirmed {
+                        if let Some(a) = apply_weak.upgrade() {
+                            a.set_sensitive(true);
+                        }
                         return;
                     }
                 }
@@ -951,8 +962,8 @@ fn mount_catalog_view(
                             let app = &catalog_idle.apps[h.app_index];
                             let n = instance_count(paths_idle.as_ref(), app).unwrap_or(0);
                             let cap = app.max_instances_allowed();
-                            h.spin.set_value(n.min(cap) as f64);
                             h.last_applied.set(n);
+                            h.spin.set_value(n.min(cap) as f64);
                             let can = h.can_install;
                             let has_any = catalog_idle.apps[h.app_index].has_any_download_url();
                             h.spin.set_sensitive(has_any && can);
@@ -1193,8 +1204,8 @@ fn mount_catalog_view(
                             let app = &catalog_idle.apps[h.app_index];
                             let n = instance_count(paths_idle.as_ref(), app).unwrap_or(0);
                             let cap = app.max_instances_allowed();
-                            h.spin.set_value(n.min(cap) as f64);
                             h.last_applied.set(n);
+                            h.spin.set_value(n.min(cap) as f64);
                             let can = h.can_install;
                             let has_any = catalog_idle.apps[h.app_index].has_any_download_url();
                             h.spin.set_sensitive(has_any && can);
@@ -1370,8 +1381,8 @@ fn install_window_actions_for_catalog(
             for h in rows.borrow_mut().iter_mut() {
                 let app = &catalog.apps[h.app_index];
                 let n = instance_count(paths.as_ref(), app).unwrap_or(0);
-                h.spin.set_value(n.min(app.max_instances_allowed()) as f64);
                 h.last_applied.set(n);
+                h.spin.set_value(n.min(app.max_instances_allowed()) as f64);
             }
             refresh_all_rows(&paths, &catalog, &remote, &rows);
             update_total_label(&total_label, &paths, &catalog);
@@ -1909,6 +1920,16 @@ fn install_window_actions_for_catalog(
                         if needs_force {
                             // Ask the user on the main thread; if they confirm,
                             // run a second thread for the force restore.
+                            //
+                            // SAFETY of the nested MainLoop inside this idle
+                            // handler: ask_confirmation spins a nested
+                            // glib::MainLoop, during which other idles still
+                            // fire. Re-entrancy into a concurrent Apply/Update
+                            // is impossible only because apply_btn/update_btn
+                            // were disabled before the restore worker spawned
+                            // and are re-enabled strictly after this branch
+                            // completes. Keep that ordering if this flow is
+                            // restructured.
                             if ask_confirmation(
                                 &window_idle,
                                 ConfirmKind::Danger,
