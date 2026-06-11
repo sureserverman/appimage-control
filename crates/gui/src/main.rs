@@ -985,6 +985,8 @@ fn mount_catalog_view(
                     Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
                     Err(mpsc::TryRecvError::Disconnected) => {
                         progress_done.set_visible(false);
+                        progress_done.set_fraction(0.0);
+                        progress_done.set_text(None);
                         status_idle.set_text("Apply interrupted.");
                         if let Some(a) = apply_done.upgrade() {
                             a.set_sensitive(true);
@@ -1225,6 +1227,8 @@ fn mount_catalog_view(
                     Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
                     Err(mpsc::TryRecvError::Disconnected) => {
                         progress_done.set_visible(false);
+                        progress_done.set_fraction(0.0);
+                        progress_done.set_text(None);
                         status_idle.set_text("Update interrupted.");
                         if let Some(a) = apply_done.upgrade() {
                             a.set_sensitive(true);
@@ -1482,6 +1486,8 @@ fn install_window_actions_for_catalog(
                         Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
                         Err(mpsc::TryRecvError::Disconnected) => {
                             progress_done.set_visible(false);
+                            progress_done.set_fraction(0.0);
+                            progress_done.set_text(None);
                             status_idle.set_text("Seed settings interrupted.");
                             apply_idle.set_sensitive(true);
                             update_idle.set_sensitive(true);
@@ -1631,6 +1637,8 @@ fn install_window_actions_for_catalog(
                     Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
                     Err(mpsc::TryRecvError::Disconnected) => {
                         progress_done.set_visible(false);
+                        progress_done.set_fraction(0.0);
+                        progress_done.set_text(None);
                         status_idle.set_text("Clean interrupted.");
                         apply_done.set_sensitive(true);
                         update_done.set_sensitive(true);
@@ -1711,6 +1719,8 @@ fn install_window_actions_for_catalog(
                     Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
                     Err(mpsc::TryRecvError::Disconnected) => {
                         progress_done.set_visible(false);
+                        progress_done.set_fraction(0.0);
+                        progress_done.set_text(None);
                         status_idle.set_text("Purge interrupted.");
                         apply_done.set_sensitive(true);
                         update_done.set_sensitive(true);
@@ -1824,6 +1834,8 @@ fn install_window_actions_for_catalog(
                     Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
                     Err(mpsc::TryRecvError::Disconnected) => {
                         progress_done.set_visible(false);
+                        progress_done.set_fraction(0.0);
+                        progress_done.set_text(None);
                         status_idle.set_text("Backup interrupted.");
                         apply_done.set_sensitive(true);
                         update_done.set_sensitive(true);
@@ -1930,6 +1942,8 @@ fn install_window_actions_for_catalog(
                                     Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
                                     Err(mpsc::TryRecvError::Disconnected) => {
                                         progress_f.set_visible(false);
+                                        progress_f.set_fraction(0.0);
+                                        progress_f.set_text(None);
                                         status_f.set_text("Restore interrupted.");
                                         apply_f.set_sensitive(true);
                                         update_f.set_sensitive(true);
@@ -1968,6 +1982,8 @@ fn install_window_actions_for_catalog(
                     Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
                     Err(mpsc::TryRecvError::Disconnected) => {
                         progress_done.set_visible(false);
+                        progress_done.set_fraction(0.0);
+                        progress_done.set_text(None);
                         status_idle.set_text("Restore interrupted.");
                         apply_done.set_sensitive(true);
                         update_done.set_sensitive(true);
@@ -2035,6 +2051,8 @@ fn install_window_actions_for_catalog(
                     Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
                     Err(mpsc::TryRecvError::Disconnected) => {
                         progress_done.set_visible(false);
+                        progress_done.set_fraction(0.0);
+                        progress_done.set_text(None);
                         status_idle.set_text("Update seed packs interrupted.");
                         apply_done.set_sensitive(true);
                         update_done.set_sensitive(true);

@@ -137,6 +137,14 @@ pub fn ask_confirmation(
         }
         loop_c.quit();
     });
+    // Belt-and-suspenders: if the dialog widget is destroyed without
+    // emitting a response (e.g. parent window closed, WM kill), quit
+    // the nested loop so the caller is not permanently blocked.
+    // Treated as Cancel (decided stays false).
+    let loop_destroy = loop_.clone();
+    dialog.connect_destroy(move |_| {
+        loop_destroy.quit();
+    });
     dialog.present();
     loop_.run();
     let out = *decided.borrow();

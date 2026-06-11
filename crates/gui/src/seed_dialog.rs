@@ -109,6 +109,14 @@ pub fn choose_seed_settings(
         d.close();
         loop_c.quit();
     });
+    // If the dialog is destroyed without emitting a response (e.g.
+    // the parent window is closed or the WM sends a kill), quit the
+    // nested loop so the caller is not permanently blocked.  Treated
+    // as Cancel (decided stays None).
+    let loop_destroy = loop_.clone();
+    dialog.connect_destroy(move |_| {
+        loop_destroy.quit();
+    });
     dialog.present();
     loop_.run();
     let out = decided.borrow().clone();
@@ -381,32 +389,37 @@ fn build_named_store(names: &[String]) -> StringList {
 fn build_action_buttons(dialog: &Dialog, checks: &[(String, CheckButton)]) {
     let cancel_widget = dialog.add_button("_Cancel", ResponseType::Cancel);
     let seed_widget = dialog.add_button("Seed 0 apps", ResponseType::Ok);
-    let seed_btn: Button = seed_widget
-        .downcast::<Button>()
-        .expect("Dialog::add_button returns a Button under the hood");
-    seed_btn.add_css_class("suggested-action");
-    seed_btn.set_sensitive(false);
     cancel_widget.set_margin_bottom(16);
     cancel_widget.set_margin_end(0);
-    seed_btn.set_margin_bottom(16);
-    seed_btn.set_margin_end(20);
     dialog.set_default_response(ResponseType::Ok);
 
-    let seed_btn_clone = seed_btn.clone();
-    let checks_for_label = checks.to_vec();
-    let recompute_label: Rc<dyn Fn()> = Rc::new(move || {
-        let n = checks_for_label
-            .iter()
-            .filter(|(_, cb)| cb.is_active())
-            .count();
-        seed_btn_clone.set_label(&format!("Seed {n} app{}", if n == 1 { "" } else { "s" }));
-        seed_btn_clone.set_sensitive(n > 0);
-    });
-    for (_, cb) in checks {
-        let r = Rc::clone(&recompute_label);
-        cb.connect_toggled(move |_| (r)());
+    // `Dialog::add_button` returns a `gtk::Widget`; downcast to `Button` to
+    // apply styling and label updates.  If the downcast fails (which would be
+    // a gtk-rs or GTK ABI anomaly), skip the wiring rather than panicking —
+    // the dialog still functions; the button label just stays "Seed 0 apps".
+    if let Ok(seed_btn) = seed_widget.downcast::<Button>() {
+        seed_btn.add_css_class("suggested-action");
+        seed_btn.set_sensitive(false);
+        seed_btn.set_margin_bottom(16);
+        seed_btn.set_margin_end(20);
+
+        let seed_btn_clone = seed_btn.clone();
+        let checks_for_label = checks.to_vec();
+        let recompute_label: Rc<dyn Fn()> = Rc::new(move || {
+            let n = checks_for_label
+                .iter()
+                .filter(|(_, cb)| cb.is_active())
+                .count();
+            seed_btn_clone
+                .set_label(&format!("Seed {n} app{}", if n == 1 { "" } else { "s" }));
+            seed_btn_clone.set_sensitive(n > 0);
+        });
+        for (_, cb) in checks {
+            let r = Rc::clone(&recompute_label);
+            cb.connect_toggled(move |_| (r)());
+        }
+        (recompute_label)();
     }
-    (recompute_label)();
 }
 
 // ----- Helper sub-dialogs --------------------------------------------
@@ -443,6 +456,12 @@ fn prompt_form_name(parent: &ApplicationWindow) -> Option<String> {
             }
         }
         loop_c.quit();
+    });
+    // If the dialog is destroyed without a response, quit the nested
+    // loop so the save flow does not hang.  Treated as Cancel.
+    let loop_destroy = loop_.clone();
+    dialog.connect_destroy(move |_| {
+        loop_destroy.quit();
     });
     dialog.present();
     loop_.run();
