@@ -2,11 +2,44 @@ use std::fs;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 
 use crate::desktop::parse_desktop_file;
 use crate::error::{Error, Result};
 use crate::host_cmd::host_command;
 use crate::paths::AppPaths;
+
+/// Sweep leftover `.{name}.new.{uuid}`-style temp files in `instance_dir` that are older than
+/// `older_than`. Mirrors the [`crate::seed::sweep_stale_pid_files`] pattern.
+///
+/// Called before each update run so a crashed prior update does not leave temp files accumulating
+/// indefinitely. The 1-hour cutoff matches the seed-sweep: a legitimate in-progress update finishes
+/// in seconds, so any file older than an hour is definitely abandoned.
+pub fn sweep_stale_update_temps(instance_dir: &Path, older_than: SystemTime) {
+    let Ok(entries) = fs::read_dir(instance_dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let name_str = name.to_string_lossy();
+        // Match `.{anything}.new.{anything}` — the pattern used by both
+        // `copy_or_hardlink` in instances.rs and `update_from_file` here.
+        if !name_str.starts_with('.') {
+            continue;
+        }
+        // Must contain ".new." (not just start with a dot).
+        if !name_str.contains(".new.") {
+            continue;
+        }
+        if let Ok(meta) = entry.metadata() {
+            if let Ok(mtime) = meta.modified() {
+                if mtime < older_than {
+                    let _ = fs::remove_file(entry.path());
+                }
+            }
+        }
+    }
+}
 
 /// Replace an installed AppImage with a new file (atomic rename). Keeps `.desktop` and app id.
 pub fn update_from_file(
@@ -94,6 +127,36 @@ mod tests {
     use crate::install::install_appimage;
     use crate::install::InstallOptions;
     use crate::paths::AppPaths;
+
+    /// A backdated `.x.new.deadbeef` temp must be removed; a fresh one must be kept.
+    #[test]
+    fn sweep_stale_update_temps_removes_old_keeps_fresh() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+
+        // Stale temp file — backdated past the cutoff.
+        let stale = dir.join(".session.new.deadbeef");
+        std::fs::write(&stale, b"partial").unwrap();
+        std::process::Command::new("touch")
+            .args(["-d", "@1000000", stale.to_str().unwrap()])
+            .status()
+            .unwrap();
+
+        // Fresh temp file — mtime is now, will be after the cutoff.
+        let fresh = dir.join(".session.new.cafecafe");
+        std::fs::write(&fresh, b"in-progress").unwrap();
+
+        // Unrelated dot-file that must not be touched.
+        let unrelated = dir.join(".appimage-control-seed-host-pid.42");
+        std::fs::write(&unrelated, b"pid").unwrap();
+
+        let cutoff = SystemTime::now() - std::time::Duration::from_secs(3600);
+        sweep_stale_update_temps(dir, cutoff);
+
+        assert!(!stale.exists(), "stale temp must be removed");
+        assert!(fresh.exists(), "fresh temp must be preserved");
+        assert!(unrelated.exists(), "unrelated dot-file must not be touched");
+    }
 
     #[test]
     fn update_replaces_binary() {

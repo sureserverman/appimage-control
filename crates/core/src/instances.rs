@@ -1701,6 +1701,10 @@ fn update_instance_appimage_with_shared_cache(
         }
     }
 
+    // Sweep leftover temp files from crashed prior update runs before writing a new one.
+    let sweep_before = std::time::SystemTime::now() - std::time::Duration::from_secs(3600);
+    crate::update::sweep_stale_update_temps(&dir, sweep_before);
+
     let tmp_name = format!(".{}.new.{}", filename, uuid::Uuid::new_v4());
     let tmp_path = dir.join(tmp_name);
 
@@ -2026,6 +2030,9 @@ pub fn remove_instance(paths: &AppPaths, app: &CatalogApp, instance_index: u32) 
     if desktop.is_file() {
         fs::remove_file(&desktop)?;
     }
+
+    // Remove per-instance icon files from the hicolor theme dirs.
+    crate::icons::remove_instance_icon_files(paths, app, instance_index);
 
     update_desktop_database_best_effort(paths, None);
     Ok(())

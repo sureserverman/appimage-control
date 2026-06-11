@@ -283,6 +283,37 @@ pub fn write_instance_icon_png(
     Ok(Some(icon_name))
 }
 
+/// Remove both the primary theme icon (`instance_icon_theme_name`) and the legacy
+/// `appimage-control-<id>-N.png` icon for `instance_index` from all hicolor size dirs where
+/// `write_instance_icon_png` places them (128×128 and 256×256).
+///
+/// Called from [`crate::instances::remove_instance`] so hicolor tiles don't accumulate as
+/// orphans after an instance is removed.  Failures are silently ignored — a missing icon dir
+/// or a missing icon file is not an error during removal.
+pub fn remove_instance_icon_files(paths: &AppPaths, app: &CatalogApp, instance_index: u32) {
+    let theme_name = instance_icon_theme_name(app, instance_index);
+    let legacy_name = instance_icon_name(&app.id, instance_index);
+
+    // Collect the distinct names to remove (may be identical for InstanceStrategy::None).
+    let mut names: Vec<&str> = vec![theme_name.as_str()];
+    if legacy_name != theme_name {
+        names.push(legacy_name.as_str());
+    }
+
+    for &size in &[128u32, 256] {
+        let dir = paths.user_hicolor_apps_dir(size);
+        if !dir.is_dir() {
+            continue;
+        }
+        for name in &names {
+            let dest = dir.join(format!("{}.png", name));
+            if dest.exists() {
+                let _ = fs::remove_file(&dest);
+            }
+        }
+    }
+}
+
 fn scale_png_to_square(bytes: &[u8], size: u32) -> Option<Vec<u8>> {
     use image::codecs::png::PngEncoder;
     use image::imageops::FilterType;
@@ -507,5 +538,80 @@ mod tests {
         fs::write(&png, b"\x89PNG\r\n\x1a\nfake").unwrap();
         let b = super::cryptomator_bundled_icon_bytes(tmp.path()).expect("bundled png");
         assert_eq!(b, b"\x89PNG\r\n\x1a\nfake");
+    }
+
+    /// `remove_instance_icon_files` must delete both the theme icon and the legacy icon for the
+    /// target instance while leaving other instances' icons untouched.
+    #[test]
+    fn remove_instance_icon_files_cleans_target_keeps_others() {
+        let tmp = tempfile::tempdir().unwrap();
+        let paths = crate::paths::AppPaths::new(tmp.path().to_path_buf()).unwrap();
+
+        // Use an ElectronClass app so theme_name != legacy_name (exercises both branches).
+        let app = crate::catalog::CatalogApp {
+            id: "session".into(),
+            display_name: None,
+            homepage: None,
+            download_url: None,
+            download_url_aarch64: None,
+            appimage_filename: None,
+            instance_strategy: crate::catalog::InstanceStrategy::ElectronClass,
+            instance_exec_args_template: None,
+            instance_name_template: None,
+            desktop_name_template: None,
+            reset_config_dirs: vec![],
+            reset_cache_dirs: vec![],
+            reset_data_dirs: vec![],
+            icon_url: None,
+            wayland_app_id: None,
+            desktop_pass_file_urls: None,
+            instance_subdir: None,
+            isolate_dbus_session: None,
+            max_instances: None,
+            max_instances_tooltip: None,
+        };
+
+        let theme_1 = instance_icon_theme_name(&app, 1);
+        let legacy_1 = instance_icon_name(&app.id, 1);
+        let theme_2 = instance_icon_theme_name(&app, 2);
+        let legacy_2 = instance_icon_name(&app.id, 2);
+
+        // Plant fake icon files for instance 1 and instance 2 at each hicolor size.
+        for &size in &[128u32, 256] {
+            let dir = paths.user_hicolor_apps_dir(size);
+            fs::create_dir_all(&dir).unwrap();
+            for name in &[&theme_1, &legacy_1, &theme_2, &legacy_2] {
+                fs::write(dir.join(format!("{}.png", name)), b"fake").unwrap();
+            }
+        }
+
+        // Remove only instance 1.
+        super::remove_instance_icon_files(&paths, &app, 1);
+
+        // Instance 1 icons must be gone from all hicolor size dirs.
+        for &size in &[128u32, 256] {
+            let dir = paths.user_hicolor_apps_dir(size);
+            assert!(
+                !dir.join(format!("{}.png", theme_1)).exists(),
+                "theme icon for instance 1 should be removed at {}px",
+                size
+            );
+            assert!(
+                !dir.join(format!("{}.png", legacy_1)).exists(),
+                "legacy icon for instance 1 should be removed at {}px",
+                size
+            );
+            // Instance 2 icons must remain.
+            assert!(
+                dir.join(format!("{}.png", theme_2)).exists(),
+                "theme icon for instance 2 must not be removed at {}px",
+                size
+            );
+            assert!(
+                dir.join(format!("{}.png", legacy_2)).exists(),
+                "legacy icon for instance 2 must not be removed at {}px",
+                size
+            );
+        }
     }
 }

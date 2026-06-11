@@ -242,13 +242,25 @@ const SHIPPED_CATALOG_JSON: &str = include_str!(concat!(
 /// Loads `path` only if it parses and lists at least one app. Empty `{"apps":[]}` files are ignored
 /// so a stray `…/data/catalog.json` on an ancestor chain (e.g. under `$HOME`) cannot shadow the
 /// real Flatpak or shipped catalog.
+///
+/// When the file exists but fails to parse, a warning is printed to stderr naming the path and
+/// the parse error so the operator knows why a candidate was skipped.
 fn try_nonempty_catalog_file(path: &Path) -> Option<Catalog> {
     if !path.is_file() {
         return None;
     }
-    Catalog::load_from_path(path)
-        .ok()
-        .filter(|c| !c.apps.is_empty())
+    match Catalog::load_from_path(path) {
+        Err(e) => {
+            eprintln!(
+                "appimage-control: warning: catalog candidate {} failed to parse ({}); skipping",
+                path.display(),
+                e
+            );
+            None
+        }
+        Ok(c) if c.apps.is_empty() => None,
+        Ok(c) => Some(c),
+    }
 }
 
 fn try_load_catalog_from_data_json_ancestors(start: &Path) -> Option<Catalog> {
@@ -291,9 +303,21 @@ impl Catalog {
             if !s.is_empty() {
                 let p = PathBuf::from(s);
                 if p.is_file() {
-                    if let Ok(c) = Self::load_from_path(&p) {
-                        return Ok(c);
+                    match Self::load_from_path(&p) {
+                        Ok(c) => return Ok(c),
+                        Err(e) => {
+                            eprintln!(
+                                "appimage-control: warning: APPIMAGE_CONTROL_CATALOG={} failed to parse ({}); falling through to next source",
+                                p.display(),
+                                e
+                            );
+                        }
                     }
+                } else {
+                    eprintln!(
+                        "appimage-control: warning: APPIMAGE_CONTROL_CATALOG={} is not a readable file; falling through to next source",
+                        p.display()
+                    );
                 }
             }
         }
@@ -332,8 +356,14 @@ impl Catalog {
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use std::sync::{Mutex, OnceLock};
 
     use super::{Catalog, CatalogApp, InstanceStrategy};
+
+    fn env_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
 
     fn app_urls(amd: Option<&str>, arm: Option<&str>) -> CatalogApp {
         CatalogApp {
@@ -502,5 +532,56 @@ mod tests {
             a.instance_limit_tooltip_message().as_deref(),
             Some("Custom limit message.")
         );
+    }
+
+    /// When `APPIMAGE_CONTROL_CATALOG` points to a malformed file, `discover_load` must still
+    /// fall through to the next source (the embedded catalog) and return a non-empty catalog.
+    /// We code-review the `eprintln!` path; asserting the fallback behaviour is sufficient.
+    #[test]
+    fn discover_load_falls_through_when_env_catalog_is_malformed() {
+        let _g = env_lock().lock().unwrap();
+        let tmp = tempfile::tempdir().unwrap();
+        let bad = tmp.path().join("bad-catalog.json");
+        fs::write(&bad, b"this is not valid json {{{{").unwrap();
+
+        let prev = std::env::var("APPIMAGE_CONTROL_CATALOG").ok();
+        std::env::set_var("APPIMAGE_CONTROL_CATALOG", bad.to_str().unwrap());
+
+        let result = Catalog::discover_load(None);
+
+        match prev {
+            Some(v) => std::env::set_var("APPIMAGE_CONTROL_CATALOG", v),
+            None => std::env::remove_var("APPIMAGE_CONTROL_CATALOG"),
+        }
+
+        // Must fall through to the embedded catalog, which is always non-empty.
+        let catalog = result.expect("should fall through to embedded catalog");
+        assert!(
+            !catalog.apps.is_empty(),
+            "expected embedded catalog apps after fallthrough"
+        );
+    }
+
+    /// When `APPIMAGE_CONTROL_CATALOG` points to a non-existent file, `discover_load` must also
+    /// fall through to the next source.
+    #[test]
+    fn discover_load_falls_through_when_env_catalog_is_missing() {
+        let _g = env_lock().lock().unwrap();
+        let tmp = tempfile::tempdir().unwrap();
+        let absent = tmp.path().join("no-such-file.json");
+        // Do NOT create the file — it does not exist.
+
+        let prev = std::env::var("APPIMAGE_CONTROL_CATALOG").ok();
+        std::env::set_var("APPIMAGE_CONTROL_CATALOG", absent.to_str().unwrap());
+
+        let result = Catalog::discover_load(None);
+
+        match prev {
+            Some(v) => std::env::set_var("APPIMAGE_CONTROL_CATALOG", v),
+            None => std::env::remove_var("APPIMAGE_CONTROL_CATALOG"),
+        }
+
+        let catalog = result.expect("should fall through to embedded catalog");
+        assert!(!catalog.apps.is_empty());
     }
 }

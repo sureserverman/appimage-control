@@ -34,7 +34,14 @@ const NAME_MAX_LEN: usize = 64;
 pub struct SavedSeedForm {
     /// Canonical name (filesystem-safe, matches the filename stem).
     pub name: String,
-    /// `"ubuntu"` or `"whonix"`.
+    /// Informational/diagnostic only. Stored as `"ubuntu"` or `"whonix"` at save time but
+    /// **ignored on load** — the active preset is always re-detected from the host environment
+    /// (see [`crate::seed::SeedPreset::auto_default`]). Hand-edited files that omit this field
+    /// are tolerated via `#[serde(default)]`; the value defaults to an empty string.
+    ///
+    /// Callers that need the resolved preset should use [`SavedSeedForm::resolved_preset`] and
+    /// then apply the user's current host detection rather than trusting the persisted value.
+    #[serde(default)]
     pub preset: String,
     /// Catalog app ids the user selected when saving.
     pub app_ids: Vec<String>,
@@ -257,5 +264,23 @@ mod tests {
         let f = load_form_from(&dir, "weird").unwrap();
         let err = f.resolved_preset().unwrap_err();
         assert!(format!("{err}").contains("unknown preset 'nope'"));
+    }
+
+    /// A hand-edited form JSON that omits the `preset` field must load successfully.
+    /// The field defaults to `""` via `#[serde(default)]`.
+    #[test]
+    fn load_form_without_preset_field_is_ok() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("forms");
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(
+            dir.join("no-preset.json"),
+            r#"{"name":"no-preset","app_ids":["feather","electrum-btc"]}"#,
+        )
+        .unwrap();
+        let f = load_form_from(&dir, "no-preset").expect("load must succeed when preset is absent");
+        // The field is empty-string (serde default), not an error on load.
+        assert_eq!(f.preset, "");
+        assert_eq!(f.app_ids, vec!["feather", "electrum-btc"]);
     }
 }
