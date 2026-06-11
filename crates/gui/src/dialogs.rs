@@ -657,7 +657,7 @@ pub fn ask_migration_strategy(
     });
     dialog.present();
     loop_.run();
-    let out = result.borrow().clone();
+    let out = *result.borrow();
     out
 }
 

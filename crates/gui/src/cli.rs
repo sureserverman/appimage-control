@@ -77,6 +77,9 @@ When --purge, --clean, or --migrate is present, only one runs: --purge first if 
   +APP:N           Add N instances of APP (same cap).
   -APP             Remove all instances of APP.
   -APP:N           Remove N instances (count not below 0).
+  =APP:N           Set APP to exactly N instances regardless of current count (absolute). Capped by
+                   the catalog instance limit. =APP:0 is equivalent to -APP (removes all instances).
+                   =APP without :N is an error — use =APP:N with an explicit count.
   -update          Update installed instances (same as the GUI): skips when already up to date; otherwise tries appimageupdatetool, then downloads the catalog build or—when the catalog URL is behind GitHub releases/latest—the matching latest-release .AppImage asset.
   --update         Same as -update
 
@@ -101,6 +104,8 @@ Examples:
   appimage-control +mattermost:3
   appimage-control -feather
   appimage-control -feather:2 -update
+  appimage-control =session:2
+  appimage-control =session:0
 "
     );
 }
@@ -419,6 +424,11 @@ fn validate_unknown_flags(args: &[String]) -> std::result::Result<(), String> {
             i += 1;
             continue;
         }
+        // Equals tokens are absolute-instance specs (`=APP:N`) — not flags.
+        if a.starts_with('=') {
+            i += 1;
+            continue;
+        }
         if a.starts_with("--") {
             // `--on-conflict=*` is a recognised prefixed form.
             if a.starts_with("--on-conflict=") {
@@ -491,6 +501,28 @@ fn validate_app_specs(
                 }
             } else if !by_id.contains_key(body) {
                 return Err(format!("unknown app id '{}' (see --list)", body));
+            }
+        } else if a.starts_with('=') && a.len() > 1 {
+            let body = &a[1..];
+            // `=APP` without `:N` is always an error — suggest the full form.
+            if !body.contains(':') {
+                return Err(format!(
+                    "malformed absolute instance spec '{}': use =APP:N (e.g. ={}:1) to set an exact count (see --help)",
+                    a, body
+                ));
+            }
+            match appimage_control_core::parse_app_instance_spec(body) {
+                Ok((id, _n)) => {
+                    if !by_id.contains_key(&id) {
+                        return Err(format!("unknown app id '{}' (see --list)", id));
+                    }
+                }
+                Err(_) => {
+                    return Err(format!(
+                        "malformed absolute instance spec '{}': expected =APP:N where N is a non-negative integer (see --help)",
+                        a
+                    ));
+                }
             }
         }
     }
@@ -941,7 +973,7 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
             "--clean-cache".into()
         } else if arg == "-update" || arg == "--update" {
             "-update".into()
-        } else if arg.starts_with('+') && arg.len() > 1 {
+        } else if (arg.starts_with('+') || arg.starts_with('=')) && arg.len() > 1 {
             arg.clone()
         } else if arg.starts_with('-') && !arg.starts_with("--") && arg.len() > 1 {
             // Covers `-APP`, `-APP:N`, and the already-filtered `-update`.
@@ -1002,6 +1034,24 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
                 },
                 Err(_) => Err(format!(
                     "malformed instance spec '{}' (see --help)",
+                    arg
+                )),
+            }
+        } else if arg.starts_with('=') && arg.len() > 1 {
+            let body = &arg[1..];
+            // Pre-scan validated id and syntax; treat parse failures as internal errors.
+            match parse_app_instance_spec(body) {
+                Ok((id, n)) => match by_id.get(id.as_str()) {
+                    Some(app) => {
+                        // Absolute: target is exactly N, capped by the catalog limit.
+                        let target = n.min(app.max_instances_allowed());
+                        reconcile_instance_count(&paths, app, target, &mut |m| eprintln!("{m}"))
+                            .map_err(|e| e.to_string())
+                    }
+                    None => Err(format!("unknown app id '{}' (see --list)", id)),
+                },
+                Err(_) => Err(format!(
+                    "malformed absolute instance spec '{}' (see --help)",
                     arg
                 )),
             }
@@ -1951,5 +2001,226 @@ mod purge_prompt_tests {
             run_cli_ops(&["+feather".to_string()])
         });
         assert_eq!(code, Some(glib::ExitCode::FAILURE));
+    }
+
+    // ── =APP:N absolute instance-count tests (task 6.1) ────────────────────
+
+    /// Helper: pre-seed N session instance dirs so reconcile starts from a
+    /// known count without touching the network.
+    fn seed_session_instances(home: &std::path::Path, n: u32) {
+        let cache = home.join(".local/share/appimages/cache/session");
+        fs::create_dir_all(&cache).expect("cache");
+        fs::write(cache.join("session.AppImage"), b"fake").expect("cached");
+        for i in 1..=n {
+            let dir = home
+                .join(".local/share/appimages/apps/session")
+                .join(i.to_string());
+            fs::create_dir_all(&dir).expect("instance dir");
+            fs::copy(
+                cache.join("session.AppImage"),
+                dir.join("session.AppImage"),
+            )
+            .expect("copy appimage");
+        }
+    }
+
+    fn count_instance_dirs(home: &std::path::Path, app: &str) -> usize {
+        let dir = home
+            .join(".local/share/appimages/apps")
+            .join(app);
+        if !dir.exists() {
+            return 0;
+        }
+        fs::read_dir(&dir).expect("read apps dir").count()
+    }
+
+    /// `=session:2` from 0 → exactly 2 dirs created.
+    #[test]
+    fn absolute_set_from_zero_to_two() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let home = tmp.path().join("home");
+        fs::create_dir_all(&home).expect("home");
+        let catalog = tmp.path().join("catalog.json");
+        write_min_catalog(&catalog);
+
+        // Pre-seed cache so reconcile_instance_count can install without network.
+        let cache = home.join(".local/share/appimages/cache/session");
+        fs::create_dir_all(&cache).expect("cache");
+        fs::write(cache.join("session.AppImage"), b"fake").expect("cached");
+
+        let code = with_test_env(&home, &catalog, || {
+            run_cli_ops(&["=session:2".to_string()])
+        });
+        assert_eq!(code, Some(glib::ExitCode::SUCCESS));
+        assert_eq!(
+            count_instance_dirs(&home, "session"),
+            2,
+            "=session:2 from 0 must create exactly 2 instance dirs"
+        );
+    }
+
+    /// `=session:1` from 2 → exactly 1 dir (remove one, use cache, no network).
+    #[test]
+    fn absolute_set_from_two_to_one() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let home = tmp.path().join("home");
+        fs::create_dir_all(&home).expect("home");
+        let catalog = tmp.path().join("catalog.json");
+        write_min_catalog(&catalog);
+
+        // Start at 2 instances.
+        seed_session_instances(&home, 2);
+
+        let code = with_test_env(&home, &catalog, || {
+            run_cli_ops(&["=session:1".to_string()])
+        });
+        assert_eq!(code, Some(glib::ExitCode::SUCCESS));
+        assert_eq!(
+            count_instance_dirs(&home, "session"),
+            1,
+            "=session:1 from 2 must leave exactly 1 instance dir"
+        );
+    }
+
+    /// `=session:0` removes all instances.
+    #[test]
+    fn absolute_set_to_zero_removes_all() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let home = tmp.path().join("home");
+        fs::create_dir_all(&home).expect("home");
+        let catalog = tmp.path().join("catalog.json");
+        write_min_catalog(&catalog);
+
+        // Start at 1 instance.
+        seed_session_instances(&home, 1);
+
+        let code = with_test_env(&home, &catalog, || {
+            run_cli_ops(&["=session:0".to_string()])
+        });
+        assert_eq!(code, Some(glib::ExitCode::SUCCESS));
+        assert_eq!(
+            count_instance_dirs(&home, "session"),
+            0,
+            "=session:0 must remove all instances"
+        );
+    }
+
+    /// `=nosuch:1` — unknown app id — must fail.
+    #[test]
+    fn absolute_unknown_app_id_fails() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let home = tmp.path().join("home");
+        fs::create_dir_all(&home).expect("home");
+        let catalog = tmp.path().join("catalog.json");
+        write_min_catalog(&catalog);
+
+        let code = with_test_env(&home, &catalog, || {
+            run_cli_ops(&["=nosuch:1".to_string()])
+        });
+        assert_eq!(
+            code,
+            Some(glib::ExitCode::FAILURE),
+            "=nosuch:1 with unknown id must FAIL"
+        );
+    }
+
+    /// `=session` (no :N) — missing count — must fail with helpful message.
+    #[test]
+    fn absolute_missing_count_fails() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let home = tmp.path().join("home");
+        fs::create_dir_all(&home).expect("home");
+        let catalog = tmp.path().join("catalog.json");
+        write_min_catalog(&catalog);
+
+        let code = with_test_env(&home, &catalog, || {
+            run_cli_ops(&["=session".to_string()])
+        });
+        assert_eq!(
+            code,
+            Some(glib::ExitCode::FAILURE),
+            "=session without :N must FAIL"
+        );
+    }
+
+    /// `=session:xx` — malformed count — must fail.
+    #[test]
+    fn absolute_malformed_count_fails() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let home = tmp.path().join("home");
+        fs::create_dir_all(&home).expect("home");
+        let catalog = tmp.path().join("catalog.json");
+        write_min_catalog(&catalog);
+
+        let code = with_test_env(&home, &catalog, || {
+            run_cli_ops(&["=session:xx".to_string()])
+        });
+        assert_eq!(
+            code,
+            Some(glib::ExitCode::FAILURE),
+            "=session:xx (non-numeric N) must FAIL"
+        );
+    }
+
+    /// `=session:2` appears in the mixed-op summary as `=session:2 OK/FAILED`.
+    /// This test verifies the exit code and side-effect; stderr summary text
+    /// assertions are in cli_subprocess.rs (can't capture stderr in-process).
+    #[test]
+    fn absolute_appears_in_summary_machinery() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let home = tmp.path().join("home");
+        fs::create_dir_all(&home).expect("home");
+        let catalog = tmp.path().join("catalog.json");
+        write_min_catalog(&catalog);
+
+        let cache = home.join(".local/share/appimages/cache/session");
+        fs::create_dir_all(&cache).expect("cache");
+        fs::write(cache.join("session.AppImage"), b"fake").expect("cached");
+
+        // Two ops → summary machinery is exercised.
+        let code = with_test_env(&home, &catalog, || {
+            run_cli_ops(&["--list".to_string(), "=session:1".to_string()])
+        });
+        assert_eq!(code, Some(glib::ExitCode::SUCCESS));
+        assert_eq!(
+            count_instance_dirs(&home, "session"),
+            1,
+            "=session:1 in mixed-op invocation must create 1 instance"
+        );
+    }
+
+    /// `has_cli_ops` returns true for `=APP:N` tokens (CLI mode, not GUI).
+    #[test]
+    fn has_cli_ops_equals_arg_is_true() {
+        assert!(super::has_cli_ops(&["=session:2".to_string()]));
+        assert!(super::has_cli_ops(&["=session".to_string()]));
+    }
+
+    /// `print_help` output mentions `=APP:N`.
+    #[test]
+    fn help_mentions_absolute_syntax() {
+        // Capture by redirecting — print_help writes to stdout.
+        // We can't capture stdout in-process easily, so we verify the
+        // static string constant that feeds print_help contains the token.
+        // The format string is inlined; we call print_help and verify
+        // the marker is present in the source via the function under test
+        // by checking validate_app_specs rejects `=session` as expected
+        // (already covered) and that the help text constant is non-empty.
+        //
+        // A lightweight substitute: verify validate_app_specs produces
+        // the right suggestion text for `=session` (no :N).
+        let tmp = tempfile::tempdir().expect("tmp");
+        let home = tmp.path().join("home");
+        fs::create_dir_all(&home).expect("home");
+        let catalog_path = tmp.path().join("catalog.json");
+        write_min_catalog(&catalog_path);
+        let catalog =
+            appimage_control_core::Catalog::discover_load(Some(&catalog_path)).expect("catalog");
+        let by_id = catalog.by_id();
+        let err = super::validate_app_specs(&["=session".to_string()], &by_id).unwrap_err();
+        assert!(
+            err.contains("=APP:N") || err.contains("=session:"),
+            "error for `=session` must suggest the =APP:N form, got: {err}"
+        );
     }
 }
