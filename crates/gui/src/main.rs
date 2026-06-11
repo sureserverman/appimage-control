@@ -16,8 +16,8 @@ use std::sync::mpsc;
 
 use crate::catalog_icons::batch_catalog_icons;
 use crate::dialogs::{
-    ask_confirmation, choose_open_path, choose_save_path, present_activity_log_dialog,
-    present_message_window, ConfirmKind,
+    ask_confirmation, ask_migration_strategy, choose_open_path, choose_save_path,
+    present_activity_log_dialog, present_message_window, ConfirmKind,
 };
 use crate::seed_dialog::choose_seed_settings;
 use adw::prelude::*;
@@ -29,7 +29,7 @@ use appimage_control_core::{
     reconcile_catalog_install_version_metadata, reconcile_instance_count_with_report,
     repair_instance_launchers, restore_backup_archive, run_portable_dir_migration,
     seed_instance_settings, update_all_installed_instances, AppPaths, BackupOptions, Catalog,
-    CatalogApp, GithubReleaseHint, MigrationResolution, SeedPreset, SupportedSeedApp,
+    CatalogApp, GithubReleaseHint, SeedPreset, SupportedSeedApp,
     UpdateAllReport, MAX_INSTANCES_PER_APP,
 };
 use cli::{has_cli_ops, print_help, run_cli_ops, want_help};
@@ -1761,44 +1761,90 @@ fn install_window_actions_for_catalog(
             let catalog = Rc::clone(catalog);
             let window = window_for_actions.clone();
             let refresh = Rc::clone(&refresh_fn);
+            let apply_btn = apply_btn.clone();
+            let update_btn = update_btn.clone();
+            let progress = progress.clone();
+            let statusbar = statusbar.clone();
             Rc::new(move || {
-                if !ask_confirmation(
-                    &window,
-                    ConfirmKind::Info,
-                    "Migrate legacy directories?",
-                    "Scan the current directory for matching legacy folders (e.g. feather1, feather2) and move them into managed instance homes. Conflicting destinations are renumbered automatically.",
-                    None,
-                    "Migrate",
-                ) {
+                // Present the strategy dialog (which doubles as the "are you sure?" gate —
+                // Cancel aborts). The chosen resolution is fixed for the whole run so the
+                // worker thread never needs to call back into the UI.
+                let Some(resolution) = ask_migration_strategy(&window) else {
                     return;
-                }
-                let mut log = String::new();
+                };
+
                 let cwd = match std::env::current_dir() {
                     Ok(p) => p,
                     Err(e) => {
-                        log.push_str(&format!("Could not read current dir: {e}\n"));
+                        let log = format!("Could not read current dir: {e}\n");
                         present_activity_log_dialog(&window, &log);
                         return;
                     }
                 };
                 let candidates = discover_migration_candidates(&cwd, catalog.as_ref());
-                let r = run_portable_dir_migration(
-                    paths.as_ref(),
-                    catalog.as_ref(),
-                    &candidates,
-                    Some(MigrationResolution::Renumber),
-                    false,
-                    |_| MigrationResolution::Renumber,
-                    &mut |m| {
-                        log.push_str(m);
-                        log.push('\n');
-                    },
-                );
-                if let Err(e) = r {
-                    log.push_str(&format!("Migration failed: {e}\n"));
-                }
-                present_activity_log_dialog(&window, &log);
-                refresh();
+
+                apply_btn.set_sensitive(false);
+                update_btn.set_sensitive(false);
+                progress.set_visible(true);
+                progress.set_fraction(0.0);
+                progress.set_text(Some("Migrating…"));
+                statusbar.set_text("Migrating…");
+
+                let (tx, rx) = mpsc::channel::<String>();
+                let paths_t = (*paths).clone();
+                let catalog_t = (*catalog).clone();
+
+                let progress_done = progress.clone();
+                let apply_done = apply_btn.clone();
+                let update_done = update_btn.clone();
+                let status_idle = statusbar.clone();
+                let window_idle = window.clone();
+                let refresh_idle = Rc::clone(&refresh);
+                glib::idle_add_local(move || match rx.try_recv() {
+                    Ok(log) => {
+                        progress_done.set_visible(false);
+                        progress_done.set_fraction(0.0);
+                        present_activity_log_dialog(&window_idle, &log);
+                        refresh_idle();
+                        apply_done.set_sensitive(true);
+                        update_done.set_sensitive(true);
+                        status_idle.set_text("Ready");
+                        glib::ControlFlow::Break
+                    }
+                    Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
+                    Err(mpsc::TryRecvError::Disconnected) => {
+                        progress_done.set_visible(false);
+                        progress_done.set_fraction(0.0);
+                        progress_done.set_text(None);
+                        status_idle.set_text("Migration interrupted.");
+                        apply_done.set_sensitive(true);
+                        update_done.set_sensitive(true);
+                        glib::ControlFlow::Break
+                    }
+                });
+
+                std::thread::spawn(move || {
+                    let mut log = String::new();
+                    let r = run_portable_dir_migration(
+                        &paths_t,
+                        &catalog_t,
+                        &candidates,
+                        Some(resolution),
+                        false,
+                        // Dead-fallback: fixed_on_conflict covers every conflict;
+                        // this closure is reached only if fixed_on_conflict is somehow
+                        // exhausted, which cannot happen with the current implementation.
+                        |_| resolution,
+                        &mut |m| {
+                            log.push_str(m);
+                            log.push('\n');
+                        },
+                    );
+                    if let Err(e) = r {
+                        log.push_str(&format!("Migration failed: {e}\n"));
+                    }
+                    let _ = tx.send(log);
+                });
             })
         },
         backup: {

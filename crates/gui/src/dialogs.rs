@@ -18,7 +18,8 @@ pub enum ConfirmKind {
     Warn,
     /// Permanently destructive: purges state, force-overwrites managed dirs.
     Danger,
-    /// Constructive but worth confirming: legacy-dir migration.
+    /// Constructive but worth confirming: informational-action confirms.
+    #[allow(dead_code)]
     Info,
 }
 
@@ -580,6 +581,84 @@ pub fn choose_save_path(parent: &ApplicationWindow, title: &str) -> Option<PathB
 
 pub fn choose_open_path(parent: &ApplicationWindow, title: &str) -> Option<PathBuf> {
     choose_file(parent, title, FileChooserAction::Open)
+}
+
+/// Modal dialog that asks the user which conflict-resolution strategy to apply for a
+/// legacy-directory migration run. Returns the chosen [`MigrationResolution`] or `None`
+/// if the user cancels (or destroys the window without choosing).
+///
+/// Three response buttons are shown in addition to Cancel:
+/// * "Replace existing" → [`MigrationResolution::Replace`]
+/// * "Add as new instance" (suggested, default) → [`MigrationResolution::Renumber`]
+/// * "Skip conflicting" → [`MigrationResolution::Skip`]
+///
+/// One dialog handles all conflicts uniformly (per-conflict prompting would require
+/// cross-thread UI callbacks and is explicitly out of scope).
+pub fn ask_migration_strategy(
+    parent: &ApplicationWindow,
+) -> Option<appimage_control_core::MigrationResolution> {
+    use appimage_control_core::MigrationResolution;
+
+    let dialog = adw::MessageDialog::new(
+        Some(parent),
+        Some("Migrate legacy directories"),
+        Some("Choose how to handle destination conflicts when a managed slot is already occupied."),
+    );
+    dialog.set_modal(true);
+    dialog.set_default_width(440);
+
+    let detail = Label::builder()
+        .label(
+            "This strategy is applied uniformly to every conflict in the run. \
+             The migration can be cancelled after this dialog.",
+        )
+        .halign(gtk::Align::Start)
+        .xalign(0.0)
+        .wrap(true)
+        .justify(gtk::Justification::Left)
+        .build();
+    detail.add_css_class("dim-label");
+    detail.add_css_class("caption");
+    detail.set_margin_top(6);
+    dialog.set_extra_child(Some(&detail));
+
+    dialog.add_response("cancel", "_Cancel");
+    dialog.add_response("replace", "Replace existing");
+    dialog.add_response("renumber", "Add as new instance");
+    dialog.add_response("skip", "Skip conflicting");
+
+    dialog.set_response_appearance("replace", adw::ResponseAppearance::Destructive);
+    dialog.set_response_appearance("renumber", adw::ResponseAppearance::Suggested);
+    // "skip" uses the default (flat) appearance.
+
+    // "Add as new instance" is the suggested default — mirrors the previous hard-coded
+    // behaviour so existing users see no change unless they actively choose otherwise.
+    dialog.set_default_response(Some("renumber"));
+    dialog.set_close_response("cancel");
+
+    let result: Rc<RefCell<Option<MigrationResolution>>> = Rc::new(RefCell::new(None));
+    let result_c = Rc::clone(&result);
+    let loop_ = glib::MainLoop::new(None, false);
+    let loop_c = loop_.clone();
+    dialog.connect_response(None, move |_d, r| {
+        *result_c.borrow_mut() = match r {
+            "replace" => Some(MigrationResolution::Replace),
+            "renumber" => Some(MigrationResolution::Renumber),
+            "skip" => Some(MigrationResolution::Skip),
+            _ => None,
+        };
+        loop_c.quit();
+    });
+    // Belt-and-suspenders: if destroyed without a response, quit the nested loop.
+    // Treated as Cancel (result stays None).
+    let loop_destroy = loop_.clone();
+    dialog.connect_destroy(move |_| {
+        loop_destroy.quit();
+    });
+    dialog.present();
+    loop_.run();
+    let out = result.borrow().clone();
+    out
 }
 
 // Seed-settings modal moved to `crate::seed_dialog::choose_seed_settings`.
