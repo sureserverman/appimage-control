@@ -63,32 +63,78 @@ This repository ships only the **architecture** (loader, interpreter, signature 
 
 ### CLI surface
 
+General flags:
+
+```
+--catalog PATH       Load catalog JSON from PATH instead of the default discovery chain.
+--list               Print catalog apps, installed instance counts, and version summary.
+--list-seed-packs    Print one tab-separated row per loaded seed pack.
+--update-seed-packs  Fetch + verify + install signed seed-pack tarball from the companion repo.
+--repair-launchers   Recreate missing per-instance .desktop launchers and icons.
+-update / --update   Update all installed instances (appimageupdatetool or catalog URL).
+--clean-cache        Delete the download cache dir.
+--clean              Remove all installed catalog app instances and managed launchers (keeps cache).
+--purge              Remove all installs, cache, and managed launcher files.
+--migrate            Move legacy portable data dirs into catalog instance trees.
+--on-conflict=X      With --migrate: replace | renumber | skip on collision.
+--backup PATH        Create a manager-state backup archive (tar.zst recommended).
+--restore-backup PATH
+                     Restore manager state from PATH.
+--force              With --restore-backup: overwrite existing managed state.
+-y, --yes            Skip Yes/No confirmation prompts (for scripts).
+```
+
+Instance-count operators (can be combined; ops run in argv order; a mixed-op summary is printed when two or more ops are dispatched):
+
+```
++APP             Add 1 instance of APP (capped by the catalog instance limit).
++APP:N           Add N instances of APP.
+-APP             Remove all instances of APP.
+-APP:N           Remove N instances (count not below 0).
+=APP:N           Set APP to exactly N instances (absolute). =APP:0 removes all. =APP without :N is an error.
+--seed-new       After all instance-adding ops (+APP/=APP:N), automatically seed newly added instances.
+```
+
+Seeding flags:
+
+```
+--seed-settings TARGETS
+                     Seed supported app settings. TARGETS is `all`, one app id, or a comma-
+                     separated list. The host is auto-detected; no manual preset switch needed.
+--seed-save NAME     Save the current --seed-settings selection under NAME, then run the seed.
+--seed-load NAME     Load a previously-saved seed form by NAME and run it.
+--seed-list-forms    Print all saved seed-form names and exit.
+--seed-delete-form NAME
+                     Delete a saved seed form by name and exit.
+```
+
+**Strict parsing:** unrecognised arguments cause a non-zero exit with a message pointing to `--help`; they do not open the GUI. Exit 0 only when all dispatched ops succeed.
+
+Examples:
+
 ```bash
-# Confirm which packs are loaded and where each came from
-appimage-control --list-seed-packs
-
-# Fetch + verify + install signed pack updates from the
-# operator-managed companion repo (requires an authorised build —
-# placeholders in source refuse without touching the network)
+appimage-control --list
+appimage-control --catalog /path/to/catalog.json --list
+appimage-control +feather:2 --seed-new
+appimage-control =session:0
+appimage-control --repair-launchers --list
+appimage-control --seed-settings feather,electrum-btc --seed-save daily
 appimage-control --update-seed-packs
-
-# Apply seeding to installed instances of one or more apps
-appimage-control --seed-settings <app-ids> --seed-preset <ubuntu|whonix>
 ```
 
 The seeding command:
 
 - Runs each AppImage under `xvfb-run` until its config file appears.
-- Patches that config according to the chosen preset (`ubuntu` or `whonix`).
+- Patches that config according to the auto-detected host networking environment.
 - Logs per-instance results and a final summary, e.g.  
   `Seed settings summary: 3 seeded, 0 failed, 0 unsupported, 0 missing.`
 
 ### GUI workflow
 
 - Use the main window to **Apply** instance counts for `feather`, `electrum-btc`, and `electrum-ltc`.
-- Then use the **“Seed Settings…”** entry in the main menu:
-  - Choose which installed supported apps to seed.
-  - Pick the preset (`ubuntu` or `whonix`).
+- Then use the **”Seed Settings…”** entry in the main menu:
+  - Choose which installed supported apps to seed (checkboxes; no preset picker — the host is auto-detected).
+  - Optionally save or recall a named app selection via the “Saved configurations” section.
   - Review the full seeding log in the activity dialog.
 
 ## Catalog schema
@@ -171,6 +217,7 @@ Restore policy:
 - default restore refuses when manager-owned state already exists
 - `--force` is required to overwrite existing managed state
 - restore must not depend on live network catalog data; backup snapshot is authoritative
+- restore extracts fully to a staging area before clearing existing state (validate before any writes)
 
 ## Flatpak (Stage 6 WIP)
 
