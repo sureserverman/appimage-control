@@ -29,8 +29,8 @@ use appimage_control_core::{
     reconcile_catalog_install_version_metadata, reconcile_instance_count_with_report,
     repair_instance_launchers, restore_backup_archive, run_portable_dir_migration,
     seed_instance_settings, update_all_installed_instances, AppPaths, BackupOptions, Catalog,
-    CatalogApp, GithubReleaseHint, SeedPreset, SupportedSeedApp,
-    UpdateAllReport, MAX_INSTANCES_PER_APP,
+    CatalogApp, GithubReleaseHint, SeedPreset, SupportedSeedApp, UpdateAllReport,
+    MAX_INSTANCES_PER_APP,
 };
 use cli::{has_cli_ops, print_help, run_cli_ops, want_help};
 use gtk::glib;
@@ -1659,14 +1659,11 @@ fn install_window_actions_for_catalog(
 
                 std::thread::spawn(move || {
                     let mut log = String::new();
-                    let r = clean_installed_catalog_apps_keep_cache(
-                        &paths_t,
-                        &catalog_t,
-                        &mut |m| {
+                    let r =
+                        clean_installed_catalog_apps_keep_cache(&paths_t, &catalog_t, &mut |m| {
                             log.push_str(m);
                             log.push('\n');
-                        },
-                    );
+                        });
                     if let Err(e) = r {
                         log.push_str(&format!("Clean failed: {e}\n"));
                     }
@@ -1741,14 +1738,10 @@ fn install_window_actions_for_catalog(
 
                 std::thread::spawn(move || {
                     let mut log = String::new();
-                    let r = purge_appimage_control_state(
-                        &paths_t,
-                        Some(&catalog_t),
-                        &mut |m| {
-                            log.push_str(m);
-                            log.push('\n');
-                        },
-                    );
+                    let r = purge_appimage_control_state(&paths_t, Some(&catalog_t), &mut |m| {
+                        log.push_str(m);
+                        log.push('\n');
+                    });
                     if let Err(e) = r {
                         log.push_str(&format!("Purge failed: {e}\n"));
                     }
@@ -1929,8 +1922,7 @@ fn install_window_actions_for_catalog(
             let progress = progress.clone();
             let statusbar = statusbar.clone();
             Rc::new(move || {
-                let Some(src_path) =
-                    choose_open_path(&window, "Choose backup archive to restore")
+                let Some(src_path) = choose_open_path(&window, "Choose backup archive to restore")
                 else {
                     return;
                 };

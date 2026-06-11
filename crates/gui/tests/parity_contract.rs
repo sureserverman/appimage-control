@@ -341,10 +341,7 @@ fn parity_contract() {
         String::from_utf8_lossy(&out.stderr)
     );
     let help_text = String::from_utf8_lossy(&out.stdout).into_owned();
-    assert!(
-        !help_text.is_empty(),
-        "--help produced no output on stdout"
-    );
+    assert!(!help_text.is_empty(), "--help produced no output on stdout");
 
     // 2. Pre-load each GUI source file once (cheap: small files).
     let actions_src = read_gui_src(&gui_src("src/actions.rs"));

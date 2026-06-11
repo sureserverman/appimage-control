@@ -36,6 +36,10 @@ jobs:
         run: cargo test --workspace
       - name: Format check
         run: cargo fmt --all -- --check
+      - name: CLI doc sync
+        # README "CLI surface" section must list exactly the flags that
+        # print_help() accepts (scripts/verify-cli-doc-sync.sh, static grep).
+        run: sh scripts/verify-cli-doc-sync.sh
       - name: Desktop file validate
         run: desktop-file-validate data/io.github.sureserverman.AppImageControl.desktop
       - name: AppStream validate

@@ -143,9 +143,8 @@ Examples:
 /// still routed to `run_cli_ops` so that function can emit the right error
 /// message — they must never fall through to the GUI.
 pub fn has_cli_ops(args: &[String]) -> bool {
-    args.iter().any(|a| {
-        a != "-h" && a != "--help" && a != "-y" && a != "--yes"
-    })
+    args.iter()
+        .any(|a| a != "-h" && a != "--help" && a != "-y" && a != "--yes")
 }
 
 /// Only `--clean-cache` (and optional `-h`/`--help`): no catalog JSON required.
@@ -223,9 +222,7 @@ fn arg_value_hint<'a>(
     while i < args.len() {
         if args[i] == flag {
             if i + 1 >= args.len() {
-                return Err(format!(
-                    "missing value for {flag} (expected {hint})"
-                ));
+                return Err(format!("missing value for {flag} (expected {hint})"));
             }
             let next = args[i + 1].as_str();
             if next.starts_with('-') {
@@ -243,7 +240,12 @@ fn arg_value_hint<'a>(
 fn parse_seed_settings_targets(
     args: &[String],
 ) -> std::result::Result<Option<Option<Vec<String>>>, String> {
-    let Some(raw) = arg_value_hint(args, "--seed-settings", "`all` or a comma-separated app-id list")? else {
+    let Some(raw) = arg_value_hint(
+        args,
+        "--seed-settings",
+        "`all` or a comma-separated app-id list",
+    )?
+    else {
         return Ok(None);
     };
     let trimmed = raw.trim();
@@ -474,10 +476,7 @@ fn validate_unknown_flags(args: &[String]) -> std::result::Result<(), String> {
                 }
                 continue;
             }
-            return Err(format!(
-                "unknown option '{}' (see --help)",
-                a
-            ));
+            return Err(format!("unknown option '{}' (see --help)", a));
         }
         // Bare words that are not flag-like and not app specs — unknown.
         // (In practice this handles pathological inputs like a bare word
@@ -645,7 +644,11 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
         }
     }
 
-    if let Some(name) = match arg_value_hint(args, "--seed-delete-form", "a form name matching [A-Za-z0-9._-]+") {
+    if let Some(name) = match arg_value_hint(
+        args,
+        "--seed-delete-form",
+        "a form name matching [A-Za-z0-9._-]+",
+    ) {
         Ok(v) => v,
         Err(e) => {
             eprintln!("{e}");
@@ -735,20 +738,22 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
             return Some(glib::ExitCode::FAILURE);
         }
     };
-    let seed_save_name = match arg_value_hint(args, "--seed-save", "a form name matching [A-Za-z0-9._-]+") {
-        Ok(v) => v.map(|s| s.to_string()),
-        Err(e) => {
-            eprintln!("{e}");
-            return Some(glib::ExitCode::FAILURE);
-        }
-    };
-    let seed_load_name = match arg_value_hint(args, "--seed-load", "a form name matching [A-Za-z0-9._-]+") {
-        Ok(v) => v.map(|s| s.to_string()),
-        Err(e) => {
-            eprintln!("{e}");
-            return Some(glib::ExitCode::FAILURE);
-        }
-    };
+    let seed_save_name =
+        match arg_value_hint(args, "--seed-save", "a form name matching [A-Za-z0-9._-]+") {
+            Ok(v) => v.map(|s| s.to_string()),
+            Err(e) => {
+                eprintln!("{e}");
+                return Some(glib::ExitCode::FAILURE);
+            }
+        };
+    let seed_load_name =
+        match arg_value_hint(args, "--seed-load", "a form name matching [A-Za-z0-9._-]+") {
+            Ok(v) => v.map(|s| s.to_string()),
+            Err(e) => {
+                eprintln!("{e}");
+                return Some(glib::ExitCode::FAILURE);
+            }
+        };
 
     if backup_path.is_some() && restore_path.is_some() {
         eprintln!("Use either --backup or --restore-backup, not both in one run.");
@@ -1011,9 +1016,9 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
     // time whether =APP:N will actually add instances (depends on the current
     // count), but we can require that at least one +/= spec is present.
     if want_seed_new {
-        let has_adding_spec = args.iter().any(|a| {
-            (a.starts_with('+') && a.len() > 1) || (a.starts_with('=') && a.len() > 1)
-        });
+        let has_adding_spec = args
+            .iter()
+            .any(|a| (a.starts_with('+') && a.len() > 1) || (a.starts_with('=') && a.len() > 1));
         if !has_adding_spec {
             eprintln!("--seed-new requires +APP/+APP:N or =APP:N (no instance-adding op found)");
             return Some(glib::ExitCode::FAILURE);
@@ -1112,12 +1117,9 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
                         let cur = instance_count(&paths, app).unwrap_or(0);
                         let target = cur.saturating_add(n).min(app.max_instances_allowed());
                         if want_seed_new {
-                            reconcile_instance_count_with_report(
-                                &paths,
-                                app,
-                                target,
-                                &mut |m| eprintln!("{m}"),
-                            )
+                            reconcile_instance_count_with_report(&paths, app, target, &mut |m| {
+                                eprintln!("{m}")
+                            })
                             .map(|rep| {
                                 if !rep.added.is_empty() {
                                     seed_new_pending.push((id.clone(), rep.added));
@@ -1131,10 +1133,7 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
                     }
                     None => Err(format!("unknown app id '{}' (see --list)", id)),
                 },
-                Err(_) => Err(format!(
-                    "malformed instance spec '{}' (see --help)",
-                    arg
-                )),
+                Err(_) => Err(format!("malformed instance spec '{}' (see --help)", arg)),
             }
         } else if arg.starts_with('=') && arg.len() > 1 {
             let body = &arg[1..];
@@ -1145,12 +1144,9 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
                         // Absolute: target is exactly N, capped by the catalog limit.
                         let target = n.min(app.max_instances_allowed());
                         if want_seed_new {
-                            reconcile_instance_count_with_report(
-                                &paths,
-                                app,
-                                target,
-                                &mut |m| eprintln!("{m}"),
-                            )
+                            reconcile_instance_count_with_report(&paths, app, target, &mut |m| {
+                                eprintln!("{m}")
+                            })
                             .map(|rep| {
                                 if !rep.added.is_empty() {
                                     seed_new_pending.push((id.clone(), rep.added));
@@ -1188,20 +1184,12 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
                         Some(app) => {
                             let cur = instance_count(&paths, app).unwrap_or(0);
                             let target = cur.saturating_sub(n);
-                            reconcile_instance_count(
-                                &paths,
-                                app,
-                                target,
-                                &mut |m| eprintln!("{m}"),
-                            )
-                            .map_err(|e| e.to_string())
+                            reconcile_instance_count(&paths, app, target, &mut |m| eprintln!("{m}"))
+                                .map_err(|e| e.to_string())
                         }
                         None => Err(format!("unknown app id '{}' (see --list)", id)),
                     },
-                    Err(_) => Err(format!(
-                        "malformed instance spec '{}' (see --help)",
-                        arg
-                    )),
+                    Err(_) => Err(format!("malformed instance spec '{}' (see --help)", arg)),
                 }
             }
         } else {
@@ -1752,7 +1740,10 @@ mod purge_prompt_tests {
         write_min_catalog(&catalog);
         let archive = tmp.path().join("value-test.tar.zst");
         let code = with_test_env(&home, &catalog, || {
-            run_cli_ops(&["--backup".to_string(), archive.to_string_lossy().to_string()])
+            run_cli_ops(&[
+                "--backup".to_string(),
+                archive.to_string_lossy().to_string(),
+            ])
         });
         // Must not be None (which would mean flag validation killed it and GUI
         // would open), and must not be FAILURE due to "unknown option" for the
@@ -1772,9 +1763,7 @@ mod purge_prompt_tests {
         fs::create_dir_all(&home).expect("home");
         let catalog = tmp.path().join("catalog.json");
         write_min_catalog(&catalog);
-        let code = with_test_env(&home, &catalog, || {
-            run_cli_ops(&["+nosuchapp".to_string()])
-        });
+        let code = with_test_env(&home, &catalog, || run_cli_ops(&["+nosuchapp".to_string()]));
         assert_eq!(
             code,
             Some(glib::ExitCode::FAILURE),
@@ -1790,9 +1779,7 @@ mod purge_prompt_tests {
         fs::create_dir_all(&home).expect("home");
         let catalog = tmp.path().join("catalog.json");
         write_min_catalog(&catalog);
-        let code = with_test_env(&home, &catalog, || {
-            run_cli_ops(&["-nosuchapp".to_string()])
-        });
+        let code = with_test_env(&home, &catalog, || run_cli_ops(&["-nosuchapp".to_string()]));
         assert_eq!(
             code,
             Some(glib::ExitCode::FAILURE),
@@ -1844,9 +1831,7 @@ mod purge_prompt_tests {
         let cache = home.join(".local/share/appimages/cache/session");
         fs::create_dir_all(&cache).expect("cache");
         fs::write(cache.join("session.AppImage"), b"fake").expect("cached");
-        let code = with_test_env(&home, &catalog, || {
-            run_cli_ops(&["+session".to_string()])
-        });
+        let code = with_test_env(&home, &catalog, || run_cli_ops(&["+session".to_string()]));
         assert_eq!(code, Some(glib::ExitCode::SUCCESS));
     }
 
@@ -1931,10 +1916,7 @@ mod purge_prompt_tests {
     /// `--restore-backup` followed immediately by another flag must error.
     #[test]
     fn restore_backup_next_token_is_flag_fails() {
-        let code = run_cli_ops(&[
-            "--restore-backup".to_string(),
-            "--force".to_string(),
-        ]);
+        let code = run_cli_ops(&["--restore-backup".to_string(), "--force".to_string()]);
         assert_eq!(
             code,
             Some(glib::ExitCode::FAILURE),
@@ -2086,7 +2068,11 @@ mod purge_prompt_tests {
             run_cli_ops(&["+feather".to_string(), "+session".to_string()])
         });
 
-        assert_eq!(code, Some(glib::ExitCode::FAILURE), "+feather (fail) +session must exit FAILURE");
+        assert_eq!(
+            code,
+            Some(glib::ExitCode::FAILURE),
+            "+feather (fail) +session must exit FAILURE"
+        );
 
         // Session must NOT have been installed (skip policy).
         let session_inst = home.join(".local/share/appimages/apps/session");
@@ -2116,7 +2102,11 @@ mod purge_prompt_tests {
             run_cli_ops(&["+session".to_string(), "+feather".to_string()])
         });
 
-        assert_eq!(code, Some(glib::ExitCode::FAILURE), "+session (ok) +feather (fail) must exit FAILURE");
+        assert_eq!(
+            code,
+            Some(glib::ExitCode::FAILURE),
+            "+session (ok) +feather (fail) must exit FAILURE"
+        );
 
         // Session MUST have been installed (it ran before feather failed).
         let session_inst = home.join(".local/share/appimages/apps/session/1");
@@ -2139,9 +2129,7 @@ mod purge_prompt_tests {
         fs::create_dir_all(&session_cache).expect("session cache dir");
         fs::write(session_cache.join("session.AppImage"), b"fake").expect("session cache");
 
-        let code = with_test_env(&home, &catalog, || {
-            run_cli_ops(&["+session".to_string()])
-        });
+        let code = with_test_env(&home, &catalog, || run_cli_ops(&["+session".to_string()]));
         assert_eq!(code, Some(glib::ExitCode::SUCCESS));
     }
 
@@ -2155,9 +2143,7 @@ mod purge_prompt_tests {
         write_two_app_catalog(&catalog);
 
         // No cache for feather — download will fail.
-        let code = with_test_env(&home, &catalog, || {
-            run_cli_ops(&["+feather".to_string()])
-        });
+        let code = with_test_env(&home, &catalog, || run_cli_ops(&["+feather".to_string()]));
         assert_eq!(code, Some(glib::ExitCode::FAILURE));
     }
 
@@ -2174,18 +2160,13 @@ mod purge_prompt_tests {
                 .join(".local/share/appimages/apps/session")
                 .join(i.to_string());
             fs::create_dir_all(&dir).expect("instance dir");
-            fs::copy(
-                cache.join("session.AppImage"),
-                dir.join("session.AppImage"),
-            )
-            .expect("copy appimage");
+            fs::copy(cache.join("session.AppImage"), dir.join("session.AppImage"))
+                .expect("copy appimage");
         }
     }
 
     fn count_instance_dirs(home: &std::path::Path, app: &str) -> usize {
-        let dir = home
-            .join(".local/share/appimages/apps")
-            .join(app);
+        let dir = home.join(".local/share/appimages/apps").join(app);
         if !dir.exists() {
             return 0;
         }
@@ -2206,9 +2187,7 @@ mod purge_prompt_tests {
         fs::create_dir_all(&cache).expect("cache");
         fs::write(cache.join("session.AppImage"), b"fake").expect("cached");
 
-        let code = with_test_env(&home, &catalog, || {
-            run_cli_ops(&["=session:2".to_string()])
-        });
+        let code = with_test_env(&home, &catalog, || run_cli_ops(&["=session:2".to_string()]));
         assert_eq!(code, Some(glib::ExitCode::SUCCESS));
         assert_eq!(
             count_instance_dirs(&home, "session"),
@@ -2229,9 +2208,7 @@ mod purge_prompt_tests {
         // Start at 2 instances.
         seed_session_instances(&home, 2);
 
-        let code = with_test_env(&home, &catalog, || {
-            run_cli_ops(&["=session:1".to_string()])
-        });
+        let code = with_test_env(&home, &catalog, || run_cli_ops(&["=session:1".to_string()]));
         assert_eq!(code, Some(glib::ExitCode::SUCCESS));
         assert_eq!(
             count_instance_dirs(&home, "session"),
@@ -2252,9 +2229,7 @@ mod purge_prompt_tests {
         // Start at 1 instance.
         seed_session_instances(&home, 1);
 
-        let code = with_test_env(&home, &catalog, || {
-            run_cli_ops(&["=session:0".to_string()])
-        });
+        let code = with_test_env(&home, &catalog, || run_cli_ops(&["=session:0".to_string()]));
         assert_eq!(code, Some(glib::ExitCode::SUCCESS));
         assert_eq!(
             count_instance_dirs(&home, "session"),
@@ -2272,9 +2247,7 @@ mod purge_prompt_tests {
         let catalog = tmp.path().join("catalog.json");
         write_min_catalog(&catalog);
 
-        let code = with_test_env(&home, &catalog, || {
-            run_cli_ops(&["=nosuch:1".to_string()])
-        });
+        let code = with_test_env(&home, &catalog, || run_cli_ops(&["=nosuch:1".to_string()]));
         assert_eq!(
             code,
             Some(glib::ExitCode::FAILURE),
@@ -2291,9 +2264,7 @@ mod purge_prompt_tests {
         let catalog = tmp.path().join("catalog.json");
         write_min_catalog(&catalog);
 
-        let code = with_test_env(&home, &catalog, || {
-            run_cli_ops(&["=session".to_string()])
-        });
+        let code = with_test_env(&home, &catalog, || run_cli_ops(&["=session".to_string()]));
         assert_eq!(
             code,
             Some(glib::ExitCode::FAILURE),
@@ -2428,9 +2399,8 @@ mod purge_prompt_tests {
         // And +alt-app-unique must pass validation (though no cache → install fails).
         // We only need the exit to be FAILURE due to install, not FAILURE due to unknown id.
         // We can't distinguish those here easily, so just check via validate_app_specs directly.
-        let flag_cat =
-            appimage_control_core::Catalog::discover_load(Some(flag_catalog.as_path()))
-                .expect("flag catalog");
+        let flag_cat = appimage_control_core::Catalog::discover_load(Some(flag_catalog.as_path()))
+            .expect("flag catalog");
         let by_id = flag_cat.by_id();
         assert!(
             by_id.contains_key("alt-app-unique"),
@@ -2533,10 +2503,13 @@ mod purge_prompt_tests {
         fs::write(cache.join("session.AppImage"), b"fake").expect("cached");
 
         // Install the instance first.
-        let install_code = with_test_env(&home, &catalog, || {
-            run_cli_ops(&["+session".to_string()])
-        });
-        assert_eq!(install_code, Some(glib::ExitCode::SUCCESS), "install must succeed");
+        let install_code =
+            with_test_env(&home, &catalog, || run_cli_ops(&["+session".to_string()]));
+        assert_eq!(
+            install_code,
+            Some(glib::ExitCode::SUCCESS),
+            "install must succeed"
+        );
 
         // Find the .desktop file that was created by the install.
         let desktop_dir = home.join(".local/share/applications");
@@ -2579,9 +2552,7 @@ mod purge_prompt_tests {
         fs::create_dir_all(&home).expect("home");
         let catalog = tmp.path().join("catalog.json");
         write_min_catalog(&catalog);
-        let code = with_test_env(&home, &catalog, || {
-            run_cli_ops(&["--seed-new".to_string()])
-        });
+        let code = with_test_env(&home, &catalog, || run_cli_ops(&["--seed-new".to_string()]));
         assert_eq!(
             code,
             Some(glib::ExitCode::FAILURE),
@@ -2626,7 +2597,10 @@ mod purge_prompt_tests {
         });
         assert_eq!(code, Some(glib::ExitCode::SUCCESS), "+feather must succeed");
         // The instance dir was created (install happened).
-        assert!(dir.exists(), "feather instance dir must exist after install");
+        assert!(
+            dir.exists(),
+            "feather instance dir must exist after install"
+        );
         // But the config must NOT have been seeded.
         assert!(
             !cfg.exists(),

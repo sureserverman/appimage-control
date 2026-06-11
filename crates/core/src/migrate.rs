@@ -246,10 +246,7 @@ fn staging_sibling_path(dst: &Path) -> Result<PathBuf> {
             dst.display()
         )));
     };
-    Ok(dst.with_file_name(format!(
-        ".{name}.aic-staging-{}",
-        std::process::id()
-    )))
+    Ok(dst.with_file_name(format!(".{name}.aic-staging-{}", std::process::id())))
 }
 
 fn remove_path_best_effort(p: &Path) {

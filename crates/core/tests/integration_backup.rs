@@ -89,13 +89,13 @@ fn backup_atomic_creation_removes_partial_temp_on_error() {
     let residue: Vec<_> = fs::read_dir(tmp.path())
         .expect("read tmpdir")
         .filter_map(|e| e.ok())
-        .filter(|e| {
-            e.file_name()
-                .to_string_lossy()
-                .contains("aic-tmp-")
-        })
+        .filter(|e| e.file_name().to_string_lossy().contains("aic-tmp-"))
         .collect();
-    assert!(residue.is_empty(), "staging file should be cleaned up, found: {:?}", residue);
+    assert!(
+        residue.is_empty(),
+        "staging file should be cleaned up, found: {:?}",
+        residue
+    );
     assert!(!msg.is_empty());
 }
 
@@ -109,8 +109,7 @@ fn backup_failure_leaves_pre_existing_archive_intact() {
     // Create a valid first archive.
     let out = tmp.path().join("backup.tar.zst");
     let cat = fake_catalog(&tmp);
-    create_backup_archive(&paths, &cat, &out, &BackupOptions::default())
-        .expect("first backup");
+    create_backup_archive(&paths, &cat, &out, &BackupOptions::default()).expect("first backup");
     let original_len = fs::metadata(&out).expect("stat").len();
     assert!(original_len > 0);
 
@@ -118,11 +117,13 @@ fn backup_failure_leaves_pre_existing_archive_intact() {
     let block = tmp.path().join("subdir-blocker");
     fs::write(&block, b"x").expect("write blocker");
     let broken_out = block.join("new.tar.zst");
-    create_backup_archive(&paths, &cat, &broken_out, &BackupOptions::default())
-        .unwrap_err();
+    create_backup_archive(&paths, &cat, &broken_out, &BackupOptions::default()).unwrap_err();
 
     // The original archive must be fully intact.
-    assert!(out.is_file(), "pre-existing archive must survive a failed sibling backup");
+    assert!(
+        out.is_file(),
+        "pre-existing archive must survive a failed sibling backup"
+    );
     assert_eq!(
         fs::metadata(&out).expect("stat after").len(),
         original_len,
@@ -139,8 +140,7 @@ fn backup_overwrites_existing_archive_with_fresh_one() {
     let out = tmp.path().join("backup.tar.zst");
     let cat = fake_catalog(&tmp);
 
-    create_backup_archive(&paths, &cat, &out, &BackupOptions::default())
-        .expect("first backup");
+    create_backup_archive(&paths, &cat, &out, &BackupOptions::default()).expect("first backup");
     let first_mtime = fs::metadata(&out)
         .expect("stat first")
         .modified()
@@ -149,8 +149,7 @@ fn backup_overwrites_existing_archive_with_fresh_one() {
     // Small sleep so mtime can differ on filesystems with 1-second resolution.
     std::thread::sleep(std::time::Duration::from_millis(10));
 
-    create_backup_archive(&paths, &cat, &out, &BackupOptions::default())
-        .expect("second backup");
+    create_backup_archive(&paths, &cat, &out, &BackupOptions::default()).expect("second backup");
 
     assert!(out.is_file(), "archive must exist after second backup");
     // No stale staging files alongside the archive.
@@ -159,7 +158,11 @@ fn backup_overwrites_existing_archive_with_fresh_one() {
         .filter_map(|e| e.ok())
         .filter(|e| e.file_name().to_string_lossy().contains("aic-tmp-"))
         .collect();
-    assert!(residue.is_empty(), "no staging residue after successful backup: {:?}", residue);
+    assert!(
+        residue.is_empty(),
+        "no staging residue after successful backup: {:?}",
+        residue
+    );
     // The archive is a valid zst-tar (readable without error).
     let f = fs::File::open(&out).expect("open second archive");
     let dec = zstd::stream::Decoder::new(f).expect("decoder");

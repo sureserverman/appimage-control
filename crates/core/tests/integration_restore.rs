@@ -171,7 +171,10 @@ fn truncated_archive_leaves_existing_state_intact() {
 
     // Restore with force=true must fail (archive is corrupt).
     let result = restore_backup_archive(&dst_paths, &archive, true);
-    assert!(result.is_err(), "expected Err from truncated archive, got Ok");
+    assert!(
+        result.is_err(),
+        "expected Err from truncated archive, got Ok"
+    );
 
     // Pre-existing managed state must be fully intact.
     let appimage = dst_paths
@@ -235,7 +238,7 @@ fn raw_tar_header_block(name: &[u8], size: u64, typeflag: u8) -> [u8; 512] {
     block[148..156].copy_from_slice(b"        ");
     // typeflag: byte 156
     block[156] = typeflag; // b'0' = regular file
-    // magic: bytes 257-262 "ustar"
+                           // magic: bytes 257-262 "ustar"
     block[257..263].copy_from_slice(b"ustar ");
     // version: bytes 263-264 " \0" (GNU style)
     block[263..265].copy_from_slice(b" \0");
@@ -457,12 +460,10 @@ fn valid_archive_forced_restore_succeeds() {
         .expect("read restored"),
         b"fresh-binary"
     );
-    assert!(
-        dst_paths
-            .applications_dir()
-            .join("appimage-control-session-1.desktop")
-            .is_file()
-    );
+    assert!(dst_paths
+        .applications_dir()
+        .join("appimage-control-session-1.desktop")
+        .is_file());
 }
 
 #[test]

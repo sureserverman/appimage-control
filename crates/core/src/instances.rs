@@ -790,9 +790,9 @@ pub fn ensure_cached_appimage(
 fn copy_or_hardlink(src: &Path, dst: &Path) -> Result<()> {
     // Build a unique temp name in the same directory as `dst` so that the final
     // `fs::rename` is always on the same filesystem (and therefore atomic).
-    let dst_dir = dst.parent().ok_or_else(|| {
-        Error::InvalidPath(format!("dst has no parent: {}", dst.display()))
-    })?;
+    let dst_dir = dst
+        .parent()
+        .ok_or_else(|| Error::InvalidPath(format!("dst has no parent: {}", dst.display())))?;
     let tmp = dst_dir.join(format!(
         ".{}.new.{}",
         dst.file_name()
@@ -1686,7 +1686,13 @@ fn update_instance_appimage_with_shared_cache(
                         "{} instance {}: appimageupdatetool finished (binary replaced)",
                         app.id, instance_index
                     ));
-                    refresh_instance_version_metadata(paths, app, instance_index, None, on_progress)?;
+                    refresh_instance_version_metadata(
+                        paths,
+                        app,
+                        instance_index,
+                        None,
+                        on_progress,
+                    )?;
                     ensure_cryptomator_instance_ready(&dir, app, true)?;
                     let _ = write_instance_desktop_and_icon(paths, app, instance_index, &dest_bin)?;
                     return Ok(InstanceUpdateOutcome::Updated);
@@ -1722,9 +1728,7 @@ fn update_instance_appimage_with_shared_cache(
             let cache_dir = paths.catalog_cache_dir(&app.id);
             let cache_path = cache_dir.join(&filename);
             if crate::version_info::github_catalog_cache_looks_fresh(
-                &cache_dir,
-                &filename,
-                &hint.tag,
+                &cache_dir, &filename, &hint.tag,
             ) {
                 on_progress(&format!(
                     "{} instance {}: using cached GitHub release {} …",
@@ -2127,7 +2131,14 @@ fn reconcile_instance_count_inner(
     if !to_add.is_empty() {
         let cached = ensure_cached_appimage(paths, app, on_progress)?;
         for i in to_add {
-            install_instance_from_cache_inner(paths, app, i, &cached, provision_portable_dirs, on_progress)?;
+            install_instance_from_cache_inner(
+                paths,
+                app,
+                i,
+                &cached,
+                provision_portable_dirs,
+                on_progress,
+            )?;
             on_progress(&format!("Installed {} instance {} …", app.id, i));
             added.push(i);
         }
@@ -2818,9 +2829,7 @@ mod tests {
                 // Drain the request.
                 let mut buf = [0u8; 4096];
                 let _ = stream.read(&mut buf);
-                let response = format!(
-                    "HTTP/1.0 200 OK\r\nContent-Length: {body_len}\r\n\r\n",
-                );
+                let response = format!("HTTP/1.0 200 OK\r\nContent-Length: {body_len}\r\n\r\n",);
                 let _ = stream.write_all(response.as_bytes());
                 let _ = stream.write_all(body);
             }
@@ -2840,7 +2849,10 @@ mod tests {
         fs::write(&sidecar, b"2.8.0").unwrap();
 
         let result_path = ensure_cached_appimage(&paths, &app, &mut |_| {}).unwrap();
-        assert_eq!(result_path, dest, "returned path must be the final cache path");
+        assert_eq!(
+            result_path, dest,
+            "returned path must be the final cache path"
+        );
         assert_eq!(
             fs::read(&dest).unwrap(),
             b"new-binary-content",
@@ -4033,19 +4045,12 @@ java-options=-Dcryptomator.ipcSocketPath=@{userhome}/.config/Cryptomator/ipc.soc
         let leftovers: Vec<_> = fs::read_dir(dir.path())
             .unwrap()
             .filter_map(|e| e.ok())
-            .filter(|e| {
-                e.file_name()
-                    .to_string_lossy()
-                    .contains(".new.")
-            })
+            .filter(|e| e.file_name().to_string_lossy().contains(".new."))
             .collect();
         assert!(
             leftovers.is_empty(),
             "no temp-file residue expected after success; found: {:?}",
-            leftovers
-                .iter()
-                .map(|e| e.path())
-                .collect::<Vec<_>>()
+            leftovers.iter().map(|e| e.path()).collect::<Vec<_>>()
         );
     }
 
@@ -4281,12 +4286,9 @@ java-options=-Dcryptomator.ipcSocketPath=@{userhome}/.config/Cryptomator/ipc.soc
         fs::set_permissions(&app_root, fs::Permissions::from_mode(0o555)).unwrap();
 
         let mut progress_log: Vec<String> = Vec::new();
-        let result = reconcile_instance_count_with_report(
-            &paths,
-            &app,
-            0,
-            &mut |m| progress_log.push(m.to_string()),
-        );
+        let result = reconcile_instance_count_with_report(&paths, &app, 0, &mut |m| {
+            progress_log.push(m.to_string())
+        });
 
         // Restore before any assertions that could panic and leave things broken.
         fs::set_permissions(&app_root, fs::Permissions::from_mode(0o755)).unwrap();
@@ -4371,11 +4373,7 @@ java-options=-Dcryptomator.ipcSocketPath=@{userhome}/.config/Cryptomator/ipc.soc
         fs::create_dir_all(&cache_dir).unwrap();
         let cached = cache_dir.join("warn.AppImage");
         fs::write(&cached, b"fake appimage").unwrap();
-        fs::write(
-            cache_dir.join(INSTANCE_VERSION_FILENAME),
-            b"1.2.3\n",
-        )
-        .unwrap();
+        fs::write(cache_dir.join(INSTANCE_VERSION_FILENAME), b"1.2.3\n").unwrap();
 
         // Pre-create the instance dir and a 0o000 version sidecar so the write
         // into it will fail (EACCES), but the dir itself stays writable for
@@ -4390,14 +4388,9 @@ java-options=-Dcryptomator.ipcSocketPath=@{userhome}/.config/Cryptomator/ipc.soc
         fs::create_dir_all(paths.applications_dir()).unwrap();
 
         let mut progress_log: Vec<String> = Vec::new();
-        let result = install_instance_from_cache_inner(
-            &paths,
-            &app,
-            1,
-            &cached,
-            false,
-            &mut |m| progress_log.push(m.to_string()),
-        );
+        let result = install_instance_from_cache_inner(&paths, &app, 1, &cached, false, &mut |m| {
+            progress_log.push(m.to_string())
+        });
 
         // Restore so tempdir cleanup works.
         fs::set_permissions(&meta_path, fs::Permissions::from_mode(0o644)).unwrap();
@@ -4473,13 +4466,9 @@ java-options=-Dcryptomator.ipcSocketPath=@{userhome}/.config/Cryptomator/ipc.soc
         fs::set_permissions(&meta_path, fs::Permissions::from_mode(0o000)).unwrap();
 
         let mut progress_log: Vec<String> = Vec::new();
-        let result = refresh_instance_version_metadata(
-            &paths,
-            &app,
-            1,
-            None,
-            &mut |m| progress_log.push(m.to_string()),
-        );
+        let result = refresh_instance_version_metadata(&paths, &app, 1, None, &mut |m| {
+            progress_log.push(m.to_string())
+        });
 
         fs::set_permissions(&meta_path, fs::Permissions::from_mode(0o644)).unwrap();
 
@@ -4516,19 +4505,12 @@ java-options=-Dcryptomator.ipcSocketPath=@{userhome}/.config/Cryptomator/ipc.soc
         let leftovers: Vec<_> = fs::read_dir(dir.path())
             .unwrap()
             .filter_map(|e| e.ok())
-            .filter(|e| {
-                e.file_name()
-                    .to_string_lossy()
-                    .contains(".new.")
-            })
+            .filter(|e| e.file_name().to_string_lossy().contains(".new."))
             .collect();
         assert!(
             leftovers.is_empty(),
             "no temp-file residue expected after failure; found: {:?}",
-            leftovers
-                .iter()
-                .map(|e| e.path())
-                .collect::<Vec<_>>()
+            leftovers.iter().map(|e| e.path()).collect::<Vec<_>>()
         );
     }
 }

@@ -476,14 +476,9 @@ pub fn restore_backup_archive(paths: &AppPaths, archive_path: &Path, force: bool
         let parent = paths
             .manager_data_dir()
             .parent()
-            .ok_or_else(|| {
-                Error::Backup("manager_data_dir has no parent directory".to_string())
-            })?
+            .ok_or_else(|| Error::Backup("manager_data_dir has no parent directory".to_string()))?
             .to_path_buf();
-        parent.join(format!(
-            ".appimages-restore-stage.{}",
-            std::process::id()
-        ))
+        parent.join(format!(".appimages-restore-stage.{}", std::process::id()))
     };
 
     if stage_dir.exists() {

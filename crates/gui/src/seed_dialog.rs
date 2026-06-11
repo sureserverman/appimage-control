@@ -410,8 +410,7 @@ fn build_action_buttons(dialog: &Dialog, checks: &[(String, CheckButton)]) {
                 .iter()
                 .filter(|(_, cb)| cb.is_active())
                 .count();
-            seed_btn_clone
-                .set_label(&format!("Seed {n} app{}", if n == 1 { "" } else { "s" }));
+            seed_btn_clone.set_label(&format!("Seed {n} app{}", if n == 1 { "" } else { "s" }));
             seed_btn_clone.set_sensitive(n > 0);
         });
         for (_, cb) in checks {

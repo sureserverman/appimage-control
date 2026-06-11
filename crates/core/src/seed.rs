@@ -484,8 +484,7 @@ fn seed_until_config(appimage: &Path, first_run_args: &[&str], expected: &Path) 
     // monotonic counter we guarantee uniqueness across concurrent
     // seed_until_config calls from the same process without relying on any
     // child-side PID at all.
-    static INVOCATION_COUNTER: std::sync::atomic::AtomicU64 =
-        std::sync::atomic::AtomicU64::new(0);
+    static INVOCATION_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let invocation = INVOCATION_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let pid_file = instance_dir.join(format!(
         "{PID_FILE_PREFIX}.{}.{}",
@@ -1062,11 +1061,7 @@ exec "$@"
         let residue: Vec<_> = fs::read_dir(tmp.path())
             .unwrap()
             .filter_map(|e| e.ok())
-            .filter(|e| {
-                e.file_name()
-                    .to_string_lossy()
-                    .contains(".aic-tmp-")
-            })
+            .filter(|e| e.file_name().to_string_lossy().contains(".aic-tmp-"))
             .collect();
         assert!(
             residue.is_empty(),
@@ -1126,11 +1121,7 @@ exec "$@"
         let residue: Vec<_> = fs::read_dir(tmp.path())
             .unwrap()
             .filter_map(|e| e.ok())
-            .filter(|e| {
-                e.file_name()
-                    .to_string_lossy()
-                    .contains(".aic-tmp-")
-            })
+            .filter(|e| e.file_name().to_string_lossy().contains(".aic-tmp-"))
             .collect();
         assert!(
             residue.is_empty(),
@@ -1179,18 +1170,15 @@ exec "$@"
             let rel_cfg = format!("{appimage_filename}.test/config.json");
 
             // First seed run.
-            let (paths, appimage, _cfg) =
-                make_seedable_instance(&tmp, &app, 1, &rel_cfg, true);
+            let (paths, appimage, _cfg) = make_seedable_instance(&tmp, &app, 1, &rel_cfg, true);
             let instance_dir = appimage.parent().unwrap().to_path_buf();
 
             // Plant a synthetic stale PID file (pretend a prior run crashed).
-            let stale_pid_file =
-                instance_dir.join(format!("{PID_FILE_PREFIX}.99999999.0"));
+            let stale_pid_file = instance_dir.join(format!("{PID_FILE_PREFIX}.99999999.0"));
             fs::write(&stale_pid_file, b"99999\n").unwrap();
             // Back-date the file past the 1-hour staleness window so the
             // sweep treats it as a crashed prior run's leftover.
-            let past = std::time::SystemTime::now()
-                - std::time::Duration::from_secs(2 * 3600);
+            let past = std::time::SystemTime::now() - std::time::Duration::from_secs(2 * 3600);
             let past_secs = past
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
@@ -1205,13 +1193,9 @@ exec "$@"
 
             // Run seed 1.
             let mut _progress = Vec::<String>::new();
-            let result1 = seed_instance_settings(
-                &paths,
-                &app,
-                1,
-                SeedPreset::Ubuntu,
-                &mut |s| _progress.push(s.to_string()),
-            );
+            let result1 = seed_instance_settings(&paths, &app, 1, SeedPreset::Ubuntu, &mut |s| {
+                _progress.push(s.to_string())
+            });
 
             // After seed 1: stale file removed, no pid files left.
             assert!(
@@ -1221,11 +1205,7 @@ exec "$@"
             let remaining_after_1: Vec<_> = fs::read_dir(&instance_dir)
                 .unwrap()
                 .flatten()
-                .filter(|e| {
-                    e.file_name()
-                        .to_string_lossy()
-                        .starts_with(PID_FILE_PREFIX)
-                })
+                .filter(|e| e.file_name().to_string_lossy().starts_with(PID_FILE_PREFIX))
                 .collect();
             assert!(
                 remaining_after_1.is_empty(),
@@ -1238,26 +1218,17 @@ exec "$@"
             result1.expect("seed 1 failed");
 
             // Run seed 2 (re-creates the config file from scratch first).
-            let (paths2, _, _cfg2) =
-                make_seedable_instance(&tmp, &app, 1, &rel_cfg, true);
+            let (paths2, _, _cfg2) = make_seedable_instance(&tmp, &app, 1, &rel_cfg, true);
             let mut _progress2 = Vec::<String>::new();
-            let result2 = seed_instance_settings(
-                &paths2,
-                &app,
-                1,
-                SeedPreset::Ubuntu,
-                &mut |s| _progress2.push(s.to_string()),
-            );
+            let result2 = seed_instance_settings(&paths2, &app, 1, SeedPreset::Ubuntu, &mut |s| {
+                _progress2.push(s.to_string())
+            });
 
             // After seed 2: still no pid files left.
             let remaining_after_2: Vec<_> = fs::read_dir(&instance_dir)
                 .unwrap()
                 .flatten()
-                .filter(|e| {
-                    e.file_name()
-                        .to_string_lossy()
-                        .starts_with(PID_FILE_PREFIX)
-                })
+                .filter(|e| e.file_name().to_string_lossy().starts_with(PID_FILE_PREFIX))
                 .collect();
             assert!(
                 remaining_after_2.is_empty(),
@@ -1347,8 +1318,7 @@ exec "$@"
         fs::write(&fresh, b"3\n").unwrap();
 
         // Cutoff: right before "now" but after the stale file's mtime.
-        let cutoff = std::time::SystemTime::now()
-            - std::time::Duration::from_secs(5);
+        let cutoff = std::time::SystemTime::now() - std::time::Duration::from_secs(5);
         sweep_stale_pid_files(dir, cutoff);
 
         assert!(!stale.exists(), "stale file should have been swept");
@@ -1410,13 +1380,9 @@ while :; do sleep 0.1; done
             write_exec(&appimage_path, &script);
 
             let mut progress = Vec::<String>::new();
-            let result = seed_instance_settings(
-                &paths,
-                &app,
-                1,
-                SeedPreset::Ubuntu,
-                &mut |s| progress.push(s.to_string()),
-            );
+            let result = seed_instance_settings(&paths, &app, 1, SeedPreset::Ubuntu, &mut |s| {
+                progress.push(s.to_string())
+            });
 
             match prev_seeds {
                 Some(v) => std::env::set_var("APPIMAGE_CONTROL_SEEDS_DIR", v),

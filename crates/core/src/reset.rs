@@ -161,7 +161,12 @@ mod tests {
         fs::write(cfg_dir.join("x"), b"1").unwrap();
 
         let cat = Catalog {
-            apps: vec![make_catalog_app_with_reset("feather", vec!["feather"], vec![], vec![])],
+            apps: vec![make_catalog_app_with_reset(
+                "feather",
+                vec!["feather"],
+                vec![],
+                vec![],
+            )],
         };
         let prev = preview_reset_paths(&paths, Some(&cat), "feather");
         assert_eq!(prev.paths.len(), 1);

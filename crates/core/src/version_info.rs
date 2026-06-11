@@ -57,7 +57,10 @@ pub fn remote_release_comparison(remote: &str, recorded: &str) -> VersionCompari
 /// when you need to distinguish “not newer” from “unparseable” (e.g. to avoid silently hiding
 /// updates for `latest`, date-style, or other non-semver tags).
 pub fn remote_release_newer_than_installed(remote: &str, recorded: &str) -> bool {
-    matches!(remote_release_comparison(remote, recorded), VersionComparison::Newer)
+    matches!(
+        remote_release_comparison(remote, recorded),
+        VersionComparison::Newer
+    )
 }
 
 /// GitHub `releases/latest` tag plus a chosen `.AppImage` asset URL (when the API lists one we can select).
@@ -641,8 +644,12 @@ mod tests {
     #[test]
     fn bool_wrapper_still_returns_false_for_non_semver() {
         // old contract: non-semver returns false (not newer)
-        assert!(!super::remote_release_newer_than_installed("latest", "1.0.0"));
-        assert!(!super::remote_release_newer_than_installed("1.0.0", "bad-ver"));
+        assert!(!super::remote_release_newer_than_installed(
+            "latest", "1.0.0"
+        ));
+        assert!(!super::remote_release_newer_than_installed(
+            "1.0.0", "bad-ver"
+        ));
     }
 
     #[test]
