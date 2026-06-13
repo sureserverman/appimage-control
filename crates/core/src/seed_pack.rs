@@ -499,6 +499,50 @@ fn validate_pack(_id: &str, pack: &SeedPack, cfg: &SeedConfig) -> Result<()> {
             }
         }
     }
+    if let Some(icons) = &pack.icons {
+        if icons.rotation.is_empty() {
+            return Err(Error::InvalidPath(
+                "icons.rotation list must be non-empty".into(),
+            ));
+        }
+        for name in &icons.rotation {
+            check_icon_filename(name)?;
+        }
+    }
+    Ok(())
+}
+
+/// Reject any icon filename that could escape the pack directory or
+/// isn't a PNG: no path separators, no `..`, not absolute, must end
+/// `.png`. This is the path-traversal guard for third-party packs —
+/// `instance_icon_path` joins the bare name to the pack dir and trusts
+/// this check to keep it there.
+fn check_icon_filename(name: &str) -> Result<()> {
+    if name.is_empty() {
+        return Err(Error::InvalidPath(
+            "icons.rotation entry must be non-empty".into(),
+        ));
+    }
+    if name.contains('/') || name.contains('\\') {
+        return Err(Error::InvalidPath(format!(
+            "icons.rotation `{name}`: path separators are not allowed"
+        )));
+    }
+    if name.contains("..") {
+        return Err(Error::InvalidPath(format!(
+            "icons.rotation `{name}`: `..` is not allowed"
+        )));
+    }
+    if Path::new(name).is_absolute() {
+        return Err(Error::InvalidPath(format!(
+            "icons.rotation `{name}`: must be a bare filename, not an absolute path"
+        )));
+    }
+    if !name.to_ascii_lowercase().ends_with(".png") {
+        return Err(Error::InvalidPath(format!(
+            "icons.rotation `{name}`: must end in `.png`"
+        )));
+    }
     Ok(())
 }
 
@@ -1342,6 +1386,39 @@ mod tests {
             err.contains("p4") && err.contains("not a bool"),
             "got: {err}"
         );
+    }
+
+    #[test]
+    fn validate_rejects_unsafe_icon_filenames() {
+        for bad in [
+            r#"["/etc/passwd.png"]"#,
+            r#"["sub/feather.png"]"#,
+            r#"["a\\b.png"]"#,
+            r#"["../feather.png"]"#,
+            r#"["feather.svg"]"#,
+            r#"[]"#,
+        ] {
+            let lib = SeedPackLibrary::from_pairs(vec![(
+                "pico".to_string(),
+                format!(r#"{{"config_path":"x","icons":{{"rotation":{bad}}}}}"#),
+            )])
+            .unwrap();
+            let err = lib.validate().unwrap_err().to_string();
+            assert!(
+                err.contains("pico") && (err.contains("icons.rotation") || err.contains("rotation")),
+                "expected pack id + icons.rotation in error for {bad}, got: {err}"
+            );
+        }
+    }
+
+    #[test]
+    fn validate_accepts_clean_icon_filenames() {
+        let lib = SeedPackLibrary::from_pairs(vec![(
+            "pok",
+            r#"{"config_path":"x","icons":{"rotation":["feather1.png","Feather2.PNG"]}}"#,
+        )])
+        .unwrap();
+        assert!(lib.validate().is_ok());
     }
 
     #[test]
