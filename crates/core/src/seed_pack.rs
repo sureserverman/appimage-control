@@ -78,6 +78,26 @@ pub struct SeedPack {
     /// Keys whose values rotate per instance index.
     #[serde(default)]
     pub rotation: BTreeMap<String, RotationValue>,
+
+    /// Optional per-instance icon rotation. Filenames are resolved
+    /// relative to the pack's own on-disk directory (see
+    /// [`SeedPackLibrary::instance_icon_path`]); embedded packs (no
+    /// on-disk source) carry no icons.
+    #[serde(default)]
+    pub icons: Option<IconSpec>,
+}
+
+/// Per-instance icon rotation for a seed pack. `rotation` is a list of
+/// PNG filenames (no path components) living beside the pack's JSON;
+/// instance `i` uses `rotation[(i - 1) % rotation.len()]`, mirroring the
+/// [`RotationValue::Values`] indexing used for config keys.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct IconSpec {
+    /// Bare PNG filenames, rotated per instance index. Each entry is
+    /// validated by [`SeedPackLibrary::validate`]: no path separators,
+    /// no `..`, not absolute, must end `.png`.
+    pub rotation: Vec<String>,
 }
 
 /// One `preset` entry. `untagged` so the JSON shape disambiguates: the
@@ -1247,6 +1267,35 @@ mod tests {
         let mut base = Map::new();
         let err = apply_pack(&pack, "test-app", &cfg, 1, &mut base).unwrap_err();
         assert!(err.to_string().contains("empty"));
+    }
+
+    #[test]
+    fn icons_field_parses_rotation_list() {
+        let pack = parse(
+            r#"{"config_path":"x","icons":{"rotation":["a.png","b.png"]}}"#,
+        );
+        assert_eq!(
+            pack.icons,
+            Some(IconSpec {
+                rotation: vec!["a.png".into(), "b.png".into()]
+            })
+        );
+    }
+
+    #[test]
+    fn icons_field_defaults_to_none_when_absent() {
+        let pack = parse(r#"{"config_path":"x"}"#);
+        assert_eq!(pack.icons, None);
+    }
+
+    #[test]
+    fn icons_field_rejects_unknown_key() {
+        let err = serde_json::from_str::<SeedPack>(
+            r#"{"config_path":"x","icons":{"rotation":["a.png"],"bogus":1}}"#,
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(err.contains("bogus"), "got: {err}");
     }
 
     #[test]
