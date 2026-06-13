@@ -39,6 +39,27 @@ static FEATHER_SLOT_3_PNG: &[u8] = include_bytes!(concat!(
     "/../gui/assets/catalog-icons/feather3.png"
 ));
 
+/// Per-instance icon bytes from the app's seed pack, if it declares an
+/// `icons.rotation` and the resolved file is present and within
+/// [`MAX_ICON_BYTES`]. Resolves through the same seed-pack discovery
+/// chain seeding uses (`discover_load`, falling back to the embedded
+/// slice), so the icon travels with the same pack that supplies the
+/// app's settings. Any failure (no pack, no icons, missing/oversized
+/// file) returns `None` so the caller degrades to its other icon
+/// sources.
+fn seed_pack_instance_icon_bytes(app_id: &str, instance_index: u32) -> Option<Vec<u8>> {
+    use crate::seed_pack::SeedPackLibrary;
+    let lib = SeedPackLibrary::discover_load(None)
+        .or_else(|_| SeedPackLibrary::embedded())
+        .ok()?;
+    let path = lib.instance_icon_path(app_id, instance_index)?;
+    let bytes = fs::read(&path).ok()?;
+    if bytes.len() > MAX_ICON_BYTES {
+        return None;
+    }
+    Some(bytes)
+}
+
 fn http_client() -> Option<reqwest::blocking::Client> {
     reqwest::blocking::Client::builder()
         .user_agent(concat!("appimage-control/", env!("CARGO_PKG_VERSION")))
@@ -205,7 +226,12 @@ pub fn write_instance_icon_png(
     instance_index: u32,
     cryptomator_instance_dir: Option<&Path>,
 ) -> Result<Option<String>> {
-    let bytes = if app.id == "feather" && app.instance_strategy == InstanceStrategy::QtX11 {
+    let bytes = if let Some(b) = seed_pack_instance_icon_bytes(&app.id, instance_index) {
+        // Data-driven per-instance icon from the app's seed pack
+        // (`icons.rotation`), resolved relative to the pack dir. Feather
+        // ships its three dock tiles this way; see WF-APPLY-001 step 6.
+        b
+    } else if app.id == "feather" && app.instance_strategy == InstanceStrategy::QtX11 {
         // 1,4,7.. → slot 1; 2,5,8.. → slot 2; 3,6,9.. → slot 3.
         let slot = ((instance_index.saturating_sub(1)) % 3) + 1;
         match slot {
