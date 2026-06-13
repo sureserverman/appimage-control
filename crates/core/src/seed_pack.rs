@@ -421,6 +421,27 @@ impl SeedPackLibrary {
         self.sources.get(app_id).map(PathBuf::as_path)
     }
 
+    /// Resolve the on-disk PNG path for `app_id`'s instance
+    /// `instance_index` from its pack's `icons.rotation`, or `None` when
+    /// the pack has no icons, an empty rotation, or no real on-disk
+    /// directory (embedded packs carry the `<embedded>` sentinel source
+    /// and ship no icon files). The filename is rotated
+    /// `(instance_index - 1) % rotation.len()`, mirroring
+    /// [`RotationValue::Values`], and joined to the pack's own directory.
+    /// Filenames were filename-safety-checked at [`Self::validate`] time.
+    pub fn instance_icon_path(&self, app_id: &str, instance_index: u32) -> Option<PathBuf> {
+        let icons = self.packs.get(app_id)?.icons.as_ref()?;
+        if icons.rotation.is_empty() {
+            return None;
+        }
+        let dir = self.sources.get(app_id)?.parent()?;
+        if dir.as_os_str().is_empty() {
+            return None;
+        }
+        let idx = (instance_index.saturating_sub(1) as usize) % icons.rotation.len();
+        Some(dir.join(&icons.rotation[idx]))
+    }
+
     #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.packs.len()
@@ -1409,6 +1430,54 @@ mod tests {
                 "expected pack id + icons.rotation in error for {bad}, got: {err}"
             );
         }
+    }
+
+    #[test]
+    fn instance_icon_path_rotates_relative_to_pack_dir() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(
+            tmp.path().join("feather.json"),
+            r#"{"config_path":"x","icons":{"rotation":["feather1.png","feather2.png","feather3.png"]}}"#,
+        )
+        .unwrap();
+        let lib = SeedPackLibrary::load_from_dir(tmp.path()).unwrap().unwrap();
+        let dir = tmp.path();
+        assert_eq!(
+            lib.instance_icon_path("feather", 1),
+            Some(dir.join("feather1.png"))
+        );
+        assert_eq!(
+            lib.instance_icon_path("feather", 2),
+            Some(dir.join("feather2.png"))
+        );
+        assert_eq!(
+            lib.instance_icon_path("feather", 3),
+            Some(dir.join("feather3.png"))
+        );
+        // wraps: instance 4 → slot 1
+        assert_eq!(
+            lib.instance_icon_path("feather", 4),
+            Some(dir.join("feather1.png"))
+        );
+    }
+
+    #[test]
+    fn instance_icon_path_none_without_icons_or_source() {
+        // No `icons` block → None.
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(tmp.path().join("noicon.json"), r#"{"config_path":"x"}"#).unwrap();
+        let lib = SeedPackLibrary::load_from_dir(tmp.path()).unwrap().unwrap();
+        assert_eq!(lib.instance_icon_path("noicon", 1), None);
+        assert_eq!(lib.instance_icon_path("does-not-exist", 1), None);
+
+        // Embedded pack (`<embedded>` sentinel source, no real dir) → None
+        // even though it declares icons.
+        let emb = SeedPackLibrary::from_pairs(vec![(
+            "feather".to_string(),
+            r#"{"config_path":"x","icons":{"rotation":["feather1.png"]}}"#.to_string(),
+        )])
+        .unwrap();
+        assert_eq!(emb.instance_icon_path("feather", 1), None);
     }
 
     #[test]
