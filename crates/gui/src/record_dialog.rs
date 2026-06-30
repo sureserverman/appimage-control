@@ -25,7 +25,8 @@ use appimage_control_core::ConfigDiff;
 
 /// One installable app the recorder can target (an app with ≥ 1 installed
 /// instance). `known_config_path`/`first_run_args` are pre-filled from an
-/// existing seed pack when one ships for this app.
+/// existing seed pack when one ships for this app; otherwise the config
+/// path is auto-discovered at capture time, so the field stays blank.
 pub struct RecordApp {
     pub app_id: String,
     pub display_name: String,
@@ -40,7 +41,7 @@ pub struct RecordTarget {
     pub app_id: String,
     pub instance_index: u32,
     /// config_path template (with any `{appimage}` placeholder), relative
-    /// to the instance dir.
+    /// to the instance dir. **Empty means auto-detect** at capture time.
     pub config_path: String,
     pub first_run_args: Vec<String>,
 }
@@ -129,9 +130,12 @@ pub fn choose_record_target(
     instance_spin.set_value(1.0);
     area.append(&row_with_label("Instance", &instance_spin));
 
-    // Config path.
+    // Config path — OPTIONAL. Blank means "auto-detect at capture time":
+    // the headless baseline launch also scans for the app's config file, so
+    // the common case needs no input. Pre-filled only when an existing pack
+    // already declares the path; otherwise left blank for auto-detection.
     let config_entry = Entry::builder()
-        .placeholder_text("{appimage}.config/<app>/settings.json")
+        .placeholder_text("auto-detected — leave blank to detect at capture time")
         .hexpand(true)
         .build();
     if let Some(cfg) = &first.known_config_path {
@@ -141,9 +145,10 @@ pub fn choose_record_target(
 
     let config_hint = Label::builder()
         .label(
-            "Path the app writes its settings to, relative to the instance dir. \
-             A single `{appimage}` is replaced with the AppImage filename. \
-             Pre-filled from an existing pack when one is known.",
+            "Optional. Leave blank to auto-detect: the baseline launch scans the instance \
+             dir for the app's JSON config. Set it only to override detection (e.g. an app \
+             that writes several config files). A single `{appimage}` is replaced with the \
+             AppImage filename.",
         )
         .halign(gtk::Align::Start)
         .xalign(0.0)
@@ -159,32 +164,18 @@ pub fn choose_record_target(
     ok_btn.add_css_class("suggested-action");
     dialog.set_default_response(ResponseType::Ok);
 
-    // Keep the OK button disabled while the config path is empty.
-    let sync_ok = {
-        let ok_btn = ok_btn.clone();
-        let entry = config_entry.clone();
-        move || ok_btn.set_sensitive(!entry.text().trim().is_empty())
-    };
-    sync_ok();
-    {
-        let sync_ok = sync_ok.clone();
-        config_entry.connect_changed(move |_| sync_ok());
-    }
-
     // When the app selection changes, retarget the instance range and
-    // re-prefill the config path from that app's known pack.
+    // re-prefill the config path from that app's known pack (blank if none).
     {
         let snapshot = Rc::clone(&snapshot);
         let instance_spin = instance_spin.clone();
         let config_entry = config_entry.clone();
-        let sync_ok = sync_ok.clone();
         dropdown.connect_selected_notify(move |dd| {
             let idx = dd.selected() as usize;
             if let Some(app) = snapshot.get(idx) {
                 instance_spin.set_range(1.0, app.instances.max(1) as f64);
                 instance_spin.set_value(1.0);
                 config_entry.set_text(app.known_config_path.as_deref().unwrap_or(""));
-                sync_ok();
             }
         });
     }
@@ -201,15 +192,15 @@ pub fn choose_record_target(
         if r == ResponseType::Ok {
             let idx = dropdown_c.selected() as usize;
             if let Some(app) = snapshot_c.get(idx) {
+                // Empty config_path is intentional: it signals the capture
+                // step to auto-detect the path during its headless launch.
                 let cfg = entry_c.text().trim().to_string();
-                if !cfg.is_empty() {
-                    *decided_c.borrow_mut() = Some(RecordTarget {
-                        app_id: app.app_id.clone(),
-                        instance_index: instance_c.value() as u32,
-                        config_path: cfg,
-                        first_run_args: app.first_run_args.clone(),
-                    });
-                }
+                *decided_c.borrow_mut() = Some(RecordTarget {
+                    app_id: app.app_id.clone(),
+                    instance_index: instance_c.value() as u32,
+                    config_path: cfg,
+                    first_run_args: app.first_run_args.clone(),
+                });
             }
         }
         d.close();

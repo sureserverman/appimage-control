@@ -28,7 +28,7 @@ use adw::prelude::*;
 use appimage_control_core::{
     build_static_pack, capture_first_run_config, catalog_row_latest_version_label,
     clean_catalog_download_cache, clean_installed_catalog_apps_keep_cache, create_backup_archive,
-    diff_configs, discover_migration_candidates, fetch_github_release_hints,
+    diff_configs, discover_config_candidates, discover_migration_candidates, fetch_github_release_hints,
     installed_version_fleet_display, instance_count, list_managed_instance_indices,
     portmux_port_probe_runtime, purge_appimage_control_state, read_instance_config,
     reconcile_catalog_install_version_metadata, reconcile_instance_count_with_report,
@@ -47,6 +47,21 @@ use gtk::{
 };
 
 const APP_ID: &str = "io.github.sureserverman.AppImageControl";
+
+/// Pick the most likely settings file when config-path auto-detection finds
+/// several JSON candidates: prefer one whose path mentions `settings`/`config`,
+/// else the shortest path, else the first. `candidates` is assumed non-empty.
+fn pick_best_config_candidate(candidates: &[String]) -> String {
+    candidates
+        .iter()
+        .find(|p| {
+            let l = p.to_lowercase();
+            l.contains("settings") || l.contains("config")
+        })
+        .or_else(|| candidates.iter().min_by_key(|p| p.len()))
+        .cloned()
+        .unwrap_or_default()
+}
 const THEME_CSS: &str = include_str!("theme.css");
 
 struct RowHandles {
@@ -1645,32 +1660,67 @@ fn install_window_actions_for_catalog(
                 progress.set_text(Some("Capturing baseline…"));
                 statusbar.set_text("Capturing baseline…");
 
+                // Worker returns (baseline config object, resolved config_path).
+                // When the target's config_path is blank, the path is
+                // auto-detected during the same headless launch — no manual
+                // entry, no extra click.
                 type Captured = serde_json::Map<String, serde_json::Value>;
-                let (tx, rx) = mpsc::channel::<Result<Captured, String>>();
+                let (tx, rx) = mpsc::channel::<Result<(Captured, String), String>>();
                 let paths_t = (*paths).clone();
                 let catalog_t = (*catalog).clone();
                 let target_t = target.clone();
                 std::thread::spawn(move || {
-                    let Some(app) = catalog_t.apps.iter().find(|a| a.id == target_t.app_id) else {
-                        let _ = tx
-                            .send(Err(format!("app '{}' not found in catalog", target_t.app_id)));
-                        return;
-                    };
-                    match capture_first_run_config(
-                        &paths_t,
-                        app,
-                        target_t.instance_index,
-                        &target_t.config_path,
-                        &target_t.first_run_args,
-                        &mut |_| {},
-                    ) {
-                        Ok(c) => {
-                            let _ = tx.send(Ok(c.config));
+                    let res = (|| -> Result<(Captured, String), String> {
+                        let app = catalog_t
+                            .apps
+                            .iter()
+                            .find(|a| a.id == target_t.app_id)
+                            .ok_or_else(|| {
+                                format!("app '{}' not found in catalog", target_t.app_id)
+                            })?;
+                        if target_t.config_path.trim().is_empty() {
+                            // Auto-detect: one headless launch produces the
+                            // config; scan for it, then read it back (no
+                            // second launch).
+                            let cands = discover_config_candidates(
+                                &paths_t,
+                                app,
+                                target_t.instance_index,
+                                &target_t.first_run_args,
+                                &mut |_| {},
+                            )
+                            .map_err(|e| e.to_string())?;
+                            let path = match cands.len() {
+                                0 => return Err(
+                                    "Could not auto-detect a config file for this app. \
+                                     Re-open the wizard and set the Config path field."
+                                        .into(),
+                                ),
+                                1 => cands[0].clone(),
+                                _ => pick_best_config_candidate(&cands),
+                            };
+                            let map = read_instance_config(
+                                &paths_t,
+                                app,
+                                target_t.instance_index,
+                                &path,
+                            )
+                            .map_err(|e| e.to_string())?;
+                            Ok((map, path))
+                        } else {
+                            let cap = capture_first_run_config(
+                                &paths_t,
+                                app,
+                                target_t.instance_index,
+                                &target_t.config_path,
+                                &target_t.first_run_args,
+                                &mut |_| {},
+                            )
+                            .map_err(|e| e.to_string())?;
+                            Ok((cap.config, target_t.config_path.clone()))
                         }
-                        Err(e) => {
-                            let _ = tx.send(Err(e.to_string()));
-                        }
-                    }
+                    })();
+                    let _ = tx.send(res);
                 });
 
                 let window_idle = window.clone();
@@ -1717,20 +1767,22 @@ fn install_window_actions_for_catalog(
                             status_idle.set_text("Baseline capture failed.");
                             present_message_window(gapp, "Baseline capture failed", &e, None);
                         }
-                        Ok(baseline) => {
+                        Ok((baseline, resolved_path)) => {
                             let target = &target_idle;
                             let Some(app) =
                                 catalog_idle.apps.iter().find(|a| a.id == target.app_id)
                             else {
                                 return glib::ControlFlow::Break;
                             };
+                            // `resolved_path` is the config path actually used —
+                            // either the user's override or the auto-detected one.
                             // Persist the baseline so it survives even if the
                             // user comes back later (mirrors the CLI recording).
                             if let Some(home) = dirs::home_dir() {
                                 if let Ok(rec) = PackRecording::new(
                                     target.app_id.clone(),
                                     target.instance_index,
-                                    target.config_path.clone(),
+                                    resolved_path.clone(),
                                     target.first_run_args.clone(),
                                     SeedPreset::auto_default(),
                                     baseline.clone(),
@@ -1752,7 +1804,7 @@ fn install_window_actions_for_catalog(
                                     &paths_idle,
                                     app,
                                     target.instance_index,
-                                    &target.config_path,
+                                    &resolved_path,
                                 ) {
                                     Ok(current) => {
                                         let diff = diff_configs(&baseline, &current);
@@ -1774,7 +1826,7 @@ fn install_window_actions_for_catalog(
                                                 status_idle.set_text("No keys selected.");
                                             } else {
                                                 let pack = build_static_pack(
-                                                    &target.config_path,
+                                                    &resolved_path,
                                                     &target.first_run_args,
                                                     &current,
                                                     &keys,
