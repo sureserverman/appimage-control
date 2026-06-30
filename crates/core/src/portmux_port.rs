@@ -163,6 +163,45 @@ pub struct EnsuredPort {
     pub tor_reload_done: bool,
     #[serde(default)]
     pub already_assigned: bool,
+
+    // ── Port-allocation API v2 fields (integration arc portmux-port-api-v2).
+    // Populated directly when the helper is invoked with `--json-v2`; left
+    // `None` on the v1 `--json` fallback and then synthesized by
+    // `fill_v2_defaults`. All optional so a v1-only portmux still parses.
+    /// Schema version reported by the helper (`Some(2)` on the v2 path).
+    #[serde(default)]
+    pub version: Option<u8>,
+    /// Proxy scheme: `"http"` for an HTTPTunnel listener, else `"socks5"`.
+    #[serde(default)]
+    pub scheme: Option<String>,
+    /// Ready-to-use proxy URL, e.g. `socks5h://127.0.0.1:9150`.
+    #[serde(default)]
+    pub proxy_url: Option<String>,
+}
+
+impl EnsuredPort {
+    /// Fill the v2-only fields (`version`/`scheme`/`proxy_url`) from the v1
+    /// data when `proxy_url` is absent — i.e. when this came from the v1
+    /// `--json` fallback. No-op when already populated (the `--json-v2`
+    /// path). Mirrors portmux's `From<&EnsuredPort> for EnsuredPortV2`:
+    /// `http-tunnel` → `http://host:port`, otherwise `socks5h://host:port`.
+    fn fill_v2_defaults(&mut self) {
+        if self.proxy_url.is_some() {
+            return;
+        }
+        let scheme = if self.isolation == "http-tunnel" {
+            "http"
+        } else {
+            "socks5"
+        };
+        let proxy_url = match scheme {
+            "http" => format!("http://{}:{}", self.host, self.port),
+            _ => format!("socks5h://{}:{}", self.host, self.port),
+        };
+        self.version.get_or_insert(2);
+        self.scheme.get_or_insert_with(|| scheme.to_string());
+        self.proxy_url = Some(proxy_url);
+    }
 }
 
 /// Look up — or, on first call, allocate — the host's port dedicated
@@ -312,6 +351,44 @@ exit 0
         assert_eq!(ep.isolation, "dest-addr");
         assert!(!ep.tor_reload_done);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn bare_v1(host: &str, port: u16, isolation: &str) -> EnsuredPort {
+        EnsuredPort {
+            host: host.into(),
+            port,
+            isolation: isolation.into(),
+            source_file: String::new(),
+            tor_reload_done: false,
+            already_assigned: false,
+            version: None,
+            scheme: None,
+            proxy_url: None,
+        }
+    }
+
+    #[test]
+    fn fill_v2_defaults_synthesizes_socks5h_and_http() {
+        // socks branch: any isolation other than http-tunnel → socks5h://
+        let mut s = bare_v1("127.0.0.1", 9150, "dest-addr");
+        s.fill_v2_defaults();
+        assert_eq!(s.version, Some(2));
+        assert_eq!(s.scheme.as_deref(), Some("socks5"));
+        assert_eq!(s.proxy_url.as_deref(), Some("socks5h://127.0.0.1:9150"));
+
+        // http branch: http-tunnel → http://
+        let mut h = bare_v1("127.0.0.1", 9102, "http-tunnel");
+        h.fill_v2_defaults();
+        assert_eq!(h.scheme.as_deref(), Some("http"));
+        assert_eq!(h.proxy_url.as_deref(), Some("http://127.0.0.1:9102"));
+
+        // already-populated (v2 path) is left untouched
+        let mut v2 = bare_v1("h", 1, "dest-addr");
+        v2.version = Some(2);
+        v2.scheme = Some("socks5".into());
+        v2.proxy_url = Some("socks5h://real:1".into());
+        v2.fill_v2_defaults();
+        assert_eq!(v2.proxy_url.as_deref(), Some("socks5h://real:1"));
     }
 
     #[test]
