@@ -222,47 +222,76 @@ pub fn ensure_port(
 ) -> Result<EnsuredPort> {
     let bin =
         std::env::var_os(ENV_PORTMUX_PORT_BIN).unwrap_or_else(|| OsString::from("portmux-port"));
-    let output = host_command(&bin)
-        .arg("ensure")
-        .arg("--app")
-        .arg(app_label)
-        .arg("--instance")
-        .arg(instance.to_string())
-        .arg("--purpose")
-        .arg(purpose.as_cli_arg())
-        .arg("--isolation")
-        .arg(isolation.as_cli_arg())
-        .arg("--host-loopback")
-        .arg(host_loopback)
-        .arg("--json")
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .map_err(|e| {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                Error::InvalidPath(format!(
-                    "Seeding helper not found on host PATH. Install the \
-                     support package (sudo apt install portmux) or set \
-                     {ENV_PORTMUX_PORT_BIN}=/path/to/binary"
-                ))
-            } else {
-                Error::Io(e)
-            }
-        })?;
 
-    if !output.status.success() {
+    // Spawn the helper with a given JSON flag. Returns the raw output, or a
+    // mapped spawn error (e.g. the install hint when the binary is missing).
+    let run = |json_flag: &str| -> Result<std::process::Output> {
+        host_command(&bin)
+            .arg("ensure")
+            .arg("--app")
+            .arg(app_label)
+            .arg("--instance")
+            .arg(instance.to_string())
+            .arg("--purpose")
+            .arg(purpose.as_cli_arg())
+            .arg("--isolation")
+            .arg(isolation.as_cli_arg())
+            .arg("--host-loopback")
+            .arg(host_loopback)
+            .arg(json_flag)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+            .map_err(|e| {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    Error::InvalidPath(format!(
+                        "Seeding helper not found on host PATH. Install the \
+                         support package (sudo apt install portmux) or set \
+                         {ENV_PORTMUX_PORT_BIN}=/path/to/binary"
+                    ))
+                } else {
+                    Error::Io(e)
+                }
+            })
+    };
+
+    // Map a non-zero exit into the user-facing error (code 2 = pool exhausted).
+    let fail = |output: &std::process::Output| -> Error {
         let code = output.status.code().unwrap_or(-1);
         let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
-        return Err(match code {
+        match code {
             2 => Error::InvalidPath(format!(
                 "Seeding helper: no free port for {app_label}#{instance} — {stderr}"
             )),
             _ => Error::InvalidPath(format!("Seeding helper exited {code}: {stderr}")),
-        });
-    }
+        }
+    };
+
+    // Port-API v2 (integration arc portmux-port-api-v2): try `--json-v2`
+    // first. An old portmux without that flag exits non-zero at arg-parse
+    // (before allocating anything), so we fall back to `--json` once. A
+    // pool-exhausted result (code 2) is a real failure, not a missing flag —
+    // surface it without retrying.
+    let output = {
+        let v2 = run("--json-v2")?;
+        if v2.status.success() {
+            v2
+        } else if v2.status.code() == Some(2) {
+            return Err(fail(&v2));
+        } else {
+            let v1 = run("--json")?;
+            if !v1.status.success() {
+                return Err(fail(&v1));
+            }
+            v1
+        }
+    };
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let ensured: EnsuredPort = serde_json::from_str(stdout.trim()).map_err(Error::Json)?;
+    let mut ensured: EnsuredPort = serde_json::from_str(stdout.trim()).map_err(Error::Json)?;
+    // No-op on the v2 path (already populated); synthesizes the v2-only
+    // fields on the v1 fallback path.
+    ensured.fill_v2_defaults();
     Ok(ensured)
 }
 
@@ -389,6 +418,59 @@ exit 0
         v2.proxy_url = Some("socks5h://real:1".into());
         v2.fill_v2_defaults();
         assert_eq!(v2.proxy_url.as_deref(), Some("socks5h://real:1"));
+    }
+
+    #[test]
+    fn json_v2_path_parses_version_and_proxy_url() {
+        let dir = tmpdir("v2");
+        let stub = write_stub(
+            &dir,
+            r#"#!/bin/sh
+echo '{"version":2,"host":"127.0.0.1","port":9150,"isolation":"dest-addr","scheme":"socks5","proxy_url":"socks5h://127.0.0.1:9150","source_file":"/tmp/wp.conf","tor_reload_done":false,"already_assigned":false}'
+exit 0
+"#,
+        );
+        let ep = with_bin(&stub, || {
+            ensure_port("feather", 4, Purpose::Socks, IsolationClass::DestAddr, "127.0.0.1").unwrap()
+        });
+        assert_eq!(ep.version, Some(2));
+        assert_eq!(ep.scheme.as_deref(), Some("socks5"));
+        assert_eq!(ep.proxy_url.as_deref(), Some("socks5h://127.0.0.1:9150"));
+        // Downstream-consumed fields unchanged.
+        assert_eq!(ep.host, "127.0.0.1");
+        assert_eq!(ep.port, 9150);
+        assert_eq!(ep.isolation, "dest-addr");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn falls_back_to_v1_when_json_v2_is_unknown_flag() {
+        // Old portmux: rejects --json-v2 (arg-parse error, non-zero, not 2),
+        // but serves v1 on --json. ensure_port must retry and synthesize v2.
+        let dir = tmpdir("fallback");
+        let stub = write_stub(
+            &dir,
+            r#"#!/bin/sh
+for a in "$@"; do
+  if [ "$a" = "--json-v2" ]; then
+    echo 'portmux-port: unknown option --json-v2' 1>&2
+    exit 64
+  fi
+done
+echo '{"host":"127.0.0.1","port":9168,"isolation":"dest-addr","source_file":"/tmp/wp.conf","tor_reload_done":false,"already_assigned":false}'
+exit 0
+"#,
+        );
+        let ep = with_bin(&stub, || {
+            ensure_port("feather", 4, Purpose::Socks, IsolationClass::DestAddr, "127.0.0.1").unwrap()
+        });
+        // v2 fields synthesized from the v1 payload.
+        assert_eq!(ep.version, Some(2));
+        assert_eq!(ep.scheme.as_deref(), Some("socks5"));
+        assert_eq!(ep.proxy_url.as_deref(), Some("socks5h://127.0.0.1:9168"));
+        assert_eq!(ep.host, "127.0.0.1");
+        assert_eq!(ep.port, 9168);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
