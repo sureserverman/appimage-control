@@ -44,7 +44,17 @@ fn manifest_version_contract_is_explicit() {
 fn restore_refuses_without_force_when_managed_state_exists() {
     let tmp = tempfile::tempdir().unwrap();
     let paths = AppPaths::new(tmp.path().to_path_buf()).unwrap();
-    std::fs::create_dir_all(paths.manager_data_dir().join("apps")).unwrap();
+    // Real managed state: an installed instance file, not just an empty dir.
+    // (BL-003 fix, 2026-06-30: empty managed dirs — e.g. purge's leftover
+    // cache/ — no longer count as state; an actual file still does.)
+    std::fs::create_dir_all(paths.manager_data_dir().join("apps/session/1")).unwrap();
+    std::fs::write(
+        paths
+            .manager_data_dir()
+            .join("apps/session/1/session.AppImage"),
+        b"binary",
+    )
+    .unwrap();
 
     let archive = tmp.path().join("dummy.tar.zst");
     std::fs::write(&archive, b"dummy").unwrap();

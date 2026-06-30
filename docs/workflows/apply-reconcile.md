@@ -26,4 +26,4 @@ Invariants:
 - Lowering counts in the GUI requires explicit confirmation listing the exact instances to be deleted; cancel leaves everything untouched.
 - CLI mixed ops: after the first failed op, remaining ops are skipped (listed as `SKIPPED`), and a `Summary: <op> OK; <op> FAILED (…); <op> SKIPPED` line is printed to stderr when ≥ 2 ops were dispatched.
 
-Last verified: 2026-06-11 against commit `0b568eaf` — by the Stage 1–6 test suites and live gate checks of `2026-06-10-workflow-flaws-parity-remediation-plan.md`.
+Last verified: 2026-06-30 — re-verified end-to-end by the `2026-06-30-exhaustive-functional-test-plan.md` behavioral pass (no behavior change). Prior: 2026-06-11 against commit `0b568eaf` (`2026-06-10-workflow-flaws-parity-remediation-plan.md`).

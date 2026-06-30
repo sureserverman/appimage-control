@@ -24,4 +24,4 @@ Invariants:
 - Concurrent seeds of the same instance dir never kill each other's process groups: each run reads only its own PID file for the PGID.
 - The host preset is auto-detected; no user flag selects it (CLI and GUI behave identically).
 
-Last verified: 2026-06-11 against commit `0b568eaf` — by the Stage 1–6 test suites and live gate checks of `2026-06-10-workflow-flaws-parity-remediation-plan.md`.
+Last verified: 2026-06-30 — re-verified end-to-end by the `2026-06-30-exhaustive-functional-test-plan.md` behavioral pass (no behavior change). Prior: 2026-06-11 against commit `0b568eaf` (`2026-06-10-workflow-flaws-parity-remediation-plan.md`).

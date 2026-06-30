@@ -78,6 +78,16 @@ pub struct SeedPack {
     /// Keys whose values rotate per instance index.
     #[serde(default)]
     pub rotation: BTreeMap<String, RotationValue>,
+
+    /// Accepted-but-ignored legacy `icons` block. Older on-disk packs (and
+    /// the shipped companion packs under installers-linux) still carry an
+    /// `icons` object. Icon resolution no longer reads it, but the field is
+    /// retained so `deny_unknown_fields` does not reject those packs.
+    /// Note: it still participates in the derived `PartialEq`/`Eq`, so two
+    /// packs differing only in `icons` compare unequal even though seeding
+    /// treats them identically (no current path compares `SeedPack` values).
+    #[serde(default)]
+    pub icons: Option<Value>,
 }
 
 /// One `preset` entry. `untagged` so the JSON shape disambiguates: the
@@ -732,6 +742,24 @@ mod tests {
         assert!(p.static_keys.is_empty());
         assert!(p.preset.is_empty());
         assert!(p.rotation.is_empty());
+        assert!(p.icons.is_none());
+    }
+
+    /// Regression (F1, 2026-06-30 functional test): production companion packs
+    /// still carry a legacy `icons` block. The `deny_unknown_fields` schema
+    /// must accept (and ignore) it rather than reject the whole pack.
+    #[test]
+    fn pack_with_legacy_icons_field_is_accepted_and_ignored() {
+        let raw = r#"{
+            "config_path": "{appimage}.config/config.json",
+            "icons": { "rotation": ["feather1.png", "feather2.png"] }
+        }"#;
+        let p: SeedPack = serde_json::from_str(raw)
+            .expect("pack carrying a legacy `icons` field must still parse");
+        assert_eq!(p.config_path, "{appimage}.config/config.json");
+        // The field is captured but not interpreted as a recipe verb.
+        assert!(p.icons.is_some());
+        assert!(p.static_keys.is_empty() && p.preset.is_empty() && p.rotation.is_empty());
     }
 
     #[test]

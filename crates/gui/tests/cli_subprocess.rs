@@ -378,7 +378,14 @@ fn restore_refuses_stderr_matches_preflight() {
     fs::create_dir_all(&home).expect("home");
     let catalog = tmp.path().join("catalog.json");
     write_session_catalog(&catalog);
-    fs::create_dir_all(home.join(".local/share/appimages/apps")).expect("managed");
+    // Real managed state (an installed instance file), not just an empty dir:
+    // BL-003 (2026-06-30) made empty managed dirs no longer count as state.
+    fs::create_dir_all(home.join(".local/share/appimages/apps/session/1")).expect("managed");
+    fs::write(
+        home.join(".local/share/appimages/apps/session/1/session.AppImage"),
+        b"binary",
+    )
+    .expect("instance file");
 
     let dummy = tmp.path().join("dummy.tar.zst");
     fs::write(&dummy, b"not-a-real-archive").expect("dummy");
@@ -395,5 +402,35 @@ fn restore_refuses_stderr_matches_preflight() {
     assert!(
         err.contains("restore preflight refused") || err.contains("managed state already exists"),
         "unexpected stderr: {err}"
+    );
+}
+
+/// Regression (BL-004, 2026-06-30 functional test): `--clean-cache --seed-new`
+/// must NOT slip into the catalog-free clean-cache fast path and silently
+/// ignore `--seed-new`. It must error that `--seed-new` needs an
+/// instance-adding op, and exit non-zero.
+#[test]
+fn clean_cache_with_seed_new_errors_instead_of_silently_ignoring() {
+    let tmp = tempfile::tempdir().expect("tmp");
+    let home = tmp.path().join("home");
+    fs::create_dir_all(&home).expect("home");
+    let catalog = tmp.path().join("catalog.json");
+    write_session_catalog(&catalog);
+
+    let out = Command::new(app_exe().as_os_str())
+        .env("HOME", &home)
+        .env("APPIMAGE_CONTROL_CATALOG", &catalog)
+        .args(["--clean-cache", "--seed-new"])
+        .output()
+        .expect("clean-cache+seed-new");
+
+    assert!(
+        !out.status.success(),
+        "--clean-cache --seed-new must not silently succeed"
+    );
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        err.contains("--seed-new requires"),
+        "expected a --seed-new-requires-instance-op error, got stderr: {err}"
     );
 }

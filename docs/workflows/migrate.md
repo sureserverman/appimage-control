@@ -22,4 +22,4 @@ Invariants:
 - Replace deletes ONLY the conflicting destination (`*.home` and its sibling `*.config` for that instance) — never other instances' data.
 - Renumber allocates the slot AFTER the highest occupied index (managed install or non-empty portable `*.home`) and never fills gaps — an empty `*.home` at index 2 with 1 and 3 occupied yields index 4, not 2 (`next_instance_index_after_occupied`).
 
-Last verified: 2026-06-11 against commit `0b568eaf` — by the Stage 1–6 test suites and live gate checks of `2026-06-10-workflow-flaws-parity-remediation-plan.md`.
+Last verified: 2026-06-30 — re-verified end-to-end by the `2026-06-30-exhaustive-functional-test-plan.md` behavioral pass (no behavior change). Prior: 2026-06-11 against commit `0b568eaf` (`2026-06-10-workflow-flaws-parity-remediation-plan.md`).

@@ -281,15 +281,47 @@ pub fn create_backup_archive(
     result
 }
 
+/// True if `dir` contains at least one regular file at any depth. Empty
+/// directories and trees made up only of empty subdirectories return false.
+/// Used so a `--purge`d manager dir (which is left holding an empty `cache/`)
+/// does not count as managed state for the restore preflight (BL-003).
+///
+/// Recurses unbounded, which is safe here: the only caller is the manager
+/// data dir, whose layout is shallow (`manager/apps/<id>/<n>/<file>`,
+/// depth ~4). Symlinks are not followed — `DirEntry::file_type` uses
+/// `lstat`, so a symlinked dir reports `is_dir() == false` and is counted as
+/// a (non-directory) entry rather than recursed into, so cycles are impossible.
+fn dir_contains_any_file(dir: &Path) -> bool {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return false;
+    };
+    for result in entries {
+        // Any I/O ambiguity is treated as "state may exist" so the restore
+        // preflight stays conservative (a false negative here would let a
+        // restore clobber real managed state). This matches the Err arm on
+        // `file_type()` below.
+        let Ok(entry) = result else {
+            return true;
+        };
+        match entry.file_type() {
+            Ok(ft) if ft.is_dir() => {
+                if dir_contains_any_file(&entry.path()) {
+                    return true;
+                }
+            }
+            Ok(_) => return true,
+            Err(_) => return true,
+        }
+    }
+    false
+}
+
 pub fn restore_preflight(paths: &AppPaths, force: bool) -> Result<()> {
     if force {
         return Ok(());
     }
     let manager = paths.manager_data_dir();
-    let has_manager_state = manager.is_dir()
-        && std::fs::read_dir(&manager)
-            .map(|mut it| it.next().is_some())
-            .unwrap_or(false);
+    let has_manager_state = manager.is_dir() && dir_contains_any_file(&manager);
     let has_desktops = !paths.managed_desktop_entries()?.is_empty();
     let has_icons = !paths.managed_hicolor_icon_files()?.is_empty();
     if has_manager_state || has_desktops || has_icons {
@@ -669,5 +701,49 @@ mod tests {
         assert!(is_payload_file_entry(tar::EntryType::Regular));
         assert!(is_payload_file_entry(tar::EntryType::new(b'S')));
         assert!(!is_payload_file_entry(tar::EntryType::Directory));
+    }
+
+    #[test]
+    fn dir_contains_any_file_ignores_empty_subdir_trees() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let root = tmp.path().join("root");
+        fs::create_dir_all(root.join("cache")).expect("mkdir cache");
+        fs::create_dir_all(root.join("apps/empty")).expect("mkdir nested");
+        // Only empty directories so far → no real state.
+        assert!(!dir_contains_any_file(&root));
+        // A real file anywhere makes it true.
+        fs::write(root.join("apps/empty/blob"), b"x").expect("write");
+        assert!(dir_contains_any_file(&root));
+    }
+
+    /// Regression (BL-003, 2026-06-30 functional test): `--purge` leaves an
+    /// empty `cache/` dir inside the manager data dir. The restore preflight
+    /// must treat that empty tree as "no managed state" so a follow-up
+    /// `--restore-backup` does not spuriously require `--force`.
+    #[test]
+    fn restore_preflight_allows_purged_empty_cache_without_force() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let paths = AppPaths::new(tmp.path().to_path_buf()).expect("paths");
+        // Simulate post-purge: manager dir exists but holds only an empty cache/.
+        fs::create_dir_all(paths.manager_data_dir().join("cache")).expect("mkdir cache");
+        restore_preflight(&paths, false)
+            .expect("empty managed dirs must not count as state (BL-003)");
+    }
+
+    #[test]
+    fn restore_preflight_still_refuses_real_state_without_force() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let paths = AppPaths::new(tmp.path().to_path_buf()).expect("paths");
+        fs::create_dir_all(paths.manager_data_dir().join("apps/session/1")).expect("mkdir");
+        fs::write(
+            paths
+                .manager_data_dir()
+                .join("apps/session/1/session.AppImage"),
+            b"binary",
+        )
+        .expect("write appimage");
+        assert!(restore_preflight(&paths, false).is_err());
+        // …and --force always bypasses.
+        restore_preflight(&paths, true).expect("force bypasses");
     }
 }
