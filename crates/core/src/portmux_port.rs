@@ -269,9 +269,17 @@ pub fn ensure_port(
 
     // Port-API v2 (integration arc portmux-port-api-v2): try `--json-v2`
     // first. An old portmux without that flag exits non-zero at arg-parse
-    // (before allocating anything), so we fall back to `--json` once. A
-    // pool-exhausted result (code 2) is a real failure, not a missing flag —
-    // surface it without retrying.
+    // (before allocating anything), so we fall back to `--json` once.
+    //
+    // Exit-code contract (`portmux-port` docs: "0 success / 2 pool exhausted"):
+    // code 2 means pool-exhausted ONLY — usage/unknown-flag errors use other
+    // codes — so a code-2 result is a real failure and is surfaced without a
+    // fallback (a fallback would just re-exhaust and mislead). Any OTHER
+    // non-zero exit is treated as "this portmux doesn't know --json-v2" and
+    // retried with `--json`. The double invocation is safe because
+    // `portmux-port ensure` is idempotent ((app,instance) → same port,
+    // `already_assigned=true` on the second call): no double allocation, and
+    // the v2 attempt failed at arg-parse before allocating anyway.
     let output = {
         let v2 = run("--json-v2")?;
         if v2.status.success() {
@@ -281,6 +289,9 @@ pub fn ensure_port(
         } else {
             let v1 = run("--json")?;
             if !v1.status.success() {
+                // The fallback can itself hit pool-exhaustion (code 2) or any
+                // other error; `fail` maps both, so a genuine v1 failure is
+                // surfaced rather than masked.
                 return Err(fail(&v1));
             }
             v1
@@ -470,6 +481,34 @@ exit 0
         assert_eq!(ep.proxy_url.as_deref(), Some("socks5h://127.0.0.1:9168"));
         assert_eq!(ep.host, "127.0.0.1");
         assert_eq!(ep.port, 9168);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn fallback_then_pool_exhausted_surfaces_pool_error() {
+        // Old portmux: rejects --json-v2 (exit 64), then the v1 retry hits
+        // pool exhaustion (exit 2). The v1-branch failure mapping must surface
+        // the pool-exhausted message, not a generic error.
+        let dir = tmpdir("fb-exh");
+        let stub = write_stub(
+            &dir,
+            r#"#!/bin/sh
+for a in "$@"; do
+  if [ "$a" = "--json-v2" ]; then
+    echo 'unknown option --json-v2' 1>&2
+    exit 64
+  fi
+done
+echo 'portmux-port: pool exhausted 9160-9189' 1>&2
+exit 2
+"#,
+        );
+        let err = with_bin(&stub, || {
+            ensure_port("feather", 999, Purpose::Socks, IsolationClass::DestAddr, "127.0.0.1")
+                .unwrap_err()
+        });
+        let msg = format!("{err}");
+        assert!(msg.contains("no free port for feather#999"), "got: {msg}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
