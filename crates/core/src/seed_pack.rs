@@ -28,7 +28,7 @@ use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 
 use crate::error::{Error, Result};
@@ -53,7 +53,13 @@ pub fn user_seeds_dir() -> Option<PathBuf> {
 }
 
 /// One seed pack, parsed from `data/seeds/<app-id>.json`.
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+///
+/// `Serialize` is derived (with `skip_serializing_if` on every optional
+/// field) so the seed-pack *recorder* ([`crate::seed_pack_build`]) can
+/// emit a hand-authorable file: a synthesised `static`-only pack
+/// serialises to just `config_path` + `static` (+ `first_run_args` when
+/// non-empty), with no empty `preset`/`rotation`/`icons` noise.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct SeedPack {
     /// Path to the JSON config the seeded AppImage is expected to write,
@@ -64,19 +70,19 @@ pub struct SeedPack {
 
     /// Extra arguments passed to the AppImage on its first-run seed
     /// launch (e.g. `["--offline"]` for Electrum). Defaults to empty.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub first_run_args: Vec<String>,
 
     /// Plain JSON literals merged into the config map verbatim.
-    #[serde(default, rename = "static")]
+    #[serde(default, rename = "static", skip_serializing_if = "Map::is_empty")]
     pub static_keys: Map<String, Value>,
 
     /// Keys whose values come from the active [`crate::seed::SeedConfig`].
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub preset: BTreeMap<String, PresetValue>,
 
     /// Keys whose values rotate per instance index.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub rotation: BTreeMap<String, RotationValue>,
 
     /// Accepted-but-ignored legacy `icons` block. Older on-disk packs (and
@@ -86,28 +92,28 @@ pub struct SeedPack {
     /// Note: it still participates in the derived `PartialEq`/`Eq`, so two
     /// packs differing only in `icons` compare unequal even though seeding
     /// treats them identically (no current path compares `SeedPack` values).
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub icons: Option<Value>,
 }
 
 /// One `preset` entry. `untagged` so the JSON shape disambiguates: the
 /// presence of `from` means [`PresetValue::From`], `format` means
 /// [`PresetValue::Format`], `port` means [`PresetValue::Port`].
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, untagged)]
 pub enum PresetValue {
     /// Direct copy of one preset field (`socks5_host`,
     /// `feather_use_local_tor`, etc.) into the JSON map.
     From {
         from: String,
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         drop_if: Option<String>,
     },
     /// Templated string with `{field_name}` placeholders that resolve
     /// against the active preset's scalar fields.
     Format {
         format: String,
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         drop_if: Option<String>,
     },
     /// Per-(app, instance) port assignment resolved at apply time by
@@ -121,17 +127,17 @@ pub enum PresetValue {
 /// Body of a `port` verb. `app` defaults to the seed pack's own app
 /// id (passed into [`apply_pack`]). `purpose` defaults to `socks`.
 /// `isolation` and `field` are required.
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct PortLookup {
     /// App label fed to `portmux-port --app`. Defaults to the
     /// seed-pack's own app id; specify explicitly when one pack
     /// needs ports owned by a different app.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub app: Option<String>,
     /// Tor listener kind (`socks` / `http` / `trans` / `dns`).
     /// Defaults to `socks`.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub purpose: Option<PortPurposeSpec>,
     /// Stream-isolation class (`none`, `dest-addr`, `dest-port`,
     /// `both`, `http-tunnel`).
@@ -142,16 +148,22 @@ pub struct PortLookup {
     /// When `true`, emit `port` as a JSON string (`"9168"`) instead
     /// of a number (`9168`). Only meaningful when `field = "port"`.
     /// Mirrors today's rotation `as_string` flag.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_false")]
     pub as_string: bool,
     /// Optional bool preset-field name; when that field is `true`,
     /// the resolved value is omitted entirely (and any existing key
     /// is removed from the base map).
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub drop_if: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+/// `skip_serializing_if` predicate for `bool` fields that default to
+/// `false` (so a synthesised pack never emits a redundant `false`).
+fn is_false(b: &bool) -> bool {
+    !*b
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum PortPurposeSpec {
     Socks,
@@ -160,7 +172,7 @@ pub enum PortPurposeSpec {
     Dns,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub enum IsolationSpec {
     None,
@@ -170,7 +182,7 @@ pub enum IsolationSpec {
     HttpTunnel,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum PortFieldSpec {
     Port,
@@ -208,7 +220,7 @@ impl IsolationSpec {
 /// was retired with the `[u16; 3]` preset array it referenced. New
 /// per-instance port assignments go through the `port` verb in the
 /// `preset` section instead.
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, untagged)]
 pub enum RotationValue {
     /// Rotate through an inline list of JSON literals, indexed by

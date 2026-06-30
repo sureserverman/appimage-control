@@ -400,6 +400,193 @@ pub fn seed_new_instances_after_reconcile(
     Ok(report)
 }
 
+// ── Seed-pack recorder: baseline capture & config discovery ──────────
+//
+// These power the diff-based pack *recorder* (see
+// `docs/workflows/recording.md` / `crate::seed_record` /
+// `crate::seed_pack_build`). Unlike `seed_instance_settings`, which
+// launches → applies a pack → writes back, the recorder only ever
+// *reads* config: it captures an untouched baseline, lets the user
+// configure the app by hand, then reads the live config and diffs.
+
+/// Extra dwell after the first JSON-object file appears during
+/// [`discover_config_candidates`], so an app that writes several files on
+/// first run has them all on disk before the scan.
+const DISCOVERY_SETTLE: Duration = Duration::from_millis(1500);
+
+/// An instance's untouched first-run config, captured by
+/// [`capture_first_run_config`]. No seed pack is applied — this is the
+/// left-hand side of the recorder's diff.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CapturedConfig {
+    /// The `config_path` template (with any `{appimage}` placeholder
+    /// preserved) — what becomes the synthesised pack's `config_path`.
+    pub config_path: String,
+    /// Absolute path to the config file that was read.
+    pub config_abs: PathBuf,
+    /// The untouched first-run JSON object (no pack applied).
+    pub config: Map<String, Value>,
+}
+
+/// Resolve `(appimage_abs, config_abs)` for an installed instance given a
+/// `config_path` template relative to the instance dir (with an optional
+/// `{appimage}` placeholder). Errors when the instance AppImage is
+/// missing — the recorder needs an installed instance to launch/read.
+fn resolve_instance_config(
+    paths: &AppPaths,
+    app: &CatalogApp,
+    instance_index: u32,
+    config_path: &str,
+) -> Result<(PathBuf, PathBuf)> {
+    let dir = paths.instance_dir_for(app, instance_index);
+    let filename = app.resolved_appimage_filename();
+    let appimage = dir.join(&filename);
+    if !appimage.is_file() {
+        return Err(Error::InvalidPath(format!(
+            "{} instance {}: AppImage not found at {} (install the instance first)",
+            app.id,
+            instance_index,
+            appimage.display()
+        )));
+    }
+    let rel = config_path.replace("{appimage}", &filename);
+    Ok((appimage, dir.join(rel)))
+}
+
+/// Phase 1 of the recorder: launch an installed instance once under
+/// headless `xvfb-run`, wait for its first-run config to appear at
+/// `config_path` (relative to the instance dir; `{appimage}` is
+/// substituted with the instance's AppImage filename), and return the
+/// raw JSON object the app wrote — **without** applying any seed pack.
+pub fn capture_first_run_config(
+    paths: &AppPaths,
+    app: &CatalogApp,
+    instance_index: u32,
+    config_path: &str,
+    first_run_args: &[String],
+    on_progress: &mut dyn FnMut(&str),
+) -> Result<CapturedConfig> {
+    let (appimage, expected) = resolve_instance_config(paths, app, instance_index, config_path)?;
+    on_progress(&format!(
+        "{} instance {}: launching once to capture baseline config …",
+        app.id, instance_index
+    ));
+    let args: Vec<&str> = first_run_args.iter().map(String::as_str).collect();
+    seed_until_config(&appimage, &args, &expected)?;
+    let config = read_json_object(&expected)?;
+    on_progress(&format!(
+        "{} instance {}: captured {} top-level key(s) from {}",
+        app.id,
+        instance_index,
+        config.len(),
+        expected.display()
+    ));
+    Ok(CapturedConfig {
+        config_path: config_path.to_string(),
+        config_abs: expected,
+        config,
+    })
+}
+
+/// Phase 3 input of the recorder: read an instance's *current* config at
+/// `config_path` **without** launching anything. Called after the user
+/// has run the app and set their settings by hand, to snapshot the
+/// post-configuration state for diffing against the stored baseline.
+pub fn read_instance_config(
+    paths: &AppPaths,
+    app: &CatalogApp,
+    instance_index: u32,
+    config_path: &str,
+) -> Result<Map<String, Value>> {
+    let (_appimage, expected) = resolve_instance_config(paths, app, instance_index, config_path)?;
+    if !expected.is_file() {
+        return Err(Error::InvalidPath(format!(
+            "{} instance {}: no config at {} — launch the app and configure it first",
+            app.id,
+            instance_index,
+            expected.display()
+        )));
+    }
+    read_json_object(&expected)
+}
+
+/// Best-effort `config_path` discovery for authoring a pack for a
+/// brand-new app: launch the instance once under headless `xvfb-run` and
+/// return the relative paths (from the instance dir, sorted, with the
+/// AppImage filename re-templated to `{appimage}`) of every file that
+/// parses as a JSON object — each a candidate `config_path`. Use when
+/// the author doesn't yet know where the app stores its settings.
+pub fn discover_config_candidates(
+    paths: &AppPaths,
+    app: &CatalogApp,
+    instance_index: u32,
+    first_run_args: &[String],
+    on_progress: &mut dyn FnMut(&str),
+) -> Result<Vec<String>> {
+    let dir = paths.instance_dir_for(app, instance_index);
+    let filename = app.resolved_appimage_filename();
+    let appimage = dir.join(&filename);
+    if !appimage.is_file() {
+        return Err(Error::InvalidPath(format!(
+            "{} instance {}: AppImage not found at {} (install the instance first)",
+            app.id,
+            instance_index,
+            appimage.display()
+        )));
+    }
+    on_progress(&format!(
+        "{} instance {}: launching once to discover config files …",
+        app.id, instance_index
+    ));
+    let args: Vec<&str> = first_run_args.iter().map(String::as_str).collect();
+    let mut ready = || !scan_json_object_files(&dir, &dir, &filename).is_empty();
+    run_headless_session(&appimage, &args, DISCOVERY_SETTLE, &mut ready)?;
+    let mut found = scan_json_object_files(&dir, &dir, &filename);
+    found.sort();
+    found.dedup();
+    on_progress(&format!(
+        "{} instance {}: found {} JSON config candidate(s)",
+        app.id,
+        instance_index,
+        found.len()
+    ));
+    Ok(found)
+}
+
+/// Recursively collect files under `root` that parse as JSON objects,
+/// returned as paths relative to `base` with the AppImage filename
+/// re-templated to `{appimage}`. Skips the AppImage itself and our PID
+/// files. Symlinks are not followed (`is_dir()` is false for a symlink),
+/// so the walk can't loop.
+fn scan_json_object_files(root: &Path, base: &Path, appimage_filename: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let Ok(entries) = fs::read_dir(root) else {
+        return out;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let Ok(ft) = entry.file_type() else { continue };
+        if ft.is_dir() {
+            out.extend(scan_json_object_files(&path, base, appimage_filename));
+        } else if ft.is_file() {
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            if name.starts_with(PID_FILE_PREFIX) || name == appimage_filename {
+                continue;
+            }
+            if read_json_object(&path).is_ok() {
+                if let Ok(rel) = path.strip_prefix(base) {
+                    let rel = rel
+                        .to_string_lossy()
+                        .replace(appimage_filename, "{appimage}");
+                    out.push(rel);
+                }
+            }
+        }
+    }
+    out
+}
+
 /// Base name prefix for per-run PID files. The actual file is
 /// `<prefix>.<child-pid>` so concurrent seeds of the same instance
 /// directory each own a unique, non-overlapping file.
@@ -436,25 +623,67 @@ fn sweep_stale_pid_files(instance_dir: &Path, older_than: std::time::SystemTime)
     }
 }
 
+/// Terminal state of a [`run_headless_session`] call.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum HeadlessOutcome {
+    /// The `ready` predicate returned `true` before the timeout.
+    Ready,
+    /// The launched process tree exited before `ready` became `true`.
+    ChildExited,
+    /// `SEED_TIMEOUT` elapsed with `ready` never becoming `true`.
+    TimedOut,
+}
+
 fn seed_until_config(appimage: &Path, first_run_args: &[&str], expected: &Path) -> Result<()> {
-    // We need to take down xvfb-run *and* its descendants (Xvfb, the AppImage
-    // FUSE mount, the actual app binary which has exec'd away from
-    // <appimage> to /tmp/.mount_*/). Killing only the AppImage-path-named
-    // process leaves Xvfb + the unmounted app binary alive, which holds Qt's
-    // `qtsingleapp-*` lock and makes the next instance bail out immediately.
-    //
-    // Strategy: start the seed in a fresh session via `setsid`, write the
-    // session-leader PID to a small file under the instance dir, and on
-    // teardown send `kill -KILL -<pgid>` to that PID — that signals every
-    // process in the group at once. Works the same native or via
-    // `flatpak-spawn --host` because we capture the *host*-side session
-    // leader's PID, not the in-sandbox proxy's.
-    //
-    // PID file uniqueness: the file is named `<prefix>.<spawned-child-pid>`
-    // so two concurrent seeds of the same instance directory each write to
-    // a distinct path — no clobbering, no killing the wrong process group.
-    // We choose the child PID as the discriminator because it is available
-    // immediately after `spawn()` and is guaranteed unique per OS.
+    let mut ready = || config_file_complete(expected);
+    match run_headless_session(appimage, first_run_args, Duration::ZERO, &mut ready)? {
+        HeadlessOutcome::Ready => Ok(()),
+        HeadlessOutcome::ChildExited => Err(Error::InvalidPath(format!(
+            "seeded app exited before creating config: {}",
+            expected.display()
+        ))),
+        HeadlessOutcome::TimedOut => Err(Error::InvalidPath(format!(
+            "timed out waiting for seeded config: {}",
+            expected.display()
+        ))),
+    }
+}
+
+/// Launch `appimage` once under headless `xvfb-run` in a fresh session,
+/// polling `ready` until it returns `true`, the launched tree exits, or
+/// [`SEED_TIMEOUT`] elapses. When `ready` first trips, dwell `settle`
+/// before tearing the group down — pass [`Duration::ZERO`] when waiting
+/// on a single known file (seeding), or a short non-zero dwell when
+/// waiting for a multi-file first-run write to settle (config-path
+/// discovery). The process group is always torn down before returning.
+///
+/// This is the shared launch engine behind [`seed_until_config`] (waits
+/// on one known config file) and [`discover_config_candidates`] (waits
+/// for any JSON-object file to appear so a brand-new pack's `config_path`
+/// can be discovered).
+///
+/// We need to take down xvfb-run *and* its descendants (Xvfb, the AppImage
+/// FUSE mount, the actual app binary which has exec'd away from
+/// <appimage> to /tmp/.mount_*/). Killing only the AppImage-path-named
+/// process leaves Xvfb + the unmounted app binary alive, which holds Qt's
+/// `qtsingleapp-*` lock and makes the next instance bail out immediately.
+///
+/// Strategy: start the run in a fresh session via `setsid`, write the
+/// session-leader PID to a small file under the instance dir, and on
+/// teardown send `kill -KILL -<pgid>` to that PID — that signals every
+/// process in the group at once. Works the same native or via
+/// `flatpak-spawn --host` because we capture the *host*-side session
+/// leader's PID, not the in-sandbox proxy's.
+///
+/// PID file uniqueness: the file is named `<prefix>.<seeder-pid>.<counter>`
+/// so two concurrent runs of the same instance directory each write to
+/// a distinct path — no clobbering, no killing the wrong process group.
+fn run_headless_session(
+    appimage: &Path,
+    first_run_args: &[&str],
+    settle: Duration,
+    ready: &mut dyn FnMut() -> bool,
+) -> Result<HeadlessOutcome> {
     let instance_dir = appimage
         .parent()
         .ok_or_else(|| Error::InvalidPath("seed: AppImage has no parent dir".into()))?;
@@ -525,16 +754,18 @@ fn seed_until_config(appimage: &Path, first_run_args: &[&str], expected: &Path) 
     let started = Instant::now();
     let mut child_exited = false;
     while started.elapsed() < SEED_TIMEOUT {
-        if expected.exists() {
-            // Fix 2: wait until the file is non-empty and parses as a
-            // JSON object before declaring success. An app may still be
-            // mid-write (partial `{` or empty file). Poll within the
-            // same timeout window.
-            if config_file_complete(expected) {
-                terminate_seed_child(&mut child, &pid_file);
-                return Ok(());
+        // `ready` is the caller's completion predicate — for seeding it
+        // checks that the one expected config file is a complete JSON
+        // object (an app may still be mid-write with a partial `{`); for
+        // discovery it checks that any JSON-object file has appeared.
+        if ready() {
+            // Let a multi-file first-run write finish before teardown
+            // (zero for the single-known-file seeding path).
+            if !settle.is_zero() {
+                thread::sleep(settle);
             }
-            // File exists but is not yet a complete JSON object — keep polling.
+            terminate_seed_child(&mut child, &pid_file);
+            return Ok(HeadlessOutcome::Ready);
         }
         if child.try_wait()?.is_some() {
             child_exited = true;
@@ -544,19 +775,14 @@ fn seed_until_config(appimage: &Path, first_run_args: &[&str], expected: &Path) 
     }
 
     terminate_seed_child(&mut child, &pid_file);
-    if expected.exists() && config_file_complete(expected) {
-        return Ok(());
+    if ready() {
+        return Ok(HeadlessOutcome::Ready);
     }
-    if child_exited {
-        return Err(Error::InvalidPath(format!(
-            "seeded app exited before creating config: {}",
-            expected.display()
-        )));
-    }
-    Err(Error::InvalidPath(format!(
-        "timed out waiting for seeded config: {}",
-        expected.display()
-    )))
+    Ok(if child_exited {
+        HeadlessOutcome::ChildExited
+    } else {
+        HeadlessOutcome::TimedOut
+    })
 }
 
 /// Returns `true` iff `path` exists, is non-empty, and parses as a
@@ -1027,6 +1253,131 @@ exec "$@"
         let app = supported_app("mattermost", "Mattermost.AppImage");
         let out = seed_instance_settings(&paths, &app, 1, SeedPreset::Ubuntu, &mut |_| {}).unwrap();
         assert_eq!(out, SeedOutcome::SkippedUnsupported);
+    }
+
+    // ── seed-pack recorder: capture / read / discover ───────────────────
+
+    /// Like `make_seedable_instance` but the fake AppImage writes a
+    /// caller-chosen JSON body (not just `{}`) so capture assertions are
+    /// meaningful. Returns the instance paths + the absolute config path.
+    fn make_recorder_instance(
+        tmp: &tempfile::TempDir,
+        app: &CatalogApp,
+        instance_index: u32,
+        rel_cfg: &str,
+        body_json: &str,
+    ) -> (AppPaths, PathBuf) {
+        let paths = AppPaths::new(tmp.path().join("home")).unwrap();
+        let dir = paths.instance_dir_for(app, instance_index);
+        fs::create_dir_all(&dir).unwrap();
+        let appimage = dir.join(app.resolved_appimage_filename());
+        let cfg = dir.join(rel_cfg);
+        let cfg_dir = cfg.parent().unwrap();
+        // The single-quoted JSON is embedded verbatim; tests pass bodies
+        // without embedded single quotes.
+        let script = format!(
+            "#!/bin/sh\nset -eu\nmkdir -p \"{}\"\nprintf '%s' '{}' > \"{}\"\ntrap 'exit 0' TERM INT\nwhile :; do sleep 1; done\n",
+            cfg_dir.display(),
+            body_json,
+            cfg.display()
+        );
+        write_exec(&appimage, &script);
+        (paths, cfg)
+    }
+
+    #[test]
+    fn capture_first_run_config_reads_raw_object_without_applying_a_pack() {
+        with_fake_xvfb(tempfile::tempdir().unwrap().path(), || {
+            let tmp = tempfile::tempdir().unwrap();
+            let app = supported_app("aic-capture-app", "aic-capture-app.AppImage");
+            let rel = "aic-capture-app.AppImage.config/settings.json";
+            let (paths, cfg) =
+                make_recorder_instance(&tmp, &app, 1, rel, r#"{"telemetry":true,"theme":"light"}"#);
+
+            // config_path uses the {appimage} placeholder; capture must
+            // substitute it to find the real file.
+            let captured = capture_first_run_config(
+                &paths,
+                &app,
+                1,
+                "{appimage}.config/settings.json",
+                &[],
+                &mut |_| {},
+            )
+            .expect("capture must succeed");
+
+            assert_eq!(captured.config_path, "{appimage}.config/settings.json");
+            assert_eq!(captured.config_abs, cfg);
+            assert_eq!(captured.config["telemetry"], serde_json::json!(true));
+            assert_eq!(captured.config["theme"], serde_json::json!("light"));
+            // Exactly the keys the app wrote — no pack-applied extras.
+            assert_eq!(captured.config.len(), 2);
+        });
+    }
+
+    #[test]
+    fn capture_first_run_config_errors_when_instance_missing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let paths = AppPaths::new(tmp.path().join("home")).unwrap();
+        let app = supported_app("aic-missing", "aic-missing.AppImage");
+        let err = capture_first_run_config(&paths, &app, 1, "{appimage}.cfg", &[], &mut |_| {})
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("AppImage not found"), "got: {err}");
+    }
+
+    #[test]
+    fn read_instance_config_reads_current_state_without_launch() {
+        let tmp = tempfile::tempdir().unwrap();
+        let app = supported_app("aic-read-app", "aic-read-app.AppImage");
+        let rel = "aic-read-app.AppImage.config/settings.json";
+        // No fake xvfb here: read must work purely from disk.
+        let (paths, _cfg) =
+            make_recorder_instance(&tmp, &app, 1, rel, r#"{"unused":1}"#);
+        // Plant a post-config file as if the user had configured the app.
+        let dir = paths.instance_dir_for(&app, 1);
+        let cfg = dir.join(rel);
+        fs::create_dir_all(cfg.parent().unwrap()).unwrap();
+        fs::write(&cfg, r#"{"telemetry":false,"theme":"dark"}"#).unwrap();
+
+        let map =
+            read_instance_config(&paths, &app, 1, "{appimage}.config/settings.json").unwrap();
+        assert_eq!(map["telemetry"], serde_json::json!(false));
+        assert_eq!(map["theme"], serde_json::json!("dark"));
+    }
+
+    #[test]
+    fn read_instance_config_errors_when_config_absent() {
+        let tmp = tempfile::tempdir().unwrap();
+        let app = supported_app("aic-noconf", "aic-noconf.AppImage");
+        let (paths, _cfg) = make_recorder_instance(&tmp, &app, 1, "x.json", "{}");
+        // Remove the planted config so only the AppImage remains.
+        let dir = paths.instance_dir_for(&app, 1);
+        let _ = fs::remove_file(dir.join("x.json"));
+        let err = read_instance_config(&paths, &app, 1, "{appimage}.config/never.json")
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("launch the app and configure it first"), "got: {err}");
+    }
+
+    #[test]
+    fn discover_config_candidates_finds_json_object_files() {
+        with_fake_xvfb(tempfile::tempdir().unwrap().path(), || {
+            let tmp = tempfile::tempdir().unwrap();
+            let app = supported_app("aic-discover-app", "aic-discover-app.AppImage");
+            let rel = "aic-discover-app.AppImage.config/settings.json";
+            let (paths, _cfg) =
+                make_recorder_instance(&tmp, &app, 1, rel, r#"{"a":1}"#);
+
+            let candidates =
+                discover_config_candidates(&paths, &app, 1, &[], &mut |_| {}).unwrap();
+            // The written settings file is found, with the AppImage
+            // filename re-templated back to {appimage}.
+            assert!(
+                candidates.contains(&"{appimage}.config/settings.json".to_string()),
+                "candidates did not include the settings file: {candidates:?}"
+            );
+        });
     }
 
     // ── atomic write tests ────────────────────────────────────────────

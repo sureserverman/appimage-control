@@ -212,6 +212,41 @@ Validation errors include the pack id and the offending field name
 or unknown placeholder — typos fail loud at load time, never
 silently at first seed.
 
+## Authoring by recording (diff-based)
+
+Instead of hand-writing the `static` block, you can let the manager
+capture it for you — install the app, let the manager snapshot its
+untouched first-run config, configure the app by hand, and have the
+manager diff the two into a `static`-only pack. This is the seed-pack
+*recorder*; see [`docs/workflows/recording.md`](workflows/recording.md)
+(WF-RECORD-001) for the full contract.
+
+GUI: **Record Seed Pack…** in the main menu walks the three steps
+(capture baseline → configure → review the diff → save).
+
+CLI:
+
+```bash
+# 1. Capture a baseline of feather instance 1's first-run config.
+#    The config path comes from an existing pack if one ships; otherwise
+#    pass --pack-config-path (a single {appimage} is substituted).
+appimage-control --record-pack-baseline feather \
+  --pack-config-path '{appimage}.config/feather/settings.json'
+
+# 2. Launch feather, change the settings you want the pack to carry, quit.
+
+# 3. Diff against the baseline and write a static-only pack (unsigned).
+appimage-control --record-pack-capture feather --out ./feather.json
+```
+
+The recorder only emits `static` literals (the added/changed top-level
+keys). It does **not** infer `preset` / `port` / `rotation` verbs — those
+encode host-dependent networking and need human judgement, so promote any
+proxy/port values to the appropriate verb by hand afterwards. Removed keys
+are reported but not encoded (a `static` pack cannot delete keys). The
+written file is not signed; the signed companion-repo delivery
+(`--update-seed-packs`) stays separate.
+
 ## Example template
 
 `data/seeds/example.json.txt` ships a copy-paste template. The

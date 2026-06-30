@@ -19,7 +19,9 @@ mod reset;
 mod seed;
 mod seed_form;
 mod seed_pack;
+mod seed_pack_build;
 mod seed_pack_update;
+mod seed_record;
 mod update;
 mod version_info;
 
@@ -73,16 +75,24 @@ pub use portmux_port::{
 pub use paths::AppPaths;
 pub use reset::{delete_paths, execute_reset, preview_reset_paths, ResetPreview};
 pub use seed::{
-    is_whonix_environment, recipe_for_supported_app, seed_instance_settings,
+    capture_first_run_config, discover_config_candidates, is_whonix_environment,
+    read_instance_config, recipe_for_supported_app, seed_instance_settings,
     seed_instance_settings_with_recipe, seed_new_instances_after_reconcile,
-    seed_supported_installed_apps, SeedConfig, SeedOutcome, SeedPreset, SeedRecipe, SeedReport,
-    SeedTarget, SupportedSeedApp, ENV_WHONIX_MARKER,
+    seed_supported_installed_apps, CapturedConfig, SeedConfig, SeedOutcome, SeedPreset, SeedRecipe,
+    SeedReport, SeedTarget, SupportedSeedApp, ENV_WHONIX_MARKER,
 };
 pub use seed_form::{
     default_seed_forms_dir, delete_form as delete_seed_form, list_forms as list_seed_forms,
     load_form as load_seed_form, save_form as save_seed_form, seed_forms_dir_in, SavedSeedForm,
 };
 pub use seed_pack::{user_seeds_dir, SeedPack, SeedPackLibrary, ENV_SEEDS_DIR};
+pub use seed_pack_build::{
+    build_static_pack, diff_configs, render_pack_json, write_pack_to, ConfigDiff,
+};
+pub use seed_record::{
+    default_recordings_dir, delete_recording, list_recordings, load_recording,
+    recordings_dir_in, save_recording, PackRecording,
+};
 pub use seed_pack_update::{
     update_seed_packs, UpdateReport as SeedPackUpdateReport,
     DEFAULT_RELEASE_URL as SEED_PACKS_DEFAULT_RELEASE_URL,

@@ -108,6 +108,27 @@ Seeding flags:
                      Delete a saved seed form by name and exit.
 ```
 
+Seed-pack recorder flags (author a pack by diffing an app's config before/after manual setup — see [docs/workflows/recording.md](docs/workflows/recording.md)):
+
+```
+--record-pack-baseline APP[:N]
+                     Phase 1: launch instance N (default 1) once headlessly and snapshot its
+                     untouched first-run config as a baseline.
+--pack-config-path PATH
+                     With --record-pack-baseline: the config file the app writes, relative to the
+                     instance dir (a single `{appimage}` placeholder is substituted).
+--pack-first-run-args A,B
+                     With --record-pack-baseline: comma-separated first-run AppImage args.
+--record-pack-capture APP[:N]
+                     Phase 3: diff the instance's current config against the baseline and write a
+                     `static`-only seed pack of the added/changed top-level keys (unsigned).
+--out PATH           With --record-pack-capture: output path (default per-user seeds dir).
+--list-pack-recordings
+                     Print one tab-separated row per stored baseline recording: `<app-id>\t<N>`.
+--delete-pack-recording APP[:N]
+                     Delete a stored baseline recording (idempotent).
+```
+
 **Strict parsing:** unrecognised arguments cause a non-zero exit with a message pointing to `--help`; they do not open the GUI. Exit 0 only when all dispatched ops succeed.
 
 Examples:
@@ -136,6 +157,7 @@ The seeding command:
   - Choose which installed supported apps to seed (checkboxes; no preset picker — the host is auto-detected).
   - Optionally save or recall a named app selection via the “Saved configurations” section.
   - Review the full seeding log in the activity dialog.
+- Use **”Record Seed Pack…”** to author a new pack by diffing: pick an installed app/instance, capture a baseline, configure the app by hand, then review the changed keys and save a `static`-only pack (unsigned). See [docs/workflows/recording.md](docs/workflows/recording.md).
 
 ## Catalog schema
 

@@ -5,16 +5,18 @@ use std::io::{self, BufRead, IsTerminal, Write};
 use gtk::glib;
 
 use appimage_control_core::{
-    clean_catalog_download_cache, clean_installed_catalog_apps_keep_cache, create_backup_archive,
-    delete_seed_form, discover_migration_candidates, fetch_github_release_hints,
-    installed_version_fleet_display, instance_count, list_seed_forms, load_seed_form,
-    portmux_port_probe_runtime, parse_app_instance_spec, purge_appimage_control_state,
+    build_static_pack, capture_first_run_config, clean_catalog_download_cache,
+    clean_installed_catalog_apps_keep_cache, create_backup_archive, delete_recording,
+    delete_seed_form, diff_configs, discover_config_candidates, discover_migration_candidates,
+    fetch_github_release_hints, installed_version_fleet_display, instance_count, list_recordings,
+    list_seed_forms, load_recording, load_seed_form, portmux_port_probe_runtime,
+    parse_app_instance_spec, purge_appimage_control_state, read_instance_config,
     reconcile_catalog_install_version_metadata, reconcile_instance_count,
     reconcile_instance_count_with_report, repair_instance_launchers, restore_backup_archive,
-    run_portable_dir_migration, save_seed_form, seed_new_instances_after_reconcile,
-    seed_supported_installed_apps, update_all_installed_instances, update_seed_packs, AppPaths,
-    BackupOptions, Catalog, MigrationConflict, MigrationResolution, SavedSeedForm, SeedPackLibrary,
-    SeedPreset,
+    run_portable_dir_migration, save_recording, save_seed_form, seed_new_instances_after_reconcile,
+    seed_supported_installed_apps, update_all_installed_instances, update_seed_packs, user_seeds_dir,
+    write_pack_to, AppPaths, BackupOptions, Catalog, MigrationConflict, MigrationResolution,
+    PackRecording, SavedSeedForm, SeedPackLibrary, SeedPreset,
 };
 
 pub fn want_help(args: &[String]) -> bool {
@@ -80,6 +82,32 @@ When --purge, --clean, or --migrate is present, only one runs: --purge first if 
                    Refuses if the tarball or signature does not verify, or if this
                    build was shipped with a placeholder public key (see
                    docs/seed-pack-companion-repo.md).
+  --record-pack-baseline APP[:N]
+                   Seed-pack recorder, phase 1. Launch installed instance N (default 1) of APP
+                   once under headless xvfb-run and snapshot its untouched first-run config as a
+                   baseline (NO seed pack is applied). Stored under
+                   ~/.local/share/appimage-control/pack-recordings/<APP>.<N>.json. The config
+                   location is taken from --pack-config-path, else from an existing seed pack for
+                   APP, else auto-discovered by scanning for JSON-object files. Then launch the
+                   app normally, set your settings, quit, and run --record-pack-capture.
+  --pack-config-path PATH
+                   With --record-pack-baseline only: the config file the app writes, relative to
+                   the instance dir. A single `{{appimage}}` placeholder is substituted with the
+                   instance's AppImage filename (e.g. `{{appimage}}.config/app/settings.json`).
+  --pack-first-run-args A,B
+                   With --record-pack-baseline only: comma-separated args passed to the AppImage
+                   on the baseline launch (for example an offline-mode flag).
+  --record-pack-capture APP[:N]
+                   Seed-pack recorder, phase 3. Read instance N's current config, diff it against
+                   the stored baseline, and write a `static`-only seed pack of every added/changed
+                   top-level key. Removed keys are reported but not encoded (a static pack cannot
+                   delete keys). Output is NOT signed.
+  --out PATH       With --record-pack-capture only: where to write the pack. Default:
+                   ~/.local/share/appimage-control/seeds/<APP>.json.
+  --list-pack-recordings
+                   Print one tab-separated row per stored baseline recording: `<app-id>\\t<N>`.
+  --delete-pack-recording APP[:N]
+                   Delete a stored baseline recording. Idempotent — missing recordings exit 0.
   -y, --yes        Use with --purge, --clean, or --migrate: skip the run confirmation prompt (for scripts).
   --repair-launchers
                    Recreate any missing per-instance .desktop launchers and icons for all installed
@@ -267,6 +295,43 @@ fn parse_seed_settings_targets(
     Ok(Some(Some(parts)))
 }
 
+/// Parse an `APP[:N]` token for the seed-pack-recorder flags into
+/// `(app_id, instance_index)`. Unlike the `+APP:N` instance ops, `N`
+/// here is the 1-based instance **index** to record (not a count); it
+/// defaults to 1.
+fn parse_record_target(raw: &str) -> std::result::Result<(String, u32), String> {
+    let raw = raw.trim();
+    if raw.is_empty() {
+        return Err("expected APP or APP:N".into());
+    }
+    if let Some((id, n)) = raw.split_once(':') {
+        let idx: u32 = n.parse().map_err(|_| {
+            format!("malformed target '{raw}': expected APP:N where N is a positive integer")
+        })?;
+        if id.is_empty() || idx < 1 {
+            return Err(format!(
+                "malformed target '{raw}': expected APP:N where N is a positive integer (≥ 1)"
+            ));
+        }
+        Ok((id.to_string(), idx))
+    } else {
+        Ok((raw.to_string(), 1))
+    }
+}
+
+/// Comma-separated `--pack-first-run-args` value → owned, trimmed,
+/// non-empty parts.
+fn parse_first_run_args(raw: Option<&str>) -> Vec<String> {
+    raw.map(|s| {
+        s.split(',')
+            .map(str::trim)
+            .filter(|p| !p.is_empty())
+            .map(|p| p.to_string())
+            .collect()
+    })
+    .unwrap_or_default()
+}
+
 fn resolve_migrate_conflict_tty(c: MigrationConflict) -> MigrationResolution {
     loop {
         eprintln!(
@@ -396,6 +461,268 @@ fn home_dir_or_exit() -> std::result::Result<std::path::PathBuf, glib::ExitCode>
     }
 }
 
+/// `config_path` + `first_run_args` of an existing seed pack for `app_id`,
+/// if one is discoverable. Used by the recorder to default the baseline
+/// launch when re-recording a pack that already ships.
+fn existing_pack_config(app_id: &str) -> Option<(String, Vec<String>)> {
+    let lib = SeedPackLibrary::discover_load(None).ok()?;
+    let pack = lib.get(app_id)?;
+    Some((pack.config_path.clone(), pack.first_run_args.clone()))
+}
+
+/// Seed-pack recorder, phase 1 (`--record-pack-baseline APP[:N]`): launch
+/// the instance once under headless xvfb, snapshot its untouched first-run
+/// config, and persist it as a [`PackRecording`]. Always returns an exit
+/// code (this is a terminal op).
+fn run_record_baseline(
+    raw_target: &str,
+    args: &[String],
+    paths: &AppPaths,
+    by_id: &std::collections::HashMap<String, &appimage_control_core::CatalogApp>,
+) -> Option<glib::ExitCode> {
+    let (app_id, instance_index) = match parse_record_target(raw_target) {
+        Ok(t) => t,
+        Err(e) => {
+            eprintln!("{e}");
+            return Some(glib::ExitCode::FAILURE);
+        }
+    };
+    let app = match by_id.get(app_id.as_str()) {
+        Some(a) => *a,
+        None => {
+            eprintln!("unknown app id '{app_id}' (see --list)");
+            return Some(glib::ExitCode::FAILURE);
+        }
+    };
+
+    let explicit_cfg = match arg_value_hint(
+        args,
+        "--pack-config-path",
+        "a path relative to the instance dir",
+    ) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("{e}");
+            return Some(glib::ExitCode::FAILURE);
+        }
+    };
+    let explicit_args_raw =
+        match arg_value_hint(args, "--pack-first-run-args", "comma-separated args") {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("{e}");
+                return Some(glib::ExitCode::FAILURE);
+            }
+        };
+
+    // Resolve where the app writes its config (and the first-run args):
+    // explicit flag > existing pack for this app > auto-discovery.
+    let (config_path, first_run_args) = if let Some(cfg) = explicit_cfg {
+        (cfg.to_string(), parse_first_run_args(explicit_args_raw))
+    } else if let Some((cfg, pack_args)) = existing_pack_config(&app_id) {
+        let fra = if explicit_args_raw.is_some() {
+            parse_first_run_args(explicit_args_raw)
+        } else {
+            pack_args
+        };
+        eprintln!("Using config path from existing seed pack for '{app_id}': {cfg}");
+        (cfg, fra)
+    } else {
+        eprintln!(
+            "No --pack-config-path and no existing seed pack for '{app_id}'; \
+             launching once to discover the config file …"
+        );
+        let fra = parse_first_run_args(explicit_args_raw);
+        match discover_config_candidates(paths, app, instance_index, &fra, &mut |m| {
+            eprintln!("{m}")
+        }) {
+            Ok(cands) => match cands.len() {
+                0 => {
+                    eprintln!(
+                        "Could not find any JSON config file under the instance dir. \
+                         Re-run with --pack-config-path to name it explicitly."
+                    );
+                    return Some(glib::ExitCode::FAILURE);
+                }
+                1 => (cands[0].clone(), fra),
+                _ => {
+                    eprintln!(
+                        "Multiple JSON config candidates found — re-run with \
+                         --pack-config-path set to one of:"
+                    );
+                    for c in &cands {
+                        eprintln!("  {c}");
+                    }
+                    return Some(glib::ExitCode::FAILURE);
+                }
+            },
+            Err(e) => {
+                eprintln!("{e}");
+                return Some(glib::ExitCode::FAILURE);
+            }
+        }
+    };
+
+    let captured = match capture_first_run_config(
+        paths,
+        app,
+        instance_index,
+        &config_path,
+        &first_run_args,
+        &mut |m| eprintln!("{m}"),
+    ) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("{e}");
+            return Some(glib::ExitCode::FAILURE);
+        }
+    };
+
+    let home = match home_dir_or_exit() {
+        Ok(h) => h,
+        Err(code) => return Some(code),
+    };
+    let rec = match PackRecording::new(
+        app_id.clone(),
+        instance_index,
+        config_path.clone(),
+        first_run_args,
+        SeedPreset::auto_default(),
+        captured.config,
+    ) {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("{e}");
+            return Some(glib::ExitCode::FAILURE);
+        }
+    };
+    let key_count = rec.baseline.len();
+    if let Err(e) = save_recording(&home, &rec) {
+        eprintln!("{e}");
+        return Some(glib::ExitCode::FAILURE);
+    }
+    eprintln!(
+        "Baseline captured for '{app_id}' instance {instance_index} ({key_count} top-level key(s)) from {config_path}."
+    );
+    eprintln!("Now launch the app, change its settings, quit it, then run:");
+    eprintln!("  appimage-control --record-pack-capture {app_id}:{instance_index}");
+    Some(glib::ExitCode::SUCCESS)
+}
+
+/// Seed-pack recorder, phase 3 (`--record-pack-capture APP[:N]`): diff the
+/// instance's current config against the stored baseline and write a
+/// `static`-only seed pack of the added/changed top-level keys.
+fn run_record_capture(
+    raw_target: &str,
+    args: &[String],
+    paths: &AppPaths,
+    by_id: &std::collections::HashMap<String, &appimage_control_core::CatalogApp>,
+) -> Option<glib::ExitCode> {
+    let (app_id, instance_index) = match parse_record_target(raw_target) {
+        Ok(t) => t,
+        Err(e) => {
+            eprintln!("{e}");
+            return Some(glib::ExitCode::FAILURE);
+        }
+    };
+    let app = match by_id.get(app_id.as_str()) {
+        Some(a) => *a,
+        None => {
+            eprintln!("unknown app id '{app_id}' (see --list)");
+            return Some(glib::ExitCode::FAILURE);
+        }
+    };
+    let home = match home_dir_or_exit() {
+        Ok(h) => h,
+        Err(code) => return Some(code),
+    };
+    let rec = match load_recording(&home, &app_id, instance_index) {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("{e}");
+            return Some(glib::ExitCode::FAILURE);
+        }
+    };
+    let current = match read_instance_config(paths, app, instance_index, &rec.config_path) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("{e}");
+            return Some(glib::ExitCode::FAILURE);
+        }
+    };
+
+    let diff = diff_configs(&rec.baseline, &current);
+    eprintln!(
+        "Diff for '{app_id}' instance {instance_index}: {} added, {} changed, {} removed, {} unchanged.",
+        diff.added.len(),
+        diff.changed.len(),
+        diff.removed.len(),
+        diff.unchanged
+    );
+    for k in &diff.added {
+        eprintln!("  + {k}");
+    }
+    for k in &diff.changed {
+        eprintln!("  ~ {k}");
+    }
+    for k in &diff.removed {
+        eprintln!("  - {k} (removed; a static pack cannot delete keys — not encoded)");
+    }
+    if diff.is_empty_capture() {
+        eprintln!("No settings changed since baseline — nothing to record.");
+        return Some(glib::ExitCode::SUCCESS);
+    }
+
+    let keys = diff.capturable_keys();
+    let pack = build_static_pack(&rec.config_path, &rec.first_run_args, &current, &keys);
+
+    let out = match arg_value_hint(args, "--out", "a file path") {
+        Ok(Some(p)) => std::path::PathBuf::from(p),
+        Ok(None) => match user_seeds_dir() {
+            Some(d) => d.join(format!("{app_id}.json")),
+            None => {
+                eprintln!(
+                    "Cannot resolve the default seeds dir ($XDG_DATA_HOME/$HOME unset); pass --out PATH."
+                );
+                return Some(glib::ExitCode::FAILURE);
+            }
+        },
+        Err(e) => {
+            eprintln!("{e}");
+            return Some(glib::ExitCode::FAILURE);
+        }
+    };
+
+    if out.exists() {
+        match confirm_unless_yes_flag(
+            args,
+            &format!("A file already exists at {}.", out.display()),
+            "Overwrite it? [Y/n] ",
+        ) {
+            None => return Some(glib::ExitCode::FAILURE),
+            Some(false) => {
+                eprintln!("Capture cancelled — existing file left unchanged.");
+                return Some(glib::ExitCode::SUCCESS);
+            }
+            Some(true) => {}
+        }
+    }
+
+    if let Err(e) = write_pack_to(&out, &app_id, &pack) {
+        eprintln!("{e}");
+        return Some(glib::ExitCode::FAILURE);
+    }
+    eprintln!(
+        "Wrote seed pack for '{app_id}' ({} key(s)) to {}",
+        keys.len(),
+        out.display()
+    );
+    eprintln!(
+        "This pack is NOT signed. Review it, then place it where the discovery chain finds it (see docs/seed-packs.md)."
+    );
+    Some(glib::ExitCode::SUCCESS)
+}
+
 /// Flags that consume the next argument as their value.
 const VALUE_FLAGS: &[&str] = &[
     "--catalog",
@@ -405,6 +732,12 @@ const VALUE_FLAGS: &[&str] = &[
     "--seed-save",
     "--seed-load",
     "--seed-delete-form",
+    "--record-pack-baseline",
+    "--record-pack-capture",
+    "--pack-config-path",
+    "--pack-first-run-args",
+    "--out",
+    "--delete-pack-recording",
 ];
 
 /// The complete set of recognised `--` flags (not counting `--on-conflict=*` prefix forms).
@@ -428,6 +761,13 @@ const KNOWN_FLAGS: &[&str] = &[
     "--seed-new",
     "--list-seed-packs",
     "--update-seed-packs",
+    "--record-pack-baseline",
+    "--record-pack-capture",
+    "--pack-config-path",
+    "--pack-first-run-args",
+    "--out",
+    "--list-pack-recordings",
+    "--delete-pack-recording",
     "--update",
     "--yes",
 ];
@@ -625,6 +965,26 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
         }
     }
 
+    // Seed-pack-recorder coupling checks.
+    let has_record_baseline = args.iter().any(|a| a == "--record-pack-baseline");
+    let has_record_capture = args.iter().any(|a| a == "--record-pack-capture");
+    if has_record_baseline && has_record_capture {
+        eprintln!("Use --record-pack-baseline and --record-pack-capture in separate runs.");
+        return Some(glib::ExitCode::FAILURE);
+    }
+    if args
+        .iter()
+        .any(|a| a == "--pack-config-path" || a == "--pack-first-run-args")
+        && !has_record_baseline
+    {
+        eprintln!("--pack-config-path / --pack-first-run-args require --record-pack-baseline.");
+        return Some(glib::ExitCode::FAILURE);
+    }
+    if args.iter().any(|a| a == "--out") && !has_record_capture {
+        eprintln!("--out requires --record-pack-capture.");
+        return Some(glib::ExitCode::FAILURE);
+    }
+
     if args.iter().any(|a| a == "--seed-list-forms") {
         let home = match home_dir_or_exit() {
             Ok(h) => h,
@@ -699,6 +1059,59 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
                     report.install_dir.display(),
                     report.source_url
                 );
+                return Some(glib::ExitCode::SUCCESS);
+            }
+            Err(e) => {
+                eprintln!("{e}");
+                return Some(glib::ExitCode::FAILURE);
+            }
+        }
+    }
+
+    if args.iter().any(|a| a == "--list-pack-recordings") {
+        let home = match home_dir_or_exit() {
+            Ok(h) => h,
+            Err(code) => return Some(code),
+        };
+        match list_recordings(&home) {
+            Ok(recs) => {
+                for (id, idx) in recs {
+                    println!("{id}\t{idx}");
+                }
+                return Some(glib::ExitCode::SUCCESS);
+            }
+            Err(e) => {
+                eprintln!("{e}");
+                return Some(glib::ExitCode::FAILURE);
+            }
+        }
+    }
+
+    if let Some(raw) = match arg_value_hint(args, "--delete-pack-recording", "APP or APP:N") {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("{e}");
+            return Some(glib::ExitCode::FAILURE);
+        }
+    } {
+        let (app_id, instance_index) = match parse_record_target(raw) {
+            Ok(t) => t,
+            Err(e) => {
+                eprintln!("{e}");
+                return Some(glib::ExitCode::FAILURE);
+            }
+        };
+        let home = match home_dir_or_exit() {
+            Ok(h) => h,
+            Err(code) => return Some(code),
+        };
+        match delete_recording(&home, &app_id, instance_index) {
+            Ok(true) => {
+                eprintln!("Deleted baseline recording for '{app_id}' instance {instance_index}.");
+                return Some(glib::ExitCode::SUCCESS);
+            }
+            Ok(false) => {
+                eprintln!("No baseline recording for '{app_id}' instance {instance_index}.");
                 return Some(glib::ExitCode::SUCCESS);
             }
             Err(e) => {
@@ -1007,6 +1420,26 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
     if let Err(msg) = validate_app_specs(args, &by_id) {
         eprintln!("{msg}");
         return Some(glib::ExitCode::FAILURE);
+    }
+
+    // Seed-pack recorder (terminal ops; need the catalog to resolve APP).
+    if let Some(raw) = match arg_value_hint(args, "--record-pack-baseline", "APP or APP:N") {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("{e}");
+            return Some(glib::ExitCode::FAILURE);
+        }
+    } {
+        return run_record_baseline(raw, args, &paths, &by_id);
+    }
+    if let Some(raw) = match arg_value_hint(args, "--record-pack-capture", "APP or APP:N") {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("{e}");
+            return Some(glib::ExitCode::FAILURE);
+        }
+    } {
+        return run_record_capture(raw, args, &paths, &by_id);
     }
 
     let want_seed_new = args.iter().any(|a| a == "--seed-new");
@@ -1567,6 +2000,173 @@ mod purge_prompt_tests {
             Some(Some(vec!["feather".into(), "electrum-btc".into()]))
         );
     }
+
+    // ── seed-pack recorder CLI ──────────────────────────────────────────
+
+    #[test]
+    fn parse_record_target_accepts_app_and_app_index() {
+        assert_eq!(
+            super::parse_record_target("feather").unwrap(),
+            ("feather".to_string(), 1)
+        );
+        assert_eq!(
+            super::parse_record_target("electrum-btc:3").unwrap(),
+            ("electrum-btc".to_string(), 3)
+        );
+        assert!(super::parse_record_target("feather:0").is_err());
+        assert!(super::parse_record_target("feather:x").is_err());
+        assert!(super::parse_record_target("").is_err());
+        assert!(super::parse_record_target(":2").is_err());
+    }
+
+    #[test]
+    fn parse_first_run_args_splits_and_trims() {
+        assert!(super::parse_first_run_args(None).is_empty());
+        assert_eq!(
+            super::parse_first_run_args(Some(" --offline , --x ")),
+            vec!["--offline".to_string(), "--x".to_string()]
+        );
+        assert!(super::parse_first_run_args(Some(" , ")).is_empty());
+    }
+
+    #[test]
+    fn out_flag_without_capture_is_rejected() {
+        let code = run_cli_ops(&["--out".to_string(), "/tmp/x.json".to_string()]);
+        assert_eq!(code, Some(glib::ExitCode::FAILURE));
+    }
+
+    #[test]
+    fn pack_config_path_without_baseline_is_rejected() {
+        let code = run_cli_ops(&["--pack-config-path".to_string(), "x.json".to_string()]);
+        assert_eq!(code, Some(glib::ExitCode::FAILURE));
+    }
+
+    #[test]
+    fn baseline_and_capture_together_is_rejected() {
+        let code = run_cli_ops(&[
+            "--record-pack-baseline".to_string(),
+            "feather".to_string(),
+            "--record-pack-capture".to_string(),
+            "feather".to_string(),
+        ]);
+        assert_eq!(code, Some(glib::ExitCode::FAILURE));
+    }
+
+    /// Install a fake `feather` instance whose AppImage writes `body` to
+    /// its first-run config, then idles until killed. Returns the config
+    /// path. Mirrors the seed end-to-end harness.
+    fn setup_feather_instance(home: &std::path::Path, body: &str) -> std::path::PathBuf {
+        let dir = home.join(".local/share/appimages/apps/feather/1");
+        fs::create_dir_all(&dir).expect("instance dir");
+        let appimage = dir.join("feather.AppImage");
+        let cfg = dir.join("feather.AppImage.config/settings.json");
+        let cfg_dir = cfg.parent().unwrap();
+        let script = format!(
+            "#!/bin/sh\nset -eu\nmkdir -p \"{}\"\nprintf '%s' '{}' > \"{}\"\ntrap 'exit 0' TERM INT\nwhile :; do sleep 1; done\n",
+            cfg_dir.display(),
+            body,
+            cfg.display()
+        );
+        write_exec(&appimage, &script);
+        cfg
+    }
+
+    #[test]
+    fn record_baseline_then_capture_writes_static_pack_of_changed_keys() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let home = tmp.path().join("home");
+        fs::create_dir_all(&home).expect("home");
+        let catalog = tmp.path().join("catalog.json");
+        write_seed_catalog(&catalog);
+        let cfg = setup_feather_instance(&home, r#"{"telemetry":true,"keep":1}"#);
+        let out = tmp.path().join("feather-out.json");
+
+        let rec_file =
+            home.join(".local/share/appimage-control/pack-recordings/feather.1.json");
+
+        let (base_code, cap_code) = with_fake_seed_env(&home, &catalog, None, || {
+            let base = run_cli_ops(&[
+                "--record-pack-baseline".to_string(),
+                "feather".to_string(),
+                "--pack-config-path".to_string(),
+                "{appimage}.config/settings.json".to_string(),
+            ]);
+            // Simulate the user launching the app and changing settings.
+            fs::write(&cfg, r#"{"telemetry":false,"keep":1,"newkey":"hi"}"#)
+                .expect("rewrite config");
+            let cap = run_cli_ops(&[
+                "--record-pack-capture".to_string(),
+                "feather".to_string(),
+                "--out".to_string(),
+                out.to_string_lossy().to_string(),
+                "--yes".to_string(),
+            ]);
+            (base, cap)
+        });
+
+        assert_eq!(
+            base_code,
+            Some(glib::ExitCode::SUCCESS),
+            "baseline capture should succeed"
+        );
+        assert!(rec_file.is_file(), "baseline recording file should exist");
+        assert_eq!(
+            cap_code,
+            Some(glib::ExitCode::SUCCESS),
+            "capture should succeed"
+        );
+        assert!(out.is_file(), "synthesised pack file should be written");
+        let raw = fs::read_to_string(&out).expect("read pack");
+        assert!(
+            raw.contains("{appimage}.config/settings.json"),
+            "pack should carry the config_path template: {raw}"
+        );
+        assert!(raw.contains("\"static\""), "pack should have a static block: {raw}");
+        assert!(raw.contains("\"telemetry\""), "changed key missing: {raw}");
+        assert!(raw.contains("\"newkey\""), "added key missing: {raw}");
+        // The unchanged top-level key must NOT be captured.
+        assert!(!raw.contains("\"keep\""), "unchanged key should be omitted: {raw}");
+
+        // The baseline above already created a recording; fold list +
+        // idempotent-delete coverage in here so the recorder suite only
+        // launches one headless process group (this host runs near-full,
+        // so each fake-AppImage launch is an ENOSPC risk — keep them few).
+        let rec_file =
+            home.join(".local/share/appimage-control/pack-recordings/feather.1.json");
+        assert!(rec_file.is_file(), "baseline recording should exist");
+        let listed = with_test_env(&home, &catalog, || {
+            run_cli_ops(&["--list-pack-recordings".to_string()])
+        });
+        assert_eq!(listed, Some(glib::ExitCode::SUCCESS));
+        let del1 = with_test_env(&home, &catalog, || {
+            run_cli_ops(&["--delete-pack-recording".to_string(), "feather:1".to_string()])
+        });
+        assert_eq!(del1, Some(glib::ExitCode::SUCCESS));
+        assert!(!rec_file.exists(), "recording should be deleted");
+        // Idempotent: deleting again still succeeds.
+        let del2 = with_test_env(&home, &catalog, || {
+            run_cli_ops(&["--delete-pack-recording".to_string(), "feather:1".to_string()])
+        });
+        assert_eq!(del2, Some(glib::ExitCode::SUCCESS));
+    }
+
+    #[test]
+    fn capture_without_baseline_recording_fails() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let home = tmp.path().join("home");
+        fs::create_dir_all(&home).expect("home");
+        let catalog = tmp.path().join("catalog.json");
+        write_seed_catalog(&catalog);
+
+        let code = with_fake_seed_env(&home, &catalog, None, || {
+            run_cli_ops(&[
+                "--record-pack-capture".to_string(),
+                "feather".to_string(),
+            ])
+        });
+        assert_eq!(code, Some(glib::ExitCode::FAILURE));
+    }
+
 
     #[test]
     fn seed_load_and_seed_settings_are_mutually_exclusive() {

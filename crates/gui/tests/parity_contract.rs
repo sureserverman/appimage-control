@@ -109,6 +109,18 @@ struct AllowlistEntry {
 /// understand what is intentionally different.
 const ALLOWLIST: &[AllowlistEntry] = &[
     AllowlistEntry {
+        name: "record pack: list recordings",
+        side: "CLI",
+        reason: "--list-pack-recordings / --delete-pack-recording manage the baseline-recording \
+                 store from scripts; the GUI wizard captures, diffs, and writes in one flow and \
+                 persists the recording transparently, so there is no separate list/delete UI.",
+    },
+    AllowlistEntry {
+        name: "record pack: delete recording",
+        side: "CLI",
+        reason: "See 'record pack: list recordings' — recording-store management is CLI-only.",
+    },
+    AllowlistEntry {
         name: "migrate conflict resolve (TTY interactive)",
         side: "CLI",
         reason: "Interactive per-conflict resolution with [r/n/s] prompt is CLI-only on a TTY; \
@@ -301,6 +313,35 @@ const PARITY_TABLE: &[ParityRow] = &[
         // main.rs calls seed_new_instances_after_reconcile in the Apply worker thread.
         gui_marker: "seed_new_instances_after_reconcile",
         gui_src: GuiSrc::Main,
+    },
+    // ── Seed-pack recorder ─────────────────────────────────────────────────
+    ParityRow {
+        name: "record pack: baseline capture",
+        cli_marker: "--record-pack-baseline",
+        // The "Record Seed Pack…" menu wires through the record_seed_pack action.
+        gui_marker: r#"bind_action(window, "record_seed_pack""#,
+        gui_src: GuiSrc::Actions,
+    },
+    ParityRow {
+        name: "record pack: capture + write",
+        cli_marker: "--record-pack-capture",
+        // main.rs writes the synthesised pack via write_pack_to in the wizard idle handler.
+        gui_marker: "write_pack_to",
+        gui_src: GuiSrc::Main,
+    },
+    // CLI-only recording-store management (see ALLOWLIST): rows present so the
+    // table is complete; marker checks are skipped for these.
+    ParityRow {
+        name: "record pack: list recordings",
+        cli_marker: "--list-pack-recordings",
+        gui_marker: r#"bind_action(window, "record_seed_pack""#,
+        gui_src: GuiSrc::Actions,
+    },
+    ParityRow {
+        name: "record pack: delete recording",
+        cli_marker: "--delete-pack-recording",
+        gui_marker: r#"bind_action(window, "record_seed_pack""#,
+        gui_src: GuiSrc::Actions,
     },
     // ── Catalog override ──────────────────────────────────────────────────
     ParityRow {

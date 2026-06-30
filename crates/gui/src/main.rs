@@ -6,6 +6,7 @@ mod catalog_icons;
 mod cli;
 mod dialogs;
 mod embedded_icons;
+mod record_dialog;
 mod seed_dialog;
 mod status_text;
 mod ui;
@@ -19,18 +20,22 @@ use crate::dialogs::{
     ask_confirmation, ask_migration_strategy, choose_open_path, choose_save_path,
     present_activity_log_dialog, present_message_window, ConfirmKind,
 };
+use crate::record_dialog::{
+    choose_pack_save_path, choose_record_target, confirm_manual_step, review_and_select, RecordApp,
+};
 use crate::seed_dialog::choose_seed_settings;
 use adw::prelude::*;
 use appimage_control_core::{
-    catalog_row_latest_version_label, clean_catalog_download_cache,
-    clean_installed_catalog_apps_keep_cache, create_backup_archive, discover_migration_candidates,
-    fetch_github_release_hints, installed_version_fleet_display, instance_count,
-    list_managed_instance_indices, portmux_port_probe_runtime, purge_appimage_control_state,
+    build_static_pack, capture_first_run_config, catalog_row_latest_version_label,
+    clean_catalog_download_cache, clean_installed_catalog_apps_keep_cache, create_backup_archive,
+    diff_configs, discover_migration_candidates, fetch_github_release_hints,
+    installed_version_fleet_display, instance_count, list_managed_instance_indices,
+    portmux_port_probe_runtime, purge_appimage_control_state, read_instance_config,
     reconcile_catalog_install_version_metadata, reconcile_instance_count_with_report,
-    repair_instance_launchers, restore_backup_archive, run_portable_dir_migration,
-    seed_instance_settings, update_all_installed_instances, AppPaths, BackupOptions, Catalog,
-    CatalogApp, GithubReleaseHint, SeedPreset, SupportedSeedApp, UpdateAllReport,
-    MAX_INSTANCES_PER_APP,
+    repair_instance_launchers, restore_backup_archive, run_portable_dir_migration, save_recording,
+    seed_instance_settings, update_all_installed_instances, write_pack_to, AppPaths, BackupOptions,
+    Catalog, CatalogApp, GithubReleaseHint, PackRecording, SeedPackLibrary, SeedPreset,
+    SupportedSeedApp, UpdateAllReport, MAX_INSTANCES_PER_APP,
 };
 use cli::{has_cli_ops, print_help, run_cli_ops, want_help};
 use gtk::glib;
@@ -301,6 +306,7 @@ fn mount_empty_state(
         restore_backup: Rc::clone(&unavailable),
         update_seed_packs: Rc::clone(&unavailable),
         list_seed_packs: Rc::clone(&unavailable),
+        record_seed_pack: Rc::clone(&unavailable),
     };
     actions::install_window_actions(&window_for_actions, hooks);
     let _ = (app_for_actions, error_msg);
@@ -1575,6 +1581,246 @@ fn install_window_actions_for_catalog(
                         log.push_str("No supported installed instances to seed.\n");
                     }
                     let _ = tx.send((log, seeded, failed));
+                });
+            })
+        },
+        record_seed_pack: {
+            let window = window_for_actions.clone();
+            let paths = Rc::clone(paths);
+            let catalog = Rc::clone(catalog);
+            let progress = progress.clone();
+            let statusbar = statusbar.clone();
+            let rows = Rc::clone(rows);
+            let apply_btn = apply_btn.clone();
+            let update_btn = update_btn.clone();
+            let refresh = Rc::clone(&refresh_fn);
+            Rc::new(move || {
+                // Installable apps (≥ 1 instance), with config_path /
+                // first_run_args pre-filled from any existing seed pack.
+                let lib = SeedPackLibrary::discover_load(None).ok();
+                let apps: Vec<RecordApp> = catalog
+                    .apps
+                    .iter()
+                    .filter_map(|app| {
+                        let n = instance_count(paths.as_ref(), app).ok()?;
+                        if n == 0 {
+                            return None;
+                        }
+                        let (known_config_path, first_run_args) = lib
+                            .as_ref()
+                            .and_then(|l| l.get(&app.id))
+                            .map(|p| (Some(p.config_path.clone()), p.first_run_args.clone()))
+                            .unwrap_or((None, Vec::new()));
+                        Some(RecordApp {
+                            app_id: app.id.clone(),
+                            display_name: app.display_name_resolved(),
+                            instances: n,
+                            known_config_path,
+                            first_run_args,
+                        })
+                    })
+                    .collect();
+                if apps.is_empty() {
+                    present_message_window(
+                        window.application().as_ref().expect("app"),
+                        "No installed apps",
+                        "Install at least one app instance before recording a seed pack.",
+                        None,
+                    );
+                    return;
+                }
+                let Some(target) = choose_record_target(&window, &apps) else {
+                    return;
+                };
+
+                // Busy state while the headless baseline capture runs off
+                // the UI thread (it launches the AppImage under xvfb).
+                apply_btn.set_sensitive(false);
+                update_btn.set_sensitive(false);
+                for h in rows.borrow().iter() {
+                    h.spin.set_sensitive(false);
+                }
+                progress.set_visible(true);
+                progress.set_fraction(0.0);
+                progress.set_text(Some("Capturing baseline…"));
+                statusbar.set_text("Capturing baseline…");
+
+                type Captured = serde_json::Map<String, serde_json::Value>;
+                let (tx, rx) = mpsc::channel::<Result<Captured, String>>();
+                let paths_t = (*paths).clone();
+                let catalog_t = (*catalog).clone();
+                let target_t = target.clone();
+                std::thread::spawn(move || {
+                    let Some(app) = catalog_t.apps.iter().find(|a| a.id == target_t.app_id) else {
+                        let _ = tx
+                            .send(Err(format!("app '{}' not found in catalog", target_t.app_id)));
+                        return;
+                    };
+                    match capture_first_run_config(
+                        &paths_t,
+                        app,
+                        target_t.instance_index,
+                        &target_t.config_path,
+                        &target_t.first_run_args,
+                        &mut |_| {},
+                    ) {
+                        Ok(c) => {
+                            let _ = tx.send(Ok(c.config));
+                        }
+                        Err(e) => {
+                            let _ = tx.send(Err(e.to_string()));
+                        }
+                    }
+                });
+
+                let window_idle = window.clone();
+                let paths_idle = Rc::clone(&paths);
+                let catalog_idle = Rc::clone(&catalog);
+                let progress_idle = progress.clone();
+                let status_idle = statusbar.clone();
+                let apply_idle = apply_btn.clone();
+                let update_idle = update_btn.clone();
+                let rows_idle = Rc::clone(&rows);
+                let refresh_idle = Rc::clone(&refresh);
+                let target_idle = target.clone();
+                glib::idle_add_local(move || {
+                    let msg = match rx.try_recv() {
+                        Ok(m) => m,
+                        Err(mpsc::TryRecvError::Empty) => return glib::ControlFlow::Continue,
+                        Err(mpsc::TryRecvError::Disconnected) => {
+                            progress_idle.set_visible(false);
+                            progress_idle.set_fraction(0.0);
+                            status_idle.set_text("Baseline capture interrupted.");
+                            apply_idle.set_sensitive(true);
+                            update_idle.set_sensitive(true);
+                            for h in rows_idle.borrow().iter() {
+                                h.spin.set_sensitive(true);
+                            }
+                            return glib::ControlFlow::Break;
+                        }
+                    };
+
+                    // Restore the UI to interactive before the (modal) follow-up steps.
+                    progress_idle.set_visible(false);
+                    progress_idle.set_fraction(0.0);
+                    progress_idle.set_text(None);
+                    apply_idle.set_sensitive(true);
+                    update_idle.set_sensitive(true);
+                    for h in rows_idle.borrow().iter() {
+                        h.spin.set_sensitive(true);
+                    }
+
+                    let app_handle = window_idle.application();
+                    let gapp = app_handle.as_ref().expect("app");
+                    match msg {
+                        Err(e) => {
+                            status_idle.set_text("Baseline capture failed.");
+                            present_message_window(gapp, "Baseline capture failed", &e, None);
+                        }
+                        Ok(baseline) => {
+                            let target = &target_idle;
+                            let Some(app) =
+                                catalog_idle.apps.iter().find(|a| a.id == target.app_id)
+                            else {
+                                return glib::ControlFlow::Break;
+                            };
+                            // Persist the baseline so it survives even if the
+                            // user comes back later (mirrors the CLI recording).
+                            if let Some(home) = dirs::home_dir() {
+                                if let Ok(rec) = PackRecording::new(
+                                    target.app_id.clone(),
+                                    target.instance_index,
+                                    target.config_path.clone(),
+                                    target.first_run_args.clone(),
+                                    SeedPreset::auto_default(),
+                                    baseline.clone(),
+                                ) {
+                                    let _ = save_recording(&home, &rec);
+                                }
+                            }
+                            let appimage_abs = paths_idle
+                                .instance_dir_for(app, target.instance_index)
+                                .join(app.resolved_appimage_filename());
+                            status_idle.set_text("Baseline captured — configure the app, then diff.");
+                            if confirm_manual_step(
+                                &window_idle,
+                                &target.app_id,
+                                target.instance_index,
+                                &appimage_abs,
+                            ) {
+                                match read_instance_config(
+                                    &paths_idle,
+                                    app,
+                                    target.instance_index,
+                                    &target.config_path,
+                                ) {
+                                    Ok(current) => {
+                                        let diff = diff_configs(&baseline, &current);
+                                        if diff.is_empty_capture() {
+                                            status_idle.set_text("No settings changed.");
+                                            present_message_window(
+                                                gapp,
+                                                "No changes to record",
+                                                "The config is unchanged from the baseline — nothing to capture.",
+                                                None,
+                                            );
+                                        } else if let Some(keys) = review_and_select(
+                                            &window_idle,
+                                            &baseline,
+                                            &current,
+                                            &diff,
+                                        ) {
+                                            if keys.is_empty() {
+                                                status_idle.set_text("No keys selected.");
+                                            } else {
+                                                let pack = build_static_pack(
+                                                    &target.config_path,
+                                                    &target.first_run_args,
+                                                    &current,
+                                                    &keys,
+                                                );
+                                                if let Some(out) =
+                                                    choose_pack_save_path(&window_idle, &target.app_id)
+                                                {
+                                                    match write_pack_to(&out, &target.app_id, &pack) {
+                                                        Ok(()) => {
+                                                            status_idle.set_text(
+                                                                "Seed pack written.",
+                                                            );
+                                                            present_message_window(
+                                                                gapp,
+                                                                "Seed pack written",
+                                                                &format!(
+                                                                    "Wrote {} key(s) to {}",
+                                                                    keys.len(),
+                                                                    out.display()
+                                                                ),
+                                                                Some("This pack is NOT signed — review it before distributing."),
+                                                            );
+                                                        }
+                                                        Err(e) => present_message_window(
+                                                            gapp,
+                                                            "Could not write pack",
+                                                            &e.to_string(),
+                                                            None,
+                                                        ),
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    Err(e) => present_message_window(
+                                        gapp,
+                                        "Could not read current config",
+                                        &e.to_string(),
+                                        None,
+                                    ),
+                                }
+                            }
+                        }
+                    }
+                    refresh_idle();
+                    glib::ControlFlow::Break
                 });
             })
         },

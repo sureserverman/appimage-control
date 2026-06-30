@@ -37,6 +37,7 @@ dependencies = [
  "dirs",
  "gtk4",
  "libadwaita",
+ "serde_json",
  "tempfile",
 ]
 

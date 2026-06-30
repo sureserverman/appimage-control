@@ -21,6 +21,10 @@ pub struct ActionHooks {
     /// Show one row per loaded seed pack with its source path. Mirrors
     /// the CLI's `--list-seed-packs`.
     pub list_seed_packs: Rc<dyn Fn()>,
+    /// Launch the "Record Seed Pack" wizard (capture baseline → manual
+    /// config → diff → save). Mirrors the CLI's `--record-pack-baseline`
+    /// / `--record-pack-capture` flow.
+    pub record_seed_pack: Rc<dyn Fn()>,
 }
 
 fn bind_action(window: &ApplicationWindow, name: &str, f: Rc<dyn Fn()>) {
@@ -42,11 +46,13 @@ pub fn install_window_actions(window: &ApplicationWindow, hooks: ActionHooks) {
     bind_action(window, "restore_backup", hooks.restore_backup);
     bind_action(window, "update_seed_packs", hooks.update_seed_packs);
     bind_action(window, "list_seed_packs", hooks.list_seed_packs);
+    bind_action(window, "record_seed_pack", hooks.record_seed_pack);
 }
 
 pub fn build_actions_menu_button() -> MenuButton {
     let menu = gio::Menu::new();
     menu.append(Some("Seed Settings…"), Some("win.seed_settings"));
+    menu.append(Some("Record Seed Pack…"), Some("win.record_seed_pack"));
     menu.append(Some("Refresh"), Some("win.refresh"));
     menu.append(Some("Update Seed Packs"), Some("win.update_seed_packs"));
     menu.append(Some("Show Seed Packs"), Some("win.list_seed_packs"));
@@ -101,6 +107,7 @@ mod tests {
                 restore_backup: Rc::clone(&noop),
                 update_seed_packs: Rc::clone(&noop),
                 list_seed_packs: Rc::clone(&noop),
+                record_seed_pack: Rc::clone(&noop),
             },
         );
         for name in [
@@ -116,6 +123,7 @@ mod tests {
             "restore_backup",
             "update_seed_packs",
             "list_seed_packs",
+            "record_seed_pack",
         ] {
             assert!(
                 window.lookup_action(name).is_some(),
