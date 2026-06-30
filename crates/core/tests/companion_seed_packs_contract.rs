@@ -1,6 +1,6 @@
 //! Contract test for the companion-repo seed packs at
-//! `infra/installers/linux/appimage-control-seed-packs/`. Skipped on
-//! hosts where that repo isn't checked out under the same `~/dev` root.
+//! `anon-tools/appimage-control-seed-packs/`. Skipped on hosts where
+//! the companion repo isn't checked out alongside this one.
 //!
 //! Verifies:
 //! - Every `*.json` parses through serde with `deny_unknown_fields`.
@@ -9,8 +9,6 @@
 //!   `electrum-ltc`) all use the new `port` verb rather than the
 //!   legacy `from_preset_array` / `format` references to removed
 //!   fields.
-//! - Every pack that declares `icons.rotation` ships each referenced
-//!   PNG beside its JSON (else data-driven icons silently vanish).
 
 use std::path::PathBuf;
 
@@ -24,16 +22,14 @@ fn companion_pack_dir() -> Option<PathBuf> {
             return Some(pb);
         }
     }
-    // 2. Companion packs in the installers-linux repo. As of 2026-06-13
-    //    they live at `~/dev/infra/installers/linux/appimage-control-seed-packs`
-    //    (moved out of the former standalone `anon-tools/appimage-control-seed-packs`).
-    //    crates/core → crates → appimage-control → anon-tools → dev
+    // 2. Sibling checkout under the same parent as appimage-control.
     let here = std::env::var_os("CARGO_MANIFEST_DIR")?;
     let manifest_dir = PathBuf::from(here);
+    // crates/core → crates → appimage-control → anon-tools → companion repo
     let candidate = manifest_dir
         .ancestors()
-        .nth(4)?
-        .join("infra/installers/linux/appimage-control-seed-packs");
+        .nth(3)?
+        .join("appimage-control-seed-packs");
     if candidate.is_dir() {
         Some(candidate)
     } else {
@@ -60,43 +56,6 @@ fn companion_seed_packs_parse_and_validate() {
     for (id, src) in &rows {
         assert!(!id.is_empty(), "pack id should be non-empty (from {src})");
     }
-}
-
-#[test]
-fn companion_pack_icons_exist_beside_their_json() {
-    let Some(dir) = companion_pack_dir() else {
-        eprintln!("skipping: companion seed-pack repo not found");
-        return;
-    };
-    let lib = SeedPackLibrary::load_from_dir(&dir)
-        .expect("load companion packs")
-        .expect("companion repo has no *.json packs");
-
-    let mut checked = 0usize;
-    let ids: Vec<String> = lib.ids().map(str::to_string).collect();
-    for id in ids {
-        let pack = lib.get(&id).expect("pack present");
-        let Some(icons) = &pack.icons else { continue };
-        let pack_dir = lib
-            .source_for(&id)
-            .and_then(|p| p.parent())
-            .expect("on-disk pack has a parent dir");
-        for name in &icons.rotation {
-            let path = pack_dir.join(name);
-            assert!(
-                path.is_file(),
-                "pack `{id}` declares icon `{name}` but it is not a file beside the JSON ({})",
-                path.display()
-            );
-            checked += 1;
-        }
-    }
-    // The feather pack must exercise this path; a zero here means the
-    // icons contract silently covers nothing.
-    assert!(
-        checked > 0,
-        "expected at least one companion pack to declare icons.rotation"
-    );
 }
 
 #[test]

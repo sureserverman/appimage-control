@@ -23,26 +23,21 @@ static ELECTRUM_LTC_EMBEDDED_PNG: &[u8] = include_bytes!(concat!(
     "/../gui/assets/catalog-icons/electrum-ltc.png"
 ));
 
-/// Per-instance icon bytes from the app's seed pack, if it declares an
-/// `icons.rotation` and the resolved file is present and within
-/// [`MAX_ICON_BYTES`]. Resolves through the same seed-pack discovery
-/// chain seeding uses (`discover_load`, falling back to the embedded
-/// slice), so the icon travels with the same pack that supplies the
-/// app's settings. Any failure (no pack, no icons, missing/oversized
-/// file) returns `None` so the caller degrades to its other icon
-/// sources.
-fn seed_pack_instance_icon_bytes(app_id: &str, instance_index: u32) -> Option<Vec<u8>> {
-    use crate::seed_pack::SeedPackLibrary;
-    let lib = SeedPackLibrary::discover_load(None)
-        .or_else(|_| SeedPackLibrary::embedded())
-        .ok()?;
-    let path = lib.instance_icon_path(app_id, instance_index)?;
-    let bytes = fs::read(&path).ok()?;
-    if bytes.len() > MAX_ICON_BYTES {
-        return None;
-    }
-    Some(bytes)
-}
+/// Feather dock tiles: cycle 1 → 2 → 3 → 1… per instance index.
+///
+/// These are the “proper” per-instance icons (copied from `~/dev/installers/linux/files/feather{1,2,3}.png`).
+static FEATHER_SLOT_1_PNG: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../gui/assets/catalog-icons/feather1.png"
+));
+static FEATHER_SLOT_2_PNG: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../gui/assets/catalog-icons/feather2.png"
+));
+static FEATHER_SLOT_3_PNG: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../gui/assets/catalog-icons/feather3.png"
+));
 
 fn http_client() -> Option<reqwest::blocking::Client> {
     reqwest::blocking::Client::builder()
@@ -210,11 +205,14 @@ pub fn write_instance_icon_png(
     instance_index: u32,
     cryptomator_instance_dir: Option<&Path>,
 ) -> Result<Option<String>> {
-    let bytes = if let Some(b) = seed_pack_instance_icon_bytes(&app.id, instance_index) {
-        // Data-driven per-instance icon from the app's seed pack
-        // (`icons.rotation`), resolved relative to the pack dir; this is
-        // how per-instance dock tiles are supplied. See WF-APPLY-001 step 6.
-        b
+    let bytes = if app.id == "feather" && app.instance_strategy == InstanceStrategy::QtX11 {
+        // 1,4,7.. → slot 1; 2,5,8.. → slot 2; 3,6,9.. → slot 3.
+        let slot = ((instance_index.saturating_sub(1)) % 3) + 1;
+        match slot {
+            1 => FEATHER_SLOT_1_PNG.to_vec(),
+            2 => FEATHER_SLOT_2_PNG.to_vec(),
+            _ => FEATHER_SLOT_3_PNG.to_vec(),
+        }
     } else if app.id == "electrum-ltc" {
         ELECTRUM_LTC_EMBEDDED_PNG.to_vec()
     } else if app.id == "joplin" {

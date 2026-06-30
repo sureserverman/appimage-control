@@ -78,26 +78,6 @@ pub struct SeedPack {
     /// Keys whose values rotate per instance index.
     #[serde(default)]
     pub rotation: BTreeMap<String, RotationValue>,
-
-    /// Optional per-instance icon rotation. Filenames are resolved
-    /// relative to the pack's own on-disk directory (see
-    /// [`SeedPackLibrary::instance_icon_path`]); embedded packs (no
-    /// on-disk source) carry no icons.
-    #[serde(default)]
-    pub icons: Option<IconSpec>,
-}
-
-/// Per-instance icon rotation for a seed pack. `rotation` is a list of
-/// PNG filenames (no path components) living beside the pack's JSON;
-/// instance `i` uses `rotation[(i - 1) % rotation.len()]`, mirroring the
-/// [`RotationValue::Values`] indexing used for config keys.
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
-pub struct IconSpec {
-    /// Bare PNG filenames, rotated per instance index. Each entry is
-    /// validated by [`SeedPackLibrary::validate`]: no path separators,
-    /// no `..`, not absolute, must end `.png`.
-    pub rotation: Vec<String>,
 }
 
 /// One `preset` entry. `untagged` so the JSON shape disambiguates: the
@@ -421,27 +401,6 @@ impl SeedPackLibrary {
         self.sources.get(app_id).map(PathBuf::as_path)
     }
 
-    /// Resolve the on-disk PNG path for `app_id`'s instance
-    /// `instance_index` from its pack's `icons.rotation`, or `None` when
-    /// the pack has no icons, an empty rotation, or no real on-disk
-    /// directory (embedded packs carry the `<embedded>` sentinel source
-    /// and ship no icon files). The filename is rotated
-    /// `(instance_index - 1) % rotation.len()`, mirroring
-    /// [`RotationValue::Values`], and joined to the pack's own directory.
-    /// Filenames were filename-safety-checked at [`Self::validate`] time.
-    pub fn instance_icon_path(&self, app_id: &str, instance_index: u32) -> Option<PathBuf> {
-        let icons = self.packs.get(app_id)?.icons.as_ref()?;
-        if icons.rotation.is_empty() {
-            return None;
-        }
-        let dir = self.sources.get(app_id)?.parent()?;
-        if dir.as_os_str().is_empty() {
-            return None;
-        }
-        let idx = (instance_index.saturating_sub(1) as usize) % icons.rotation.len();
-        Some(dir.join(&icons.rotation[idx]))
-    }
-
     #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.packs.len()
@@ -519,50 +478,6 @@ fn validate_pack(_id: &str, pack: &SeedPack, cfg: &SeedConfig) -> Result<()> {
                 }
             }
         }
-    }
-    if let Some(icons) = &pack.icons {
-        if icons.rotation.is_empty() {
-            return Err(Error::InvalidPath(
-                "icons.rotation list must be non-empty".into(),
-            ));
-        }
-        for name in &icons.rotation {
-            check_icon_filename(name)?;
-        }
-    }
-    Ok(())
-}
-
-/// Reject any icon filename that could escape the pack directory or
-/// isn't a PNG: no path separators, no `..`, not absolute, must end
-/// `.png`. This is the path-traversal guard for third-party packs —
-/// `instance_icon_path` joins the bare name to the pack dir and trusts
-/// this check to keep it there.
-fn check_icon_filename(name: &str) -> Result<()> {
-    if name.is_empty() {
-        return Err(Error::InvalidPath(
-            "icons.rotation entry must be non-empty".into(),
-        ));
-    }
-    if name.contains('/') || name.contains('\\') {
-        return Err(Error::InvalidPath(format!(
-            "icons.rotation `{name}`: path separators are not allowed"
-        )));
-    }
-    if name.contains("..") {
-        return Err(Error::InvalidPath(format!(
-            "icons.rotation `{name}`: `..` is not allowed"
-        )));
-    }
-    if Path::new(name).is_absolute() {
-        return Err(Error::InvalidPath(format!(
-            "icons.rotation `{name}`: must be a bare filename, not an absolute path"
-        )));
-    }
-    if !name.to_ascii_lowercase().ends_with(".png") {
-        return Err(Error::InvalidPath(format!(
-            "icons.rotation `{name}`: must end in `.png`"
-        )));
     }
     Ok(())
 }
@@ -1335,35 +1250,6 @@ mod tests {
     }
 
     #[test]
-    fn icons_field_parses_rotation_list() {
-        let pack = parse(
-            r#"{"config_path":"x","icons":{"rotation":["a.png","b.png"]}}"#,
-        );
-        assert_eq!(
-            pack.icons,
-            Some(IconSpec {
-                rotation: vec!["a.png".into(), "b.png".into()]
-            })
-        );
-    }
-
-    #[test]
-    fn icons_field_defaults_to_none_when_absent() {
-        let pack = parse(r#"{"config_path":"x"}"#);
-        assert_eq!(pack.icons, None);
-    }
-
-    #[test]
-    fn icons_field_rejects_unknown_key() {
-        let err = serde_json::from_str::<SeedPack>(
-            r#"{"config_path":"x","icons":{"rotation":["a.png"],"bogus":1}}"#,
-        )
-        .unwrap_err()
-        .to_string();
-        assert!(err.contains("bogus"), "got: {err}");
-    }
-
-    #[test]
     fn validate_rejects_unknown_preset_from_field() {
         let lib = SeedPackLibrary::from_pairs(vec![(
             "p1",
@@ -1407,87 +1293,6 @@ mod tests {
             err.contains("p4") && err.contains("not a bool"),
             "got: {err}"
         );
-    }
-
-    #[test]
-    fn validate_rejects_unsafe_icon_filenames() {
-        for bad in [
-            r#"["/etc/passwd.png"]"#,
-            r#"["sub/feather.png"]"#,
-            r#"["a\\b.png"]"#,
-            r#"["../feather.png"]"#,
-            r#"["feather.svg"]"#,
-            r#"[]"#,
-        ] {
-            let lib = SeedPackLibrary::from_pairs(vec![(
-                "pico".to_string(),
-                format!(r#"{{"config_path":"x","icons":{{"rotation":{bad}}}}}"#),
-            )])
-            .unwrap();
-            let err = lib.validate().unwrap_err().to_string();
-            assert!(
-                err.contains("pico") && (err.contains("icons.rotation") || err.contains("rotation")),
-                "expected pack id + icons.rotation in error for {bad}, got: {err}"
-            );
-        }
-    }
-
-    #[test]
-    fn instance_icon_path_rotates_relative_to_pack_dir() {
-        let tmp = tempfile::tempdir().unwrap();
-        std::fs::write(
-            tmp.path().join("feather.json"),
-            r#"{"config_path":"x","icons":{"rotation":["feather1.png","feather2.png","feather3.png"]}}"#,
-        )
-        .unwrap();
-        let lib = SeedPackLibrary::load_from_dir(tmp.path()).unwrap().unwrap();
-        let dir = tmp.path();
-        assert_eq!(
-            lib.instance_icon_path("feather", 1),
-            Some(dir.join("feather1.png"))
-        );
-        assert_eq!(
-            lib.instance_icon_path("feather", 2),
-            Some(dir.join("feather2.png"))
-        );
-        assert_eq!(
-            lib.instance_icon_path("feather", 3),
-            Some(dir.join("feather3.png"))
-        );
-        // wraps: instance 4 → slot 1
-        assert_eq!(
-            lib.instance_icon_path("feather", 4),
-            Some(dir.join("feather1.png"))
-        );
-    }
-
-    #[test]
-    fn instance_icon_path_none_without_icons_or_source() {
-        // No `icons` block → None.
-        let tmp = tempfile::tempdir().unwrap();
-        std::fs::write(tmp.path().join("noicon.json"), r#"{"config_path":"x"}"#).unwrap();
-        let lib = SeedPackLibrary::load_from_dir(tmp.path()).unwrap().unwrap();
-        assert_eq!(lib.instance_icon_path("noicon", 1), None);
-        assert_eq!(lib.instance_icon_path("does-not-exist", 1), None);
-
-        // Embedded pack (`<embedded>` sentinel source, no real dir) → None
-        // even though it declares icons.
-        let emb = SeedPackLibrary::from_pairs(vec![(
-            "feather".to_string(),
-            r#"{"config_path":"x","icons":{"rotation":["feather1.png"]}}"#.to_string(),
-        )])
-        .unwrap();
-        assert_eq!(emb.instance_icon_path("feather", 1), None);
-    }
-
-    #[test]
-    fn validate_accepts_clean_icon_filenames() {
-        let lib = SeedPackLibrary::from_pairs(vec![(
-            "pok",
-            r#"{"config_path":"x","icons":{"rotation":["feather1.png","Feather2.PNG"]}}"#,
-        )])
-        .unwrap();
-        assert!(lib.validate().is_ok());
     }
 
     #[test]
