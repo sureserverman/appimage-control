@@ -24,4 +24,4 @@ Invariants:
 - Concurrent seeds of the same instance dir never kill each other's process groups: each run reads only its own PID file for the PGID.
 - The host preset is auto-detected; no user flag selects it (CLI and GUI behave identically).
 
-Last verified: 2026-06-30 — re-verified end-to-end by the `2026-06-30-exhaustive-functional-test-plan.md` behavioral pass (no behavior change). Prior: 2026-06-11 against commit `0b568eaf` (`2026-06-10-workflow-flaws-parity-remediation-plan.md`).
+Last verified: 2026-06-30 — re-verified end-to-end by the `2026-06-30-exhaustive-functional-test-plan.md` behavioral pass; the per-instance `portmux-port ensure` call now uses the port-API **v2** (`--json-v2`) with a v1 fallback (`2026-06-30-portmux-port-api-v2-stage2-plan.md`) — no change to the seeded result (same host/port). Prior: 2026-06-11 against commit `0b568eaf` (`2026-06-10-workflow-flaws-parity-remediation-plan.md`).
