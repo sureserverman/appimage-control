@@ -1828,14 +1828,6 @@ fn install_window_actions_for_catalog(
                     if total == 0 {
                         let _ = tx_prog.send((1.0, "Seeding settings…".to_string()));
                     }
-                    // Pre-flight: surface a missing portmux-port up
-                    // front in the activity-log dialog instead of
-                    // letting every per-instance call fail with the
-                    // same install hint. Sets `failed = max(total, 1)`
-                    // so the status bar phrasing
-                    // (`format_seed_status_summary`) renders the
-                    // failure prominently rather than the misleading
-                    // "Seeded 0 instance(s)" zero-state.
                     if let Err(msg) = portmux_port_probe_runtime() {
                         log.push_str(
                             "Seeding aborted: a required system helper is not available on the host.\n",

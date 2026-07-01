@@ -23,6 +23,17 @@ use serde_json::{Map, Value};
 
 use appimage_control_core::ConfigDiff;
 
+/// Flat AdwHeaderBar used as the wizard's titlebar: a single "Record Seed Pack"
+/// header with only a close button (design 1f), replacing the stock CSD title.
+fn record_titlebar() -> adw::HeaderBar {
+    let hb = adw::HeaderBar::new();
+    hb.set_decoration_layout(Some(":close"));
+    let title = Label::new(Some("Record Seed Pack"));
+    title.add_css_class("title-4");
+    hb.set_title_widget(Some(&title));
+    hb
+}
+
 /// One installable app the recorder can target (an app with ≥ 1 installed
 /// instance). `known_config_path`/`first_run_args` are pre-filled from an
 /// existing seed pack when one ships for this app; otherwise the config
@@ -138,6 +149,7 @@ pub fn choose_record_target(
         .default_height(360)
         .use_header_bar(0)
         .build();
+    dialog.set_titlebar(Some(&record_titlebar()));
 
     let area = dialog.content_area();
     area.set_orientation(Orientation::Vertical);
@@ -283,6 +295,7 @@ pub fn confirm_manual_step(
         .default_width(520)
         .use_header_bar(0)
         .build();
+    dialog.set_titlebar(Some(&record_titlebar()));
 
     let area = dialog.content_area();
     area.set_orientation(Orientation::Vertical);
@@ -376,6 +389,7 @@ pub fn review_and_select(
         .default_height(460)
         .use_header_bar(0)
         .build();
+    dialog.set_titlebar(Some(&record_titlebar()));
 
     let area = dialog.content_area();
     area.set_orientation(Orientation::Vertical);

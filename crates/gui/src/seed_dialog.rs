@@ -32,9 +32,9 @@ use gtk::{
     Orientation, ResponseType, ScrolledWindow,
 };
 
-/// Public entry point — drop-in replacement for the previous
-/// `dialogs::choose_seed_settings`. Returns
-/// `(SeedPreset::auto_default(), selected_ids)` or `None` on cancel.
+/// The seed-settings modal. Collects which installed apps to seed and returns
+/// `(SeedPreset::auto_default(), selected_ids)`, or `None` on cancel. The caller
+/// performs the seeding (and shows the activity log) after the dialog closes.
 pub fn choose_seed_settings(
     parent: &ApplicationWindow,
     installed_apps: &[(String, String, u32)],
@@ -42,24 +42,18 @@ pub fn choose_seed_settings(
 ) -> Option<(SeedPreset, Vec<String>)> {
     let forms_dir = default_seed_forms_dir();
 
-    // Resolved once up front purely to label the header ("Host
-    // detected: …"); the user never picks this — see the module doc.
-    // Re-resolved at Ok time below, which is harmless (pure host
-    // probe, no side effects) and mirrors the existing save-flow call.
-    let detected_preset = SeedPreset::auto_default();
-    let host_label = match detected_preset {
+    // Resolved once purely to label the header; the user never picks this.
+    let host_label = match SeedPreset::auto_default() {
         SeedPreset::Whonix => "Whonix-Workstation",
         SeedPreset::Ubuntu => "Ubuntu",
     };
 
-    let dialog = build_dialog_shell(parent);
+    let dialog = build_dialog_shell(parent, &format!("Host detected: {host_label}"));
     let area = dialog.content_area();
     area.set_orientation(Orientation::Vertical);
     area.set_spacing(0);
     area.set_hexpand(true);
     area.set_vexpand(true);
-
-    area.append(&build_header(&format!("Host detected: {host_label}")));
 
     let body = GtkBox::new(Orientation::Vertical, 16);
     body.set_margin_top(16);
@@ -113,20 +107,14 @@ pub fn choose_seed_settings(
                 .filter_map(|(app_id, cb)| cb.is_active().then_some(app_id.clone()))
                 .collect();
             if !selected.is_empty() {
-                // Preset is resolved at the dialog edge, not in the
-                // dialog — saved forms ignore their stored preset, and
-                // there is no user-visible profile switch. See
-                // `SeedPreset::auto_default`.
                 *decided_c.borrow_mut() = Some((SeedPreset::auto_default(), selected));
             }
         }
         d.close();
         loop_c.quit();
     });
-    // If the dialog is destroyed without emitting a response (e.g.
-    // the parent window is closed or the WM sends a kill), quit the
-    // nested loop so the caller is not permanently blocked.  Treated
-    // as Cancel (decided stays None).
+    // If the dialog is destroyed without a response (parent closed / WM kill),
+    // quit the nested loop so the caller is not permanently blocked (Cancel).
     let loop_destroy = loop_.clone();
     dialog.connect_destroy(move |_| {
         loop_destroy.quit();
@@ -139,41 +127,45 @@ pub fn choose_seed_settings(
 
 // ----- Dialog shell ---------------------------------------------------
 
-fn build_dialog_shell(parent: &ApplicationWindow) -> Dialog {
-    Dialog::builder()
+fn build_dialog_shell(parent: &ApplicationWindow, subtitle: &str) -> Dialog {
+    let dialog = Dialog::builder()
         .transient_for(parent)
         .modal(true)
         .title("Seed Settings")
         .default_width(480)
-        .default_height(520)
+        .default_height(540)
         .resizable(true)
         .use_header_bar(0)
-        .build()
+        .build();
+    // Single header: a custom titlebar (left-aligned title + subtitle, close-only)
+    // replaces both the stock CSD titlebar and the old in-body header.
+    dialog.set_titlebar(Some(&dialog_titlebar("Seed Settings", Some(subtitle))));
+    dialog
 }
 
-fn build_header(subtitle: &str) -> GtkBox {
-    let header = GtkBox::new(Orientation::Vertical, 4);
-    header.set_margin_top(20);
-    header.set_margin_start(20);
-    header.set_margin_end(20);
-    header.set_margin_bottom(0);
-    let title = Label::builder()
-        .label("Seed Settings")
-        .halign(gtk::Align::Start)
-        .xalign(0.0)
-        .build();
-    title.add_css_class("title-2");
-    let subtitle_label = Label::builder()
-        .label(subtitle)
-        .halign(gtk::Align::Start)
-        .xalign(0.0)
-        .wrap(true)
-        .build();
-    subtitle_label.add_css_class("caption");
-    subtitle_label.add_css_class("dim-label");
-    header.append(&title);
-    header.append(&subtitle_label);
-    header
+/// A flat AdwHeaderBar used as a dialog titlebar: bold title + optional dim
+/// subtitle packed at the start, only a close button on the end.
+fn dialog_titlebar(title: &str, subtitle: Option<&str>) -> adw::HeaderBar {
+    let hb = adw::HeaderBar::new();
+    hb.set_decoration_layout(Some(":close"));
+    hb.set_title_widget(Some(&GtkBox::new(Orientation::Horizontal, 0)));
+    let titles = GtkBox::new(Orientation::Vertical, 0);
+    titles.set_valign(gtk::Align::Center);
+    let t = Label::new(Some(title));
+    t.add_css_class("title-4");
+    t.set_halign(gtk::Align::Start);
+    t.set_xalign(0.0);
+    titles.append(&t);
+    if let Some(sub) = subtitle {
+        let s = Label::new(Some(sub));
+        s.add_css_class("caption");
+        s.add_css_class("dim-label");
+        s.set_halign(gtk::Align::Start);
+        s.set_xalign(0.0);
+        titles.append(&s);
+    }
+    hb.pack_start(&titles);
+    hb
 }
 
 /// Tiny uppercase section header with a trailing hairline (design turn 1),
