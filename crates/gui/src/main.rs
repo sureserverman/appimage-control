@@ -593,6 +593,7 @@ fn mount_catalog_view(
     // (design "ac-segment"); the active segment fills with the accent.
     let filter_box = GtkBox::new(Orientation::Horizontal, 0);
     filter_box.add_css_class("ac-segment");
+    filter_box.add_css_class("ac-filter");
     filter_box.set_valign(gtk::Align::Center);
     let filter_all = ToggleButton::with_label("All");
     let filter_installed = ToggleButton::with_label("Installed");
