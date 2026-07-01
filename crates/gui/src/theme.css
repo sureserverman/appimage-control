@@ -1,13 +1,39 @@
-/* Minimal custom CSS for the launcher-grid redesign.
+/* Custom CSS reproducing the launcher-grid design handoff.
  *
- * The HTML design mock hardcodes a dark palette; here we map every color to a
- * libadwaita named color (@card_bg_color, @accent_color, @success_color, …) and
- * compose with alpha()/mix() so the design follows the system light/dark/accent
- * and survives non-GNOME GTK themes. The few fixed sizes (tiles, pills) come
- * straight from the spec and are theme-tolerant.
- *
- * Keep this file small: structure lives in the widgets, theme does the painting.
+ * The design is a specific dark UI with a blue brand accent (#3584e4 — the same
+ * blue as the app icon's instance tiles). We pin that accent (overriding the
+ * system accent) so switches/segments/buttons/tiles match the mock, and keep the
+ * dark surface tokens (@window_bg_color #242424, @card_bg_color #303030) which
+ * libadwaita's dark style already provides. Structure lives in the widgets.
  */
+
+/* ---- Brand accent: the design's blue, independent of the system accent ---- */
+@define-color accent_bg_color #3584e4;
+@define-color accent_color #78aeed;
+@define-color accent_fg_color #ffffff;
+
+/* Force the accent-colored libadwaita widgets to the brand blue even when the
+ * system accent differs (libadwaita recolors switches/checks/selection with the
+ * system accent internally; these rules — at USER priority — pin them to blue). */
+switch:checked {
+    background-color: @accent_bg_color;
+}
+checkbutton check:checked,
+checkbutton radio:checked {
+    background-color: @accent_bg_color;
+    color: @accent_fg_color;
+}
+.navigation-sidebar > row:selected {
+    background-color: @accent_bg_color;
+    color: @accent_fg_color;
+}
+.suggested-action {
+    background-color: @accent_bg_color;
+    color: @accent_fg_color;
+}
+
+/* ---- Compact typography to match the design's density (~13px base) ---- */
+.ac-compact-root { font-size: 13px; }
 
 /* ---- Legacy boxed-list pills (still used by the seed/record dialogs) ---- */
 .row-pill {

@@ -55,6 +55,7 @@ pub fn present_preferences(parent: &gtk::ApplicationWindow, paths: Rc<AppPaths>)
         .default_width(780)
         .default_height(600)
         .build();
+    win.add_css_class("ac-compact-root");
 
     let stack = gtk::Stack::new();
     stack.set_hexpand(true);

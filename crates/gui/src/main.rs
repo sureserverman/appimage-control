@@ -269,10 +269,12 @@ fn install_theme_css() {
     let provider = CssProvider::new();
     provider.load_from_data(THEME_CSS);
     if let Some(display) = gtk::gdk::Display::default() {
+        // USER priority (800) so our `@define-color accent_*` override beats the
+        // system-accent recoloring libadwaita applies above APPLICATION priority.
         gtk::style_context_add_provider_for_display(
             &display,
             &provider,
-            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+            gtk::STYLE_PROVIDER_PRIORITY_USER,
         );
     }
 }
@@ -336,6 +338,8 @@ fn build_ui(app: &adw::Application) {
         .default_width(840)
         .default_height(620)
         .build();
+    // Compact typography to match the design's density.
+    window.add_css_class("ac-compact-root");
 
     // Catalog icons cache — populated in background once, reused by the catalog
     // view AND by the seed-settings dialog.
