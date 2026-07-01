@@ -46,22 +46,82 @@ pub fn present_preferences(parent: &gtk::ApplicationWindow, paths: Rc<AppPaths>)
         }) as Rc<dyn Fn()>
     };
 
-    let win = adw::PreferencesWindow::builder()
+    // Custom window with a left icon sidebar + content stack, matching the
+    // handoff design (rather than the stock AdwPreferencesWindow top-switcher).
+    let win = adw::Window::builder()
         .title("Preferences")
         .modal(true)
         .transient_for(parent)
-        .search_enabled(false)
-        .default_width(560)
-        .default_height(620)
+        .default_width(780)
+        .default_height(600)
         .build();
 
-    win.add(&general_page(&cfg, &save));
-    win.add(&network_page(&cfg, &save));
-    win.add(&storage_page(parent));
-    win.add(&backup_page(parent));
+    let stack = gtk::Stack::new();
+    stack.set_hexpand(true);
+    stack.set_vexpand(true);
+    stack.set_transition_type(gtk::StackTransitionType::Crossfade);
 
+    // (name, label, icon-name, page-widget)
+    let pages: [(&str, &str, &str, gtk::Widget); 4] = [
+        ("general", "General", "preferences-system-symbolic", general_page(&cfg, &save).upcast()),
+        ("storage", "Storage", "drive-harddisk-symbolic", storage_page(parent).upcast()),
+        ("network", "Network", "network-transmit-receive-symbolic", network_page(&cfg, &save).upcast()),
+        ("backup", "Backup", "document-save-symbolic", backup_page(parent).upcast()),
+    ];
+    for (name, _, _, w) in &pages {
+        stack.add_named(w, Some(name));
+    }
+
+    // Sidebar: one selectable nav row per page (accent-highlighted when active).
+    let sidebar = gtk::ListBox::new();
+    sidebar.add_css_class("navigation-sidebar");
+    sidebar.set_size_request(184, -1);
+    for (_, label, icon, _) in &pages {
+        let row = gtk::ListBoxRow::new();
+        let b = gtk::Box::new(gtk::Orientation::Horizontal, 11);
+        b.set_margin_top(4);
+        b.set_margin_bottom(4);
+        b.append(&gtk::Image::from_icon_name(icon));
+        b.append(&gtk::Label::new(Some(label)));
+        row.set_child(Some(&b));
+        sidebar.append(&row);
+    }
+    {
+        let stack = stack.clone();
+        sidebar.connect_row_selected(move |_, row| {
+            if let Some(row) = row {
+                if let Some((name, ..)) = PAGE_ORDER.get(row.index() as usize) {
+                    stack.set_visible_child_name(name);
+                }
+            }
+        });
+    }
+    sidebar.select_row(sidebar.row_at_index(0).as_ref());
+
+    let split = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    let sidebar_scroll = gtk::ScrolledWindow::builder()
+        .child(&sidebar)
+        .hscrollbar_policy(gtk::PolicyType::Never)
+        .build();
+    split.append(&sidebar_scroll);
+    split.append(&gtk::Separator::new(gtk::Orientation::Vertical));
+    split.append(&stack);
+
+    let header = adw::HeaderBar::new();
+    let toolbar = adw::ToolbarView::new();
+    toolbar.add_top_bar(&header);
+    toolbar.set_content(Some(&split));
+    win.set_content(Some(&toolbar));
     win.present();
 }
+
+/// Page order for mapping a selected sidebar row index to a stack page name.
+const PAGE_ORDER: [(&str, &str); 4] = [
+    ("general", "General"),
+    ("storage", "Storage"),
+    ("network", "Network"),
+    ("backup", "Backup"),
+];
 
 fn general_page(cfg: &Rc<RefCell<GuiConfig>>, save: &Rc<dyn Fn()>) -> adw::PreferencesPage {
     let page = adw::PreferencesPage::builder()
@@ -72,23 +132,47 @@ fn general_page(cfg: &Rc<RefCell<GuiConfig>>, save: &Rc<dyn Fn()>) -> adw::Prefe
     // --- Appearance ---
     let appearance = adw::PreferencesGroup::builder().title("Appearance").build();
 
-    let theme_model = gtk::StringList::new(&["System", "Light", "Dark"]);
-    let theme_row = adw::ComboRow::builder()
+    // Theme: segmented System/Light/Dark (matches the design, not a dropdown).
+    let theme_row = adw::ActionRow::builder()
         .title("Theme")
-        .subtitle("Follow the system setting, or force light/dark")
-        .model(&theme_model)
+        .subtitle("Follow the system, or force a mode")
         .build();
-    theme_row.set_selected(cfg.borrow().theme.as_index());
-    {
+    let seg = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    seg.add_css_class("ac-segment");
+    seg.set_valign(gtk::Align::Center);
+    let t_sys = gtk::ToggleButton::with_label("System");
+    let t_light = gtk::ToggleButton::with_label("Light");
+    let t_dark = gtk::ToggleButton::with_label("Dark");
+    for b in [&t_sys, &t_light, &t_dark] {
+        b.add_css_class("flat");
+    }
+    t_light.set_group(Some(&t_sys));
+    t_dark.set_group(Some(&t_sys));
+    match cfg.borrow().theme {
+        ThemePref::System => &t_sys,
+        ThemePref::Light => &t_light,
+        ThemePref::Dark => &t_dark,
+    }
+    .set_active(true);
+    seg.append(&t_sys);
+    seg.append(&t_light);
+    seg.append(&t_dark);
+    for (btn, pref) in [
+        (&t_sys, ThemePref::System),
+        (&t_light, ThemePref::Light),
+        (&t_dark, ThemePref::Dark),
+    ] {
         let cfg = Rc::clone(cfg);
         let save = Rc::clone(save);
-        theme_row.connect_selected_notify(move |row| {
-            let theme = ThemePref::from_index(row.selected());
-            cfg.borrow_mut().theme = theme;
-            apply_theme(theme);
-            (save)();
+        btn.connect_toggled(move |b| {
+            if b.is_active() {
+                cfg.borrow_mut().theme = pref;
+                apply_theme(pref);
+                (save)();
+            }
         });
     }
+    theme_row.add_suffix(&seg);
     appearance.add(&theme_row);
 
     let compact = adw::SwitchRow::builder()

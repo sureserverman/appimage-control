@@ -580,13 +580,17 @@ fn mount_catalog_view(
     let header = adw::HeaderBar::builder().show_title(true).build();
     header.set_title_widget(Some(&adw::WindowTitle::new("AppImage Control", "")));
 
-    // 3-segment filter (All / Installed / Updates) as linked radio toggles.
+    // 3-segment filter (All / Installed / Updates) as a slim dark-inset pill group
+    // (design "ac-segment"); the active segment fills with the accent.
     let filter_box = GtkBox::new(Orientation::Horizontal, 0);
-    filter_box.add_css_class("linked");
+    filter_box.add_css_class("ac-segment");
     filter_box.set_valign(gtk::Align::Center);
     let filter_all = ToggleButton::with_label("All");
     let filter_installed = ToggleButton::with_label("Installed");
     let filter_updates = ToggleButton::with_label("Updates");
+    for b in [&filter_all, &filter_installed, &filter_updates] {
+        b.add_css_class("flat");
+    }
     filter_all.set_active(true);
     filter_installed.set_group(Some(&filter_all));
     filter_updates.set_group(Some(&filter_all));
@@ -596,8 +600,9 @@ fn mount_catalog_view(
     header.pack_start(&filter_box);
 
     let search = SearchEntry::new();
-    search.set_placeholder_text(Some("Search apps"));
-    search.set_max_width_chars(18);
+    search.set_placeholder_text(Some("Search"));
+    search.add_css_class("ac-search-inset");
+    search.set_max_width_chars(14);
     search.set_valign(gtk::Align::Center);
 
     let menu_btn = actions::build_actions_menu_button();

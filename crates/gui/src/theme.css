@@ -24,9 +24,53 @@
 /* ---- Category section header (uppercase caption with a hairline) ---- */
 .ac-section-head {
     font-size: 0.72em;
-    font-weight: 700;
-    letter-spacing: 1px;
-    opacity: 0.55;
+    font-weight: 800;
+    letter-spacing: 1.1px;
+    opacity: 0.45;
+}
+
+/* ---- Segmented control (header filter + Theme picker) ----
+ * A slim dark-inset pill group; the active segment fills with the accent.
+ * The dark inset (rgba black) is intentional and theme-tolerant — it matches
+ * the design's `rgba(0,0,0,.22)` recess in both light and dark. */
+.ac-segment {
+    background: rgba(0, 0, 0, 0.22);
+    border-radius: 8px;
+    padding: 2px;
+}
+.ac-segment > button {
+    min-height: 24px;
+    min-width: 0;
+    padding: 1px 11px;
+    margin: 0;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    box-shadow: none;
+    font-size: 0.86em;
+    font-weight: 600;
+}
+.ac-segment > button:hover {
+    background: alpha(@window_fg_color, 0.09);
+}
+.ac-segment > button:checked {
+    background: @accent_bg_color;
+    color: @accent_fg_color;
+}
+.ac-segment > button:checked:hover {
+    background: @accent_bg_color;
+}
+
+/* ---- Compact dark-inset search entry (header) ---- */
+entry.ac-search-inset {
+    background: rgba(0, 0, 0, 0.22);
+    border: 1px solid transparent;
+    border-radius: 9px;
+    box-shadow: none;
+    min-height: 30px;
+}
+entry.ac-search-inset:focus-within {
+    border-color: @accent_color;
 }
 
 /* ---- App card ---- */
