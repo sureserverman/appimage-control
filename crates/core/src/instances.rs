@@ -242,6 +242,52 @@ pub fn instance_count(paths: &AppPaths, app: &CatalogApp) -> Result<u32> {
     Ok(list_managed_instance_indices(paths, app)?.len() as u32)
 }
 
+/// On-disk byte size of this app's AppImage binary, taken from the first managed
+/// instance that has it (or the download cache as a fallback). `None` when nothing
+/// is installed/cached — the GUI card subtitle then shows a version only, never a
+/// fabricated size.
+pub fn installed_appimage_size(paths: &AppPaths, app: &CatalogApp) -> Option<u64> {
+    let filename = app.resolved_appimage_filename();
+    if let Ok(indices) = list_managed_instance_indices(paths, app) {
+        for i in indices {
+            if let Some(sz) = appimage_size_in_dir(&paths.instance_dir_for(app, i), &filename) {
+                return Some(sz);
+            }
+        }
+    }
+    let cache = paths.catalog_cache_dir(&app.id).join(&filename);
+    fs::metadata(&cache)
+        .ok()
+        .map(|m| m.len())
+        .filter(|&n| n > 0)
+}
+
+/// Size of the catalog-expected AppImage in `dir`, else the first `*.AppImage` found.
+fn appimage_size_in_dir(dir: &Path, expected_filename: &str) -> Option<u64> {
+    let exact = dir.join(expected_filename);
+    if let Ok(m) = fs::metadata(&exact) {
+        if m.is_file() && m.len() > 0 {
+            return Some(m.len());
+        }
+    }
+    for ent in fs::read_dir(dir).ok()?.flatten() {
+        let p = ent.path();
+        let is_appimage = p
+            .extension()
+            .and_then(|e| e.to_str())
+            .map(|e| e.eq_ignore_ascii_case("appimage"))
+            .unwrap_or(false);
+        if is_appimage {
+            if let Ok(m) = fs::metadata(&p) {
+                if m.is_file() && m.len() > 0 {
+                    return Some(m.len());
+                }
+            }
+        }
+    }
+    None
+}
+
 /// Version recorded at install time for the **lowest-number instance that has an AppImage** only.
 /// For UI and `--list`, prefer [`read_installed_version_fleet_summary`].
 pub fn read_installed_version(paths: &AppPaths, app: &CatalogApp) -> Result<Option<String>> {
@@ -2230,6 +2276,7 @@ mod tests {
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         };
         assert!(super::use_absolute_desktop_icon_png(&app));
     }
@@ -2257,6 +2304,7 @@ mod tests {
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         };
         assert!(!super::use_absolute_desktop_icon_png(&app));
     }
@@ -2283,6 +2331,7 @@ mod tests {
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         }
     }
 
@@ -2893,6 +2942,7 @@ mod tests {
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         }
     }
 
@@ -2920,6 +2970,7 @@ mod tests {
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         };
         assert_eq!(instance_exec_suffix(&app, 1), "--name Feather1");
         assert_eq!(instance_exec_suffix(&app, 2), "--name Feather2");
@@ -3098,6 +3149,7 @@ mod tests {
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         };
         let w1 = instance_startup_wm_class_for_desktop(&app, 1);
         let w2 = instance_startup_wm_class_for_desktop(&app, 2);
@@ -3129,6 +3181,7 @@ mod tests {
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         };
         let wm = instance_startup_wm_class("my-app", 2);
         assert_eq!(wm, "io.github.appimagecontrol.my-app.i2");
@@ -3160,6 +3213,7 @@ mod tests {
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         };
         let cache = paths.catalog_cache_dir("feather");
         fs::create_dir_all(&cache).unwrap();
@@ -3222,6 +3276,7 @@ mod tests {
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         };
         let cache = paths.catalog_cache_dir("keepassxc");
         fs::create_dir_all(&cache).unwrap();
@@ -3268,6 +3323,7 @@ mod tests {
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         };
         let cache = paths.catalog_cache_dir("iso-app");
         fs::create_dir_all(&cache).unwrap();
@@ -3337,6 +3393,7 @@ mod tests {
             isolate_dbus_session: Some(true),
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         };
         let cache = paths.catalog_cache_dir("jan");
         fs::create_dir_all(&cache).unwrap();
@@ -3386,6 +3443,7 @@ mod tests {
             isolate_dbus_session: Some(true),
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         };
         let cache = paths.catalog_cache_dir("lm-studio");
         fs::create_dir_all(&cache).unwrap();
@@ -3462,6 +3520,7 @@ mod tests {
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         };
         let cache = paths.catalog_cache_dir("feather");
         fs::create_dir_all(&cache).unwrap();
@@ -3497,6 +3556,7 @@ mod tests {
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         };
         assert_eq!(
             instance_exec_suffix(&app, 1),
@@ -3531,6 +3591,7 @@ mod tests {
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         };
         let w1 = instance_startup_wm_class_for_desktop(&app, 1);
         let w2 = instance_startup_wm_class_for_desktop(&app, 2);
@@ -3562,6 +3623,7 @@ mod tests {
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         };
         let wm = instance_startup_wm_class("session", 2);
         assert_eq!(
@@ -3593,6 +3655,7 @@ mod tests {
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         };
         assert_eq!(instance_exec_suffix(&app, 1), "--name Feather1");
     }
@@ -3681,6 +3744,7 @@ java-options=-Dcryptomator.ipcSocketPath=@{userhome}/.config/Cryptomator/ipc.soc
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         };
         let cat = crate::catalog::Catalog {
             apps: vec![app.clone()],
@@ -3783,6 +3847,7 @@ java-options=-Dcryptomator.ipcSocketPath=@{userhome}/.config/Cryptomator/ipc.soc
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         };
         let joplin = CatalogApp {
             id: "joplin".into(),
@@ -3805,6 +3870,7 @@ java-options=-Dcryptomator.ipcSocketPath=@{userhome}/.config/Cryptomator/ipc.soc
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         };
 
         for (app, fname) in [(&session, "session.AppImage"), (&joplin, "Joplin.AppImage")] {
@@ -4254,6 +4320,7 @@ java-options=-Dcryptomator.ipcSocketPath=@{userhome}/.config/Cryptomator/ipc.soc
             isolate_dbus_session: None,
             max_instances: Some(5),
             max_instances_tooltip: None,
+            category: None,
         };
 
         // Install instances 1, 2, 3.
@@ -4457,6 +4524,7 @@ java-options=-Dcryptomator.ipcSocketPath=@{userhome}/.config/Cryptomator/ipc.soc
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         };
 
         let instance_dir = paths.instance_dir_for(&app, 1);

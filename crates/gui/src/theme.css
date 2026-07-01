@@ -1,30 +1,212 @@
-/* Keep CSS minimal so active theme controls visual styling.
- * Only custom rules are the small status pills that flag pending changes
- * and update-available rows; everything else uses libadwaita defaults. */
+/* Minimal custom CSS for the launcher-grid redesign.
+ *
+ * The HTML design mock hardcodes a dark palette; here we map every color to a
+ * libadwaita named color (@card_bg_color, @accent_color, @success_color, …) and
+ * compose with alpha()/mix() so the design follows the system light/dark/accent
+ * and survives non-GNOME GTK themes. The few fixed sizes (tiles, pills) come
+ * straight from the spec and are theme-tolerant.
+ *
+ * Keep this file small: structure lives in the widgets, theme does the painting.
+ */
 
+/* ---- Legacy boxed-list pills (still used by the seed/record dialogs) ---- */
 .row-pill {
     padding: 1px 8px;
     border-radius: 999px;
     font-size: 0.85em;
     font-weight: 600;
 }
+.row-pill.pending  { background: alpha(@accent_bg_color, 0.13);  color: @accent_color;  }
+.row-pill.update   { background: alpha(@warning_bg_color, 0.18); color: @warning_color; }
+.row-pill.success  { background: alpha(@success_bg_color, 0.18); color: @success_color; }
+.row-pill.error    { background: alpha(@error_bg_color, 0.18);   color: @error_color;   }
 
-.row-pill.pending {
-    background: alpha(@accent_bg_color, 0.13);
+/* ---- Category section header (uppercase caption with a hairline) ---- */
+.ac-section-head {
+    font-size: 0.72em;
+    font-weight: 700;
+    letter-spacing: 1px;
+    opacity: 0.55;
+}
+
+/* ---- App card ---- */
+.ac-card {
+    background: @card_bg_color;
+    border: 1px solid @borders;
+    border-radius: 12px;
+    padding: 10px 11px 9px 11px;
+    transition: background 120ms ease;
+}
+.ac-card:hover {
+    background: mix(@card_bg_color, @window_fg_color, 0.05);
+}
+
+/* App icon tile inside a card (faint rounded backdrop). */
+.ac-appicon {
+    padding: 2px;
+    border-radius: 8px;
+    background: alpha(@window_fg_color, 0.06);
+}
+
+/* Faint right-aligned instance count under the tiles. */
+.ac-count {
+    font-size: 0.78em;
+    opacity: 0.40;
+    font-feature-settings: "tnum" 1;
+}
+
+/* ---- Status pill (right of the card title) ---- */
+.ac-status {
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 0.72em;
+    font-weight: 700;
+}
+.ac-status.update    { background: alpha(@warning_color, 0.20); color: @warning_color; }
+.ac-status.installed { background: alpha(@success_color, 0.20); color: @success_color; }
+.ac-status.available { background: alpha(@window_fg_color, 0.08); opacity: 0.65; }
+
+/* ---- Instance tiles ---- */
+/* Applied on flat GtkButtons; the state class paints the fill + inset border. */
+.ac-tile {
+    min-width: 25px;
+    min-height: 25px;
+    padding: 0;
+    border: none;
+    border-radius: 7px;
+    font-weight: 700;
+    font-size: 0.78em;
+    font-feature-settings: "tnum" 1;
+}
+.ac-tile.keep {
+    background: alpha(@success_color, 0.22);
+    box-shadow: inset 0 0 0 1px alpha(@success_color, 0.5);
+    color: @window_fg_color;
+}
+.ac-tile.add {
+    background: alpha(@accent_bg_color, 0.22);
+    box-shadow: inset 0 0 0 1px alpha(@accent_bg_color, 0.6);
     color: @accent_color;
 }
-
-.row-pill.update {
-    background: alpha(@warning_bg_color, 0.18);
-    color: @warning_color;
-}
-
-.row-pill.success {
-    background: alpha(@success_bg_color, 0.18);
-    color: @success_color;
-}
-
-.row-pill.error {
-    background: alpha(@error_bg_color, 0.18);
+.ac-tile.remove {
+    background: alpha(@error_color, 0.16);
+    box-shadow: inset 0 0 0 1px alpha(@error_color, 0.6);
     color: @error_color;
+    opacity: 0.65;
+}
+.ac-tile:hover { filter: brightness(1.12); }
+
+/* The dashed "add an instance" tile. */
+.ac-addtile {
+    min-width: 25px;
+    min-height: 25px;
+    padding: 0;
+    border: 1.5px dashed alpha(@window_fg_color, 0.25);
+    border-radius: 7px;
+    background: transparent;
+    color: alpha(@window_fg_color, 0.55);
+    font-size: 0.95em;
+}
+.ac-addtile:hover { background: alpha(@window_fg_color, 0.06); }
+.ac-addtile:disabled { opacity: 0.35; }
+
+/* Regular (non-compact) metrics — toggled by the "Compact rows" preference. */
+.ac-grid.ac-regular .ac-tile,
+.ac-grid.ac-regular .ac-addtile {
+    min-width: 30px;
+    min-height: 30px;
+    border-radius: 9px;
+}
+
+/* ---- Saved-configuration chips (seed dialog "Saved configurations") ---- */
+.ac-chip {
+    background: alpha(@window_fg_color, 0.08);
+    border-radius: 999px;
+}
+.ac-chip.selected {
+    background: alpha(@accent_bg_color, 0.18);
+    color: @accent_color;
+}
+.ac-chip-recall {
+    padding: 2px 4px 2px 12px;
+    min-height: 0;
+}
+.ac-chip-delete {
+    min-width: 20px;
+    min-height: 20px;
+    margin-right: 2px;
+    padding: 0;
+}
+.ac-chip-add {
+    background: transparent;
+    border: 1.5px dashed alpha(@window_fg_color, 0.25);
+    border-radius: 999px;
+    padding: 3px 12px;
+    color: alpha(@window_fg_color, 0.7);
+}
+.ac-chip-add:hover {
+    background: alpha(@window_fg_color, 0.06);
+}
+
+/* ---- Bottom action bar ---- */
+.ac-actionbar {
+    background: @headerbar_bg_color;
+    border-top: 1px solid @borders;
+}
+.ac-summary-faint {
+    font-size: 0.80em;
+    opacity: 0.45;
+}
+
+/* ---- Record Seed Pack wizard: 3-step indicator (Baseline/Configure/Review) ---- */
+.wizard-step-circle {
+    min-width: 22px;
+    min-height: 22px;
+    border-radius: 999px;
+    font-size: 0.75em;
+    font-weight: 700;
+}
+.wizard-step-circle.done {
+    background: @accent_bg_color;
+    color: @accent_fg_color;
+}
+.wizard-step-circle.current {
+    background: alpha(@accent_bg_color, 0.18);
+    color: @accent_color;
+    box-shadow: inset 0 0 0 1.5px @accent_color;
+}
+.wizard-step-circle.pending {
+    background: transparent;
+    color: alpha(@window_fg_color, 0.45);
+    box-shadow: inset 0 0 0 1.5px @borders;
+}
+.wizard-step-label {
+    font-size: 0.82em;
+}
+.wizard-step-label.current {
+    color: @accent_color;
+    font-weight: 600;
+}
+.wizard-step-label.done {
+    opacity: 0.75;
+}
+.wizard-step-label.pending {
+    opacity: 0.45;
+}
+.wizard-connector {
+    min-height: 2px;
+}
+.wizard-connector.done    { background: @accent_bg_color; }
+.wizard-connector.pending { background: @borders; }
+
+/* ---- Record Seed Pack wizard: monospace diff list (Review step) ---- */
+.diff-marker {
+    font-weight: 700;
+    min-width: 14px;
+}
+.diff-marker.added   { color: @accent_color; }
+.diff-marker.changed { color: @warning_color; }
+.diff-marker.removed { opacity: 0.45; }
+.diff-key {
+    font-weight: 600;
 }

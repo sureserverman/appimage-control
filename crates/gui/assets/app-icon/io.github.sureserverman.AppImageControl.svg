@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240">
+  <defs>
+    <linearGradient id="g4b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2d3850"></stop><stop offset="1" stop-color="#191f2c"></stop></linearGradient>
+    <linearGradient id="g4bb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5a9bf0"></stop><stop offset="1" stop-color="#2f74e6"></stop></linearGradient>
+    <linearGradient id="g4bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#37cf90"></stop><stop offset="1" stop-color="#22a06b"></stop></linearGradient>
+  </defs>
+  <rect x="8" y="8" width="224" height="224" rx="56" fill="url(#g4b)"></rect>
+  <rect x="8" y="8" width="224" height="224" rx="56" fill="#ffffff" opacity="0.05"></rect>
+  <rect x="54" y="54" width="60" height="60" rx="17" fill="url(#g4bb)"></rect>
+  <rect x="126" y="54" width="60" height="60" rx="17" fill="#67a8f5"></rect>
+  <rect x="54" y="126" width="60" height="60" rx="17" fill="url(#g4bg)"></rect>
+  <rect x="126" y="126" width="60" height="60" rx="17" fill="none" stroke="#ffffff" stroke-opacity="0.4" stroke-width="4" stroke-dasharray="9 8"></rect>
+  <path d="M156 142v32M140 158h32" stroke="#ffffff" stroke-opacity="0.75" stroke-width="5" stroke-linecap="round"></path>
+</svg>

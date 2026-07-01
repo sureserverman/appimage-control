@@ -122,6 +122,10 @@ pub struct CatalogApp {
     /// message is built from [`CatalogApp::display_name_resolved`].
     #[serde(default)]
     pub max_instances_tooltip: Option<String>,
+    /// Optional grouping label for the GUI launcher grid (e.g. `"Wallets"`, `"Messengers"`).
+    /// Apps without one are grouped under [`CatalogApp::category_resolved`]'s `"Other"` fallback.
+    #[serde(default)]
+    pub category: Option<String>,
 }
 
 fn nonempty_url(s: &Option<String>) -> Option<&str> {
@@ -148,6 +152,17 @@ impl CatalogApp {
         self.display_name
             .clone()
             .unwrap_or_else(|| self.id.replace('-', " "))
+    }
+
+    /// Grouping label for the GUI launcher grid; apps with no catalog `category`
+    /// fall under `"Other"` so every app still lands in exactly one section.
+    pub fn category_resolved(&self) -> String {
+        self.category
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+            .unwrap_or_else(|| "Other".to_string())
     }
 
     /// True if the catalog lists at least one download URL (any architecture).
@@ -387,6 +402,7 @@ mod tests {
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         }
     }
 
@@ -413,6 +429,7 @@ mod tests {
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         };
         let paths = crate::paths::AppPaths::new(std::path::PathBuf::from("/home/user")).unwrap();
         let sock = paths

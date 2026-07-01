@@ -39,9 +39,11 @@ modules:
       # repo that an authorised user installs via
       # `appimage-control --update-seed-packs`. See
       # docs/seed-pack-companion-repo.md.
+      - install -Dm644 crates/gui/assets/app-icon/io.github.sureserverman.AppImageControl-64.png /app/share/icons/hicolor/64x64/apps/io.github.sureserverman.AppImageControl.png
       - install -Dm644 crates/gui/assets/app-icon/io.github.sureserverman.AppImageControl-128.png /app/share/icons/hicolor/128x128/apps/io.github.sureserverman.AppImageControl.png
       - install -Dm644 crates/gui/assets/app-icon/io.github.sureserverman.AppImageControl-256.png /app/share/icons/hicolor/256x256/apps/io.github.sureserverman.AppImageControl.png
       - install -Dm644 crates/gui/assets/app-icon/io.github.sureserverman.AppImageControl-512.png /app/share/icons/hicolor/512x512/apps/io.github.sureserverman.AppImageControl.png
+      - install -Dm644 crates/gui/assets/app-icon/io.github.sureserverman.AppImageControl.svg /app/share/icons/hicolor/scalable/apps/io.github.sureserverman.AppImageControl.svg
     sources:
       # Local-dev source. Used for local flatpak-builder runs from this repo.
       # For Flathub submission, replace this block with the type:git block below

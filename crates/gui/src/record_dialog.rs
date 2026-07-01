@@ -58,6 +58,57 @@ fn render_value(v: &Value) -> String {
     }
 }
 
+/// 3-step wizard indicator shared by all three modal steps (Baseline →
+/// Configure → Review). `current` is 1-based: steps before it render
+/// completed (✓, accent), the current step is accent-outlined, steps
+/// after it are pending (`@borders`). Purely decorative — the modal-chain
+/// control flow across the three functions is unchanged.
+fn step_indicator(current: u32) -> GtkBox {
+    let row = GtkBox::new(Orientation::Horizontal, 8);
+    row.set_halign(gtk::Align::Center);
+    row.set_margin_bottom(8);
+
+    let steps = ["Baseline", "Configure", "Review"];
+    let total = steps.len() as u32;
+    for (i, label) in steps.iter().enumerate() {
+        let step_no = (i as u32) + 1;
+        let state = if step_no < current {
+            "done"
+        } else if step_no == current {
+            "current"
+        } else {
+            "pending"
+        };
+
+        let cell = GtkBox::new(Orientation::Horizontal, 6);
+        let glyph = if step_no < current {
+            "✓".to_string()
+        } else {
+            step_no.to_string()
+        };
+        let circle = Label::new(Some(&glyph));
+        circle.add_css_class("wizard-step-circle");
+        circle.add_css_class(state);
+        cell.append(&circle);
+
+        let text = Label::new(Some(*label));
+        text.add_css_class("wizard-step-label");
+        text.add_css_class(state);
+        cell.append(&text);
+        row.append(&cell);
+
+        if step_no < total {
+            let connector = GtkBox::new(Orientation::Horizontal, 0);
+            connector.add_css_class("wizard-connector");
+            connector.add_css_class(if step_no < current { "done" } else { "pending" });
+            connector.set_size_request(28, 2);
+            connector.set_valign(gtk::Align::Center);
+            row.append(&connector);
+        }
+    }
+    row
+}
+
 /// Phase 1 dialog: pick the app, instance index, and config path to
 /// record. Returns `None` on cancel.
 pub fn choose_record_target(
@@ -95,6 +146,8 @@ pub fn choose_record_target(
     area.set_margin_bottom(12);
     area.set_margin_start(20);
     area.set_margin_end(20);
+
+    area.append(&step_indicator(1));
 
     let heading = Label::builder()
         .label("Record a seed pack")
@@ -226,7 +279,7 @@ pub fn confirm_manual_step(
     let dialog = Dialog::builder()
         .transient_for(parent)
         .modal(true)
-        .title("Configure the app")
+        .title("Record Seed Pack")
         .default_width(520)
         .use_header_bar(0)
         .build();
@@ -238,6 +291,8 @@ pub fn confirm_manual_step(
     area.set_margin_bottom(12);
     area.set_margin_start(20);
     area.set_margin_end(20);
+
+    area.append(&step_indicator(2));
 
     let heading = Label::builder()
         .label("Baseline captured")
@@ -316,7 +371,7 @@ pub fn review_and_select(
     let dialog = Dialog::builder()
         .transient_for(parent)
         .modal(true)
-        .title("Review captured settings")
+        .title("Record Seed Pack")
         .default_width(620)
         .default_height(460)
         .use_header_bar(0)
@@ -330,13 +385,22 @@ pub fn review_and_select(
     area.set_margin_start(20);
     area.set_margin_end(20);
 
+    area.append(&step_indicator(3));
+
+    let heading_row = GtkBox::new(Orientation::Horizontal, 8);
     let heading = Label::builder()
         .label("Choose which changes to record")
         .halign(gtk::Align::Start)
         .xalign(0.0)
         .build();
     heading.add_css_class("title-2");
-    area.append(&heading);
+    heading_row.append(&heading);
+    // "diffed" pill — this step's phase marker (maps to --record-pack-capture).
+    let diffed_pill = Label::new(Some("diffed"));
+    diffed_pill.add_css_class("row-pill");
+    diffed_pill.add_css_class("pending");
+    heading_row.append(&diffed_pill);
+    area.append(&heading_row);
 
     let summary = Label::builder()
         .label(format!(
@@ -353,6 +417,23 @@ pub fn review_and_select(
     summary.add_css_class("caption");
     area.append(&summary);
 
+    // "Changed keys" section heading with a count badge.
+    let diff_heading_row = GtkBox::new(Orientation::Horizontal, 8);
+    diff_heading_row.set_margin_top(6);
+    let diff_heading = Label::builder()
+        .label("Changed keys")
+        .halign(gtk::Align::Start)
+        .xalign(0.0)
+        .build();
+    diff_heading.add_css_class("heading");
+    diff_heading_row.append(&diff_heading);
+    let changed_count = diff.added.len() + diff.changed.len();
+    let count_badge = Label::new(Some(&changed_count.to_string()));
+    count_badge.add_css_class("row-pill");
+    count_badge.add_css_class("pending");
+    diff_heading_row.append(&count_badge);
+    area.append(&diff_heading_row);
+
     let list = GtkBox::new(Orientation::Vertical, 6);
     list.set_margin_top(6);
 
@@ -361,22 +442,28 @@ pub fn review_and_select(
 
     for key in &diff.added {
         let preview = current.get(key).map(render_value).unwrap_or_default();
-        let cb = key_check_row(key, &format!("new: {preview}"), true);
-        list.append(&cb.0);
-        checks.borrow_mut().push((key.clone(), cb.1));
+        let row = diff_check_row(key, "+", "added", &format!("new: {preview}"), true, true);
+        list.append(&row.0);
+        checks.borrow_mut().push((key.clone(), row.1));
     }
     for key in &diff.changed {
         let old = baseline.get(key).map(render_value).unwrap_or_default();
         let new = current.get(key).map(render_value).unwrap_or_default();
-        let cb = key_check_row(key, &format!("{old}  →  {new}"), true);
-        list.append(&cb.0);
-        checks.borrow_mut().push((key.clone(), cb.1));
+        let row = diff_check_row(key, "~", "changed", &format!("{old}  →  {new}"), true, true);
+        list.append(&row.0);
+        checks.borrow_mut().push((key.clone(), row.1));
     }
     for key in &diff.removed {
         // Disabled, unchecked: static packs cannot remove keys.
-        let cb = key_check_row(key, "removed — a static pack cannot delete keys (not recorded)", false);
-        cb.1.set_sensitive(false);
-        list.append(&cb.0);
+        let row = diff_check_row(
+            key,
+            "−",
+            "removed",
+            "removed — a static pack cannot delete keys (not recorded)",
+            false,
+            false,
+        );
+        list.append(&row.0);
         // Not added to `checks`: never selectable.
     }
 
@@ -388,8 +475,27 @@ pub fn review_and_select(
         .build();
     area.append(&scroll);
 
-    dialog.add_button("_Cancel", ResponseType::Cancel);
-    let save_btn = dialog.add_button("_Save pack…", ResponseType::Ok);
+    // Note row: unsigned-pack caveat (mirrors the post-save message; shown
+    // up front here per the wizard spec).
+    let note_row = GtkBox::new(Orientation::Horizontal, 8);
+    note_row.set_margin_top(6);
+    let unsigned_pill = Label::new(Some("unsigned"));
+    unsigned_pill.add_css_class("row-pill");
+    unsigned_pill.add_css_class("update");
+    note_row.append(&unsigned_pill);
+    let note_text = Label::builder()
+        .label("Saved as a static-only pack to your per-user seeds dir.")
+        .halign(gtk::Align::Start)
+        .xalign(0.0)
+        .wrap(true)
+        .build();
+    note_text.add_css_class("dim-label");
+    note_text.add_css_class("caption");
+    note_row.append(&note_text);
+    area.append(&note_row);
+
+    dialog.add_button("_Back", ResponseType::Cancel);
+    let save_btn = dialog.add_button("_Save pack", ResponseType::Ok);
     save_btn.add_css_class("suggested-action");
     dialog.set_default_response(ResponseType::Ok);
 
@@ -434,23 +540,60 @@ fn row_with_label(label: &str, control: &impl IsA<gtk::Widget>) -> GtkBox {
     row
 }
 
-/// A check row: a CheckButton with the key as label and a dim caption
-/// underneath showing the value preview.
-fn key_check_row(key: &str, caption: &str, active: bool) -> (GtkBox, CheckButton) {
-    let row = GtkBox::new(Orientation::Vertical, 0);
-    let cb = CheckButton::builder().label(key).active(active).build();
+/// A diff row: a `+`/`~`/`−` marker + monospace key + checkbox, with a dim
+/// monospace caption underneath showing the value preview (or
+/// before → after). Used by the "Changed keys" list in
+/// [`review_and_select`]. `marker_class` selects the marker's CSS color
+/// (`added` = accent, `changed` = amber, `removed` = dim); `sensitive`
+/// disables the checkbox for removed keys (a `static` pack cannot delete
+/// keys, so those are display-only).
+fn diff_check_row(
+    key: &str,
+    marker: &str,
+    marker_class: &str,
+    caption: &str,
+    active: bool,
+    sensitive: bool,
+) -> (GtkBox, CheckButton) {
+    let row = GtkBox::new(Orientation::Vertical, 2);
+    row.add_css_class("diff-row");
+
+    let head = GtkBox::new(Orientation::Horizontal, 6);
+    let cb = CheckButton::builder().active(active).build();
+    cb.set_sensitive(sensitive);
+    head.append(&cb);
+
+    let marker_lbl = Label::new(Some(marker));
+    marker_lbl.add_css_class("diff-marker");
+    marker_lbl.add_css_class(marker_class);
+    marker_lbl.add_css_class("monospace");
+    head.append(&marker_lbl);
+
+    let key_lbl = Label::builder()
+        .label(key)
+        .halign(gtk::Align::Start)
+        .xalign(0.0)
+        .build();
+    key_lbl.add_css_class("monospace");
+    key_lbl.add_css_class("diff-key");
+    if !sensitive {
+        key_lbl.add_css_class("dim-label");
+    }
+    head.append(&key_lbl);
+    row.append(&head);
+
     let cap = Label::builder()
         .label(caption)
         .halign(gtk::Align::Start)
         .xalign(0.0)
         .wrap(true)
-        .margin_start(28)
+        .margin_start(40)
         .build();
     cap.add_css_class("dim-label");
     cap.add_css_class("caption");
     cap.add_css_class("monospace");
-    row.append(&cb);
     row.append(&cap);
+
     (row, cb)
 }
 

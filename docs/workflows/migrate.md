@@ -3,7 +3,7 @@
 ID: WF-MIGRATE-001
 
 Entry points:
-- GUI: Main Menu → **Migrate Legacy Dirs** (`win.migrate`) — strategy dialog `ask_migration_strategy` (`crates/gui/src/dialogs.rs`) offers Replace existing / Add as new instance (renumber, suggested default) / Skip conflicting / Cancel; one strategy applies uniformly to every conflict in the run.
+- GUI: **Preferences → Storage → Migrate legacy directories** (`win.migrate`; relocated from the primary menu in the 2026-07-01 redesign) — strategy dialog `ask_migration_strategy` (`crates/gui/src/dialogs.rs`) offers Replace existing / Add as new instance (renumber, suggested default) / Skip conflicting / Cancel; one strategy applies uniformly to every conflict in the run.
 - CLI: `--migrate [-y|--yes] [--on-conflict=replace|renumber|skip]` (`crates/gui/src/cli.rs`) — run confirmation prompt unless `-y`; without `--on-conflict` each conflict gets an interactive TTY prompt `[r]eplace / [n]ew instance / [s]kip`; non-TTY stdin or `-y` without `--on-conflict` aborts on the first conflict with a hint to pass `--on-conflict=…`.
 
 Steps (`crates/core/src/migrate.rs::run_portable_dir_migration`):
@@ -22,4 +22,4 @@ Invariants:
 - Replace deletes ONLY the conflicting destination (`*.home` and its sibling `*.config` for that instance) — never other instances' data.
 - Renumber allocates the slot AFTER the highest occupied index (managed install or non-empty portable `*.home`) and never fills gaps — an empty `*.home` at index 2 with 1 and 3 occupied yields index 4, not 2 (`next_instance_index_after_occupied`).
 
-Last verified: 2026-06-30 — re-verified end-to-end by the `2026-06-30-exhaustive-functional-test-plan.md` behavioral pass (no behavior change). Prior: 2026-06-11 against commit `0b568eaf` (`2026-06-10-workflow-flaws-parity-remediation-plan.md`).
+Last verified: 2026-07-01 — entry point relocated to Preferences → Storage (design-handoff redesign); strategy/behavior unchanged. Prior: 2026-06-30 — re-verified end-to-end by the `2026-06-30-exhaustive-functional-test-plan.md` behavioral pass (no behavior change); 2026-06-11 against commit `0b568eaf` (`2026-06-10-workflow-flaws-parity-remediation-plan.md`).

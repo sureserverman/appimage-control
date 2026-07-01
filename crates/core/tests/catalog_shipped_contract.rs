@@ -93,6 +93,7 @@ fn standard_notes_display_name_fallback_would_work_without_display_name() {
         isolate_dbus_session: None,
         max_instances: None,
         max_instances_tooltip: None,
+        category: None,
     };
     assert_eq!(app.display_name_resolved(), "standard notes");
 }

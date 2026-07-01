@@ -122,6 +122,7 @@ mod tests {
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         };
         assert!(catalog_row_hint(&app).unwrap().contains("download_url"));
     }

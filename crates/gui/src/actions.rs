@@ -25,6 +25,15 @@ pub struct ActionHooks {
     /// config → diff → save). Mirrors the CLI's `--record-pack-baseline`
     /// / `--record-pack-capture` flow.
     pub record_seed_pack: Rc<dyn Fn()>,
+    /// Re-run the best-effort per-instance launcher/icon repair (formerly only
+    /// silent-on-mount); now also an explicit primary-menu item.
+    pub repair: Rc<dyn Fn()>,
+    /// Open the Preferences window (General / Network / Storage / Backup).
+    pub preferences: Rc<dyn Fn()>,
+    /// Show the keyboard-shortcuts reference.
+    pub shortcuts: Rc<dyn Fn()>,
+    /// Show the About window.
+    pub about: Rc<dyn Fn()>,
 }
 
 fn bind_action(window: &ApplicationWindow, name: &str, f: Rc<dyn Fn()>) {
@@ -47,24 +56,43 @@ pub fn install_window_actions(window: &ApplicationWindow, hooks: ActionHooks) {
     bind_action(window, "update_seed_packs", hooks.update_seed_packs);
     bind_action(window, "list_seed_packs", hooks.list_seed_packs);
     bind_action(window, "record_seed_pack", hooks.record_seed_pack);
+    bind_action(window, "repair", hooks.repair);
+    bind_action(window, "preferences", hooks.preferences);
+    bind_action(window, "shortcuts", hooks.shortcuts);
+    bind_action(window, "about", hooks.about);
 }
 
+/// Primary menu (HIG-grouped). The maintenance actions that aren't surfaced here
+/// (refresh / migrate / update_seed_packs / list_seed_packs) stay bound and reachable
+/// from the Preferences → Storage page and keyboard accelerators, so no behavior is lost.
 pub fn build_actions_menu_button() -> MenuButton {
     let menu = gio::Menu::new();
-    menu.append(Some("Seed Settings…"), Some("win.seed_settings"));
-    menu.append(Some("Record Seed Pack…"), Some("win.record_seed_pack"));
-    menu.append(Some("Refresh"), Some("win.refresh"));
-    menu.append(Some("Update Seed Packs"), Some("win.update_seed_packs"));
-    menu.append(Some("Show Seed Packs"), Some("win.list_seed_packs"));
-    menu.append(Some("Clean Cache"), Some("win.clean_cache"));
-    menu.append(Some("Clean Installs (Keep Cache)"), Some("win.clean"));
-    menu.append(Some("Purge State"), Some("win.purge"));
-    menu.append(Some("Migrate Legacy Dirs"), Some("win.migrate"));
-    menu.append(Some("Backup"), Some("win.backup"));
-    menu.append(Some("Restore from backup"), Some("win.restore_backup"));
-    let b = MenuButton::builder()
-        .icon_name("open-menu-symbolic")
-        .build();
+
+    let g1 = gio::Menu::new();
+    g1.append(Some("Update All Installed"), Some("win.update"));
+    g1.append(Some("Seed Settings…"), Some("win.seed_settings"));
+    g1.append(Some("Record Seed Pack…"), Some("win.record_seed_pack"));
+    menu.append_section(None, &g1);
+
+    let g2 = gio::Menu::new();
+    g2.append(Some("Repair Launchers"), Some("win.repair"));
+    g2.append(Some("Back Up…"), Some("win.backup"));
+    g2.append(Some("Restore…"), Some("win.restore_backup"));
+    menu.append_section(None, &g2);
+
+    let g3 = gio::Menu::new();
+    g3.append(Some("Clean Download Cache"), Some("win.clean_cache"));
+    g3.append(Some("Remove All Instances…"), Some("win.clean"));
+    g3.append(Some("Purge Everything…"), Some("win.purge"));
+    menu.append_section(None, &g3);
+
+    let g4 = gio::Menu::new();
+    g4.append(Some("Preferences"), Some("win.preferences"));
+    g4.append(Some("Keyboard Shortcuts"), Some("win.shortcuts"));
+    g4.append(Some("About AppImage Control"), Some("win.about"));
+    menu.append_section(None, &g4);
+
+    let b = MenuButton::builder().icon_name("open-menu-symbolic").build();
     b.set_menu_model(Some(&menu));
     b
 }
@@ -108,6 +136,10 @@ mod tests {
                 update_seed_packs: Rc::clone(&noop),
                 list_seed_packs: Rc::clone(&noop),
                 record_seed_pack: Rc::clone(&noop),
+                repair: Rc::clone(&noop),
+                preferences: Rc::clone(&noop),
+                shortcuts: Rc::clone(&noop),
+                about: Rc::clone(&noop),
             },
         );
         for name in [
@@ -124,6 +156,10 @@ mod tests {
             "update_seed_packs",
             "list_seed_packs",
             "record_seed_pack",
+            "repair",
+            "preferences",
+            "shortcuts",
+            "about",
         ] {
             assert!(
                 window.lookup_action(name).is_some(),

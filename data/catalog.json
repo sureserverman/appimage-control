@@ -2,6 +2,7 @@
   "apps": [
     {
       "id": "feather",
+      "category": "Wallets",
       "display_name": "Feather Wallet",
       "homepage": "https://featherwallet.org/",
       "download_url": "https://github.com/feather-wallet/feather/releases/download/2.8.1/feather-2.8.1.AppImage",
@@ -19,6 +20,7 @@
     },
     {
       "id": "session",
+      "category": "Messengers",
       "display_name": "Session",
       "icon_url": "https://raw.githubusercontent.com/session-foundation/session-desktop/dev/build/icons/icon_128x128.png",
       "homepage": "https://getsession.org/",
@@ -37,6 +39,7 @@
     },
     {
       "id": "keepassxc",
+      "category": "Security",
       "display_name": "KeePassXC",
       "homepage": "https://keepassxc.org/",
       "download_url": "https://github.com/keepassxreboot/keepassxc/releases/download/2.7.12/KeePassXC-2.7.12-x86_64.AppImage",
@@ -52,6 +55,7 @@
     },
     {
       "id": "mattermost",
+      "category": "Messengers",
       "display_name": "Mattermost",
       "homepage": "https://mattermost.com/",
       "icon_url": "https://raw.githubusercontent.com/mattermost/desktop/v6.0.4/src/assets/linux/app_icon.png",
@@ -69,6 +73,7 @@
     },
     {
       "id": "anythingllm",
+      "category": "AI Tools",
       "display_name": "AnythingLLM",
       "homepage": "https://anythingllm.com/",
       "download_url": "https://cdn.anythingllm.com/latest/AnythingLLMDesktop.AppImage",
@@ -85,6 +90,7 @@
     },
     {
       "id": "jan",
+      "category": "AI Tools",
       "display_name": "Jan",
       "homepage": "https://jan.ai/",
       "download_url": "https://github.com/janhq/jan/releases/download/v0.7.9/Jan_0.7.9_amd64.AppImage",
@@ -101,6 +107,7 @@
     },
     {
       "id": "lm-studio",
+      "category": "AI Tools",
       "display_name": "LM Studio",
       "homepage": "https://lmstudio.ai/",
       "download_url": "https://lmstudio.ai/download/latest/linux/x64",
@@ -117,6 +124,7 @@
     },
     {
       "id": "electrum-btc",
+      "category": "Wallets",
       "display_name": "Electrum-BTC",
       "homepage": "https://electrum.org/",
       "download_url": "https://download.electrum.org/4.7.2/electrum-4.7.2-x86_64.AppImage",
@@ -129,6 +137,7 @@
     },
     {
       "id": "electrum-ltc",
+      "category": "Wallets",
       "display_name": "Electrum-LTC",
       "homepage": "https://electrum-ltc.org/",
       "download_url": "https://electrum-ltc.org/download/electrum-ltc-4.2.2.1-x86_64.AppImage",
@@ -141,6 +150,7 @@
     },
     {
       "id": "cryptomator",
+      "category": "Security",
       "display_name": "Cryptomator",
       "icon_url": "https://raw.githubusercontent.com/cryptomator/cryptomator/main/dist/linux/resources/cryptomator.png",
       "homepage": "https://cryptomator.org/",
@@ -160,6 +170,7 @@
     },
     {
       "id": "joplin",
+      "category": "Notes",
       "display_name": "Joplin",
       "homepage": "https://joplinapp.org/",
       "download_url": "https://github.com/laurent22/joplin/releases/download/v3.5.13/Joplin-3.5.13.AppImage",
@@ -175,6 +186,7 @@
     },
     {
       "id": "standard-notes",
+      "category": "Notes",
       "display_name": "Standard Notes",
       "homepage": "https://standardnotes.com/",
       "icon_url": "https://raw.githubusercontent.com/standardnotes/app/%40standardnotes%2Fdesktop%403.201.21/packages/web/src/favicon/android-chrome-512x512.png",
@@ -192,6 +204,7 @@
     },
     {
       "id": "qnote",
+      "category": "Notes",
       "display_name": "qnote",
       "homepage": "https://github.com/Omibranch/qnote",
       "icon_url": "https://raw.githubusercontent.com/Omibranch/qnote/main/src-tauri/icons/128x128.png",
@@ -210,6 +223,7 @@
     },
     {
       "id": "zulip",
+      "category": "Messengers",
       "display_name": "Zulip",
       "homepage": "https://zulip.com/",
       "icon_url": "https://raw.githubusercontent.com/zulip/zulip-desktop/v5.12.3/build/zulip.png",

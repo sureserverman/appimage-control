@@ -3,6 +3,7 @@
 mod backup;
 mod batch;
 mod catalog;
+mod config;
 mod desktop;
 mod download;
 mod error;
@@ -31,6 +32,7 @@ pub use backup::{
 };
 pub use batch::install_batch;
 pub use catalog::{Catalog, CatalogApp, InstanceStrategy};
+pub use config::{GuiConfig, ThemePref};
 pub use desktop::{
     app_id_from_appimage_path, build_desktop_entry, parse_desktop_file, parse_desktop_str,
     DesktopEntry, APP_ID_KEY, DESKTOP_PREFIX, MANAGED_KEY,
@@ -44,7 +46,8 @@ pub use install::{install_appimage, uninstall_app, InstallOptions, InstallResult
 pub use instances::{
     appimage_file_identity_unchanged, catalog_row_latest_version_label,
     clean_catalog_download_cache, clean_installed_catalog_apps_keep_cache,
-    installed_version_fleet_display, installed_version_fleet_has_distinct_recorded_versions,
+    installed_appimage_size, installed_version_fleet_display,
+    installed_version_fleet_has_distinct_recorded_versions,
     instance_count, instance_desktop_display_name, instance_exec_suffix, instance_startup_wm_class,
     list_instance_indices, list_managed_instance_indices, parse_app_instance_spec,
     purge_appimage_control_state, read_installed_version, read_installed_version_fleet_max_semver,

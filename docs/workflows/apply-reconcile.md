@@ -3,11 +3,11 @@
 ID: WF-APPLY-001
 
 Entry points:
-- GUI: **Apply** button in the header bar (`crates/gui/src/main.rs`, `apply.connect_clicked`) — reconciles every row's spin value to its target instance count.
+- GUI: **Apply** button in the **bottom action bar** (`crates/gui/src/main.rs`, `apply.connect_clicked`) — reconciles every card's *target* to its instance count. The target is set per app via the launcher-grid **instance tiles** (click a tile = decrement) and the dashed **add-tile** (= increment, capped at `max_instances`); these drive a hidden per-card `SpinButton` that remains the target store, so the reconcile semantics are unchanged from the former spin control.
 - CLI: `+APP` / `+APP:N` (add), `-APP` / `-APP:N` (remove all / remove N), `=APP:N` (absolute set; `=APP` without `:N` is an error) — `crates/gui/src/cli.rs::run_cli_ops`. Ops run in argv order via the mixed-op machinery.
 
 Steps:
-1. (GUI only) Compute removal summary on the main thread. If any row's target is below its current count, show the "Remove instance data?" warning dialog ("Remove and Apply"); cancelling aborts the entire Apply. Apply button is desensitized while the modal is up so a second click cannot spawn a concurrent worker.
+1. (GUI only) Compute removal summary on the main thread. If any card's target is below its current count, show the "Remove instance data?" warning dialog ("Remove and Apply"); cancelling aborts the entire Apply. Apply button is desensitized while the modal is up so a second click cannot spawn a concurrent worker.
 2. (CLI only) Strict two-pass validation of all op tokens against the catalog before ANY operation runs — nothing is partially applied when a later arg is invalid.
 3. Per app, `reconcile_instance_count_with_report` (`crates/core/src/instances.rs`): validate target against `MAX_INSTANCES_PER_APP` and the catalog per-app cap.
 4. Removals first, highest index down: `remove_instance` deletes the instance dir, then the launcher.
@@ -26,4 +26,4 @@ Invariants:
 - Lowering counts in the GUI requires explicit confirmation listing the exact instances to be deleted; cancel leaves everything untouched.
 - CLI mixed ops: after the first failed op, remaining ops are skipped (listed as `SKIPPED`), and a `Summary: <op> OK; <op> FAILED (…); <op> SKIPPED` line is printed to stderr when ≥ 2 ops were dispatched.
 
-Last verified: 2026-06-30 — re-verified end-to-end by the `2026-06-30-exhaustive-functional-test-plan.md` behavioral pass (no behavior change). Prior: 2026-06-11 against commit `0b568eaf` (`2026-06-10-workflow-flaws-parity-remediation-plan.md`).
+Last verified: 2026-07-01 — GUI affordance changed from a per-row spin button to the launcher-grid instance tiles + add-tile (design-handoff redesign); reconcile semantics unchanged (the tiles drive the same hidden target store the spin used). Prior: 2026-06-30 — re-verified end-to-end by the `2026-06-30-exhaustive-functional-test-plan.md` behavioral pass (no behavior change); 2026-06-11 against commit `0b568eaf`.

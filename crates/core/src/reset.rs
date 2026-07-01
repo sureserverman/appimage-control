@@ -149,6 +149,7 @@ mod tests {
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         }
     }
 

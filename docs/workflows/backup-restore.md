@@ -3,7 +3,7 @@
 ID: WF-BACKUP-001
 
 Entry points:
-- GUI: Main Menu → **Backup** (`win.backup`) and **Restore from backup** (`win.restore_backup`) — `crates/gui/src/actions.rs`; restore prompts for `--force`-equivalent confirmation when the first attempt is refused over existing state (`crates/gui/src/main.rs`).
+- GUI: Main Menu → **Back Up…** (`win.backup`) and **Restore…** (`win.restore_backup`); also reachable from **Preferences → Backup** (`crates/gui/src/preferences.rs`, which activates the same `win.*` actions). Restore prompts for `--force`-equivalent confirmation when the first attempt is refused over existing state (`crates/gui/src/main.rs`).
 - CLI: `--backup PATH` (`.tar.zst` recommended), `--restore-backup PATH [--force]` — `crates/gui/src/cli.rs`. Mutually exclusive with each other and with `--purge`/`--clean`/`--migrate`.
 
 Steps (backup, `crates/core/src/backup.rs::create_backup_archive`):
@@ -28,4 +28,4 @@ Invariants:
 - Hostile tar entries are rejected by `safe_relative_archive_path`: `..` components, absolute/rooted/prefixed paths, and `.`-interleaved sequences cannot escape (`Path::components()` exposes every `ParentDir`); an all-`.` entry collapsing to an empty path is also rejected, plus a defense-in-depth `starts_with(stage_dir)` check on the join.
 - Restore refuses without `--force` when managed state exists, where "state" means at least one actual **file** under the managed roots. **Empty managed directories do not count** (`restore_preflight` → `dir_contains_any_file`): a `--purge`d manager dir holds only an empty `cache/`, so a follow-up `--restore-backup` proceeds **without** `--force` (BL-003 fix, 2026-06-30). `--force` still bypasses the check unconditionally.
 
-Last verified: 2026-06-30 — re-verified by the `2026-06-30-exhaustive-functional-test-plan.md` behavioral pass; BL-003 fix landed (empty-dir preflight) with regression tests `restore_preflight_allows_purged_empty_cache_without_force` / `restore_preflight_still_refuses_real_state_without_force`. Prior: 2026-06-11 against commit `0b568eaf`.
+Last verified: 2026-07-01 — Back Up/Restore now also reachable from Preferences → Backup (design-handoff redesign); behavior unchanged (same `win.backup`/`win.restore_backup` actions). Prior: 2026-06-30 — re-verified by the `2026-06-30-exhaustive-functional-test-plan.md` behavioral pass; BL-003 fix landed (empty-dir preflight) with regression tests `restore_preflight_allows_purged_empty_cache_without_force` / `restore_preflight_still_refuses_real_state_without_force`; 2026-06-11 against commit `0b568eaf`.

@@ -368,6 +368,7 @@ mod tests {
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         };
         let url = resolve_icon_image_url(&app).expect("url");
         assert!(
@@ -400,6 +401,7 @@ mod tests {
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         };
         assert_eq!(
             resolve_icon_image_url(&app).as_deref(),
@@ -430,6 +432,7 @@ mod tests {
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         };
         assert_eq!(
             instance_icon_theme_name(&app, 1),
@@ -460,6 +463,7 @@ mod tests {
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         };
         assert_eq!(
             instance_icon_theme_name(&app, 2),
@@ -490,6 +494,7 @@ mod tests {
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         };
         assert_eq!(
             instance_icon_theme_name(&app, 2),
@@ -520,6 +525,7 @@ mod tests {
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         };
         assert_eq!(
             instance_icon_theme_name(&app, 3),
@@ -569,6 +575,7 @@ mod tests {
             isolate_dbus_session: None,
             max_instances: None,
             max_instances_tooltip: None,
+            category: None,
         };
 
         let theme_1 = instance_icon_theme_name(&app, 1);

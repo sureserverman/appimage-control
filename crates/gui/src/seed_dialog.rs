@@ -28,8 +28,8 @@ use appimage_control_core::{
 use gtk::gdk::Texture;
 use gtk::glib;
 use gtk::{
-    ApplicationWindow, Box as GtkBox, Button, CheckButton, Dialog, DropDown, Entry, Image, Label,
-    Orientation, ResponseType, ScrolledWindow, StringList,
+    ApplicationWindow, Box as GtkBox, Button, CheckButton, Dialog, Entry, FlowBox, Image, Label,
+    Orientation, ResponseType, ScrolledWindow,
 };
 
 /// Public entry point — drop-in replacement for the previous
@@ -42,6 +42,16 @@ pub fn choose_seed_settings(
 ) -> Option<(SeedPreset, Vec<String>)> {
     let forms_dir = default_seed_forms_dir();
 
+    // Resolved once up front purely to label the header ("Host
+    // detected: …"); the user never picks this — see the module doc.
+    // Re-resolved at Ok time below, which is harmless (pure host
+    // probe, no side effects) and mirrors the existing save-flow call.
+    let detected_preset = SeedPreset::auto_default();
+    let host_label = match detected_preset {
+        SeedPreset::Whonix => "Whonix-Workstation",
+        SeedPreset::Ubuntu => "Ubuntu",
+    };
+
     let dialog = build_dialog_shell(parent);
     let area = dialog.content_area();
     area.set_orientation(Orientation::Vertical);
@@ -49,7 +59,7 @@ pub fn choose_seed_settings(
     area.set_hexpand(true);
     area.set_vexpand(true);
 
-    area.append(&build_header());
+    area.append(&build_header(&format!("Host detected: {host_label}")));
 
     let body = GtkBox::new(Orientation::Vertical, 16);
     body.set_margin_top(16);
@@ -84,7 +94,8 @@ pub fn choose_seed_settings(
         .build();
     area.append(&scroll);
 
-    build_action_buttons(&dialog, &apps_widgets.checks);
+    let footer = build_footer(&dialog, &apps_widgets.checks);
+    area.append(&footer);
 
     type Decision = Rc<RefCell<Option<(SeedPreset, Vec<String>)>>>;
     let decided: Decision = Rc::new(RefCell::new(None));
@@ -137,7 +148,7 @@ fn build_dialog_shell(parent: &ApplicationWindow) -> Dialog {
         .build()
 }
 
-fn build_header() -> GtkBox {
+fn build_header(subtitle: &str) -> GtkBox {
     let header = GtkBox::new(Orientation::Vertical, 4);
     header.set_margin_top(20);
     header.set_margin_start(20);
@@ -149,16 +160,16 @@ fn build_header() -> GtkBox {
         .xalign(0.0)
         .build();
     title.add_css_class("title-2");
-    let subtitle = Label::builder()
-        .label("Run each AppImage once to materialize and patch its config file.")
+    let subtitle_label = Label::builder()
+        .label(subtitle)
         .halign(gtk::Align::Start)
         .xalign(0.0)
         .wrap(true)
         .build();
-    subtitle.add_css_class("caption");
-    subtitle.add_css_class("dim-label");
+    subtitle_label.add_css_class("caption");
+    subtitle_label.add_css_class("dim-label");
     header.append(&title);
-    header.append(&subtitle);
+    header.append(&subtitle_label);
     header
 }
 
@@ -174,7 +185,7 @@ fn build_apps_group(
     icons: &[Option<Vec<u8>>],
 ) -> AppsWidgets {
     let group = adw::PreferencesGroup::new();
-    group.set_title("Installed supported apps");
+    group.set_title("Apps to seed");
 
     let mut checks: Vec<(String, CheckButton)> = Vec::new();
     for (i, (app_id, display_name, count)) in installed_apps.iter().enumerate() {
@@ -189,6 +200,7 @@ fn build_apps_group(
         icon.set_pixel_size(24);
         icon.set_margin_start(2);
         icon.set_margin_end(2);
+        icon.add_css_class("ac-appicon");
         if let Some(Some(bytes)) = icons.get(i) {
             let gbytes = glib::Bytes::from(bytes.as_slice());
             if let Ok(texture) = Texture::from_bytes(&gbytes) {
@@ -204,6 +216,28 @@ fn build_apps_group(
         let cb = CheckButton::new();
         cb.set_active(true);
         cb.set_valign(gtk::Align::Center);
+
+        // Status pill, same "supported" vocabulary as the main grid's
+        // `.ac-status` card pills. `installed_apps` is pre-filtered by
+        // the caller (main.rs) to apps that are both seed-supported
+        // and have ≥1 installed instance, so every row reaching here
+        // today takes the "Supported" branch; the `count == 0` arm is
+        // kept for callers that don't pre-filter, matching the dimmed
+        // "no instances" treatment from the design spec.
+        let pill = Label::new(None);
+        pill.add_css_class("ac-status");
+        pill.set_valign(gtk::Align::Center);
+        if *count > 0 {
+            pill.set_label("Supported");
+            pill.add_css_class("installed");
+        } else {
+            pill.set_label("No instances");
+            pill.add_css_class("available");
+            row.add_css_class("dim-label");
+            cb.set_active(false);
+            cb.set_sensitive(false);
+        }
+        row.add_suffix(&pill);
         row.add_suffix(&cb);
         row.set_activatable_widget(Some(&cb));
 
@@ -220,7 +254,22 @@ fn apply_app_selection(checks: &[(String, CheckButton)], wanted: &[String]) {
     }
 }
 
-// ----- Saved-forms group ---------------------------------------------
+// ----- Saved-forms group (chip row) -----------------------------------
+
+/// Shared state for the saved-configuration chips. Cloning is cheap —
+/// every field is either a `Rc` or a GTK widget handle (itself
+/// reference-counted).
+#[derive(Clone)]
+struct ChipCtx {
+    home: PathBuf,
+    checks: Vec<(String, CheckButton)>,
+    installed: Vec<String>,
+    parent: ApplicationWindow,
+    names_state: Rc<RefCell<Vec<String>>>,
+    flow: FlowBox,
+    save_chip: Button,
+    last_selected: Rc<RefCell<Option<GtkBox>>>,
+}
 
 fn build_saved_forms_group(
     parent: ApplicationWindow,
@@ -237,188 +286,203 @@ fn build_saved_forms_group(
     group.set_title("Saved configurations");
     group.set_description(Some("Recall a previously-saved app selection."));
 
+    let flow = FlowBox::new();
+    flow.set_selection_mode(gtk::SelectionMode::None);
+    flow.set_min_children_per_line(1);
+    flow.set_max_children_per_line(8);
+    flow.set_row_spacing(6);
+    flow.set_column_spacing(6);
+    flow.set_homogeneous(false);
+    flow.set_halign(gtk::Align::Fill);
+
+    let save_chip = Button::builder().label("+ Save current…").build();
+    save_chip.add_css_class("flat");
+    save_chip.add_css_class("ac-chip-add");
+
     let names = list_seed_forms(&home).unwrap_or_default();
-    let store = build_named_store(&names);
+    let names_state: Rc<RefCell<Vec<String>>> = Rc::new(RefCell::new(names.clone()));
 
-    let combo_row = adw::ActionRow::new();
-    combo_row.set_title("Recall");
-    combo_row.set_subtitle("Pick a saved form to load its app selection.");
+    let ctx = ChipCtx {
+        home: home.clone(),
+        checks,
+        installed: installed_app_ids,
+        parent: parent.clone(),
+        names_state: Rc::clone(&names_state),
+        flow: flow.clone(),
+        save_chip: save_chip.clone(),
+        last_selected: Rc::new(RefCell::new(None)),
+    };
 
-    let dropdown = DropDown::builder()
-        .model(&store)
-        .valign(gtk::Align::Center)
-        .build();
-    combo_row.add_suffix(&dropdown);
-    group.add(&combo_row);
-
-    let names_state: Rc<RefCell<Vec<String>>> = Rc::new(RefCell::new(names));
-
-    let buttons_row = adw::ActionRow::new();
-    buttons_row.set_title("");
-    let save_btn = Button::builder().label("Save as…").build();
-    save_btn.add_css_class("flat");
-    let delete_btn = Button::builder().label("Delete").build();
-    delete_btn.add_css_class("flat");
-    delete_btn.add_css_class("destructive-action");
-    delete_btn.set_sensitive(false);
-    buttons_row.add_suffix(&save_btn);
-    buttons_row.add_suffix(&delete_btn);
-    group.add(&buttons_row);
-
-    // Dropdown selection → load form (or clear when "—" picked)
+    // "+ Save current…" click — same write path as the previous
+    // "Save as…" button: prompt for a name, persist the ticked app
+    // ids under that name, then re-render the chip row.
     {
-        let names_state = Rc::clone(&names_state);
-        let home = home.clone();
-        let checks = checks.clone();
-        let installed = installed_app_ids.clone();
-        let delete_btn = delete_btn.clone();
-        let parent = parent.clone();
-        dropdown.connect_selected_notify(move |dd| {
-            let idx = dd.selected();
-            if idx == 0 {
-                delete_btn.set_sensitive(false);
-                return;
-            }
-            let names = names_state.borrow();
-            let Some(name) = names.get((idx as usize).saturating_sub(1)).cloned() else {
-                delete_btn.set_sensitive(false);
+        let ctx = ctx.clone();
+        save_chip.connect_clicked(move |_| {
+            let Some(name) = prompt_form_name(&ctx.parent) else {
                 return;
             };
-            drop(names);
-            delete_btn.set_sensitive(true);
-            match load_seed_form(&home, &name) {
-                Ok(form) => {
-                    // The form's stored `preset` field is intentionally
-                    // ignored: networking source-of-truth is detected
-                    // from the runtime host, not from whatever was
-                    // active at save time.
-                    let wanted: Vec<String> = form
-                        .app_ids
-                        .into_iter()
-                        .filter(|id| installed.iter().any(|i| i == id))
-                        .collect();
-                    apply_app_selection(&checks, &wanted);
-                }
-                Err(e) => warn(&parent, "Could not load saved form", &format!("{e}")),
-            }
-        });
-    }
-
-    // Save as… click
-    {
-        let names_state = Rc::clone(&names_state);
-        let home = home.clone();
-        let checks = checks.clone();
-        let parent = parent.clone();
-        let dropdown = dropdown.clone();
-        save_btn.connect_clicked(move |_| {
-            let Some(name) = prompt_form_name(&parent) else {
-                return;
-            };
-            let selected: Vec<String> = checks
+            let selected: Vec<String> = ctx
+                .checks
                 .iter()
                 .filter_map(|(id, cb)| cb.is_active().then_some(id.clone()))
                 .collect();
             // The preset is recorded for diagnostics (auto-resolved
             // from the host at save time) but is ignored on load.
             match SavedSeedForm::new(&name, SeedPreset::auto_default(), selected) {
-                Ok(form) => match save_seed_form(&home, &form) {
+                Ok(form) => match save_seed_form(&ctx.home, &form) {
                     Ok(()) => {
-                        let names = list_seed_forms(&home).unwrap_or_default();
-                        let store = build_named_store(&names);
-                        dropdown.set_model(Some(&store));
-                        if let Some(pos) = names.iter().position(|n| n == &form.name) {
-                            dropdown.set_selected((pos + 1) as u32);
-                        }
-                        *names_state.borrow_mut() = names;
+                        let names = list_seed_forms(&ctx.home).unwrap_or_default();
+                        *ctx.names_state.borrow_mut() = names.clone();
+                        rebuild_chips(&ctx, &names);
                     }
-                    Err(e) => warn(&parent, "Could not save form", &format!("{e}")),
+                    Err(e) => warn(&ctx.parent, "Could not save form", &format!("{e}")),
                 },
-                Err(e) => warn(&parent, "Invalid name", &format!("{e}")),
+                Err(e) => warn(&ctx.parent, "Invalid name", &format!("{e}")),
             }
         });
     }
 
-    // Delete click
-    {
-        let names_state = Rc::clone(&names_state);
-        let home = home.clone();
-        let parent = parent.clone();
-        let dropdown = dropdown.clone();
-        let delete_btn_inner = delete_btn.clone();
-        delete_btn.connect_clicked(move |_| {
-            let idx = dropdown.selected();
-            if idx == 0 {
-                return;
-            }
-            let name = {
-                let names = names_state.borrow();
-                names.get((idx as usize).saturating_sub(1)).cloned()
-            };
-            let Some(name) = name else {
-                return;
-            };
-            match delete_seed_form(&home, &name) {
-                Ok(_) => {
-                    let names = list_seed_forms(&home).unwrap_or_default();
-                    let store = build_named_store(&names);
-                    dropdown.set_model(Some(&store));
-                    dropdown.set_selected(0);
-                    *names_state.borrow_mut() = names;
-                    delete_btn_inner.set_sensitive(false);
-                }
-                Err(e) => warn(&parent, "Could not delete form", &format!("{e}")),
-            }
-        });
-    }
+    rebuild_chips(&ctx, &names);
 
+    group.add(&flow);
     Some(group)
 }
 
-fn build_named_store(names: &[String]) -> StringList {
-    let store = StringList::new(&[]);
-    store.append("—");
-    for n in names {
-        store.append(n);
+/// Clear and rebuild the chip row from `names`, then re-append the
+/// persistent "+ Save current…" chip at the end.
+fn rebuild_chips(ctx: &ChipCtx, names: &[String]) {
+    while let Some(child) = ctx.flow.first_child() {
+        ctx.flow.remove(&child);
     }
-    store
+    *ctx.last_selected.borrow_mut() = None;
+    for name in names {
+        let chip = build_chip(ctx, name.clone());
+        ctx.flow.append(&chip);
+    }
+    ctx.flow.append(&ctx.save_chip);
 }
 
-// ----- Action buttons -------------------------------------------------
+/// One named-selection chip: a recall button (loads the form's app
+/// selection, same as the previous dropdown's "select" handler) plus
+/// a small delete affordance (same write path as the previous
+/// standalone "Delete" button, scoped to this chip's name).
+fn build_chip(ctx: &ChipCtx, name: String) -> GtkBox {
+    let chip = GtkBox::new(Orientation::Horizontal, 0);
+    chip.add_css_class("ac-chip");
 
-fn build_action_buttons(dialog: &Dialog, checks: &[(String, CheckButton)]) {
-    let cancel_widget = dialog.add_button("_Cancel", ResponseType::Cancel);
-    let seed_widget = dialog.add_button("Seed 0 apps", ResponseType::Ok);
-    cancel_widget.set_margin_bottom(16);
-    cancel_widget.set_margin_end(0);
-    dialog.set_default_response(ResponseType::Ok);
+    let recall_btn = Button::builder().label(&name).build();
+    recall_btn.add_css_class("flat");
+    recall_btn.add_css_class("ac-chip-recall");
+    chip.append(&recall_btn);
 
-    // `Dialog::add_button` returns a `gtk::Widget`; downcast to `Button` to
-    // apply styling and label updates.  If the downcast fails (which would be
-    // a gtk-rs or GTK ABI anomaly), skip the wiring rather than panicking —
-    // the dialog still functions; the button label just stays "Seed 0 apps".
-    if let Ok(seed_btn) = seed_widget.downcast::<Button>() {
-        seed_btn.add_css_class("suggested-action");
-        seed_btn.set_sensitive(false);
-        seed_btn.set_margin_bottom(16);
-        seed_btn.set_margin_end(20);
+    let delete_btn = Button::from_icon_name("window-close-symbolic");
+    delete_btn.add_css_class("flat");
+    delete_btn.add_css_class("circular");
+    delete_btn.add_css_class("ac-chip-delete");
+    delete_btn.set_tooltip_text(Some("Delete this saved configuration"));
+    chip.append(&delete_btn);
 
-        let seed_btn_clone = seed_btn.clone();
-        let checks_for_label = checks.to_vec();
-        let recompute_label: Rc<dyn Fn()> = Rc::new(move || {
-            let n = checks_for_label
-                .iter()
-                .filter(|(_, cb)| cb.is_active())
-                .count();
-            seed_btn_clone.set_label(&format!("Seed {n} app{}", if n == 1 { "" } else { "s" }));
-            seed_btn_clone.set_sensitive(n > 0);
+    {
+        let ctx = ctx.clone();
+        let name = name.clone();
+        let chip_for_select = chip.clone();
+        recall_btn.connect_clicked(move |_| match load_seed_form(&ctx.home, &name) {
+            Ok(form) => {
+                // The form's stored `preset` field is intentionally
+                // ignored: networking source-of-truth is detected
+                // from the runtime host, not from whatever was active
+                // at save time.
+                let wanted: Vec<String> = form
+                    .app_ids
+                    .into_iter()
+                    .filter(|id| ctx.installed.iter().any(|i| i == id))
+                    .collect();
+                apply_app_selection(&ctx.checks, &wanted);
+                if let Some(prev) = ctx.last_selected.borrow_mut().take() {
+                    prev.remove_css_class("selected");
+                }
+                chip_for_select.add_css_class("selected");
+                *ctx.last_selected.borrow_mut() = Some(chip_for_select.clone());
+            }
+            Err(e) => warn(&ctx.parent, "Could not load saved form", &format!("{e}")),
         });
-        for (_, cb) in checks {
-            let r = Rc::clone(&recompute_label);
-            cb.connect_toggled(move |_| (r)());
-        }
-        (recompute_label)();
     }
+
+    {
+        let ctx = ctx.clone();
+        let name = name.clone();
+        delete_btn.connect_clicked(move |_| match delete_seed_form(&ctx.home, &name) {
+            Ok(_) => {
+                let names = list_seed_forms(&ctx.home).unwrap_or_default();
+                *ctx.names_state.borrow_mut() = names.clone();
+                rebuild_chips(&ctx, &names);
+            }
+            Err(e) => warn(&ctx.parent, "Could not delete form", &format!("{e}")),
+        });
+    }
+
+    chip
+}
+
+// ----- Footer -----------------------------------------------------------
+
+/// Faint "<n> apps selected" + Cancel + the `.suggested-action` Seed
+/// button, built as a plain box (rather than `Dialog::add_button`) so
+/// the selected-count label can sit to its left. Buttons drive the
+/// same `dialog.response(...)` path `connect_response` already
+/// handles, so the modal-loop/result semantics are unchanged.
+fn build_footer(dialog: &Dialog, checks: &[(String, CheckButton)]) -> GtkBox {
+    let footer = GtkBox::new(Orientation::Horizontal, 12);
+    footer.set_margin_top(12);
+    footer.set_margin_bottom(16);
+    footer.set_margin_start(20);
+    footer.set_margin_end(20);
+
+    let count_label = Label::new(None);
+    count_label.add_css_class("caption");
+    count_label.add_css_class("ac-summary-faint");
+    count_label.set_halign(gtk::Align::Start);
+    count_label.set_hexpand(true);
+    footer.append(&count_label);
+
+    let cancel_btn = Button::builder().label("_Cancel").build();
+    cancel_btn.set_use_underline(true);
+    footer.append(&cancel_btn);
+
+    let seed_btn = Button::builder().label("Seed 0 apps").build();
+    seed_btn.add_css_class("suggested-action");
+    seed_btn.set_sensitive(false);
+    footer.append(&seed_btn);
+
+    let dialog_cancel = dialog.clone();
+    cancel_btn.connect_clicked(move |_| dialog_cancel.response(ResponseType::Cancel));
+    let dialog_ok = dialog.clone();
+    seed_btn.connect_clicked(move |_| dialog_ok.response(ResponseType::Ok));
+    dialog.set_default_widget(Some(&seed_btn));
+
+    let checks_for_label = checks.to_vec();
+    let seed_btn_clone = seed_btn.clone();
+    let count_label_clone = count_label.clone();
+    let recompute: Rc<dyn Fn()> = Rc::new(move || {
+        let n = checks_for_label
+            .iter()
+            .filter(|(_, cb)| cb.is_active())
+            .count();
+        seed_btn_clone.set_label(&format!("Seed {n} app{}", if n == 1 { "" } else { "s" }));
+        seed_btn_clone.set_sensitive(n > 0);
+        count_label_clone.set_label(&format!(
+            "{n} app{} selected",
+            if n == 1 { "" } else { "s" }
+        ));
+    });
+    for (_, cb) in checks {
+        let r = Rc::clone(&recompute);
+        cb.connect_toggled(move |_| (r)());
+    }
+    (recompute)();
+
+    footer
 }
 
 // ----- Helper sub-dialogs --------------------------------------------
