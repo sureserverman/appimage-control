@@ -576,9 +576,14 @@ fn mount_catalog_view(
         });
     }
 
-    // ---- Header: title · filter segments · search · menu ----
-    let header = adw::HeaderBar::builder().show_title(true).build();
-    header.set_title_widget(Some(&adw::WindowTitle::new("AppImage Control", "")));
+    // ---- Header: [title · filter] at start · search · menu at end ----
+    // Per the design, the title sits at the start with the filter immediately after
+    // it (not a centered title). Blank the centered title slot to avoid duplication.
+    let header = adw::HeaderBar::builder().build();
+    header.set_title_widget(Some(&GtkBox::new(Orientation::Horizontal, 0)));
+
+    let header_title = Label::new(Some("AppImage Control"));
+    header_title.add_css_class("heading");
 
     // 3-segment filter (All / Installed / Updates) as a slim dark-inset pill group
     // (design "ac-segment"); the active segment fills with the accent.
@@ -597,7 +602,11 @@ fn mount_catalog_view(
     filter_box.append(&filter_all);
     filter_box.append(&filter_installed);
     filter_box.append(&filter_updates);
-    header.pack_start(&filter_box);
+
+    let header_start = GtkBox::new(Orientation::Horizontal, 12);
+    header_start.append(&header_title);
+    header_start.append(&filter_box);
+    header.pack_start(&header_start);
 
     let search = SearchEntry::new();
     search.set_placeholder_text(Some("Search"));
@@ -1632,6 +1641,34 @@ fn install_window_actions_for_catalog(
     apply_filter: Rc<dyn Fn()>,
 ) {
     let window_for_actions: gtk::ApplicationWindow = window.clone().upcast();
+
+    // `win.open_catalog` — pick a catalog.json and re-mount the view with it.
+    // Backs the Preferences → General "Open…" button (design 3a).
+    {
+        let a = gtk::gio::SimpleAction::new("open_catalog", None);
+        let win_c = window.clone();
+        let paths = Rc::clone(paths);
+        let icons_cache = Rc::clone(icons_cache);
+        a.connect_activate(move |_, _| {
+            let Some(app) = win_c.application().and_downcast::<adw::Application>() else {
+                return;
+            };
+            let chooser_parent: gtk::ApplicationWindow = win_c.clone().upcast();
+            if let Some(path) = choose_open_path(&chooser_parent, "Choose catalog.json") {
+                if let Ok(c) = Catalog::discover_load(Some(&path)) {
+                    mount_catalog_view(
+                        &app,
+                        &win_c,
+                        Rc::clone(&paths),
+                        Rc::new(c),
+                        Rc::clone(&icons_cache),
+                        || {},
+                    );
+                }
+            }
+        });
+        window.add_action(&a);
+    }
 
     let refresh_fn: Rc<dyn Fn()> = {
         let paths = Rc::clone(paths);

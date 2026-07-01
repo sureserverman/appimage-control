@@ -63,7 +63,7 @@ pub fn present_preferences(parent: &gtk::ApplicationWindow, paths: Rc<AppPaths>)
 
     // (name, label, icon-name, page-widget)
     let pages: [(&str, &str, &str, gtk::Widget); 4] = [
-        ("general", "General", "preferences-system-symbolic", general_page(&cfg, &save).upcast()),
+        ("general", "General", "preferences-system-symbolic", general_page(parent, &cfg, &save).upcast()),
         ("storage", "Storage", "drive-harddisk-symbolic", storage_page(parent).upcast()),
         ("network", "Network", "network-transmit-receive-symbolic", network_page(&cfg, &save).upcast()),
         ("backup", "Backup", "document-save-symbolic", backup_page(parent).upcast()),
@@ -86,12 +86,16 @@ pub fn present_preferences(parent: &gtk::ApplicationWindow, paths: Rc<AppPaths>)
         row.set_child(Some(&b));
         sidebar.append(&row);
     }
+    // Header title reflects the active page (design shows "General" etc. centered).
+    let win_title = adw::WindowTitle::new("General", "Preferences");
     {
         let stack = stack.clone();
+        let win_title = win_title.clone();
         sidebar.connect_row_selected(move |_, row| {
             if let Some(row) = row {
-                if let Some((name, ..)) = PAGE_ORDER.get(row.index() as usize) {
+                if let Some((name, label)) = PAGE_ORDER.get(row.index() as usize) {
                     stack.set_visible_child_name(name);
+                    win_title.set_title(label);
                 }
             }
         });
@@ -108,6 +112,7 @@ pub fn present_preferences(parent: &gtk::ApplicationWindow, paths: Rc<AppPaths>)
     split.append(&stack);
 
     let header = adw::HeaderBar::new();
+    header.set_title_widget(Some(&win_title));
     let toolbar = adw::ToolbarView::new();
     toolbar.add_top_bar(&header);
     toolbar.set_content(Some(&split));
@@ -123,7 +128,11 @@ const PAGE_ORDER: [(&str, &str); 4] = [
     ("backup", "Backup"),
 ];
 
-fn general_page(cfg: &Rc<RefCell<GuiConfig>>, save: &Rc<dyn Fn()>) -> adw::PreferencesPage {
+fn general_page(
+    parent: &gtk::ApplicationWindow,
+    cfg: &Rc<RefCell<GuiConfig>>,
+    save: &Rc<dyn Fn()>,
+) -> adw::PreferencesPage {
     let page = adw::PreferencesPage::builder()
         .title("General")
         .icon_name("preferences-system-symbolic")
@@ -191,6 +200,15 @@ fn general_page(cfg: &Rc<RefCell<GuiConfig>>, save: &Rc<dyn Fn()>) -> adw::Prefe
         .subtitle(detected_catalog_path())
         .build();
     catalog_row.add_css_class("property");
+    let open_btn = gtk::Button::with_label("Open…");
+    open_btn.set_valign(gtk::Align::Center);
+    {
+        let parent = parent.clone();
+        open_btn.connect_clicked(move |_| {
+            let _ = WidgetExt::activate_action(&parent, "win.open_catalog", None);
+        });
+    }
+    catalog_row.add_suffix(&open_btn);
     catalog.add(&catalog_row);
 
     let reload_focus = adw::SwitchRow::builder()
@@ -206,6 +224,7 @@ fn general_page(cfg: &Rc<RefCell<GuiConfig>>, save: &Rc<dyn Fn()>) -> adw::Prefe
     let launch = adw::PreferencesGroup::builder().title("On launch").build();
     let check_updates = adw::SwitchRow::builder()
         .title("Check for updates")
+        .subtitle("Flag apps with a newer upstream release")
         .active(cfg.borrow().check_for_updates)
         .build();
     bind_switch(&check_updates, cfg, save, |c, v| c.check_for_updates = v);
@@ -213,6 +232,7 @@ fn general_page(cfg: &Rc<RefCell<GuiConfig>>, save: &Rc<dyn Fn()>) -> adw::Prefe
 
     let repair_auto = adw::SwitchRow::builder()
         .title("Repair launchers automatically")
+        .subtitle("Recreate any missing .desktop files")
         .active(cfg.borrow().repair_launchers_auto)
         .build();
     bind_switch(&repair_auto, cfg, save, |c, v| c.repair_launchers_auto = v);
