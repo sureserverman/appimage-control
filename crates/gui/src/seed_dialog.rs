@@ -80,10 +80,13 @@ pub fn choose_seed_settings(
         installed_app_ids.clone(),
     );
 
+    // Design order: apps-to-seed first, then saved configurations.
+    body.append(&seed_section_header("APPS TO SEED"));
+    body.append(&apps_widgets.group);
     if let Some(group) = saved_forms_widgets {
+        body.append(&seed_section_header("SAVED CONFIGURATIONS"));
         body.append(&group);
     }
-    body.append(&apps_widgets.group);
 
     let scroll = ScrolledWindow::builder()
         .child(&body)
@@ -173,6 +176,21 @@ fn build_header(subtitle: &str) -> GtkBox {
     header
 }
 
+/// Tiny uppercase section header with a trailing hairline (design turn 1),
+/// matching the launcher grid and Preferences.
+fn seed_section_header(text: &str) -> GtkBox {
+    let b = GtkBox::new(Orientation::Horizontal, 9);
+    let lbl = Label::new(Some(text));
+    lbl.add_css_class("ac-section-head");
+    lbl.set_halign(gtk::Align::Start);
+    let line = gtk::Separator::new(Orientation::Horizontal);
+    line.set_hexpand(true);
+    line.set_valign(gtk::Align::Center);
+    b.append(&lbl);
+    b.append(&line);
+    b
+}
+
 // ----- Apps group -----------------------------------------------------
 
 struct AppsWidgets {
@@ -185,7 +203,6 @@ fn build_apps_group(
     icons: &[Option<Vec<u8>>],
 ) -> AppsWidgets {
     let group = adw::PreferencesGroup::new();
-    group.set_title("Apps to seed");
 
     let mut checks: Vec<(String, CheckButton)> = Vec::new();
     for (i, (app_id, display_name, count)) in installed_apps.iter().enumerate() {
@@ -211,11 +228,13 @@ fn build_apps_group(
         } else {
             icon.set_icon_name(Some("application-x-executable-symbolic"));
         }
-        row.add_prefix(&icon);
-
         let cb = CheckButton::new();
         cb.set_active(true);
         cb.set_valign(gtk::Align::Center);
+        // Design turn 1: leading check, then icon, then name.
+        // add_prefix prepends, so add the icon first to end up with [check][icon].
+        row.add_prefix(&icon);
+        row.add_prefix(&cb);
 
         // Status pill, same "supported" vocabulary as the main grid's
         // `.ac-status` card pills. `installed_apps` is pre-filtered by
@@ -238,7 +257,6 @@ fn build_apps_group(
             cb.set_sensitive(false);
         }
         row.add_suffix(&pill);
-        row.add_suffix(&cb);
         row.set_activatable_widget(Some(&cb));
 
         group.add(&row);
@@ -283,8 +301,6 @@ fn build_saved_forms_group(
     let home = dirs::home_dir()?;
 
     let group = adw::PreferencesGroup::new();
-    group.set_title("Saved configurations");
-    group.set_description(Some("Recall a previously-saved app selection."));
 
     let flow = FlowBox::new();
     flow.set_selection_mode(gtk::SelectionMode::None);
