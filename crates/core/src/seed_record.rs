@@ -288,7 +288,10 @@ mod tests {
 
         assert!(delete_recording_in(&dir, "feather", 2).unwrap());
         assert!(!delete_recording_in(&dir, "feather", 2).unwrap());
-        assert_eq!(list_recordings_in(&dir).unwrap(), vec![("feather".to_string(), 1)]);
+        assert_eq!(
+            list_recordings_in(&dir).unwrap(),
+            vec![("feather".to_string(), 1)]
+        );
     }
 
     #[test]

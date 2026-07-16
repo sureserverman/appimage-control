@@ -442,7 +442,14 @@ exit 0
 "#,
         );
         let ep = with_bin(&stub, || {
-            ensure_port("feather", 4, Purpose::Socks, IsolationClass::DestAddr, "127.0.0.1").unwrap()
+            ensure_port(
+                "feather",
+                4,
+                Purpose::Socks,
+                IsolationClass::DestAddr,
+                "127.0.0.1",
+            )
+            .unwrap()
         });
         assert_eq!(ep.version, Some(2));
         assert_eq!(ep.scheme.as_deref(), Some("socks5"));
@@ -473,7 +480,14 @@ exit 0
 "#,
         );
         let ep = with_bin(&stub, || {
-            ensure_port("feather", 4, Purpose::Socks, IsolationClass::DestAddr, "127.0.0.1").unwrap()
+            ensure_port(
+                "feather",
+                4,
+                Purpose::Socks,
+                IsolationClass::DestAddr,
+                "127.0.0.1",
+            )
+            .unwrap()
         });
         // v2 fields synthesized from the v1 payload.
         assert_eq!(ep.version, Some(2));
@@ -504,8 +518,14 @@ exit 2
 "#,
         );
         let err = with_bin(&stub, || {
-            ensure_port("feather", 999, Purpose::Socks, IsolationClass::DestAddr, "127.0.0.1")
-                .unwrap_err()
+            ensure_port(
+                "feather",
+                999,
+                Purpose::Socks,
+                IsolationClass::DestAddr,
+                "127.0.0.1",
+            )
+            .unwrap_err()
         });
         let msg = format!("{err}");
         assert!(msg.contains("no free port for feather#999"), "got: {msg}");

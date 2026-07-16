@@ -45,9 +45,8 @@ pub use icons::{
 pub use install::{install_appimage, uninstall_app, InstallOptions, InstallResult};
 pub use instances::{
     appimage_file_identity_unchanged, catalog_row_latest_version_label,
-    clean_catalog_download_cache, clean_installed_catalog_apps_keep_cache,
-    installed_appimage_size, installed_version_fleet_display,
-    installed_version_fleet_has_distinct_recorded_versions,
+    clean_catalog_download_cache, clean_installed_catalog_apps_keep_cache, installed_appimage_size,
+    installed_version_fleet_display, installed_version_fleet_has_distinct_recorded_versions,
     instance_count, instance_desktop_display_name, instance_exec_suffix, instance_startup_wm_class,
     list_instance_indices, list_managed_instance_indices, parse_app_instance_spec,
     purge_appimage_control_state, read_installed_version, read_installed_version_fleet_max_semver,
@@ -92,14 +91,14 @@ pub use seed_pack::{user_seeds_dir, SeedPack, SeedPackLibrary, ENV_SEEDS_DIR};
 pub use seed_pack_build::{
     build_static_pack, diff_configs, render_pack_json, write_pack_to, ConfigDiff,
 };
-pub use seed_record::{
-    default_recordings_dir, delete_recording, list_recordings, load_recording,
-    recordings_dir_in, save_recording, PackRecording,
-};
 pub use seed_pack_update::{
     update_seed_packs, UpdateReport as SeedPackUpdateReport,
     DEFAULT_RELEASE_URL as SEED_PACKS_DEFAULT_RELEASE_URL,
     ENV_RELEASE_URL as SEED_PACKS_ENV_RELEASE_URL,
+};
+pub use seed_record::{
+    default_recordings_dir, delete_recording, list_recordings, load_recording, recordings_dir_in,
+    save_recording, PackRecording,
 };
 pub use update::{appimageupdatetool_available, run_appimageupdatetool, update_from_file};
 pub use version_info::{

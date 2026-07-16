@@ -29,10 +29,10 @@ use adw::prelude::*;
 use appimage_control_core::{
     build_static_pack, capture_first_run_config, catalog_row_latest_version_label,
     clean_catalog_download_cache, clean_installed_catalog_apps_keep_cache, create_backup_archive,
-    diff_configs, discover_config_candidates, discover_migration_candidates, fetch_github_release_hints,
-    installed_appimage_size, installed_version_fleet_display, instance_count,
-    list_managed_instance_indices, portmux_port_probe_runtime, purge_appimage_control_state,
-    read_instance_config, reconcile_catalog_install_version_metadata,
+    diff_configs, discover_config_candidates, discover_migration_candidates,
+    fetch_github_release_hints, installed_appimage_size, installed_version_fleet_display,
+    instance_count, list_managed_instance_indices, portmux_port_probe_runtime,
+    purge_appimage_control_state, read_instance_config, reconcile_catalog_install_version_metadata,
     reconcile_instance_count_with_report, repair_instance_launchers, restore_backup_archive,
     run_portable_dir_migration, save_recording, seed_instance_settings,
     update_all_installed_instances, write_pack_to, AppPaths, BackupOptions, Catalog, CatalogApp,
@@ -544,7 +544,7 @@ fn mount_catalog_view(
     _on_remount_done: impl FnOnce(),
 ) {
     let _ = app; // kept in signature for future Open/Reload re-mount paths
-    // Compact (default) vs. regular launcher-grid metrics, per the saved preference.
+                 // Compact (default) vs. regular launcher-grid metrics, per the saved preference.
     let compact = GuiConfig::load(&paths).compact_rows;
     let icon_px = if compact { 32 } else { 42 };
     let remote_latest_cache: Rc<RefCell<Vec<Option<GithubReleaseHint>>>> =
@@ -892,7 +892,10 @@ fn mount_catalog_view(
                 ));
                 let mut parts: Vec<String> = Vec::new();
                 if add > 0 {
-                    parts.push(format!("+{add} instance{}", if add == 1 { "" } else { "s" }));
+                    parts.push(format!(
+                        "+{add} instance{}",
+                        if add == 1 { "" } else { "s" }
+                    ));
                 }
                 if rem > 0 {
                     parts.push(format!(
@@ -909,8 +912,10 @@ fn mount_catalog_view(
     };
 
     // Filter + search: toggle each card's visibility and hide empty sections.
-    let section_widgets: Vec<(GtkBox, FlowBox)> =
-        sections.iter().map(|(_, s, f)| (s.clone(), f.clone())).collect();
+    let section_widgets: Vec<(GtkBox, FlowBox)> = sections
+        .iter()
+        .map(|(_, s, f)| (s.clone(), f.clone()))
+        .collect();
     let apply_filter: Rc<dyn Fn()> = {
         let rows = Rc::clone(&rows);
         let catalog = Rc::clone(&catalog);
@@ -1970,21 +1975,19 @@ fn install_window_actions_for_catalog(
                             )
                             .map_err(|e| e.to_string())?;
                             let path = match cands.len() {
-                                0 => return Err(
-                                    "Could not auto-detect a config file for this app. \
+                                0 => {
+                                    return Err(
+                                        "Could not auto-detect a config file for this app. \
                                      Re-open the wizard and set the Config path field."
-                                        .into(),
-                                ),
+                                            .into(),
+                                    )
+                                }
                                 1 => cands[0].clone(),
                                 _ => pick_best_config_candidate(&cands),
                             };
-                            let map = read_instance_config(
-                                &paths_t,
-                                app,
-                                target_t.instance_index,
-                                &path,
-                            )
-                            .map_err(|e| e.to_string())?;
+                            let map =
+                                read_instance_config(&paths_t, app, target_t.instance_index, &path)
+                                    .map_err(|e| e.to_string())?;
                             Ok((map, path))
                         } else {
                             let cap = capture_first_run_config(
@@ -2072,7 +2075,8 @@ fn install_window_actions_for_catalog(
                             let appimage_abs = paths_idle
                                 .instance_dir_for(app, target.instance_index)
                                 .join(app.resolved_appimage_filename());
-                            status_idle.set_text("Baseline captured — configure the app, then diff.");
+                            status_idle
+                                .set_text("Baseline captured — configure the app, then diff.");
                             if confirm_manual_step(
                                 &window_idle,
                                 &target.app_id,
@@ -2110,14 +2114,15 @@ fn install_window_actions_for_catalog(
                                                     &current,
                                                     &keys,
                                                 );
-                                                if let Some(out) =
-                                                    choose_pack_save_path(&window_idle, &target.app_id)
-                                                {
-                                                    match write_pack_to(&out, &target.app_id, &pack) {
+                                                if let Some(out) = choose_pack_save_path(
+                                                    &window_idle,
+                                                    &target.app_id,
+                                                ) {
+                                                    match write_pack_to(&out, &target.app_id, &pack)
+                                                    {
                                                         Ok(()) => {
-                                                            status_idle.set_text(
-                                                                "Seed pack written.",
-                                                            );
+                                                            status_idle
+                                                                .set_text("Seed pack written.");
                                                             present_message_window(
                                                                 gapp,
                                                                 "Seed pack written",

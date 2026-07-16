@@ -143,7 +143,11 @@ mod tests {
     use serde_json::json;
 
     fn map(pairs: &[(&str, Value)]) -> Map<String, Value> {
-        pairs.iter().cloned().map(|(k, v)| (k.to_string(), v)).collect()
+        pairs
+            .iter()
+            .cloned()
+            .map(|(k, v)| (k.to_string(), v))
+            .collect()
     }
 
     #[test]
@@ -177,7 +181,10 @@ mod tests {
         assert_eq!(diff.changed, vec!["net"]);
         let pack = build_static_pack("c.json", &[], &current, &diff.capturable_keys());
         // The pack carries the *entire* nested value, not a leaf path.
-        assert_eq!(pack.static_keys["net"], json!({"proxy": {"host": "a", "port": 2}}));
+        assert_eq!(
+            pack.static_keys["net"],
+            json!({"proxy": {"host": "a", "port": 2}})
+        );
     }
 
     #[test]
@@ -185,7 +192,10 @@ mod tests {
         let baseline = map(&[("o", json!({"a": 1, "b": 2}))]);
         let current = map(&[("o", json!({"b": 2, "a": 1}))]);
         let diff = diff_configs(&baseline, &current);
-        assert!(diff.is_empty_capture(), "object key reordering must not register as a change");
+        assert!(
+            diff.is_empty_capture(),
+            "object key reordering must not register as a change"
+        );
         assert_eq!(diff.unchanged, 1);
     }
 
@@ -201,11 +211,7 @@ mod tests {
 
     #[test]
     fn build_static_pack_copies_selected_keys_only() {
-        let current = map(&[
-            ("a", json!(1)),
-            ("b", json!("x")),
-            ("c", json!(true)),
-        ]);
+        let current = map(&[("a", json!(1)), ("b", json!("x")), ("c", json!(true))]);
         let pack = build_static_pack(
             "{appimage}.config/app.json",
             &["--offline".into()],
@@ -234,15 +240,20 @@ mod tests {
         let json = render_pack_json("recorded-app", &pack).expect("must validate + render");
         // No empty preset/rotation/first_run_args/icons noise.
         assert!(!json.contains("preset"), "unexpected preset block: {json}");
-        assert!(!json.contains("rotation"), "unexpected rotation block: {json}");
-        assert!(!json.contains("first_run_args"), "unexpected first_run_args: {json}");
+        assert!(
+            !json.contains("rotation"),
+            "unexpected rotation block: {json}"
+        );
+        assert!(
+            !json.contains("first_run_args"),
+            "unexpected first_run_args: {json}"
+        );
         assert!(!json.contains("icons"), "unexpected icons block: {json}");
         assert!(json.contains("\"static\""), "missing static block: {json}");
         assert!(json.contains("config_path"));
 
         // Re-parse confirms it is a loadable pack.
-        let lib =
-            SeedPackLibrary::from_pairs(vec![("recorded-app".to_string(), json)]).unwrap();
+        let lib = SeedPackLibrary::from_pairs(vec![("recorded-app".to_string(), json)]).unwrap();
         let parsed = lib.get("recorded-app").unwrap();
         assert_eq!(parsed.static_keys["telemetry"], json!(false));
         assert_eq!(parsed.static_keys["theme"], json!("dark"));
@@ -256,7 +267,11 @@ mod tests {
         use crate::seed_pack::apply_pack;
 
         let baseline = map(&[("telemetry", json!(true)), ("keep", json!(1))]);
-        let current = map(&[("telemetry", json!(false)), ("keep", json!(1)), ("new", json!("v"))]);
+        let current = map(&[
+            ("telemetry", json!(false)),
+            ("keep", json!(1)),
+            ("new", json!("v")),
+        ]);
         let diff = diff_configs(&baseline, &current);
         let pack = build_static_pack("c.json", &[], &current, &diff.capturable_keys());
 

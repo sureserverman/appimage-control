@@ -14,9 +14,9 @@ use appimage_control_core::{
     reconcile_catalog_install_version_metadata, reconcile_instance_count,
     reconcile_instance_count_with_report, repair_instance_launchers, restore_backup_archive,
     run_portable_dir_migration, save_recording, save_seed_form, seed_new_instances_after_reconcile,
-    seed_supported_installed_apps, update_all_installed_instances, update_seed_packs, user_seeds_dir,
-    write_pack_to, AppPaths, BackupOptions, Catalog, MigrationConflict, MigrationResolution,
-    PackRecording, SavedSeedForm, SeedPackLibrary, SeedPreset,
+    seed_supported_installed_apps, update_all_installed_instances, update_seed_packs,
+    user_seeds_dir, write_pack_to, AppPaths, BackupOptions, Catalog, MigrationConflict,
+    MigrationResolution, PackRecording, SavedSeedForm, SeedPackLibrary, SeedPreset,
 };
 
 pub fn want_help(args: &[String]) -> bool {
@@ -2081,8 +2081,7 @@ mod purge_prompt_tests {
         let cfg = setup_feather_instance(&home, r#"{"telemetry":true,"keep":1}"#);
         let out = tmp.path().join("feather-out.json");
 
-        let rec_file =
-            home.join(".local/share/appimage-control/pack-recordings/feather.1.json");
+        let rec_file = home.join(".local/share/appimage-control/pack-recordings/feather.1.json");
 
         let (base_code, cap_code) = with_fake_seed_env(&home, &catalog, None, || {
             let base = run_cli_ops(&[
@@ -2121,31 +2120,42 @@ mod purge_prompt_tests {
             raw.contains("{appimage}.config/settings.json"),
             "pack should carry the config_path template: {raw}"
         );
-        assert!(raw.contains("\"static\""), "pack should have a static block: {raw}");
+        assert!(
+            raw.contains("\"static\""),
+            "pack should have a static block: {raw}"
+        );
         assert!(raw.contains("\"telemetry\""), "changed key missing: {raw}");
         assert!(raw.contains("\"newkey\""), "added key missing: {raw}");
         // The unchanged top-level key must NOT be captured.
-        assert!(!raw.contains("\"keep\""), "unchanged key should be omitted: {raw}");
+        assert!(
+            !raw.contains("\"keep\""),
+            "unchanged key should be omitted: {raw}"
+        );
 
         // The baseline above already created a recording; fold list +
         // idempotent-delete coverage in here so the recorder suite only
         // launches one headless process group (this host runs near-full,
         // so each fake-AppImage launch is an ENOSPC risk — keep them few).
-        let rec_file =
-            home.join(".local/share/appimage-control/pack-recordings/feather.1.json");
+        let rec_file = home.join(".local/share/appimage-control/pack-recordings/feather.1.json");
         assert!(rec_file.is_file(), "baseline recording should exist");
         let listed = with_test_env(&home, &catalog, || {
             run_cli_ops(&["--list-pack-recordings".to_string()])
         });
         assert_eq!(listed, Some(glib::ExitCode::SUCCESS));
         let del1 = with_test_env(&home, &catalog, || {
-            run_cli_ops(&["--delete-pack-recording".to_string(), "feather:1".to_string()])
+            run_cli_ops(&[
+                "--delete-pack-recording".to_string(),
+                "feather:1".to_string(),
+            ])
         });
         assert_eq!(del1, Some(glib::ExitCode::SUCCESS));
         assert!(!rec_file.exists(), "recording should be deleted");
         // Idempotent: deleting again still succeeds.
         let del2 = with_test_env(&home, &catalog, || {
-            run_cli_ops(&["--delete-pack-recording".to_string(), "feather:1".to_string()])
+            run_cli_ops(&[
+                "--delete-pack-recording".to_string(),
+                "feather:1".to_string(),
+            ])
         });
         assert_eq!(del2, Some(glib::ExitCode::SUCCESS));
     }
@@ -2159,14 +2169,10 @@ mod purge_prompt_tests {
         write_seed_catalog(&catalog);
 
         let code = with_fake_seed_env(&home, &catalog, None, || {
-            run_cli_ops(&[
-                "--record-pack-capture".to_string(),
-                "feather".to_string(),
-            ])
+            run_cli_ops(&["--record-pack-capture".to_string(), "feather".to_string()])
         });
         assert_eq!(code, Some(glib::ExitCode::FAILURE));
     }
-
 
     #[test]
     fn seed_load_and_seed_settings_are_mutually_exclusive() {

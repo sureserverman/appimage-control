@@ -1333,16 +1333,14 @@ exec "$@"
         let app = supported_app("aic-read-app", "aic-read-app.AppImage");
         let rel = "aic-read-app.AppImage.config/settings.json";
         // No fake xvfb here: read must work purely from disk.
-        let (paths, _cfg) =
-            make_recorder_instance(&tmp, &app, 1, rel, r#"{"unused":1}"#);
+        let (paths, _cfg) = make_recorder_instance(&tmp, &app, 1, rel, r#"{"unused":1}"#);
         // Plant a post-config file as if the user had configured the app.
         let dir = paths.instance_dir_for(&app, 1);
         let cfg = dir.join(rel);
         fs::create_dir_all(cfg.parent().unwrap()).unwrap();
         fs::write(&cfg, r#"{"telemetry":false,"theme":"dark"}"#).unwrap();
 
-        let map =
-            read_instance_config(&paths, &app, 1, "{appimage}.config/settings.json").unwrap();
+        let map = read_instance_config(&paths, &app, 1, "{appimage}.config/settings.json").unwrap();
         assert_eq!(map["telemetry"], serde_json::json!(false));
         assert_eq!(map["theme"], serde_json::json!("dark"));
     }
@@ -1358,7 +1356,10 @@ exec "$@"
         let err = read_instance_config(&paths, &app, 1, "{appimage}.config/never.json")
             .unwrap_err()
             .to_string();
-        assert!(err.contains("launch the app and configure it first"), "got: {err}");
+        assert!(
+            err.contains("launch the app and configure it first"),
+            "got: {err}"
+        );
     }
 
     #[test]
@@ -1367,11 +1368,9 @@ exec "$@"
             let tmp = tempfile::tempdir().unwrap();
             let app = supported_app("aic-discover-app", "aic-discover-app.AppImage");
             let rel = "aic-discover-app.AppImage.config/settings.json";
-            let (paths, _cfg) =
-                make_recorder_instance(&tmp, &app, 1, rel, r#"{"a":1}"#);
+            let (paths, _cfg) = make_recorder_instance(&tmp, &app, 1, rel, r#"{"a":1}"#);
 
-            let candidates =
-                discover_config_candidates(&paths, &app, 1, &[], &mut |_| {}).unwrap();
+            let candidates = discover_config_candidates(&paths, &app, 1, &[], &mut |_| {}).unwrap();
             // The written settings file is found, with the AppImage
             // filename re-templated back to {appimage}.
             assert!(

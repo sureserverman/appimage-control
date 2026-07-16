@@ -64,10 +64,30 @@ pub fn present_preferences(parent: &gtk::ApplicationWindow, paths: Rc<AppPaths>)
 
     // (name, label, icon-name, page-widget)
     let pages: [(&str, &str, &str, gtk::Widget); 4] = [
-        ("general", "General", "preferences-system-symbolic", general_page(parent, &cfg, &save)),
-        ("storage", "Storage", "drive-harddisk-symbolic", storage_page(parent)),
-        ("network", "Network", "network-transmit-receive-symbolic", network_page(&cfg, &save)),
-        ("backup", "Backup", "document-save-symbolic", backup_page(parent)),
+        (
+            "general",
+            "General",
+            "preferences-system-symbolic",
+            general_page(parent, &cfg, &save),
+        ),
+        (
+            "storage",
+            "Storage",
+            "drive-harddisk-symbolic",
+            storage_page(parent),
+        ),
+        (
+            "network",
+            "Network",
+            "network-transmit-receive-symbolic",
+            network_page(&cfg, &save),
+        ),
+        (
+            "backup",
+            "Backup",
+            "document-save-symbolic",
+            backup_page(parent),
+        ),
     ];
     for (name, _, _, w) in &pages {
         stack.add_named(w, Some(name));
@@ -407,11 +427,46 @@ fn storage_page(parent: &gtk::ApplicationWindow) -> gtk::Widget {
     let content = page_content();
     content.append(&section_header("MAINTENANCE"));
     let group = adw::PreferencesGroup::new();
-    group.add(&action_row(parent, "Reload catalog now", "Re-scan and rebuild the list", "win.refresh", "Reload", false));
-    group.add(&action_row(parent, "Clean download cache", "Delete cached AppImage downloads", "win.clean_cache", "Clean", false));
-    group.add(&action_row(parent, "Update seed packs", "Fetch the latest signed seed-pack tarball", "win.update_seed_packs", "Update", false));
-    group.add(&action_row(parent, "Show seed packs", "List loaded seed packs and their sources", "win.list_seed_packs", "Show", false));
-    group.add(&action_row(parent, "Migrate legacy directories", "Import old portable dirs into managed instances", "win.migrate", "Migrate", false));
+    group.add(&action_row(
+        parent,
+        "Reload catalog now",
+        "Re-scan and rebuild the list",
+        "win.refresh",
+        "Reload",
+        false,
+    ));
+    group.add(&action_row(
+        parent,
+        "Clean download cache",
+        "Delete cached AppImage downloads",
+        "win.clean_cache",
+        "Clean",
+        false,
+    ));
+    group.add(&action_row(
+        parent,
+        "Update seed packs",
+        "Fetch the latest signed seed-pack tarball",
+        "win.update_seed_packs",
+        "Update",
+        false,
+    ));
+    group.add(&action_row(
+        parent,
+        "Show seed packs",
+        "List loaded seed packs and their sources",
+        "win.list_seed_packs",
+        "Show",
+        false,
+    ));
+    group.add(&action_row(
+        parent,
+        "Migrate legacy directories",
+        "Import old portable dirs into managed instances",
+        "win.migrate",
+        "Migrate",
+        false,
+    ));
     content.append(&group);
     page_scroller(&content)
 }
@@ -420,8 +475,22 @@ fn backup_page(parent: &gtk::ApplicationWindow) -> gtk::Widget {
     let content = page_content();
     content.append(&section_header("MANAGER STATE"));
     let group = adw::PreferencesGroup::new();
-    group.add(&action_row(parent, "Back up…", "Archive manager state to a file", "win.backup", "Back Up", false));
-    group.add(&action_row(parent, "Restore…", "Restore manager state from an archive", "win.restore_backup", "Restore", false));
+    group.add(&action_row(
+        parent,
+        "Back up…",
+        "Archive manager state to a file",
+        "win.backup",
+        "Back Up",
+        false,
+    ));
+    group.add(&action_row(
+        parent,
+        "Restore…",
+        "Restore manager state from an archive",
+        "win.restore_backup",
+        "Restore",
+        false,
+    ));
     content.append(&group);
     page_scroller(&content)
 }
@@ -435,7 +504,10 @@ fn action_row(
     btn_label: &str,
     destructive: bool,
 ) -> adw::ActionRow {
-    let row = adw::ActionRow::builder().title(title).subtitle(subtitle).build();
+    let row = adw::ActionRow::builder()
+        .title(title)
+        .subtitle(subtitle)
+        .build();
     let btn = gtk::Button::with_label(btn_label);
     btn.set_valign(gtk::Align::Center);
     if destructive {

@@ -92,7 +92,9 @@ pub fn build_actions_menu_button() -> MenuButton {
     g4.append(Some("About AppImage Control"), Some("win.about"));
     menu.append_section(None, &g4);
 
-    let b = MenuButton::builder().icon_name("open-menu-symbolic").build();
+    let b = MenuButton::builder()
+        .icon_name("open-menu-symbolic")
+        .build();
     b.set_menu_model(Some(&menu));
     b
 }
