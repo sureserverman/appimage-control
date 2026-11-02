@@ -57,7 +57,8 @@ config. The pack says nothing about ports, hosts or isolation. Its key is not
 portmux runs before the pack's other keys are written, so a failure leaves the
 first-run config byte-identical. It runs again after them, so its settings win
 over a `static` or `rotation` key of the same name. A pack with no `proxy_setup`
-never calls portmux. See
+gets no `configure-app` call, though seeding's pre-flight probe still needs
+portmux. See
 [`docs/integration-portmux-port.md`](integration-portmux-port.md).
 
 The removed `preset` section and `port` verb are refused by name at load time,

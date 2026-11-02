@@ -57,8 +57,7 @@ When --purge, --clean, or --migrate is present, only one runs: --purge first if 
   --seed-settings TARGETS
                    Seed supported app settings for installed instances. TARGETS is `all`,
                    one app id, or a comma-separated list like `feather,electrum-btc`.
-                   The host is auto-detected to pick the right networking source of truth;
-                   no manual switch needed.
+                   portmux detects the host; no manual switch needed.
   --seed-save NAME Save the current --seed-settings selection under NAME for later recall,
                    then run the seed. Form is stored under
                    ~/.local/share/appimage-control/seed-forms/<NAME>.json. Name must match
@@ -1203,10 +1202,8 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
             Err(code) => return Some(code),
         };
         match load_seed_form(&home, name) {
-            // The saved preset is intentionally ignored: networking
-            // source-of-truth is resolved fresh from the runtime
-            // environment, not whatever happened to be active at save
-            // time. We only restore the app-id selection.
+            // The saved preset is intentionally ignored: it no longer affects
+            // output. We only restore the app-id selection.
             Ok(form) => {
                 seed_targets = Some(Some(form.app_ids));
             }

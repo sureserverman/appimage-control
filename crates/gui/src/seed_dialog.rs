@@ -42,13 +42,7 @@ pub fn choose_seed_settings(
 ) -> Option<(SeedPreset, Vec<String>)> {
     let forms_dir = default_seed_forms_dir();
 
-    // Resolved once purely to label the header; the user never picks this.
-    let host_label = match SeedPreset::auto_default() {
-        SeedPreset::Whonix => "Whonix-Workstation",
-        SeedPreset::Ubuntu => "Ubuntu",
-    };
-
-    let dialog = build_dialog_shell(parent, &format!("Host detected: {host_label}"));
+    let dialog = build_dialog_shell(parent, "portmux sets up each app's proxy");
     let area = dialog.content_area();
     area.set_orientation(Orientation::Vertical);
     area.set_spacing(0);
@@ -398,9 +392,7 @@ fn build_chip(ctx: &ChipCtx, name: String) -> GtkBox {
         recall_btn.connect_clicked(move |_| match load_seed_form(&ctx.home, &name) {
             Ok(form) => {
                 // The form's stored `preset` field is intentionally
-                // ignored: networking source-of-truth is detected
-                // from the runtime host, not from whatever was active
-                // at save time.
+                // ignored: it no longer affects output.
                 let wanted: Vec<String> = form
                     .app_ids
                     .into_iter()

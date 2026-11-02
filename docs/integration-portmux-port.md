@@ -21,8 +21,9 @@ Then the pack's `static` and `rotation` keys are written, and portmux runs once
 more with `--write-only`, so its proxy settings win over a pack key of the same
 name. Any failure restores the config the first run left.
 
-A pack with no `proxy_setup` never calls portmux, and that app gets no proxy
-from seeding.
+A pack with no `proxy_setup` gets no `configure-app` call, and that app gets no
+proxy from seeding. The pre-flight probe below still runs, so seeding needs
+portmux even then.
 
 ## Required runtime dependency
 
@@ -78,9 +79,9 @@ a wallet with no proxy and no warning.
    installed instance of that app; there is no per-instance form. With none
    installed it reports `0 seeded` and proves nothing, so install one first with
    `appimage-control +<app id>`.
-8. **Check the config** at
-   `~/.local/share/appimages/apps/<app id>/<N>/<config_path>`, with `{appimage}`
-   replaced by the AppImage's filename. It should hold your `static` keys and
+8. **Check the config** at `~/.local/share/appimages/apps/<dir>/<N>/<config_path>`,
+   with `{appimage}` replaced by the AppImage's filename. `<dir>` is `feather`,
+   `ebtc` or `eltc`. It should hold your `static` keys and
    portmux's proxy settings. For Feather those are `proxy`, `socks5Port` and
    `useLocalTor`, plus `socks5Host` on Whonix. For Electrum they are `proxy` and
    `enable_proxy`.
