@@ -8,9 +8,11 @@ use std::time::{Duration, Instant};
 use serde_json::{Map, Value};
 
 use crate::catalog::{Catalog, CatalogApp};
+use crate::desktop::desktop_filename_for_instance;
 use crate::error::{Error, Result};
 use crate::host_cmd::host_command;
 use crate::instances::list_instance_indices;
+use crate::portmux_port::configure_app;
 use crate::paths::AppPaths;
 use crate::seed_pack::{apply_pack, SeedPack, SeedPackLibrary};
 
@@ -246,6 +248,25 @@ pub fn seed_instance_settings_with_recipe(
     ));
     let first_run_args: Vec<&str> = recipe.first_run_args.iter().map(String::as_str).collect();
     seed_until_config(&appimage, &first_run_args, &expected)?;
+    // Before the pack's write, and with the app already stopped: a failure
+    // here leaves the first-run config byte-identical (WF-SEED-001), and the
+    // read below picks up the proxy keys portmux wrote.
+    if let Some(setup) = &recipe.pack.proxy_setup {
+        let desktop_file = desktop_filename_for_instance(&app.id, instance_index);
+        let desktop_id = desktop_file
+            .strip_suffix(".desktop")
+            .unwrap_or(&desktop_file);
+        let done = configure_app(&setup.app, instance_index, &expected, desktop_id)?;
+        if !done.warnings.is_empty() {
+            on_progress(&format!(
+                "{} instance {}: {}",
+                app.id, instance_index, done.warnings
+            ));
+        }
+        if let Some(action) = &done.manual_action {
+            on_progress(&format!("{} instance {}: {action}", app.id, instance_index));
+        }
+    }
     let mut map = read_json_object(&expected)?;
     apply_pack(&recipe.pack, instance_index, &mut map)?;
     write_json_object(&expected, map)?;
@@ -880,7 +901,7 @@ mod tests {
         fs::set_permissions(path, perms).unwrap();
     }
 
-    fn with_fake_xvfb<T>(dir: &Path, f: impl FnOnce() -> T) -> T {
+    pub(super) fn with_fake_xvfb<T>(dir: &Path, f: impl FnOnce() -> T) -> T {
         let _g = env_lock().lock().unwrap();
         let old = std::env::var_os("PATH");
         let bin = dir.join("bin");
@@ -907,7 +928,7 @@ exec "$@"
         out
     }
 
-    fn make_seedable_instance(
+    pub(super) fn make_seedable_instance(
         tmp: &tempfile::TempDir,
         app: &CatalogApp,
         instance_index: u32,
@@ -934,7 +955,7 @@ exec "$@"
         (paths, appimage, cfg)
     }
 
-    fn supported_app(id: &str, filename: &str) -> CatalogApp {
+    pub(super) fn supported_app(id: &str, filename: &str) -> CatalogApp {
         CatalogApp {
             id: id.into(),
             display_name: Some(id.into()),
@@ -1718,5 +1739,143 @@ while :; do sleep 0.1; done
                 "progress never logged 'settings seeded'"
             );
         });
+    }
+}
+
+#[cfg(test)]
+mod proxy_setup {
+    use super::tests::{make_seedable_instance, supported_app, with_fake_xvfb};
+    use super::*;
+    use crate::portmux_port::{env_gate, ENV_PORTMUX_PORT_BIN};
+    use std::os::unix::fs::PermissionsExt;
+
+    const APP_ID: &str = "aic-proxy-test-app";
+    const APPIMAGE: &str = "aic-proxy-test-app.AppImage";
+
+    struct Seeded {
+        result: Result<SeedOutcome>,
+        lines: Vec<String>,
+        config: PathBuf,
+        log: PathBuf,
+        _tmp: tempfile::TempDir,
+    }
+
+    /// Seed instance 1 with the given pack body and a stub `portmux-port`
+    /// whose script is `stub`. `$LOG` and `$CFG` are set for the script.
+    fn seed_with(pack_extra: &str, stub: &str) -> Seeded {
+        let tmp = tempfile::tempdir().unwrap();
+        let rel_cfg = format!("{APPIMAGE}.test/config.json");
+        let seeds = tmp.path().join("seeds");
+        fs::create_dir_all(&seeds).unwrap();
+        fs::write(
+            seeds.join(format!("{APP_ID}.json")),
+            format!(r#"{{"config_path":"{rel_cfg}","static":{{"sentinel":"ran"}}{pack_extra}}}"#),
+        )
+        .unwrap();
+        let log = tmp.path().join("stub.log");
+        let bin = tmp.path().join("portmux-port");
+        fs::write(
+            &bin,
+            format!(
+                "#!/bin/sh\nLOG='{}'\necho \"$*\" >> \"$LOG\"\nCFG=\"\"\nprev=\"\"\nfor a in \"$@\"; do [ \"$prev\" = --config ] && CFG=\"$a\"; prev=\"$a\"; done\n{stub}\n",
+                log.display()
+            ),
+        )
+        .unwrap();
+        fs::set_permissions(&bin, fs::Permissions::from_mode(0o700)).unwrap();
+
+        let app = supported_app(APP_ID, APPIMAGE);
+        let (paths, _, config) = make_seedable_instance(&tmp, &app, 1, &rel_cfg, false);
+        let mut lines = Vec::new();
+        let xvfb_dir = tmp.path().join("xvfb");
+        let result = with_fake_xvfb(&xvfb_dir, || {
+            let _gate = env_gate().lock().unwrap_or_else(|p| p.into_inner());
+            let prev_seeds = std::env::var_os(ENV_SEEDS);
+            let prev_bin = std::env::var_os(ENV_PORTMUX_PORT_BIN);
+            std::env::set_var(ENV_SEEDS, &seeds);
+            std::env::set_var(ENV_PORTMUX_PORT_BIN, &bin);
+            let out = seed_instance_settings(&paths, &app, 1, SeedPreset::Ubuntu, &mut |s| {
+                lines.push(s.to_string())
+            });
+            for (key, prev) in [(ENV_SEEDS, prev_seeds), (ENV_PORTMUX_PORT_BIN, prev_bin)] {
+                match prev {
+                    Some(v) => std::env::set_var(key, v),
+                    None => std::env::remove_var(key),
+                }
+            }
+            out
+        });
+        Seeded {
+            result,
+            lines,
+            config,
+            log,
+            _tmp: tmp,
+        }
+    }
+
+    const ENV_SEEDS: &str = crate::seed_pack::ENV_SEEDS_DIR;
+    const SETUP: &str = r#","proxy_setup":{"app":"feather"}"#;
+
+    #[test]
+    fn configure_app_runs_before_the_pack_write_and_both_sets_of_keys_survive() {
+        // Logs whether the pack's key was already on disk when portmux ran,
+        // then writes proxy keys as portmux's writer would.
+        let s = seed_with(
+            SETUP,
+            r#"grep -q sentinel "$CFG" && echo PACK-WROTE-FIRST >> "$LOG"
+printf '{"proxy":1,"socks5Port":"9100"}' > "$CFG"
+echo '{"version":2,"manual_action":null}'"#,
+        );
+        assert_eq!(s.result.unwrap(), SeedOutcome::Seeded);
+        let log = fs::read_to_string(&s.log).unwrap();
+        assert!(!log.contains("PACK-WROTE-FIRST"), "order wrong: {log}");
+        let want = format!(
+            "configure-app --app feather --instance 1 --config {} --desktop-app-id appimage-control-{APP_ID}-1 --json-v2",
+            s.config.display()
+        );
+        assert!(log.contains(&want), "argv wrong: {log}");
+        let v: Value = serde_json::from_str(&fs::read_to_string(&s.config).unwrap()).unwrap();
+        assert_eq!(v["sentinel"], "ran", "pack key lost");
+        assert_eq!(v["socks5Port"], "9100", "proxy key lost");
+    }
+
+    #[test]
+    fn failing_helper_leaves_first_run_config_byte_identical() {
+        let why = "if you were just added to the portmux group, log out and in";
+        let s = seed_with(SETUP, &format!("echo '{why}' 1>&2\nexit 1"));
+        let err = s.result.unwrap_err().to_string();
+        assert!(err.contains(why), "portmux's message lost: {err}");
+        assert_eq!(fs::read_to_string(&s.config).unwrap(), "{}");
+    }
+
+    #[test]
+    fn exhausted_pool_leaves_first_run_config_byte_identical() {
+        let s = seed_with(SETUP, "echo 'pool exhausted 9160-9189' 1>&2\nexit 2");
+        let err = s.result.unwrap_err().to_string();
+        assert!(err.contains("pool exhausted 9160-9189"), "got: {err}");
+        assert_eq!(fs::read_to_string(&s.config).unwrap(), "{}");
+    }
+
+    #[test]
+    fn pack_with_no_proxy_setup_never_spawns_portmux() {
+        let s = seed_with("", "exit 1");
+        assert_eq!(s.result.unwrap(), SeedOutcome::Seeded);
+        assert!(!s.log.exists(), "portmux was spawned");
+        let v: Value = serde_json::from_str(&fs::read_to_string(&s.config).unwrap()).unwrap();
+        assert_eq!(v["sentinel"], "ran");
+    }
+
+    #[test]
+    fn manual_action_and_warnings_reach_the_progress_lines() {
+        let s = seed_with(
+            SETUP,
+            r#"echo 'tor is not listening yet' 1>&2
+echo '{"version":2,"manual_action":"set the port in Telegram"}'"#,
+        );
+        assert_eq!(s.result.unwrap(), SeedOutcome::Seeded);
+        let all = s.lines.join("\n");
+        assert!(all.contains("set the port in Telegram"), "got: {all}");
+        assert!(all.contains("tor is not listening yet"), "got: {all}");
     }
 }
