@@ -1852,7 +1852,7 @@ mod purge_prompt_tests {
     /// Hermetic environment for end-to-end seed tests:
     /// - pinned HOME + catalog;
     /// - a fake `xvfb-run` so AppImage launches are no-ops;
-    /// - a fake port-allocation helper wired through the documented
+    /// - a fake portmux-port helper wired through the documented
     ///   override env var so the seed pre-flight + per-instance
     ///   lookups don't depend on an installed system helper;
     /// - optional seed-pack directory override so callers can inject
