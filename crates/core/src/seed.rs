@@ -99,63 +99,6 @@ pub fn is_whonix_environment() -> bool {
         .any(|p| std::path::Path::new(p).exists())
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SeedConfig {
-    pub preset: SeedPreset,
-    /// Loopback hint passed to `portmux-port --host-loopback` (used
-    /// only on Ubuntu — portmux on Whonix substitutes the gateway
-    /// address). Kept around because Feather's `useLocalTor=true`
-    /// branch on Ubuntu also reads this directly.
-    pub socks5_host: String,
-    /// Whether Feather should use its embedded Tor (Ubuntu) versus
-    /// dialing the workstation SOCKS pool (Whonix).
-    pub feather_use_local_tor: bool,
-}
-
-/// Typed view of one [`SeedConfig`] field, returned by
-/// [`SeedConfig::field`]. Used by the seed-pack interpreter to resolve
-/// `preset.from` references and `preset.format` placeholders against
-/// the active preset without each verb caring about the concrete type.
-///
-/// Numeric/array variants were retired together with the
-/// `feather_ports` / `electrum_btc_port` / `electrum_ltc_port` fields
-/// — port resolution now goes through the `port` verb backed by
-/// `portmux-port ensure` instead.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum PresetField<'a> {
-    Bool(bool),
-    Str(&'a str),
-}
-
-impl SeedConfig {
-    pub fn for_preset(preset: SeedPreset) -> Self {
-        match preset {
-            SeedPreset::Ubuntu => Self {
-                preset,
-                socks5_host: "127.0.0.1".into(),
-                feather_use_local_tor: true,
-            },
-            SeedPreset::Whonix => Self {
-                preset,
-                socks5_host: "10.152.152.10".into(),
-                feather_use_local_tor: false,
-            },
-        }
-    }
-
-    /// Look up a SeedConfig field by name. Single source of truth for
-    /// the legal preset-field set referenced by seed-pack `preset.from`
-    /// and `preset.format` placeholders. Returns `None` for unknown
-    /// names so pack validation can flag typos.
-    pub fn field(&self, name: &str) -> Option<PresetField<'_>> {
-        match name {
-            "socks5_host" => Some(PresetField::Str(&self.socks5_host)),
-            "feather_use_local_tor" => Some(PresetField::Bool(self.feather_use_local_tor)),
-            _ => None,
-        }
-    }
-}
-
 /// Marker that an app id has a registered seed pack. Returned by
 /// [`SupportedSeedApp::from_app_id`] so callers (notably the GUI) can
 /// keep using the existing `is_some()` check without learning about the
@@ -236,7 +179,10 @@ pub fn recipe_for_supported_app(app: &CatalogApp) -> Option<SeedRecipe> {
 }
 
 fn recipe_for_app_id(app_id: &str) -> Option<SeedRecipe> {
-    let lib = active_seed_library().ok()?;
+    recipe_from_library(&active_seed_library().ok()?, app_id)
+}
+
+fn recipe_from_library(lib: &SeedPackLibrary, app_id: &str) -> Option<SeedRecipe> {
     let pack = lib.get(app_id)?.clone();
     Some(SeedRecipe {
         app_id: app_id.to_string(),
@@ -261,7 +207,10 @@ pub fn seed_instance_settings(
     preset: SeedPreset,
     on_progress: &mut dyn FnMut(&str),
 ) -> Result<SeedOutcome> {
-    let Some(recipe) = recipe_for_supported_app(app) else {
+    // The strict loader, not `recipe_for_supported_app`: its fallback to the
+    // embedded packs would seed from those over a refused pack, with no warning.
+    let library = SeedPackLibrary::discover_load(None)?;
+    let Some(recipe) = recipe_from_library(&library, &app.id) else {
         on_progress(&format!(
             "{} instance {}: seeding skipped (unsupported app)",
             app.id, instance_index
@@ -276,7 +225,7 @@ pub fn seed_instance_settings_with_recipe(
     app: &CatalogApp,
     instance_index: u32,
     recipe: SeedRecipe,
-    preset: SeedPreset,
+    _preset: SeedPreset,
     on_progress: &mut dyn FnMut(&str),
 ) -> Result<SeedOutcome> {
     let dir = paths.instance_dir_for(app, instance_index);
@@ -290,7 +239,6 @@ pub fn seed_instance_settings_with_recipe(
         return Ok(SeedOutcome::SkippedMissingInstance);
     }
 
-    let config = SeedConfig::for_preset(preset);
     let expected = dir.join(recipe.config_path_for(&filename));
     on_progress(&format!(
         "{} instance {}: seeding settings …",
@@ -299,13 +247,7 @@ pub fn seed_instance_settings_with_recipe(
     let first_run_args: Vec<&str> = recipe.first_run_args.iter().map(String::as_str).collect();
     seed_until_config(&appimage, &first_run_args, &expected)?;
     let mut map = read_json_object(&expected)?;
-    apply_pack(
-        &recipe.pack,
-        &recipe.app_id,
-        &config,
-        instance_index,
-        &mut map,
-    )?;
+    apply_pack(&recipe.pack, instance_index, &mut map)?;
     write_json_object(&expected, map)?;
     on_progress(&format!(
         "{} instance {}: settings seeded",
@@ -324,6 +266,10 @@ pub fn seed_supported_installed_apps(
     let selected_set: Option<HashSet<&str>> =
         selected_app_ids.map(|v| v.iter().map(|s| s.as_str()).collect::<HashSet<_>>());
     let mut report = SeedReport::default();
+
+    // Refuse here rather than report every app as unsupported: see
+    // `seed_instance_settings`.
+    SeedPackLibrary::discover_load(None)?;
 
     if let Some(selected) = &selected_set {
         for app_id in selected {
@@ -1015,29 +961,6 @@ exec "$@"
     }
 
     #[test]
-    fn preset_field_accessor_covers_every_legal_name() {
-        for preset in [SeedPreset::Ubuntu, SeedPreset::Whonix] {
-            let cfg = SeedConfig::for_preset(preset);
-            assert_eq!(
-                cfg.field("socks5_host"),
-                Some(PresetField::Str(cfg.socks5_host.as_str()))
-            );
-            assert_eq!(
-                cfg.field("feather_use_local_tor"),
-                Some(PresetField::Bool(cfg.feather_use_local_tor))
-            );
-            // Legacy port-array / port-scalar names were retired with
-            // the `port` verb; they must now be rejected so a typo'd
-            // pack fails loudly at load time.
-            assert_eq!(cfg.field("feather_ports"), None);
-            assert_eq!(cfg.field("electrum_btc_port"), None);
-            assert_eq!(cfg.field("electrum_ltc_port"), None);
-            assert_eq!(cfg.field("nope"), None);
-            assert_eq!(cfg.field(""), None);
-        }
-    }
-
-    #[test]
     fn auto_detect_returns_whonix_when_marker_file_present() {
         let _g = env_lock().lock().unwrap();
         let tmp = tempfile::tempdir().unwrap();
@@ -1112,17 +1035,6 @@ exec "$@"
         }
     }
 
-    #[test]
-    fn presets_match_installer_defaults() {
-        let u = SeedConfig::for_preset(SeedPreset::Ubuntu);
-        assert_eq!(u.socks5_host, "127.0.0.1");
-        assert!(u.feather_use_local_tor);
-
-        let w = SeedConfig::for_preset(SeedPreset::Whonix);
-        assert_eq!(w.socks5_host, "10.152.152.10");
-        assert!(!w.feather_use_local_tor);
-    }
-
     // App-specific apply_pack assertions (validating the JSON shape
     // produced for any one curated pack) live in the operator-managed
     // seed-pack repo alongside the pack files themselves — they
@@ -1135,8 +1047,8 @@ exec "$@"
     /// Install a synthetic pack file under `seeds_dir` so the
     /// discovery chain (via APPIMAGE_CONTROL_SEEDS_DIR) sees the
     /// `<app-id>` as supported. Pack produces a deterministic
-    /// `sentinel` static key + a preset-derived `presetHost` so the
-    /// caller can assert that apply_pack actually ran.
+    /// `sentinel` static key + a `rotated` rotation so the caller can
+    /// assert that apply_pack actually ran.
     fn install_pipeline_test_pack(seeds_dir: &Path, app_id: &str, appimage_filename: &str) {
         fs::create_dir_all(seeds_dir).unwrap();
         let cfg_path = format!("{appimage_filename}.test/config.json");
@@ -1145,7 +1057,7 @@ exec "$@"
                 "config_path": "{cfg_path}",
                 "first_run_args": ["--offline"],
                 "static": {{ "sentinel": "ran" }},
-                "preset": {{ "presetHost": {{ "from": "socks5_host" }} }}
+                "rotation": {{ "rotated": {{ "values": ["first"] }} }}
             }}"#
         );
         fs::write(seeds_dir.join(format!("{app_id}.json")), body).unwrap();
@@ -1186,7 +1098,7 @@ exec "$@"
             assert_eq!(out, SeedOutcome::Seeded);
             let v: Value = serde_json::from_str(&fs::read_to_string(&cfg).unwrap()).unwrap();
             assert_eq!(v["sentinel"], "ran");
-            assert_eq!(v["presetHost"], "127.0.0.1");
+            assert_eq!(v["rotated"], "first");
             assert!(lines.iter().any(|s| s.contains("settings seeded")));
         });
     }
@@ -1244,6 +1156,48 @@ exec "$@"
             assert_eq!(r1.seeded, 1);
             assert_eq!(r1.skipped_unsupported, 1);
             assert_eq!(r2.seeded, 1);
+        });
+    }
+
+    /// A pack refused at load must reach the user as that refusal, never as
+    /// "unsupported app", or a wallet stays unproxied with no reason given.
+    #[test]
+    fn legacy_pack_is_refused_by_name_when_seeding() {
+        with_fake_xvfb(tempfile::tempdir().unwrap().path(), || {
+            let tmp = tempfile::tempdir().unwrap();
+            let seeds_dir = tmp.path().join("seeds");
+            fs::create_dir_all(&seeds_dir).unwrap();
+            fs::write(
+                seeds_dir.join("old-wallet.json"),
+                r#"{"config_path":"c.json","preset":{"k":{"port":{"isolation":"none","field":"url"}}}}"#,
+            )
+            .unwrap();
+            let prev = std::env::var("APPIMAGE_CONTROL_SEEDS_DIR").ok();
+            std::env::set_var("APPIMAGE_CONTROL_SEEDS_DIR", &seeds_dir);
+
+            let paths = AppPaths::new(tmp.path().join("home")).unwrap();
+            let app = supported_app("old-wallet", "OldWallet.AppImage");
+            let one = seed_instance_settings(&paths, &app, 1, SeedPreset::Ubuntu, &mut |_| {});
+            let catalog = Catalog {
+                apps: vec![app.clone()],
+            };
+            let all = seed_supported_installed_apps(
+                &paths,
+                &catalog,
+                SeedPreset::Ubuntu,
+                None,
+                &mut |_| {},
+            );
+
+            match prev {
+                Some(v) => std::env::set_var("APPIMAGE_CONTROL_SEEDS_DIR", v),
+                None => std::env::remove_var("APPIMAGE_CONTROL_SEEDS_DIR"),
+            }
+
+            for err in [one.unwrap_err().to_string(), all.unwrap_err().to_string()] {
+                assert!(err.contains("old-wallet.json"), "names the pack: {err}");
+                assert!(err.contains("proxy_setup"), "says how to migrate: {err}");
+            }
         });
     }
 

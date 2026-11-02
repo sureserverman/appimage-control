@@ -4,9 +4,7 @@
   "static": {
     "telemetry": false
   },
-  "preset": {
-    "proxyHost": { "from": "socks5_host" }
-  },
+  "proxy_setup": { "app": "myapp" },
   "rotation": {
     "color": { "values": ["red", "green", "blue"] }
   }

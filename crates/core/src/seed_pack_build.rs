@@ -105,7 +105,7 @@ pub fn build_static_pack(
         config_path: config_path.to_string(),
         first_run_args: first_run_args.to_vec(),
         static_keys,
-        preset: BTreeMap::new(),
+        proxy_setup: None,
         rotation: BTreeMap::new(),
         icons: None,
     }
@@ -238,8 +238,11 @@ mod tests {
             &["telemetry".to_string(), "theme".to_string()],
         );
         let json = render_pack_json("recorded-app", &pack).expect("must validate + render");
-        // No empty preset/rotation/first_run_args/icons noise.
-        assert!(!json.contains("preset"), "unexpected preset block: {json}");
+        // No empty proxy_setup/rotation/first_run_args/icons noise.
+        assert!(
+            !json.contains("proxy_setup"),
+            "unexpected proxy_setup block: {json}"
+        );
         assert!(
             !json.contains("rotation"),
             "unexpected rotation block: {json}"
@@ -263,7 +266,6 @@ mod tests {
     fn synthesised_pack_round_trips_through_apply_pack() {
         // The whole point: applying the synthesised pack to the baseline
         // reproduces the user's post-configuration values.
-        use crate::seed::{SeedConfig, SeedPreset};
         use crate::seed_pack::apply_pack;
 
         let baseline = map(&[("telemetry", json!(true)), ("keep", json!(1))]);
@@ -275,9 +277,8 @@ mod tests {
         let diff = diff_configs(&baseline, &current);
         let pack = build_static_pack("c.json", &[], &current, &diff.capturable_keys());
 
-        let cfg = SeedConfig::for_preset(SeedPreset::Ubuntu);
         let mut replay = baseline.clone();
-        apply_pack(&pack, "recorded-app", &cfg, 1, &mut replay).unwrap();
+        apply_pack(&pack, 1, &mut replay).unwrap();
         assert_eq!(replay["telemetry"], json!(false));
         assert_eq!(replay["new"], json!("v"));
         assert_eq!(replay["keep"], json!(1));

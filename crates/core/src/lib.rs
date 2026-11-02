@@ -80,8 +80,8 @@ pub use seed::{
     capture_first_run_config, discover_config_candidates, is_whonix_environment,
     read_instance_config, recipe_for_supported_app, seed_instance_settings,
     seed_instance_settings_with_recipe, seed_new_instances_after_reconcile,
-    seed_supported_installed_apps, CapturedConfig, SeedConfig, SeedOutcome, SeedPreset, SeedRecipe,
-    SeedReport, SeedTarget, SupportedSeedApp, ENV_WHONIX_MARKER,
+    seed_supported_installed_apps, CapturedConfig, SeedOutcome, SeedPreset, SeedRecipe, SeedReport,
+    SeedTarget, SupportedSeedApp, ENV_WHONIX_MARKER,
 };
 pub use seed_form::{
     default_seed_forms_dir, delete_form as delete_seed_form, list_forms as list_seed_forms,

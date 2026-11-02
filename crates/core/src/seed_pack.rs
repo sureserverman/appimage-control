@@ -10,18 +10,14 @@
 //! See `docs/seed-packs.md` (Stage 5 of the seed-pack-extraction plan) for
 //! the authoring guide.
 //!
-//! The schema is deliberately tiny — three "verbs" cover every
-//! transformation today's hand-written `patch_*_config` functions perform:
+//! The schema is deliberately tiny:
 //!
 //! - `static`: plain JSON literals merged into the config map.
-//! - `preset`: a value derived from the active [`crate::seed::SeedConfig`]
-//!   (either a direct field copy via `from`, or a `format` template that
-//!   interpolates one or more scalar preset fields), with optional
-//!   `drop_if` to omit the key when a bool preset field is true.
 //! - `rotation`: a per-instance value indexed by `(instance_index - 1) mod
-//!   N`, drawn either from inline `values` or from a named u16 preset
-//!   array (with optional `as_string` to stringify the result, matching
-//!   Feather's `socks5Port` quirk).
+//!   N`, drawn from inline `values`.
+//! - `proxy_setup`: names the portmux recipe that points this app at its
+//!   own Tor listener. portmux writes the proxy settings; a pack holds no
+//!   port, proxy host or isolation class.
 
 use std::collections::BTreeMap;
 use std::ffi::OsStr;
@@ -29,10 +25,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value};
 
 use crate::error::{Error, Result};
-use crate::seed::{PresetField, SeedConfig};
 
 /// Environment variable that, when set to a non-empty path, forces the
 /// loader to use exactly that directory of `*.json` packs and skip the
@@ -58,7 +53,7 @@ pub fn user_seeds_dir() -> Option<PathBuf> {
 /// field) so the seed-pack *recorder* ([`crate::seed_pack_build`]) can
 /// emit a hand-authorable file: a synthesised `static`-only pack
 /// serialises to just `config_path` + `static` (+ `first_run_args` when
-/// non-empty), with no empty `preset`/`rotation`/`icons` noise.
+/// non-empty), with no empty `rotation`/`icons` noise.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct SeedPack {
@@ -77,13 +72,14 @@ pub struct SeedPack {
     #[serde(default, rename = "static", skip_serializing_if = "Map::is_empty")]
     pub static_keys: Map<String, Value>,
 
-    /// Keys whose values come from the active [`crate::seed::SeedConfig`].
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub preset: BTreeMap<String, PresetValue>,
-
     /// Keys whose values rotate per instance index.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub rotation: BTreeMap<String, RotationValue>,
+
+    /// Names the portmux recipe that writes this app's proxy settings.
+    /// Absent for an app that needs no proxy, and portmux is then never run.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proxy_setup: Option<ProxySetup>,
 
     /// Accepted-but-ignored legacy `icons` block. Older on-disk packs (and
     /// the shipped companion packs under installers-linux) still carry an
@@ -96,130 +92,40 @@ pub struct SeedPack {
     pub icons: Option<Value>,
 }
 
-/// One `preset` entry. `untagged` so the JSON shape disambiguates: the
-/// presence of `from` means [`PresetValue::From`], `format` means
-/// [`PresetValue::Format`], `port` means [`PresetValue::Port`].
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields, untagged)]
-pub enum PresetValue {
-    /// Direct copy of one preset field (`socks5_host`,
-    /// `feather_use_local_tor`, etc.) into the JSON map.
-    From {
-        from: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        drop_if: Option<String>,
-    },
-    /// Templated string with `{field_name}` placeholders that resolve
-    /// against the active preset's scalar fields.
-    Format {
-        format: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        drop_if: Option<String>,
-    },
-    /// Per-(app, instance) port assignment resolved at apply time by
-    /// shelling out to `portmux-port ensure …` (see
-    /// [`crate::portmux_port::ensure_port`]). The chosen field
-    /// (`port` / `host` / `url`) of the returned `EnsuredPort` lands
-    /// in the JSON map under this key.
-    Port { port: PortLookup },
-}
-
-/// Body of a `port` verb. `app` defaults to the seed pack's own app
-/// id (passed into [`apply_pack`]). `purpose` defaults to `socks`.
-/// `isolation` and `field` are required.
+/// Body of the `proxy_setup` section. Named to avoid colliding with a
+/// config key called `proxy`, which Feather and Electrum both use.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
-pub struct PortLookup {
-    /// App label fed to `portmux-port --app`. Defaults to the
-    /// seed-pack's own app id; specify explicitly when one pack
-    /// needs ports owned by a different app.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub app: Option<String>,
-    /// Tor listener kind (`socks` / `http` / `trans` / `dns`).
-    /// Defaults to `socks`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub purpose: Option<PortPurposeSpec>,
-    /// Stream-isolation class (`none`, `dest-addr`, `dest-port`,
-    /// `both`, `http-tunnel`).
-    pub isolation: IsolationSpec,
-    /// Which field of the resolved `EnsuredPort` lands in the JSON
-    /// map.
-    pub field: PortFieldSpec,
-    /// When `true`, emit `port` as a JSON string (`"9168"`) instead
-    /// of a number (`9168`). Only meaningful when `field = "port"`.
-    /// Mirrors today's rotation `as_string` flag.
-    #[serde(default, skip_serializing_if = "is_false")]
-    pub as_string: bool,
-    /// Optional bool preset-field name; when that field is `true`,
-    /// the resolved value is omitted entirely (and any existing key
-    /// is removed from the base map).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub drop_if: Option<String>,
+pub struct ProxySetup {
+    /// Recipe id passed to `portmux-port configure-app --app`.
+    pub app: String,
 }
 
-/// `skip_serializing_if` predicate for `bool` fields that default to
-/// `false` (so a synthesised pack never emits a redundant `false`).
-fn is_false(b: &bool) -> bool {
-    !*b
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum PortPurposeSpec {
-    Socks,
-    Http,
-    Trans,
-    Dns,
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "kebab-case")]
-pub enum IsolationSpec {
-    None,
-    DestAddr,
-    DestPort,
-    Both,
-    HttpTunnel,
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum PortFieldSpec {
-    Port,
-    Host,
-    Url,
-}
-
-impl PortPurposeSpec {
-    fn to_runner(self) -> crate::portmux_port::Purpose {
-        use crate::portmux_port::Purpose;
-        match self {
-            PortPurposeSpec::Socks => Purpose::Socks,
-            PortPurposeSpec::Http => Purpose::Http,
-            PortPurposeSpec::Trans => Purpose::Trans,
-            PortPurposeSpec::Dns => Purpose::Dns,
-        }
+/// Parse one pack, refusing the removed `preset` section and `port` verb by
+/// name. Ignoring them would leave a wallet with no proxy and no warning.
+fn parse_pack(raw: &str) -> std::result::Result<SeedPack, String> {
+    let value: Value = serde_json::from_str(raw).map_err(|e| e.to_string())?;
+    if let Some(preset) = value.get("preset") {
+        let port_key = preset
+            .as_object()
+            .and_then(|m| m.iter().find(|(_, v)| v.get("port").is_some()))
+            .map(|(k, _)| k.as_str());
+        let what = match port_key {
+            Some(key) => format!("uses the removed `port` verb at `preset.{key}`"),
+            None => "uses the removed `preset` section".to_string(),
+        };
+        return Err(format!(
+            "{what}. portmux now writes proxy settings. Delete the `preset` section, move any \
+             non-proxy key to `static`, and add \"proxy_setup\": {{ \"app\": \"<recipe id>\" }}. \
+             See docs/integration-portmux-port.md"
+        ));
     }
-}
-
-impl IsolationSpec {
-    fn to_runner(self) -> crate::portmux_port::IsolationClass {
-        use crate::portmux_port::IsolationClass;
-        match self {
-            IsolationSpec::None => IsolationClass::None,
-            IsolationSpec::DestAddr => IsolationClass::DestAddr,
-            IsolationSpec::DestPort => IsolationClass::DestPort,
-            IsolationSpec::Both => IsolationClass::Both,
-            IsolationSpec::HttpTunnel => IsolationClass::HttpTunnel,
-        }
-    }
+    serde_json::from_value(value).map_err(|e| e.to_string())
 }
 
 /// One `rotation` entry. Today the only supported variant is
 /// [`RotationValue::Values`]; the legacy `from_preset_array` variant
-/// was retired with the `[u16; 3]` preset array it referenced. New
-/// per-instance port assignments go through the `port` verb in the
-/// `preset` section instead.
+/// was retired with the `[u16; 3]` preset array it referenced.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, untagged)]
 pub enum RotationValue {
@@ -295,7 +201,7 @@ impl SeedPackLibrary {
                 })?
                 .to_string();
             let raw = fs::read_to_string(&path).map_err(Error::Io)?;
-            let pack: SeedPack = serde_json::from_str(&raw)
+            let pack = parse_pack(&raw)
                 .map_err(|e| Error::InvalidPath(format!("seed pack {}: {e}", path.display())))?;
             lib.packs.insert(stem.clone(), pack);
             lib.sources.insert(stem, path);
@@ -398,7 +304,7 @@ impl SeedPackLibrary {
         let mut lib = SeedPackLibrary::default();
         for (id, raw) in pairs {
             let id = id.as_ref().to_string();
-            let pack: SeedPack = serde_json::from_str(raw.as_ref())
+            let pack = parse_pack(raw.as_ref())
                 .map_err(|e| Error::InvalidPath(format!("seed pack {id} failed to parse: {e}")))?;
             lib.packs.insert(id.clone(), pack);
             lib.sources.insert(id, PathBuf::from("<embedded>"));
@@ -433,17 +339,12 @@ impl SeedPackLibrary {
         self.packs.is_empty()
     }
 
-    /// Validate every pack against a reference [`SeedConfig`] without
-    /// mutating any disk state. Surfaces bad field names and bad
-    /// templates at load time so a typo crashes startup with a clear
-    /// message rather than the next time someone seeds.
-    ///
-    /// Both presets share the same SeedConfig field set, so checking
-    /// against Ubuntu (or Whonix) is sufficient to catch every typo.
+    /// Validate every pack without mutating any disk state, so a bad pack
+    /// fails at load with a clear message rather than the next time someone
+    /// seeds.
     pub fn validate(&self) -> Result<()> {
-        let cfg = SeedConfig::for_preset(crate::seed::SeedPreset::Ubuntu);
         for (id, pack) in &self.packs {
-            validate_pack(id, pack, &cfg).map_err(|e| match e {
+            validate_pack(pack).map_err(|e| match e {
                 Error::InvalidPath(msg) => Error::InvalidPath(format!("seed pack `{id}`: {msg}")),
                 other => other,
             })?;
@@ -452,43 +353,14 @@ impl SeedPackLibrary {
     }
 }
 
-fn validate_pack(_id: &str, pack: &SeedPack, cfg: &SeedConfig) -> Result<()> {
+fn validate_pack(pack: &SeedPack) -> Result<()> {
     if pack.config_path.is_empty() {
         return Err(Error::InvalidPath("config_path must be non-empty".into()));
     }
-    for (key, pv) in &pack.preset {
-        match pv {
-            PresetValue::From { from, drop_if } => {
-                if cfg.field(from).is_none() {
-                    return Err(Error::InvalidPath(format!(
-                        "preset `{key}`: from references unknown field `{from}`"
-                    )));
-                }
-                check_drop_if(key, drop_if.as_deref(), cfg)?;
-            }
-            PresetValue::Format { format, drop_if } => {
-                check_format_template(key, format, cfg)?;
-                check_drop_if(key, drop_if.as_deref(), cfg)?;
-            }
-            PresetValue::Port { port } => {
-                check_drop_if(key, port.drop_if.as_deref(), cfg)?;
-                if let Some(app) = &port.app {
-                    if app.is_empty() {
-                        return Err(Error::InvalidPath(format!(
-                            "preset `{key}`: port.app must be non-empty when specified"
-                        )));
-                    }
-                }
-                // `as_string` is only meaningful for field=port; warn-like
-                // tightening: reject it on the other two fields so packs
-                // can't accumulate dead flags.
-                if port.as_string && port.field != PortFieldSpec::Port {
-                    return Err(Error::InvalidPath(format!(
-                        "preset `{key}`: port.as_string only applies when field=`port`"
-                    )));
-                }
-            }
-        }
+    if pack.proxy_setup.as_ref().is_some_and(|p| p.app.is_empty()) {
+        return Err(Error::InvalidPath(
+            "proxy_setup.app must be non-empty".into(),
+        ));
     }
     for (key, rv) in &pack.rotation {
         match rv {
@@ -504,56 +376,19 @@ fn validate_pack(_id: &str, pack: &SeedPack, cfg: &SeedConfig) -> Result<()> {
     Ok(())
 }
 
-fn check_drop_if(key: &str, drop_if: Option<&str>, cfg: &SeedConfig) -> Result<()> {
-    let Some(name) = drop_if else { return Ok(()) };
-    match cfg.field(name) {
-        Some(PresetField::Bool(_)) => Ok(()),
-        Some(_) => Err(Error::InvalidPath(format!(
-            "preset `{key}`: drop_if `{name}` is not a bool field"
-        ))),
-        None => Err(Error::InvalidPath(format!(
-            "preset `{key}`: drop_if references unknown field `{name}`"
-        ))),
-    }
-}
-
-fn check_format_template(key: &str, template: &str, cfg: &SeedConfig) -> Result<()> {
-    let mut rest = template;
-    while let Some(open) = rest.find('{') {
-        let after = &rest[open + 1..];
-        let close = after.find('}').ok_or_else(|| {
-            Error::InvalidPath(format!(
-                "preset `{key}`: format template missing closing `}}`: {template}"
-            ))
-        })?;
-        let name = &after[..close];
-        match cfg.field(name) {
-            Some(_) => {}
-            None => {
-                return Err(Error::InvalidPath(format!(
-                    "preset `{key}`: format template references unknown field `{name}`"
-                )));
-            }
-        }
-        rest = &after[close + 1..];
-    }
-    Ok(())
-}
-
 /// Apply a seed pack to a JSON object map already populated by the
 /// AppImage's first-run write. Mutates `base` in place.
 ///
-/// Order of operations is fixed: `static` literals first (so subsequent
-/// preset/rotation values can override them on key collisions, though
-/// well-formed packs don't collide), then `preset`, then `rotation`.
+/// Order of operations is fixed: `static` literals first (so rotation values
+/// can override them on key collisions, though well-formed packs don't
+/// collide), then `rotation`. `proxy_setup` is not applied here: seeding runs
+/// it before this, so the proxy keys portmux wrote are already in `base`.
 ///
 /// `instance_index` is 1-based; the rotation index is `(idx - 1) %
 /// values.len()` to match the historical `feather_skin()` behavior in
 /// `seed.rs`.
 pub fn apply_pack(
     pack: &SeedPack,
-    app_id: &str,
-    cfg: &SeedConfig,
     instance_index: u32,
     base: &mut Map<String, Value>,
 ) -> Result<()> {
@@ -562,62 +397,7 @@ pub fn apply_pack(
         base.insert(k.clone(), v.clone());
     }
 
-    // 2. Preset-derived values.
-    //
-    // `port_cache` short-circuits duplicate `portmux-port ensure`
-    // subprocess spawns when one pack hits two `port` verbs that
-    // resolve to the same `(app, instance, purpose, isolation)` tuple
-    // — typical for Feather where one verb emits `host` and a sibling
-    // emits `port`.
-    let mut port_cache: BTreeMap<PortCacheKey, crate::portmux_port::EnsuredPort> = BTreeMap::new();
-    for (key, pv) in &pack.preset {
-        match pv {
-            PresetValue::From { from, drop_if } => {
-                if drop_if_true(cfg, drop_if.as_deref())? {
-                    base.remove(key);
-                    continue;
-                }
-                let field = cfg.field(from).ok_or_else(|| {
-                    Error::InvalidPath(format!(
-                        "seed pack: preset.from references unknown field `{from}`"
-                    ))
-                })?;
-                base.insert(key.clone(), preset_field_to_json(field));
-            }
-            PresetValue::Format { format, drop_if } => {
-                if drop_if_true(cfg, drop_if.as_deref())? {
-                    base.remove(key);
-                    continue;
-                }
-                let rendered = render_format(format, cfg)?;
-                base.insert(key.clone(), Value::String(rendered));
-            }
-            PresetValue::Port { port } => {
-                if drop_if_true(cfg, port.drop_if.as_deref())? {
-                    base.remove(key);
-                    continue;
-                }
-                let resolved =
-                    resolve_port_lookup(port, app_id, cfg, instance_index, &mut port_cache)?;
-                let v = match port.field {
-                    PortFieldSpec::Host => Value::String(resolved.host.clone()),
-                    PortFieldSpec::Port => {
-                        if port.as_string {
-                            Value::String(resolved.port.to_string())
-                        } else {
-                            json!(resolved.port)
-                        }
-                    }
-                    PortFieldSpec::Url => {
-                        Value::String(format!("socks5:{}:{}", resolved.host, resolved.port))
-                    }
-                };
-                base.insert(key.clone(), v);
-            }
-        }
-    }
-
-    // 3. Per-instance rotations.
+    // 2. Per-instance rotations.
     for (key, rv) in &pack.rotation {
         match rv {
             RotationValue::Values { values } => {
@@ -635,115 +415,74 @@ pub fn apply_pack(
     Ok(())
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-struct PortCacheKey {
-    app: String,
-    instance: u32,
-    purpose: u8,
-    isolation: u8,
-}
-
-fn resolve_port_lookup(
-    spec: &PortLookup,
-    pack_app_id: &str,
-    cfg: &SeedConfig,
-    instance_index: u32,
-    cache: &mut BTreeMap<PortCacheKey, crate::portmux_port::EnsuredPort>,
-) -> Result<crate::portmux_port::EnsuredPort> {
-    let app = spec
-        .app
-        .clone()
-        .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| pack_app_id.to_string());
-    let purpose_spec = spec.purpose.unwrap_or(PortPurposeSpec::Socks);
-    let purpose = purpose_spec.to_runner();
-    let isolation = spec.isolation.to_runner();
-
-    let key = PortCacheKey {
-        app: app.clone(),
-        instance: instance_index,
-        purpose: purpose as u8,
-        isolation: isolation as u8,
-    };
-    if let Some(hit) = cache.get(&key) {
-        return Ok(hit.clone());
-    }
-
-    let host_loopback = cfg.socks5_host.clone();
-    let ensured = crate::portmux_port::ensure_port(
-        &app,
-        instance_index,
-        purpose,
-        isolation,
-        &host_loopback,
-    )?;
-    cache.insert(key, ensured.clone());
-    Ok(ensured)
-}
-
 fn rotation_index(instance_index: u32, len: usize) -> usize {
     (instance_index.saturating_sub(1) as usize) % len
-}
-
-/// Read a bool preset field by name. Errors when the name is unknown
-/// or refers to a non-bool field.
-fn drop_if_true(cfg: &SeedConfig, name: Option<&str>) -> Result<bool> {
-    let Some(n) = name else {
-        return Ok(false);
-    };
-    match cfg.field(n) {
-        Some(PresetField::Bool(b)) => Ok(b),
-        Some(_) => Err(Error::InvalidPath(format!(
-            "seed pack: drop_if `{n}` is not a bool field"
-        ))),
-        None => Err(Error::InvalidPath(format!(
-            "seed pack: drop_if references unknown field `{n}`"
-        ))),
-    }
-}
-
-fn preset_field_to_json(f: PresetField<'_>) -> Value {
-    match f {
-        PresetField::Bool(b) => Value::Bool(b),
-        PresetField::Str(s) => Value::String(s.to_string()),
-    }
-}
-
-/// Render a `preset.format` template by replacing `{field_name}`
-/// placeholders with scalar preset field values. Errors when a
-/// placeholder names an unknown field, or names a non-scalar
-/// (`feather_ports`-style) field that can't be inlined into a string.
-fn render_format(template: &str, cfg: &SeedConfig) -> Result<String> {
-    let mut out = String::with_capacity(template.len());
-    let mut rest = template;
-    while let Some(open) = rest.find('{') {
-        out.push_str(&rest[..open]);
-        let after = &rest[open + 1..];
-        let close = after.find('}').ok_or_else(|| {
-            Error::InvalidPath(format!(
-                "seed pack: format template missing closing `}}`: {template}"
-            ))
-        })?;
-        let name = &after[..close];
-        let field = cfg.field(name).ok_or_else(|| {
-            Error::InvalidPath(format!(
-                "seed pack: format template references unknown field `{name}`"
-            ))
-        })?;
-        match field {
-            PresetField::Bool(b) => out.push_str(if b { "true" } else { "false" }),
-            PresetField::Str(s) => out.push_str(s),
-        }
-        rest = &after[close + 1..];
-    }
-    out.push_str(rest);
-    Ok(out)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::seed::SeedPreset;
+    use serde_json::json;
+
+    #[test]
+    fn proxy_setup_section_parses_and_round_trips() {
+        let raw = r#"{"config_path":"x.json","proxy_setup":{"app":"feather"}}"#;
+        let lib = SeedPackLibrary::from_pairs(vec![("feather", raw)]).expect("must parse");
+        lib.validate().expect("must validate");
+        let pack = lib.get("feather").unwrap();
+        assert_eq!(pack.proxy_setup.as_ref().unwrap().app, "feather");
+        let again: SeedPack = serde_json::from_str(&serde_json::to_string(pack).unwrap()).unwrap();
+        assert_eq!(&again, pack);
+    }
+
+    #[test]
+    fn legacy_preset_section_is_refused_by_name() {
+        let raw = r#"{"config_path":"x.json","preset":{"k":{"from":"some_field"}}}"#;
+        let err = SeedPackLibrary::from_pairs(vec![("old-wallet", raw)])
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("old-wallet"), "names the pack: {err}");
+        assert!(err.contains("`preset`"), "names the section: {err}");
+        assert!(err.contains("proxy_setup"), "says how to migrate: {err}");
+    }
+
+    #[test]
+    fn legacy_port_verb_is_refused_by_name() {
+        let raw = r#"{"config_path":"x.json","preset":{"socks5Port":{"port":{"isolation":"dest-addr","field":"port"}}}}"#;
+        let err = SeedPackLibrary::from_pairs(vec![("old-wallet", raw)])
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("old-wallet"), "names the pack: {err}");
+        assert!(err.contains("`port`"), "names the verb: {err}");
+        assert!(err.contains("socks5Port"), "names the key: {err}");
+        assert!(err.contains("proxy_setup"), "says how to migrate: {err}");
+    }
+
+    #[test]
+    fn legacy_pack_on_disk_is_refused_by_file() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(
+            tmp.path().join("old-wallet.json"),
+            r#"{"config_path":"x.json","preset":{"k":{"port":{"isolation":"none","field":"url"}}}}"#,
+        )
+        .unwrap();
+        let err = SeedPackLibrary::load_from_dir(tmp.path())
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("old-wallet.json"), "names the file: {err}");
+        assert!(err.contains("proxy_setup"), "says how to migrate: {err}");
+    }
+
+    #[test]
+    fn validate_rejects_empty_proxy_setup_app() {
+        let lib = SeedPackLibrary::from_pairs(vec![(
+            "p",
+            r#"{"config_path":"x","proxy_setup":{"app":""}}"#,
+        )])
+        .unwrap();
+        let err = lib.validate().unwrap_err().to_string();
+        assert!(err.contains("proxy_setup.app"), "got: {err}");
+    }
 
     #[test]
     fn minimal_pack_parses() {
@@ -752,7 +491,7 @@ mod tests {
         assert_eq!(p.config_path, "x.json");
         assert!(p.first_run_args.is_empty());
         assert!(p.static_keys.is_empty());
-        assert!(p.preset.is_empty());
+        assert!(p.proxy_setup.is_none());
         assert!(p.rotation.is_empty());
         assert!(p.icons.is_none());
     }
@@ -771,7 +510,7 @@ mod tests {
         assert_eq!(p.config_path, "{appimage}.config/config.json");
         // The field is captured but not interpreted as a recipe verb.
         assert!(p.icons.is_some());
-        assert!(p.static_keys.is_empty() && p.preset.is_empty() && p.rotation.is_empty());
+        assert!(p.static_keys.is_empty() && p.proxy_setup.is_none() && p.rotation.is_empty());
     }
 
     #[test]
@@ -780,12 +519,7 @@ mod tests {
             "config_path": "{appimage}.config/feather/settings.json",
             "first_run_args": ["--offline"],
             "static": { "proxy": 1, "torOnlyAllowOnion": true },
-            "preset": {
-                "useLocalTor": { "from": "feather_use_local_tor" },
-                "socks5Host":  { "from": "socks5_host", "drop_if": "feather_use_local_tor" },
-                "proxy":       { "format": "socks5:{socks5_host}:{socks5_host}" },
-                "socks5Port":  { "port": { "isolation": "dest-addr", "field": "port", "as_string": true } }
-            },
+            "proxy_setup": { "app": "feather" },
             "rotation": {
                 "skin":       { "values": ["a","b","c"] }
             }
@@ -793,26 +527,7 @@ mod tests {
         let p: SeedPack = serde_json::from_str(raw).unwrap();
         assert_eq!(p.first_run_args, vec!["--offline"]);
         assert_eq!(p.static_keys.len(), 2);
-        assert!(matches!(
-            p.preset.get("useLocalTor"),
-            Some(PresetValue::From { from, drop_if: None }) if from == "feather_use_local_tor"
-        ));
-        assert!(matches!(
-            p.preset.get("socks5Host"),
-            Some(PresetValue::From { from, drop_if: Some(d) })
-                if from == "socks5_host" && d == "feather_use_local_tor"
-        ));
-        assert!(matches!(
-            p.preset.get("proxy"),
-            Some(PresetValue::Format { format, drop_if: None })
-                if format == "socks5:{socks5_host}:{socks5_host}"
-        ));
-        assert!(matches!(
-            p.preset.get("socks5Port"),
-            Some(PresetValue::Port { port }) if port.field == PortFieldSpec::Port
-                && port.as_string
-                && port.isolation == IsolationSpec::DestAddr
-        ));
+        assert_eq!(p.proxy_setup.as_ref().unwrap().app, "feather");
         assert!(matches!(
             p.rotation.get("skin"),
             Some(RotationValue::Values { values }) if values.len() == 3
@@ -827,18 +542,6 @@ mod tests {
             err.to_string().contains("whatever") || err.to_string().contains("unknown field"),
             "expected unknown-field error, got: {err}"
         );
-    }
-
-    #[test]
-    fn rejects_unknown_preset_key() {
-        // `from` typo'd as `frm` — should fail because neither variant matches.
-        let raw = r#"{
-            "config_path":"x",
-            "preset": { "k": { "frm": "socks5_host" } }
-        }"#;
-        let err = serde_json::from_str::<SeedPack>(raw).unwrap_err();
-        // serde's untagged error is generic; just ensure parsing fails.
-        let _ = err;
     }
 
     #[test]
@@ -1087,15 +790,15 @@ mod tests {
 
     #[test]
     fn load_from_dir_attributes_validation_errors_to_pack_id() {
-        // Pack parses cleanly but references a nonexistent preset
-        // field. validate() is called from inside load_from_dir, so
-        // the typo surfaces here, not at first seed.
+        // Pack parses cleanly but has an empty rotation list. validate()
+        // is called from inside load_from_dir, so the mistake surfaces
+        // here, not at first seed.
         let tmp = tempfile::tempdir().unwrap();
         let dir = tmp.path().join("seeds");
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(
             dir.join("typo.json"),
-            r#"{"config_path":"x","preset":{"k":{"from":"socks_host"}}}"#,
+            r#"{"config_path":"x","rotation":{"k":{"values":[]}}}"#,
         )
         .unwrap();
         let err = SeedPackLibrary::load_from_dir(&dir)
@@ -1106,8 +809,8 @@ mod tests {
             "expected pack id `typo` in error, got: {err}"
         );
         assert!(
-            err.contains("socks_host"),
-            "expected offending field name, got: {err}"
+            err.contains("rotation `k`"),
+            "expected offending key name, got: {err}"
         );
     }
 
@@ -1115,10 +818,9 @@ mod tests {
         serde_json::from_str(raw).expect("test pack must parse")
     }
 
-    fn apply(pack: &SeedPack, preset: SeedPreset, idx: u32) -> Map<String, Value> {
-        let cfg = SeedConfig::for_preset(preset);
+    fn apply(pack: &SeedPack, idx: u32) -> Map<String, Value> {
         let mut base = Map::new();
-        apply_pack(pack, "test-app", &cfg, idx, &mut base).expect("apply_pack must succeed");
+        apply_pack(pack, idx, &mut base).expect("apply_pack must succeed");
         base
     }
 
@@ -1130,113 +832,11 @@ mod tests {
             "static": { "n": 42, "b": true, "s": "hi", "arr": [1,2] }
         }"#,
         );
-        let out = apply(&pack, SeedPreset::Ubuntu, 1);
+        let out = apply(&pack, 1);
         assert_eq!(out["n"], json!(42));
         assert_eq!(out["b"], json!(true));
         assert_eq!(out["s"], json!("hi"));
         assert_eq!(out["arr"], json!([1, 2]));
-    }
-
-    #[test]
-    fn apply_preset_from_bool_and_string() {
-        let pack = parse(
-            r#"{
-            "config_path":"x",
-            "preset": {
-                "useLocalTor": { "from": "feather_use_local_tor" },
-                "socks5Host":  { "from": "socks5_host" }
-            }
-        }"#,
-        );
-        let u = apply(&pack, SeedPreset::Ubuntu, 1);
-        assert_eq!(u["useLocalTor"], json!(true));
-        assert_eq!(u["socks5Host"], json!("127.0.0.1"));
-        let w = apply(&pack, SeedPreset::Whonix, 1);
-        assert_eq!(w["useLocalTor"], json!(false));
-        assert_eq!(w["socks5Host"], json!("10.152.152.10"));
-    }
-
-    #[test]
-    fn apply_preset_from_drop_if_when_condition_true() {
-        // useLocalTor=true under Ubuntu → drop socks5Host.
-        let pack = parse(
-            r#"{
-            "config_path":"x",
-            "preset": {
-                "socks5Host": { "from":"socks5_host", "drop_if":"feather_use_local_tor" }
-            }
-        }"#,
-        );
-        let u = apply(&pack, SeedPreset::Ubuntu, 1);
-        assert!(!u.contains_key("socks5Host"));
-        // Whonix: useLocalTor=false → key kept.
-        let w = apply(&pack, SeedPreset::Whonix, 1);
-        assert_eq!(w["socks5Host"], json!("10.152.152.10"));
-    }
-
-    #[test]
-    fn apply_preset_from_drop_if_removes_existing_key() {
-        // Pre-populate base with the key; drop_if=true should remove it.
-        let pack = parse(
-            r#"{
-            "config_path":"x",
-            "preset": {
-                "socks5Host": { "from":"socks5_host", "drop_if":"feather_use_local_tor" }
-            }
-        }"#,
-        );
-        let cfg = SeedConfig::for_preset(SeedPreset::Ubuntu);
-        let mut base = Map::new();
-        base.insert("socks5Host".into(), json!("stale"));
-        apply_pack(&pack, "test-app", &cfg, 1, &mut base).unwrap();
-        assert!(!base.contains_key("socks5Host"));
-    }
-
-    #[test]
-    fn apply_preset_format_composes_template() {
-        // After the Stage-4 slim, the only scalar preset fields are
-        // `socks5_host` (string) and `feather_use_local_tor` (bool),
-        // so format-template coverage uses these.
-        let pack = parse(
-            r#"{
-            "config_path":"x",
-            "preset": {
-                "msg": { "format":"host={socks5_host} local={feather_use_local_tor}" }
-            }
-        }"#,
-        );
-        let u = apply(&pack, SeedPreset::Ubuntu, 1);
-        assert_eq!(u["msg"], json!("host=127.0.0.1 local=true"));
-        let w = apply(&pack, SeedPreset::Whonix, 1);
-        assert_eq!(w["msg"], json!("host=10.152.152.10 local=false"));
-    }
-
-    #[test]
-    fn apply_preset_format_unknown_placeholder_errors() {
-        let pack = parse(
-            r#"{
-            "config_path":"x",
-            "preset": { "k": { "format":"x{not_a_field}y" } }
-        }"#,
-        );
-        let cfg = SeedConfig::for_preset(SeedPreset::Ubuntu);
-        let mut base = Map::new();
-        let err = apply_pack(&pack, "test-app", &cfg, 1, &mut base).unwrap_err();
-        assert!(err.to_string().contains("not_a_field"));
-    }
-
-    #[test]
-    fn apply_preset_from_unknown_field_errors() {
-        let pack = parse(
-            r#"{
-            "config_path":"x",
-            "preset": { "k": { "from": "no_such" } }
-        }"#,
-        );
-        let cfg = SeedConfig::for_preset(SeedPreset::Ubuntu);
-        let mut base = Map::new();
-        let err = apply_pack(&pack, "test-app", &cfg, 1, &mut base).unwrap_err();
-        assert!(err.to_string().contains("no_such"));
     }
 
     #[test]
@@ -1247,12 +847,12 @@ mod tests {
             "rotation": { "skin": { "values": ["A","B","C"] } }
         }"#,
         );
-        assert_eq!(apply(&pack, SeedPreset::Ubuntu, 1)["skin"], json!("A"));
-        assert_eq!(apply(&pack, SeedPreset::Ubuntu, 2)["skin"], json!("B"));
-        assert_eq!(apply(&pack, SeedPreset::Ubuntu, 3)["skin"], json!("C"));
-        assert_eq!(apply(&pack, SeedPreset::Ubuntu, 4)["skin"], json!("A"));
+        assert_eq!(apply(&pack, 1)["skin"], json!("A"));
+        assert_eq!(apply(&pack, 2)["skin"], json!("B"));
+        assert_eq!(apply(&pack, 3)["skin"], json!("C"));
+        assert_eq!(apply(&pack, 4)["skin"], json!("A"));
         // instance_index=0 should be treated as 1 (saturating_sub).
-        assert_eq!(apply(&pack, SeedPreset::Ubuntu, 0)["skin"], json!("A"));
+        assert_eq!(apply(&pack, 0)["skin"], json!("A"));
     }
 
     #[test]
@@ -1283,35 +883,9 @@ mod tests {
             "rotation": { "k": { "values": [] } }
         }"#,
         );
-        let cfg = SeedConfig::for_preset(SeedPreset::Ubuntu);
         let mut base = Map::new();
-        let err = apply_pack(&pack, "test-app", &cfg, 1, &mut base).unwrap_err();
+        let err = apply_pack(&pack, 1, &mut base).unwrap_err();
         assert!(err.to_string().contains("empty"));
-    }
-
-    #[test]
-    fn validate_rejects_unknown_preset_from_field() {
-        let lib = SeedPackLibrary::from_pairs(vec![(
-            "p1",
-            r#"{"config_path":"x","preset":{"k":{"from":"no_such"}}}"#,
-        )])
-        .unwrap();
-        let err = lib.validate().unwrap_err().to_string();
-        assert!(err.contains("p1") && err.contains("no_such"), "got: {err}");
-    }
-
-    #[test]
-    fn validate_rejects_unknown_format_placeholder() {
-        let lib = SeedPackLibrary::from_pairs(vec![(
-            "p2",
-            r#"{"config_path":"x","preset":{"k":{"format":"a{not_a_field}b"}}}"#,
-        )])
-        .unwrap();
-        let err = lib.validate().unwrap_err().to_string();
-        assert!(
-            err.contains("p2") && err.contains("not_a_field"),
-            "got: {err}"
-        );
     }
 
     // `validate_rejects_scalar_field_used_as_array` was retired with
@@ -1320,20 +894,6 @@ mod tests {
     // `rotation_from_preset_array_variant_is_no_longer_a_valid_pack_shape`
     // above — `serde_json::from_str::<SeedPack>` itself rejects the
     // legacy shape before it ever reaches `validate`.
-
-    #[test]
-    fn validate_rejects_non_bool_drop_if() {
-        let lib = SeedPackLibrary::from_pairs(vec![(
-            "p4",
-            r#"{"config_path":"x","preset":{"k":{"from":"socks5_host","drop_if":"socks5_host"}}}"#,
-        )])
-        .unwrap();
-        let err = lib.validate().unwrap_err().to_string();
-        assert!(
-            err.contains("p4") && err.contains("not a bool"),
-            "got: {err}"
-        );
-    }
 
     #[test]
     fn validate_rejects_empty_config_path() {
@@ -1345,17 +905,12 @@ mod tests {
     #[test]
     fn validate_accepts_realistic_packs() {
         // Same JSON shapes the companion seed-pack repo ships for the
-        // three real apps after the Stage-3 / Stage-4 migration to
-        // the `port` verb.
+        // three real apps.
         let feather = r#"{
             "config_path":"{appimage}.config/feather/settings.json",
             "first_run_args":[],
-            "static":{"proxy":1,"torOnlyAllowOnion":true,"torPrivacyLevel":2},
-            "preset":{
-                "useLocalTor":{"from":"feather_use_local_tor"},
-                "socks5Host":{"port":{"isolation":"dest-addr","field":"host","drop_if":"feather_use_local_tor"}},
-                "socks5Port":{"port":{"isolation":"dest-addr","field":"port","as_string":true}}
-            },
+            "static":{"torOnlyAllowOnion":true,"torPrivacyLevel":2},
+            "proxy_setup":{"app":"feather"},
             "rotation":{
                 "skin":{"values":["Breeze/Light","Breeze/Dark","Breeze/Light"]}
             }
@@ -1364,12 +919,12 @@ mod tests {
             "config_path":"{appimage}.home/.electrum/config",
             "first_run_args":["--offline"],
             "static":{"oneserver":true,"server":"x.onion:50002:s"},
-            "preset":{"proxy":{"port":{"isolation":"dest-addr","field":"url"}}}
+            "proxy_setup":{"app":"electrum-btc"}
         }"#;
         let ltc = r#"{
             "config_path":"{appimage}.home/.electrum-ltc/config",
             "first_run_args":["--offline"],
-            "preset":{"proxy":{"port":{"isolation":"dest-addr","field":"url"}}}
+            "proxy_setup":{"app":"electrum-ltc"}
         }"#;
         let lib = SeedPackLibrary::from_pairs(vec![
             ("feather", feather),
@@ -1429,353 +984,5 @@ mod tests {
                 "pack {id}: config_path should be non-empty"
             );
         }
-    }
-}
-
-#[cfg(test)]
-mod port_verb_tests {
-    use super::*;
-    use crate::seed::{SeedConfig, SeedPreset};
-    use std::io::Write;
-    use std::os::unix::fs::PermissionsExt;
-    use std::path::PathBuf;
-
-    fn tmpdir(tag: &str) -> PathBuf {
-        let d = std::env::temp_dir().join(format!(
-            "aic-port-verb-{}-{}-{}",
-            tag,
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
-        let _ = std::fs::remove_dir_all(&d);
-        std::fs::create_dir_all(&d).unwrap();
-        d
-    }
-
-    /// Write a stub `portmux-port` to `dir`. The stub appends one
-    /// line per invocation to `call_log` so caching tests can count
-    /// spawns, and echoes a fixed JSON document with a port derived
-    /// from `--instance`.
-    fn write_stub(dir: &std::path::Path, call_log: &std::path::Path) -> PathBuf {
-        let p = dir.join("portmux-port");
-        let body = format!(
-            "#!/bin/sh
-echo \"$@\" >> {log_q}
-APP=\"\"
-INST=\"\"
-ISO=\"\"
-while [ $# -gt 0 ]; do
-  case \"$1\" in
-    --app) APP=\"$2\"; shift 2 ;;
-    --instance) INST=\"$2\"; shift 2 ;;
-    --isolation) ISO=\"$2\"; shift 2 ;;
-    *) shift ;;
-  esac
-done
-# Synthesise a port: 9160 + instance.
-PORT=$((9160 + INST))
-printf '{{\"host\":\"10.152.152.10\",\"port\":%s,\"isolation\":\"%s\",\"source_file\":\"/tmp/wp.conf\",\"tor_reload_done\":false,\"already_assigned\":false}}\\n' \"$PORT\" \"$ISO\"
-",
-            log_q = sh_quote(call_log.to_str().unwrap())
-        );
-        let mut f = std::fs::File::create(&p).unwrap();
-        f.write_all(body.as_bytes()).unwrap();
-        let mut perms = std::fs::metadata(&p).unwrap().permissions();
-        perms.set_mode(0o700);
-        std::fs::set_permissions(&p, perms).unwrap();
-        p
-    }
-
-    fn sh_quote(s: &str) -> String {
-        let mut out = String::with_capacity(s.len() + 2);
-        out.push('\'');
-        for c in s.chars() {
-            if c == '\'' {
-                out.push_str("'\\''");
-            } else {
-                out.push(c);
-            }
-        }
-        out.push('\'');
-        out
-    }
-
-    fn with_bin<R>(stub: &std::path::Path, f: impl FnOnce() -> R) -> R {
-        let guard = crate::portmux_port::env_gate()
-            .lock()
-            .unwrap_or_else(|p| p.into_inner());
-        let prev = std::env::var_os(crate::portmux_port::ENV_PORTMUX_PORT_BIN);
-        // SAFETY: `env_gate` serialises access to this process-wide
-        // env var across this test module's parallel test threads,
-        // and we restore the previous value before returning.
-        unsafe { std::env::set_var(crate::portmux_port::ENV_PORTMUX_PORT_BIN, stub) };
-        let out = f();
-        unsafe {
-            match prev {
-                Some(p) => std::env::set_var(crate::portmux_port::ENV_PORTMUX_PORT_BIN, p),
-                None => std::env::remove_var(crate::portmux_port::ENV_PORTMUX_PORT_BIN),
-            }
-        }
-        drop(guard);
-        out
-    }
-
-    #[test]
-    fn port_verb_field_port_returns_u16_for_current_instance() {
-        let dir = tmpdir("p-port");
-        let log = dir.join("calls.log");
-        let stub = write_stub(&dir, &log);
-
-        let pack: SeedPack = serde_json::from_str(
-            r#"{
-              "config_path": "x.json",
-              "preset": {
-                "socks5Port": {
-                  "port": {
-                    "isolation": "dest-addr",
-                    "field": "port"
-                  }
-                }
-              }
-            }"#,
-        )
-        .unwrap();
-        let cfg = SeedConfig::for_preset(SeedPreset::Ubuntu);
-        let mut base = Map::new();
-        with_bin(&stub, || {
-            apply_pack(&pack, "feather", &cfg, 4, &mut base).unwrap()
-        });
-        assert_eq!(base["socks5Port"], json!(9164));
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn port_verb_field_url_composes_socks5_uri() {
-        let dir = tmpdir("p-url");
-        let log = dir.join("calls.log");
-        let stub = write_stub(&dir, &log);
-
-        let pack: SeedPack = serde_json::from_str(
-            r#"{
-              "config_path": "x.json",
-              "preset": {
-                "proxy": {
-                  "port": {
-                    "isolation": "dest-addr",
-                    "field": "url"
-                  }
-                }
-              }
-            }"#,
-        )
-        .unwrap();
-        let cfg = SeedConfig::for_preset(SeedPreset::Whonix);
-        let mut base = Map::new();
-        with_bin(&stub, || {
-            apply_pack(&pack, "electrum-btc", &cfg, 1, &mut base).unwrap()
-        });
-        assert_eq!(base["proxy"], json!("socks5:10.152.152.10:9161"));
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn port_verb_as_string_emits_quoted_number() {
-        let dir = tmpdir("p-str");
-        let log = dir.join("calls.log");
-        let stub = write_stub(&dir, &log);
-
-        let pack: SeedPack = serde_json::from_str(
-            r#"{
-              "config_path": "x.json",
-              "preset": {
-                "socks5Port": {
-                  "port": {
-                    "isolation": "dest-addr",
-                    "field": "port",
-                    "as_string": true
-                  }
-                }
-              }
-            }"#,
-        )
-        .unwrap();
-        let cfg = SeedConfig::for_preset(SeedPreset::Ubuntu);
-        let mut base = Map::new();
-        with_bin(&stub, || {
-            apply_pack(&pack, "feather", &cfg, 2, &mut base).unwrap()
-        });
-        assert_eq!(base["socks5Port"], json!("9162"));
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn port_verb_caches_within_single_apply_pack_call() {
-        let dir = tmpdir("p-cache");
-        let log = dir.join("calls.log");
-        let stub = write_stub(&dir, &log);
-
-        // Two port verbs on the same (app, instance, isolation) key
-        // should fire `portmux-port ensure` exactly once.
-        let pack: SeedPack = serde_json::from_str(
-            r#"{
-              "config_path": "x.json",
-              "preset": {
-                "socks5Host": {
-                  "port": { "isolation": "dest-addr", "field": "host" }
-                },
-                "socks5Port": {
-                  "port": { "isolation": "dest-addr", "field": "port" }
-                }
-              }
-            }"#,
-        )
-        .unwrap();
-        let cfg = SeedConfig::for_preset(SeedPreset::Whonix);
-        let mut base = Map::new();
-        with_bin(&stub, || {
-            apply_pack(&pack, "feather", &cfg, 7, &mut base).unwrap()
-        });
-        assert_eq!(base["socks5Host"], json!("10.152.152.10"));
-        assert_eq!(base["socks5Port"], json!(9167));
-        let lines = std::fs::read_to_string(&log).unwrap_or_default();
-        let call_count = lines.lines().count();
-        assert_eq!(
-            call_count, 1,
-            "expected exactly 1 portmux-port spawn, got {call_count}: {lines}"
-        );
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn port_verb_explicit_app_overrides_pack_id() {
-        let dir = tmpdir("p-app");
-        let log = dir.join("calls.log");
-        let stub = write_stub(&dir, &log);
-
-        let pack: SeedPack = serde_json::from_str(
-            r#"{
-              "config_path": "x.json",
-              "preset": {
-                "socks5Port": {
-                  "port": {
-                    "app": "shared-tor-pool",
-                    "isolation": "dest-addr",
-                    "field": "port"
-                  }
-                }
-              }
-            }"#,
-        )
-        .unwrap();
-        let cfg = SeedConfig::for_preset(SeedPreset::Ubuntu);
-        let mut base = Map::new();
-        with_bin(&stub, || {
-            apply_pack(&pack, "feather", &cfg, 1, &mut base).unwrap()
-        });
-        let calls = std::fs::read_to_string(&log).unwrap();
-        assert!(
-            calls.contains("--app shared-tor-pool"),
-            "expected explicit --app override in stub log, got: {calls}"
-        );
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn port_verb_drop_if_removes_key_when_local_tor_used() {
-        let dir = tmpdir("p-drop");
-        let log = dir.join("calls.log");
-        let stub = write_stub(&dir, &log);
-
-        let pack: SeedPack = serde_json::from_str(
-            r#"{
-              "config_path": "x.json",
-              "preset": {
-                "socks5Host": {
-                  "port": {
-                    "isolation": "dest-addr",
-                    "field": "host",
-                    "drop_if": "feather_use_local_tor"
-                  }
-                }
-              }
-            }"#,
-        )
-        .unwrap();
-        // Ubuntu preset has feather_use_local_tor=true; the host key
-        // must be dropped and `portmux-port` never called.
-        let cfg = SeedConfig::for_preset(SeedPreset::Ubuntu);
-        let mut base = Map::new();
-        base.insert("socks5Host".into(), json!("stale"));
-        with_bin(&stub, || {
-            apply_pack(&pack, "feather", &cfg, 1, &mut base).unwrap()
-        });
-        assert!(base.get("socks5Host").is_none());
-        let lines = std::fs::read_to_string(&log).unwrap_or_default();
-        assert!(
-            lines.is_empty(),
-            "expected no portmux-port spawns when drop_if fires, got: {lines}"
-        );
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn port_verb_validate_rejects_as_string_on_non_port_field() {
-        let pack: std::result::Result<SeedPack, _> = serde_json::from_str(
-            r#"{
-              "config_path": "x.json",
-              "preset": {
-                "socks5Host": {
-                  "port": {
-                    "isolation": "dest-addr",
-                    "field": "host",
-                    "as_string": true
-                  }
-                }
-              }
-            }"#,
-        );
-        let pack = pack.expect("schema-valid, semantic-invalid pack still parses");
-        let mut lib = SeedPackLibrary::default();
-        lib.packs.insert("feather".into(), pack);
-        let err = lib.validate().unwrap_err();
-        let msg = format!("{err}");
-        assert!(msg.contains("as_string only applies"), "got: {msg}");
-    }
-
-    #[test]
-    fn port_verb_supports_arbitrary_instance_indices() {
-        // The whole reason this verb exists: Feather#4, #5, ... each
-        // get their own port. Today's array-shape caps at 3.
-        let dir = tmpdir("p-many");
-        let log = dir.join("calls.log");
-        let stub = write_stub(&dir, &log);
-
-        let pack: SeedPack = serde_json::from_str(
-            r#"{
-              "config_path": "x.json",
-              "preset": {
-                "socks5Port": {
-                  "port": { "isolation": "dest-addr", "field": "port" }
-                }
-              }
-            }"#,
-        )
-        .unwrap();
-        let cfg = SeedConfig::for_preset(SeedPreset::Whonix);
-        let mut ports = Vec::new();
-        for n in 1..=12u32 {
-            let mut base = Map::new();
-            with_bin(&stub, || {
-                apply_pack(&pack, "feather", &cfg, n, &mut base).unwrap()
-            });
-            ports.push(base["socks5Port"].as_u64().unwrap());
-        }
-        // Stub returns 9160+instance — verify each call produced a
-        // distinct port and no panic / cap was hit.
-        assert_eq!(ports, (1..=12u64).map(|n| 9160 + n).collect::<Vec<_>>());
-        let _ = std::fs::remove_dir_all(&dir);
     }
 }

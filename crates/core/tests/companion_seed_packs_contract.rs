@@ -4,11 +4,11 @@
 //!
 //! Verifies:
 //! - Every `*.json` parses through serde with `deny_unknown_fields`.
-//! - Every pack validates against the active `SeedConfig` schema.
+//! - Every pack passes the loader's validation, which refuses the removed
+//!   `preset` section and `port` verb by name.
 //! - The three apps we're known to ship (`feather`, `electrum-btc`,
-//!   `electrum-ltc`) all use the new `port` verb rather than the
-//!   legacy `from_preset_array` / `format` references to removed
-//!   fields.
+//!   `electrum-ltc`) declare `proxy_setup`, so portmux writes their
+//!   proxy settings.
 
 use std::path::PathBuf;
 
@@ -59,24 +59,21 @@ fn companion_seed_packs_parse_and_validate() {
 }
 
 #[test]
-fn companion_packs_use_port_verb_not_legacy_port_fields() {
+fn companion_packs_declare_proxy_setup() {
     let Some(dir) = companion_pack_dir() else {
         eprintln!("skipping: companion seed-pack repo not found");
         return;
     };
-    for entry in std::fs::read_dir(&dir).unwrap() {
-        let path = entry.unwrap().path();
-        if path.extension().and_then(|s| s.to_str()) != Some("json") {
-            continue;
-        }
-        let raw = std::fs::read_to_string(&path).unwrap();
-        for legacy in ["feather_ports", "electrum_btc_port", "electrum_ltc_port"] {
-            assert!(
-                !raw.contains(legacy),
-                "{} still references legacy preset field `{legacy}`; \
-                 migrate to the `port` verb",
-                path.display()
-            );
-        }
+    let lib = SeedPackLibrary::load_from_dir(&dir)
+        .expect("load companion packs")
+        .expect("companion repo has no *.json packs");
+    for id in ["feather", "electrum-btc", "electrum-ltc"] {
+        let pack = lib
+            .get(id)
+            .unwrap_or_else(|| panic!("companion repo has no `{id}` pack"));
+        assert!(
+            pack.proxy_setup.is_some(),
+            "{id} has no proxy_setup, so seeding would leave it with no proxy"
+        );
     }
 }
