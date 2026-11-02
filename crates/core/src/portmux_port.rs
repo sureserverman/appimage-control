@@ -14,7 +14,7 @@
 //! same env var is the user-facing override for hosts that install
 //! portmux outside the default `PATH`.
 
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::path::Path;
 use std::process::Stdio;
 
@@ -109,13 +109,33 @@ struct ConfigureOutput {
 /// `config`, stamping `desktop_app_id` on the assignment. Idempotent: the same
 /// app and instance keep their port.
 ///
-/// `app` is a portmux recipe id. A failure leaves `config` as it was, except
-/// that portmux may keep the allocation so a retry finds it.
+/// `app` is a portmux recipe id. A failing exit leaves `config` as it was,
+/// except that portmux may keep the allocation so a retry finds it.
 pub fn configure_app(
     app: &str,
     instance: u32,
     config: &Path,
     desktop_app_id: &str,
+) -> Result<ConfiguredApp> {
+    run_configure(
+        app,
+        instance,
+        config,
+        &[OsStr::new("--desktop-app-id"), OsStr::new(desktop_app_id)],
+    )
+}
+
+/// Write `app`'s existing assignment into `config` again, so portmux's proxy
+/// settings win over anything written since. Never changes tor's config.
+pub fn rewrite_app_config(app: &str, instance: u32, config: &Path) -> Result<ConfiguredApp> {
+    run_configure(app, instance, config, &[OsStr::new("--write-only")])
+}
+
+fn run_configure(
+    app: &str,
+    instance: u32,
+    config: &Path,
+    extra: &[&OsStr],
 ) -> Result<ConfiguredApp> {
     let bin =
         std::env::var_os(ENV_PORTMUX_PORT_BIN).unwrap_or_else(|| OsString::from("portmux-port"));
@@ -127,8 +147,7 @@ pub fn configure_app(
         .arg(instance.to_string())
         .arg("--config")
         .arg(config)
-        .arg("--desktop-app-id")
-        .arg(desktop_app_id)
+        .args(extra)
         .arg("--json-v2")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -156,7 +175,12 @@ pub fn configure_app(
         }));
     }
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let parsed: ConfigureOutput = serde_json::from_str(stdout.trim()).map_err(Error::Json)?;
+    let parsed: ConfigureOutput = serde_json::from_str(stdout.trim()).map_err(|e| {
+        Error::InvalidPath(format!(
+            "Seeding helper succeeded for {app}#{instance}, but its output was not JSON ({e}): {}",
+            stdout.trim()
+        ))
+    })?;
     Ok(ConfiguredApp {
         manual_action: parsed.manual_action,
         warnings: stderr,
@@ -165,7 +189,7 @@ pub fn configure_app(
 
 /// Test-only mutex gate around the
 /// `APPIMAGE_CONTROL_PORTMUX_PORT_BIN` env var so the runner tests
-/// in this module and the `port_verb` tests in `seed_pack` don't
+/// in this module and the `proxy_setup` tests in `seed` don't
 /// race. Cargo runs both modules' tests in parallel within one
 /// process; serialise here.
 #[cfg(test)]
@@ -320,6 +344,34 @@ exit 1"#
     }
 
     #[test]
+    fn rewrite_passes_write_only_and_no_desktop_id() {
+        let dir = tmpdir("rewrite");
+        let (stub, log) = logging_stub(&dir, r#"echo '{"version":2}'"#);
+        let cfg = dir.join("settings.json");
+        with_bin(&stub, || rewrite_app_config("feather", 4, &cfg).unwrap());
+        let want = format!(
+            "configure-app\n--app\nfeather\n--instance\n4\n--config\n{}\n--write-only\n--json-v2\n",
+            cfg.display()
+        );
+        assert_eq!(std::fs::read_to_string(&log).unwrap(), want);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn success_with_unreadable_output_names_the_helper() {
+        let dir = tmpdir("garbled");
+        let stub = write_stub(&dir, "#!/bin/sh\necho 'not json'\n");
+        let err = with_bin(&stub, || {
+            configure_app("feather", 1, &dir.join("c"), "d").unwrap_err()
+        });
+        let msg = format!("{err}");
+        assert!(msg.contains("feather#1"), "got: {msg}");
+        assert!(msg.contains("not JSON"), "got: {msg}");
+        assert!(msg.contains("not json"), "shows the output: {msg}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn missing_binary_yields_install_hint() {
         let dir = tmpdir("miss");
         let phantom = dir.join("does-not-exist");
@@ -327,10 +379,8 @@ exit 1"#
             configure_app("feather", 1, &dir.join("c"), "d").unwrap_err()
         });
         let msg = format!("{err}");
-        assert!(
-            msg.contains("Seeding helper not found") || msg.contains("IO error"),
-            "got: {msg}"
-        );
+        assert!(msg.contains("Seeding helper not found"), "got: {msg}");
+        assert!(msg.contains("sudo apt install portmux"), "got: {msg}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

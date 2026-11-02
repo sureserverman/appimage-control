@@ -25,6 +25,11 @@ fn seeding_proxies_a_wallet_through_the_real_binary() {
     }
     let torrc = std::env::var_os("TORRC").expect("TORRC must point at a temp file");
     let torrc = std::path::PathBuf::from(torrc);
+    assert!(
+        torrc.starts_with(std::env::temp_dir()),
+        "refusing to run: TORRC must be under the temp dir, not {}",
+        torrc.display()
+    );
 
     let tmp = tempfile::tempdir().unwrap();
     let filename = "feather.AppImage";
@@ -35,7 +40,7 @@ fn seeding_proxies_a_wallet_through_the_real_binary() {
     fs::write(
         seeds.join("feather.json"),
         format!(
-            r#"{{"config_path":"{rel_cfg}","static":{{"torPrivacyLevel":2}},"proxy_setup":{{"app":"feather"}}}}"#
+            r#"{{"config_path":"{rel_cfg}","static":{{"torPrivacyLevel":2,"socks5Port":"1"}},"proxy_setup":{{"app":"feather"}}}}"#
         ),
     )
     .unwrap();
@@ -106,6 +111,7 @@ fn seeding_proxies_a_wallet_through_the_real_binary() {
     assert_eq!(v["torPrivacyLevel"], 2, "pack key lost: {v}");
     let port = v["socks5Port"].as_str().expect("portmux wrote no port");
     assert!(port.parse::<u16>().is_ok(), "not a port: {port}");
+    assert_ne!(port, "1", "the pack's key replaced portmux's: {v}");
 
     let dropin = torrc.parent().unwrap().join("torrc.d/50-portmux.conf");
     let dropin = fs::read_to_string(&dropin).unwrap();
@@ -113,5 +119,8 @@ fn seeding_proxies_a_wallet_through_the_real_binary() {
         dropin.contains("appimage-control-feather-4"),
         "desktop id not stamped: {dropin}"
     );
-    assert!(dropin.contains(port), "port not in the drop-in: {dropin}");
+    assert!(
+        dropin.contains(&format!("SocksPort {port} ")),
+        "port not in the drop-in: {dropin}"
+    );
 }

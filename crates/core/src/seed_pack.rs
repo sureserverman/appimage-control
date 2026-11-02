@@ -419,6 +419,14 @@ fn rotation_index(instance_index: u32, len: usize) -> usize {
     (instance_index.saturating_sub(1) as usize) % len
 }
 
+/// The one lock for tests that read or set the seeds dir env vars. Every test
+/// that seeds reads them, so the tests of `seed` and of this module share it.
+#[cfg(test)]
+pub(crate) fn seeds_env_lock() -> &'static std::sync::Mutex<()> {
+    static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+    LOCK.get_or_init(|| std::sync::Mutex::new(()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -578,8 +586,7 @@ mod tests {
     }
 
     fn env_lock() -> &'static std::sync::Mutex<()> {
-        static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
-        LOCK.get_or_init(|| std::sync::Mutex::new(()))
+        seeds_env_lock()
     }
 
     /// Build a tempdir with `data/seeds/<id>.json` files so the ancestor
