@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
 # Verify the portmux-port wiring on a GTK-capable host.
 #
-# Runs a sequence of compile + behaviour checks for the changes in
-# commits 70e4fa5 (portmux: port-backend) and e03bfaa7
-# (appimage-control: route per-instance port resolution through
-# portmux-port). Captures full output to a log file you can paste
-# back for review.
+# Runs a sequence of compile + behaviour checks for seeding's hand-off to
+# `portmux-port configure-app`. Captures full output to a log file you can
+# paste back for review.
 #
 # Usage:
 #   ./scripts/verify-portmux-port-wiring.sh
@@ -73,6 +71,7 @@ run() {
 # --- Setup -------------------------------------------------------------------
 
 TMPDIR="$(mktemp -d -t aic-verify-XXXXXX)"
+mkdir -p "$TMPDIR/home"
 cleanup() { rm -rf "$TMPDIR" || true; }
 trap cleanup EXIT INT TERM
 
@@ -90,7 +89,7 @@ hdr "1. Environment probes"
 
 if command -v portmux-port >/dev/null 2>&1; then
     info "portmux-port found at $(command -v portmux-port)"
-    portmux-port --help 2>&1 | head -3 | sed 's/^/    | /' || true
+    portmux-port configure-app --help 2>&1 | head -3 | sed 's/^/    | /' || true
     REAL_PORTMUX=1
 else
     warn "portmux-port not on PATH — section 4 will skip the happy-path test"
@@ -171,7 +170,7 @@ if [ "$HAVE_GTK" = "1" ]; then
         info "→ run with APPIMAGE_CONTROL_PORTMUX_PORT_BIN=/nonexistent/port-helper"
         OUT_FILE="$TMPDIR/missing-mp.log"
         set +e
-        APPIMAGE_CONTROL_PORTMUX_PORT_BIN=/nonexistent/port-helper \
+        HOME="$TMPDIR/home" APPIMAGE_CONTROL_PORTMUX_PORT_BIN=/nonexistent/port-helper \
             "$BIN" --seed-settings feather \
             > "$OUT_FILE" 2>&1
         RC=$?
@@ -207,18 +206,11 @@ hdr "4b. CLI pre-flight: probe passes when portmux-port is reachable"
 STUB="$TMPDIR/portmux-port"
 cat > "$STUB" <<'STUB_EOF'
 #!/bin/sh
-# Stub portmux-port for the appimage-control wiring smoke test.
-# Echoes a fixed EnsuredPort JSON when asked to `ensure`, otherwise
-# just exits 0 (for --help).
-case "${1:-}" in
-    ensure)
-        printf '{"host":"127.0.0.1","port":9999,"isolation":"dest-addr","source_file":"/tmp/stub.conf","tor_reload_done":false,"already_assigned":false}\n'
-        exit 0
-        ;;
-    *)
-        exit 0
-        ;;
-esac
+# Stub portmux-port for the appimage-control wiring smoke test. Answers
+# `configure-app` only, so a probe that asks for anything else fails.
+[ "${1:-}" = configure-app ] || exit 1
+[ "${2:-}" = --help ] && exit 0
+printf '{"version":2}\n'
 STUB_EOF
 chmod +x "$STUB"
 
@@ -226,7 +218,7 @@ if [ "$HAVE_GTK" = "1" ] && [ -x "${BIN:-}" ]; then
     info "→ run with APPIMAGE_CONTROL_PORTMUX_PORT_BIN=$STUB"
     OUT_FILE="$TMPDIR/stub-mp.log"
     set +e
-    APPIMAGE_CONTROL_PORTMUX_PORT_BIN="$STUB" \
+    HOME="$TMPDIR/home" APPIMAGE_CONTROL_PORTMUX_PORT_BIN="$STUB" \
         "$BIN" --seed-settings feather \
         > "$OUT_FILE" 2>&1
     RC=$?
@@ -247,6 +239,37 @@ if [ "$HAVE_GTK" = "1" ] && [ -x "${BIN:-}" ]; then
     fi
 else
     warn "4b skipped: GUI crate or binary unavailable"
+fi
+
+# 4c. A portmux older than configure-app answers plain --help but not the
+# subcommand. It must get the same install hint as a missing one.
+hdr "4c. CLI pre-flight: a portmux without configure-app gets the hint"
+
+OLD_STUB="$TMPDIR/old-portmux-port"
+cat > "$OLD_STUB" <<'STUB_EOF'
+#!/bin/sh
+[ "${1:-}" = --help ] && exit 0
+exit 1
+STUB_EOF
+chmod +x "$OLD_STUB"
+
+if [ "$HAVE_GTK" = "1" ] && [ -x "${BIN:-}" ]; then
+    OUT_FILE="$TMPDIR/old-mp.log"
+    set +e
+    HOME="$TMPDIR/home" APPIMAGE_CONTROL_PORTMUX_PORT_BIN="$OLD_STUB" \
+        "$BIN" --seed-settings feather \
+        > "$OUT_FILE" 2>&1
+    RC=$?
+    set -e
+    info "  exit code: $RC"
+    sed 's/^/    | /' < "$OUT_FILE"
+    if [ "$RC" -ne 0 ] && grep -q "sudo apt install portmux" "$OUT_FILE"; then
+        pass "4c: old portmux bailed with non-zero exit + install hint"
+    else
+        fail "4c: expected non-zero exit and install hint; got exit=$RC"
+    fi
+else
+    warn "4c skipped: GUI crate or binary unavailable"
 fi
 
 # --- Section 5: GUI smoke (optional) -----------------------------------------

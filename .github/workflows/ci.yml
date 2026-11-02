@@ -54,8 +54,10 @@ jobs:
         #     drifts)
         #   - CLI pre-flight test 4a: missing portmux-port → install
         #     hint + non-zero exit
-        #   - CLI pre-flight test 4b: stub portmux-port → probe passes
-        #     and seed loop reaches the per-instance phase
+        #   - CLI pre-flight test 4b: stub answering `configure-app` →
+        #     probe passes and seed loop reaches the per-instance phase
+        #   - CLI pre-flight test 4c: portmux without `configure-app` →
+        #     install hint + non-zero exit
         #   - GUI startup smoke under xvfb-run (catches init panics
         #     from the portmux_port_probe_runtime wiring in main.rs)
         # Section 2's optional "build portmux-port from sibling repo"
