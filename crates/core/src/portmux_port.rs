@@ -1,12 +1,10 @@
-//! Thin runner around the host's `portmux-port ensure` CLI.
+//! Thin runner around the host's `portmux-port configure-app` CLI.
 //!
-//! On both Ubuntu and Whonix the canonical port-assignment tool is
-//! `portmux-port`, shipped by the portmux `.deb`. This module is
-//! the *only* place in `appimage-control-core` that knows about that
-//! CLI. Higher-level seeding code calls [`ensure_port`] with the
-//! `(app, instance, purpose, isolation)` tuple and gets back an
-//! [`EnsuredPort`] describing the host and port the seeded app
-//! should be pointed at.
+//! portmux owns per-app proxy setup: it picks the port and writes it into
+//! the app's own config. This module is the *only* place in
+//! `appimage-control-core` that knows about that CLI. Seeding calls
+//! [`configure_app`] with the recipe id, the instance, the config path and
+//! the desktop id, and holds no port, proxy host or isolation class.
 //!
 //! Flatpak: we shell out via [`crate::host_cmd::host_command`], which
 //! transparently wraps `flatpak-spawn --host` inside a sandbox.
@@ -17,6 +15,7 @@
 //! portmux outside the default `PATH`.
 
 use std::ffi::OsString;
+use std::path::Path;
 use std::process::Stdio;
 
 use serde::Deserialize;
@@ -34,8 +33,8 @@ pub const ENV_PORTMUX_PORT_BIN: &str = "APPIMAGE_CONTROL_PORTMUX_PORT_BIN";
 /// keep the underlying helper opaque to end users — only an install
 /// recipe + an optional override env var for power users.
 pub const INSTALL_HINT: &str = "\
-A required system helper for seeding is not installed. Install the \
-support package with:\n\
+A required system helper for seeding is not installed, or is too old. Install \
+or upgrade the support package with:\n\
   sudo apt install portmux\n\
 Power users can point at a non-default location by setting \
 APPIMAGE_CONTROL_PORTMUX_PORT_BIN=/path/to/binary.";
@@ -45,14 +44,9 @@ APPIMAGE_CONTROL_PORTMUX_PORT_BIN=/path/to/binary.";
 /// per seed) don't re-spawn the helper just to verify it's still
 /// installed.
 ///
-/// Callers should invoke this **before** the first
-/// [`ensure_port`] call in a seed run so the user gets a clear
-/// "install portmux" message instead of a per-instance spawn
-/// failure deep in the seeding loop.
-///
-/// Pass the result to the user; do not branch on it for control
-/// flow — `ensure_port` itself returns the same error if invoked
-/// after a failed probe.
+/// Callers should invoke this **before** the first [`configure_app`]
+/// call in a seed run so the user gets a clear "install portmux"
+/// message instead of a per-instance failure deep in the seeding loop.
 pub fn probe_runtime() -> std::result::Result<ProbeOutcome, String> {
     static CACHE: std::sync::OnceLock<std::result::Result<ProbeOutcome, String>> =
         std::sync::OnceLock::new();
@@ -65,14 +59,17 @@ pub struct ProbeOutcome {
     /// `"portmux-port"`, or `"flatpak-spawn --host portmux-port"`
     /// when running inside a sandbox). Surfaced for diagnostics
     /// only — callers should still drive subsequent calls through
-    /// [`ensure_port`].
+    /// [`configure_app`].
     pub invocation: String,
 }
 
 fn probe_runtime_uncached() -> std::result::Result<ProbeOutcome, String> {
     let bin =
         std::env::var_os(ENV_PORTMUX_PORT_BIN).unwrap_or_else(|| OsString::from("portmux-port"));
+    // Asks for the subcommand, not the top-level help: a portmux older than
+    // `configure-app` still answers plain `--help`.
     let status = host_command(&bin)
+        .arg("configure-app")
         .arg("--help")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -91,219 +88,79 @@ fn probe_runtime_uncached() -> std::result::Result<ProbeOutcome, String> {
     }
 }
 
-/// Tor listener kind, mirrored from `portmux-port`'s `--purpose` flag.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(u8)]
-pub enum Purpose {
-    Socks = 0,
-    Http = 1,
-    Trans = 2,
-    Dns = 3,
+/// What a successful [`configure_app`] leaves for the user to see. Holds no
+/// port or host: those are portmux's, and it already wrote them.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ConfiguredApp {
+    /// A step the user must take in the app, for an app portmux cannot
+    /// write (Telegram). `None` when the setup is complete.
+    pub manual_action: Option<String>,
+    /// portmux's stderr on success, such as a tor reload warning.
+    pub warnings: String,
 }
 
-impl Purpose {
-    pub fn as_cli_arg(self) -> &'static str {
-        match self {
-            Purpose::Socks => "socks",
-            Purpose::Http => "http",
-            Purpose::Trans => "trans",
-            Purpose::Dns => "dns",
-        }
-    }
+#[derive(Deserialize)]
+struct ConfigureOutput {
+    #[serde(default)]
+    manual_action: Option<String>,
 }
 
-/// Stream-isolation class, mirrored from `portmux-port`'s
-/// `--isolation` flag.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(u8)]
-pub enum IsolationClass {
-    None = 0,
-    DestAddr = 1,
-    DestPort = 2,
-    Both = 3,
-    HttpTunnel = 4,
-}
-
-impl IsolationClass {
-    pub fn as_cli_arg(self) -> &'static str {
-        match self {
-            IsolationClass::None => "none",
-            IsolationClass::DestAddr => "dest-addr",
-            IsolationClass::DestPort => "dest-port",
-            IsolationClass::Both => "both",
-            IsolationClass::HttpTunnel => "http-tunnel",
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn parse(s: &str) -> Option<Self> {
-        Some(match s.to_ascii_lowercase().as_str() {
-            "none" => IsolationClass::None,
-            "dest-addr" | "destaddr" => IsolationClass::DestAddr,
-            "dest-port" | "destport" => IsolationClass::DestPort,
-            "both" => IsolationClass::Both,
-            "http-tunnel" | "httptunnel" => IsolationClass::HttpTunnel,
-            _ => return None,
-        })
-    }
-}
-
-/// Mirror of portmux's `port_ensure::EnsuredPort`. Fields with
-/// `#[serde(default)]` keep us resilient to additive changes on the
-/// portmux side.
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-pub struct EnsuredPort {
-    pub host: String,
-    pub port: u16,
-    #[serde(default)]
-    pub isolation: String,
-    #[serde(default)]
-    pub source_file: String,
-    #[serde(default)]
-    pub tor_reload_done: bool,
-    #[serde(default)]
-    pub already_assigned: bool,
-
-    // ── Port-allocation API v2 fields (integration arc portmux-port-api-v2).
-    // Populated directly when the helper is invoked with `--json-v2`; left
-    // `None` on the v1 `--json` fallback and then synthesized by
-    // `fill_v2_defaults`. All optional so a v1-only portmux still parses.
-    /// Schema version reported by the helper (`Some(2)` on the v2 path).
-    #[serde(default)]
-    pub version: Option<u8>,
-    /// Proxy scheme: `"http"` for an HTTPTunnel listener, else `"socks5"`.
-    #[serde(default)]
-    pub scheme: Option<String>,
-    /// Ready-to-use proxy URL, e.g. `socks5h://127.0.0.1:9150`.
-    #[serde(default)]
-    pub proxy_url: Option<String>,
-}
-
-impl EnsuredPort {
-    /// Fill the v2-only fields (`version`/`scheme`/`proxy_url`) from the v1
-    /// data when `proxy_url` is absent — i.e. when this came from the v1
-    /// `--json` fallback. No-op when already populated (the `--json-v2`
-    /// path). Mirrors portmux's `From<&EnsuredPort> for EnsuredPortV2`:
-    /// `http-tunnel` → `http://host:port`, otherwise `socks5h://host:port`.
-    fn fill_v2_defaults(&mut self) {
-        if self.proxy_url.is_some() {
-            return;
-        }
-        let scheme = if self.isolation == "http-tunnel" {
-            "http"
-        } else {
-            "socks5"
-        };
-        let proxy_url = match scheme {
-            "http" => format!("http://{}:{}", self.host, self.port),
-            _ => format!("socks5h://{}:{}", self.host, self.port),
-        };
-        self.version.get_or_insert(2);
-        self.scheme.get_or_insert_with(|| scheme.to_string());
-        self.proxy_url = Some(proxy_url);
-    }
-}
-
-/// Look up — or, on first call, allocate — the host's port dedicated
-/// to `(app_label, instance)`. Idempotent: calling twice with the
-/// same arguments returns the same `EnsuredPort` and
-/// `already_assigned = true` the second time.
+/// Ask portmux to allocate `app`'s listener for `instance` and write it into
+/// `config`, stamping `desktop_app_id` on the assignment. Idempotent: the same
+/// app and instance keep their port.
 ///
-/// `host_loopback` is forwarded as portmux-port's `--host-loopback`.
-/// `127.0.0.1` is the right value for Ubuntu seed-time use; on Whonix
-/// the gateway address is baked into portmux and the loopback hint
-/// is ignored.
-pub fn ensure_port(
-    app_label: &str,
+/// `app` is a portmux recipe id. A failure leaves `config` as it was, except
+/// that portmux may keep the allocation so a retry finds it.
+pub fn configure_app(
+    app: &str,
     instance: u32,
-    purpose: Purpose,
-    isolation: IsolationClass,
-    host_loopback: &str,
-) -> Result<EnsuredPort> {
+    config: &Path,
+    desktop_app_id: &str,
+) -> Result<ConfiguredApp> {
     let bin =
         std::env::var_os(ENV_PORTMUX_PORT_BIN).unwrap_or_else(|| OsString::from("portmux-port"));
-
-    // Spawn the helper with a given JSON flag. Returns the raw output, or a
-    // mapped spawn error (e.g. the install hint when the binary is missing).
-    let run = |json_flag: &str| -> Result<std::process::Output> {
-        host_command(&bin)
-            .arg("ensure")
-            .arg("--app")
-            .arg(app_label)
-            .arg("--instance")
-            .arg(instance.to_string())
-            .arg("--purpose")
-            .arg(purpose.as_cli_arg())
-            .arg("--isolation")
-            .arg(isolation.as_cli_arg())
-            .arg("--host-loopback")
-            .arg(host_loopback)
-            .arg(json_flag)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .output()
-            .map_err(|e| {
-                if e.kind() == std::io::ErrorKind::NotFound {
-                    Error::InvalidPath(format!(
-                        "Seeding helper not found on host PATH. Install the \
-                         support package (sudo apt install portmux) or set \
-                         {ENV_PORTMUX_PORT_BIN}=/path/to/binary"
-                    ))
-                } else {
-                    Error::Io(e)
-                }
-            })
-    };
-
-    // Map a non-zero exit into the user-facing error (code 2 = pool exhausted).
-    let fail = |output: &std::process::Output| -> Error {
-        let code = output.status.code().unwrap_or(-1);
-        let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
-        match code {
-            2 => Error::InvalidPath(format!(
-                "Seeding helper: no free port for {app_label}#{instance} — {stderr}"
-            )),
-            _ => Error::InvalidPath(format!("Seeding helper exited {code}: {stderr}")),
-        }
-    };
-
-    // Port-API v2 (integration arc portmux-port-api-v2): try `--json-v2`
-    // first. An old portmux without that flag exits non-zero at arg-parse
-    // (before allocating anything), so we fall back to `--json` once.
-    //
-    // Exit-code contract (`portmux-port` docs: "0 success / 2 pool exhausted"):
-    // code 2 means pool-exhausted ONLY — usage/unknown-flag errors use other
-    // codes — so a code-2 result is a real failure and is surfaced without a
-    // fallback (a fallback would just re-exhaust and mislead). Any OTHER
-    // non-zero exit is treated as "this portmux doesn't know --json-v2" and
-    // retried with `--json`. The double invocation is safe because
-    // `portmux-port ensure` is idempotent ((app,instance) → same port,
-    // `already_assigned=true` on the second call): no double allocation, and
-    // the v2 attempt failed at arg-parse before allocating anyway.
-    let output = {
-        let v2 = run("--json-v2")?;
-        if v2.status.success() {
-            v2
-        } else if v2.status.code() == Some(2) {
-            return Err(fail(&v2));
-        } else {
-            let v1 = run("--json")?;
-            if !v1.status.success() {
-                // The fallback can itself hit pool-exhaustion (code 2) or any
-                // other error; `fail` maps both, so a genuine v1 failure is
-                // surfaced rather than masked.
-                return Err(fail(&v1));
+    let output = host_command(&bin)
+        .arg("configure-app")
+        .arg("--app")
+        .arg(app)
+        .arg("--instance")
+        .arg(instance.to_string())
+        .arg("--config")
+        .arg(config)
+        .arg("--desktop-app-id")
+        .arg(desktop_app_id)
+        .arg("--json-v2")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                Error::InvalidPath(format!(
+                    "Seeding helper not found on host PATH. Install the \
+                     support package (sudo apt install portmux) or set \
+                     {ENV_PORTMUX_PORT_BIN}=/path/to/binary"
+                ))
+            } else {
+                Error::Io(e)
             }
-            v1
-        }
-    };
+        })?;
 
+    // portmux prints the reason on stderr with or without --json-v2, so a
+    // real error is shown as portmux worded it.
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    if !output.status.success() {
+        let code = output.status.code().unwrap_or(-1);
+        return Err(Error::InvalidPath(match code {
+            2 => format!("Seeding helper: no free port for {app}#{instance} — {stderr}"),
+            _ => format!("Seeding helper exited {code}: {stderr}"),
+        }));
+    }
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let mut ensured: EnsuredPort = serde_json::from_str(stdout.trim()).map_err(Error::Json)?;
-    // No-op on the v2 path (already populated); synthesizes the v2-only
-    // fields on the v1 fallback path.
-    ensured.fill_v2_defaults();
-    Ok(ensured)
+    let parsed: ConfigureOutput = serde_json::from_str(stdout.trim()).map_err(Error::Json)?;
+    Ok(ConfiguredApp {
+        manual_action: parsed.manual_action,
+        warnings: stderr,
+    })
 }
 
 /// Test-only mutex gate around the
@@ -366,235 +223,108 @@ mod portmux_port_runner_tests {
         out
     }
 
-    #[test]
-    fn happy_path_parses_json_output() {
-        let dir = tmpdir("happy");
+    /// A stub that logs its argv, one argument per line, then runs `body`.
+    fn logging_stub(dir: &std::path::Path, body: &str) -> (PathBuf, PathBuf) {
+        let log = dir.join("argv.log");
         let stub = write_stub(
-            &dir,
-            r#"#!/bin/sh
-echo '{"host":"10.152.152.10","port":9168,"isolation":"dest-addr","source_file":"/tmp/wp.conf","tor_reload_done":false,"already_assigned":false}'
-exit 0
-"#,
+            dir,
+            &format!(
+                "#!/bin/sh\nfor a in \"$@\"; do echo \"$a\" >> '{}'; done\n{body}\n",
+                log.display()
+            ),
         );
-        let ep = with_bin(&stub, || {
-            ensure_port(
-                "feather",
-                4,
-                Purpose::Socks,
-                IsolationClass::DestAddr,
-                "127.0.0.1",
-            )
-            .unwrap()
-        });
-        assert_eq!(ep.host, "10.152.152.10");
-        assert_eq!(ep.port, 9168);
-        assert_eq!(ep.isolation, "dest-addr");
-        assert!(!ep.tor_reload_done);
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    fn bare_v1(host: &str, port: u16, isolation: &str) -> EnsuredPort {
-        EnsuredPort {
-            host: host.into(),
-            port,
-            isolation: isolation.into(),
-            source_file: String::new(),
-            tor_reload_done: false,
-            already_assigned: false,
-            version: None,
-            scheme: None,
-            proxy_url: None,
-        }
+        (stub, log)
     }
 
     #[test]
-    fn fill_v2_defaults_synthesizes_socks5h_and_http() {
-        // socks branch: any isolation other than http-tunnel → socks5h://
-        let mut s = bare_v1("127.0.0.1", 9150, "dest-addr");
-        s.fill_v2_defaults();
-        assert_eq!(s.version, Some(2));
-        assert_eq!(s.scheme.as_deref(), Some("socks5"));
-        assert_eq!(s.proxy_url.as_deref(), Some("socks5h://127.0.0.1:9150"));
-
-        // http branch: http-tunnel → http://
-        let mut h = bare_v1("127.0.0.1", 9102, "http-tunnel");
-        h.fill_v2_defaults();
-        assert_eq!(h.scheme.as_deref(), Some("http"));
-        assert_eq!(h.proxy_url.as_deref(), Some("http://127.0.0.1:9102"));
-
-        // already-populated (v2 path) is left untouched
-        let mut v2 = bare_v1("h", 1, "dest-addr");
-        v2.version = Some(2);
-        v2.scheme = Some("socks5".into());
-        v2.proxy_url = Some("socks5h://real:1".into());
-        v2.fill_v2_defaults();
-        assert_eq!(v2.proxy_url.as_deref(), Some("socks5h://real:1"));
-    }
-
-    #[test]
-    fn json_v2_path_parses_version_and_proxy_url() {
-        let dir = tmpdir("v2");
-        let stub = write_stub(
+    fn argv_is_exactly_the_configure_app_contract() {
+        let dir = tmpdir("argv");
+        let (stub, log) = logging_stub(
             &dir,
-            r#"#!/bin/sh
-echo '{"version":2,"host":"127.0.0.1","port":9150,"isolation":"dest-addr","scheme":"socks5","proxy_url":"socks5h://127.0.0.1:9150","source_file":"/tmp/wp.conf","tor_reload_done":false,"already_assigned":false}'
-exit 0
-"#,
+            r#"echo '{"version":2,"host":"h","port":1,"manual_action":null}'"#,
         );
-        let ep = with_bin(&stub, || {
-            ensure_port(
-                "feather",
-                4,
-                Purpose::Socks,
-                IsolationClass::DestAddr,
-                "127.0.0.1",
-            )
-            .unwrap()
+        let cfg = dir.join("settings.json");
+        let done = with_bin(&stub, || {
+            configure_app("feather", 4, &cfg, "appimage-control-feather-4").unwrap()
         });
-        assert_eq!(ep.version, Some(2));
-        assert_eq!(ep.scheme.as_deref(), Some("socks5"));
-        assert_eq!(ep.proxy_url.as_deref(), Some("socks5h://127.0.0.1:9150"));
-        // Downstream-consumed fields unchanged.
-        assert_eq!(ep.host, "127.0.0.1");
-        assert_eq!(ep.port, 9150);
-        assert_eq!(ep.isolation, "dest-addr");
+        let argv = std::fs::read_to_string(&log).unwrap();
+        let want = format!(
+            "configure-app\n--app\nfeather\n--instance\n4\n--config\n{}\n--desktop-app-id\nappimage-control-feather-4\n--json-v2\n",
+            cfg.display()
+        );
+        assert_eq!(argv, want);
+        assert_eq!(done, ConfiguredApp::default());
         let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
-    fn falls_back_to_v1_when_json_v2_is_unknown_flag() {
-        // Old portmux: rejects --json-v2 (arg-parse error, non-zero, not 2),
-        // but serves v1 on --json. ensure_port must retry and synthesize v2.
-        let dir = tmpdir("fallback");
+    fn success_carries_manual_action_and_warnings() {
+        let dir = tmpdir("manual");
         let stub = write_stub(
             &dir,
             r#"#!/bin/sh
-for a in "$@"; do
-  if [ "$a" = "--json-v2" ]; then
-    echo 'portmux-port: unknown option --json-v2' 1>&2
-    exit 64
-  fi
-done
-echo '{"host":"127.0.0.1","port":9168,"isolation":"dest-addr","source_file":"/tmp/wp.conf","tor_reload_done":false,"already_assigned":false}'
-exit 0
+echo 'tor is not listening yet' 1>&2
+echo '{"version":2,"manual_action":"set the port in Telegram"}'
 "#,
         );
-        let ep = with_bin(&stub, || {
-            ensure_port(
-                "feather",
-                4,
-                Purpose::Socks,
-                IsolationClass::DestAddr,
-                "127.0.0.1",
-            )
-            .unwrap()
+        let done = with_bin(&stub, || {
+            configure_app("telegram", 1, &dir.join("c"), "d").unwrap()
         });
-        // v2 fields synthesized from the v1 payload.
-        assert_eq!(ep.version, Some(2));
-        assert_eq!(ep.scheme.as_deref(), Some("socks5"));
-        assert_eq!(ep.proxy_url.as_deref(), Some("socks5h://127.0.0.1:9168"));
-        assert_eq!(ep.host, "127.0.0.1");
-        assert_eq!(ep.port, 9168);
+        assert_eq!(
+            done.manual_action.as_deref(),
+            Some("set the port in Telegram")
+        );
+        assert_eq!(done.warnings, "tor is not listening yet");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
-    fn fallback_then_pool_exhausted_surfaces_pool_error() {
-        // Old portmux: rejects --json-v2 (exit 64), then the v1 retry hits
-        // pool exhaustion (exit 2). The v1-branch failure mapping must surface
-        // the pool-exhausted message, not a generic error.
-        let dir = tmpdir("fb-exh");
-        let stub = write_stub(
-            &dir,
-            r#"#!/bin/sh
-for a in "$@"; do
-  if [ "$a" = "--json-v2" ]; then
-    echo 'unknown option --json-v2' 1>&2
-    exit 64
-  fi
-done
-echo 'portmux-port: pool exhausted 9160-9189' 1>&2
-exit 2
-"#,
-        );
-        let err = with_bin(&stub, || {
-            ensure_port(
-                "feather",
-                999,
-                Purpose::Socks,
-                IsolationClass::DestAddr,
-                "127.0.0.1",
-            )
-            .unwrap_err()
-        });
-        let msg = format!("{err}");
-        assert!(msg.contains("no free port for feather#999"), "got: {msg}");
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn exit_two_surfaces_as_pool_exhausted_error() {
+    fn exit_two_maps_to_the_no_free_port_message() {
         let dir = tmpdir("exh");
         let stub = write_stub(
             &dir,
             "#!/bin/sh\necho 'portmux-port: pool exhausted 9160-9189' 1>&2\nexit 2\n",
         );
         let err = with_bin(&stub, || {
-            ensure_port(
-                "feather",
-                999,
-                Purpose::Socks,
-                IsolationClass::DestAddr,
-                "127.0.0.1",
-            )
-            .unwrap_err()
+            configure_app("feather", 999, &dir.join("c"), "d").unwrap_err()
         });
         let msg = format!("{err}");
         assert!(msg.contains("no free port for feather#999"), "got: {msg}");
-        // The error prefix our code generates must not lecture about
-        // the helper's identity — passthrough of the helper's own
-        // stderr is allowed (the stub here is intentionally noisy).
-        assert!(
-            msg.starts_with("invalid path: Seeding helper"),
-            "got: {msg}"
-        );
+        assert!(msg.contains("pool exhausted 9160-9189"), "got: {msg}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// BL-007: the old `--json` fallback retried on any failure, so the
+    /// retry's "unknown flag" hid the real error.
     #[test]
-    fn exit_nonzero_surfaces_error_message() {
+    fn exit_one_stderr_is_surfaced_verbatim_with_no_retry() {
         let dir = tmpdir("err");
-        let stub = write_stub(&dir, "#!/bin/sh\necho 'boom' 1>&2\nexit 7\n");
+        let why = "cannot change tor's config: if you were just added to the portmux group, log out and in";
+        let (stub, log) = logging_stub(
+            &dir,
+            &format!(
+                r#"echo '{{"version":2,"error":{{"exit_code":1,"message":"x"}}}}'
+echo "{why}" 1>&2
+exit 1"#
+            ),
+        );
         let err = with_bin(&stub, || {
-            ensure_port(
-                "feather",
-                1,
-                Purpose::Socks,
-                IsolationClass::DestAddr,
-                "127.0.0.1",
-            )
-            .unwrap_err()
+            configure_app("feather", 1, &dir.join("c"), "d").unwrap_err()
         });
         let msg = format!("{err}");
-        assert!(msg.contains("exited 7"), "got: {msg}");
-        assert!(msg.contains("boom"), "got: {msg}");
+        assert!(msg.contains(why), "got: {msg}");
+        assert!(msg.contains("exited 1"), "got: {msg}");
+        let argv = std::fs::read_to_string(&log).unwrap();
+        assert_eq!(argv.matches("configure-app").count(), 1, "retried: {argv}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn missing_binary_yields_install_hint() {
-        // Point at a path that doesn't exist.
         let dir = tmpdir("miss");
         let phantom = dir.join("does-not-exist");
         let err = with_bin(&phantom, || {
-            ensure_port(
-                "feather",
-                1,
-                Purpose::Socks,
-                IsolationClass::DestAddr,
-                "127.0.0.1",
-            )
-            .unwrap_err()
+            configure_app("feather", 1, &dir.join("c"), "d").unwrap_err()
         });
         let msg = format!("{err}");
         assert!(
@@ -605,12 +335,31 @@ exit 2
     }
 
     #[test]
-    fn probe_runtime_uncached_returns_ok_when_stub_exits_zero() {
+    fn probe_runtime_uncached_returns_ok_when_stub_knows_configure_app() {
         let dir = tmpdir("probe-ok");
-        let stub = write_stub(&dir, "#!/bin/sh\nexit 0\n");
+        let stub = write_stub(
+            &dir,
+            "#!/bin/sh\n[ \"$1 $2\" = 'configure-app --help' ] && exit 0\nexit 64\n",
+        );
         with_bin(&stub, || {
             let r = super::probe_runtime_uncached();
             assert!(r.is_ok(), "expected Ok, got {r:?}");
+        });
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A portmux older than `configure-app`: top-level `--help` still works.
+    #[test]
+    fn stub_with_no_configure_app_yields_the_upgrade_hint() {
+        let dir = tmpdir("probe-old");
+        let stub = write_stub(
+            &dir,
+            "#!/bin/sh\n[ \"$1\" = '--help' ] && exit 0\necho \"unknown subcommand\" 1>&2\nexit 1\n",
+        );
+        with_bin(&stub, || {
+            let err = super::probe_runtime_uncached().unwrap_err();
+            assert!(err.contains("too old"), "got: {err}");
+            assert!(err.contains("sudo apt install portmux"), "got: {err}");
         });
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -639,19 +388,5 @@ exit 2
     fn install_hint_mentions_both_install_path_and_env_override() {
         assert!(super::INSTALL_HINT.contains("sudo apt install portmux"));
         assert!(super::INSTALL_HINT.contains("APPIMAGE_CONTROL_PORTMUX_PORT_BIN"));
-    }
-
-    #[test]
-    fn isolation_class_round_trips_through_cli_strings() {
-        for c in [
-            IsolationClass::None,
-            IsolationClass::DestAddr,
-            IsolationClass::DestPort,
-            IsolationClass::Both,
-            IsolationClass::HttpTunnel,
-        ] {
-            let s = c.as_cli_arg();
-            assert_eq!(IsolationClass::parse(s), Some(c));
-        }
     }
 }
