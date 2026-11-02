@@ -41,69 +41,28 @@ Adding a new top-level key is a hard error
 
 Numbers, booleans, strings, arrays, nested objects — anything
 `serde_json` accepts. Use this for values that don't depend on the
-active preset or the instance index.
+instance index.
 
-### `preset` — values derived from the active preset
-
-Three forms. `from` copies one named preset field directly:
+### `proxy_setup` — hand proxy settings to portmux
 
 ```json
-"preset": {
-  "useLocalProxy": { "from": "feather_use_local_tor" },
-  "proxyHost":     { "from": "socks5_host", "drop_if": "feather_use_local_tor" }
-}
+"proxy_setup": { "app": "feather" }
 ```
 
-`format` interpolates one or more scalar preset fields into a string:
+`app` is a recipe id for `portmux-port configure-app --app`. portmux
+allocates this instance's port and writes the proxy settings into the app's
+config. The pack says nothing about ports, hosts or isolation. Its key is not
+`proxy` because Feather and Electrum both have a config key of that name.
 
-```json
-"preset": {
-  "banner": { "format": "host={socks5_host} local={feather_use_local_tor}" }
-}
-```
+portmux runs before the pack's other keys are written, so a failure leaves the
+first-run config byte-identical. It runs again after them, so its settings win
+over a `static` or `rotation` key of the same name. A pack with no `proxy_setup`
+never calls portmux. See
+[`docs/integration-portmux-port.md`](integration-portmux-port.md).
 
-`port` resolves a SOCKS / HTTPTunnel port for the current
-`(app, instance)` by shelling out to the host's `portmux-port
-ensure` CLI (see `docs/integration-portmux-port.md`):
-
-```json
-"preset": {
-  "socks5Host": {
-    "port": {
-      "isolation": "dest-addr",
-      "field": "host",
-      "drop_if": "feather_use_local_tor"
-    }
-  },
-  "socks5Port": {
-    "port": {
-      "isolation": "dest-addr",
-      "field": "port",
-      "as_string": true
-    }
-  }
-}
-```
-
-`port` body fields:
-
-| Field        | Required | Values                                            | Notes |
-|--------------|----------|---------------------------------------------------|-------|
-| `app`        | no       | catalog id (`"feather"`, `"electrum-btc"`, …)     | defaults to the seed pack's own app id |
-| `purpose`    | no       | `"socks"` (default) / `"http"` / `"trans"` / `"dns"` | maps to `portmux-port --purpose` |
-| `isolation`  | yes      | `"none"` / `"dest-addr"` / `"dest-port"` / `"both"` / `"http-tunnel"` | maps to `portmux-port --isolation` |
-| `field`      | yes      | `"port"` / `"host"` / `"url"`                     | which slice of the resolved listener lands in the JSON map |
-| `as_string`  | no       | bool, default `false`                              | only valid with `field: "port"`; emits a quoted number for apps whose JSON schema expects a string |
-| `drop_if`    | no       | name of a bool preset field                       | when true, the key is omitted and `portmux-port` is never spawned |
-
-Two `port` verbs in the same pack that resolve to the same
-`(app, instance, purpose, isolation)` tuple share one
-`portmux-port` spawn — the interpreter caches the result within
-one `apply_pack` call.
-
-All three forms (`from`, `format`, `port`) accept an optional
-`drop_if`: when the named **bool** preset field is true, the key is
-omitted (and removed from any pre-existing config).
+The removed `preset` section and `port` verb are refused by name at load time,
+because ignoring them would leave a wallet with no proxy and no warning. That
+document has the migration steps.
 
 ### `rotation` — per-instance values
 
@@ -116,30 +75,8 @@ One form: `values` rotates through an inline list, indexed by
 }
 ```
 
-(The legacy `from_preset_array` variant was retired together with
-the `feather_ports` preset array — per-instance port assignment now
-goes through the `port` verb in the `preset` section, which scales
-to any instance number without a compile-time cap.)
-
-## Legal preset field names
-
-The accessor in `crates/core/src/seed.rs::SeedConfig::field` is the
-single source of truth. Today:
-
-| Name                     | Type    | Form factor                  |
-|--------------------------|---------|------------------------------|
-| `socks5_host`            | string  | `from`, `format`, `drop_if`-only when wrapping a string-typed field |
-| `feather_use_local_tor`  | bool    | `from`, `drop_if`, `format`  |
-
-(Field names are legacy — they predate the data-driven schema.
-Extending the preset surface to a new field is a one-line change in
-`SeedConfig::field`. Numeric port fields were retired in favour of
-the `port` verb, which resolves through `portmux-port` at apply
-time.)
-
-A typo'd field name fails pack-load
-(`SeedPackLibrary::validate`) with the offending name in the
-message — never silently at seed time.
+(Per-instance ports do not belong here: they are portmux's, through
+`proxy_setup`.)
 
 ## Discovery chain
 
@@ -199,7 +136,7 @@ the app as installable. Minimum schema:
 `{appimage}` is substituted at seed time with the AppImage filename.
 The manager will launch the AppImage once under `xvfb-run`, wait for
 the config file to appear at that path, then apply the pack's
-`static` / `preset` / `rotation` verbs to it.
+`proxy_setup` / `static` / `rotation` verbs to it.
 
 Validate locally before shipping:
 
@@ -240,9 +177,9 @@ appimage-control --record-pack-capture feather --out ./feather.json
 ```
 
 The recorder only emits `static` literals (the added/changed top-level
-keys). It does **not** infer `preset` / `port` / `rotation` verbs — those
-encode host-dependent networking and need human judgement, so promote any
-proxy/port values to the appropriate verb by hand afterwards. Removed keys
+keys). It does **not** infer `proxy_setup` or `rotation`. Delete any proxy or
+port values it captured and add `proxy_setup` by hand afterwards, because those
+values are portmux's. Removed keys
 are reported but not encoded (a `static` pack cannot delete keys). The
 written file is not signed; the signed companion-repo delivery
 (`--update-seed-packs`) stays separate.

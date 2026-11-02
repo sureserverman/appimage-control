@@ -68,7 +68,7 @@ Postconditions:
 Invariants:
 - The baseline is the app's *untouched* first-run config — `capture_first_run_config`
   never applies a seed pack (unlike `seed_instance_settings`).
-- The synthesised pack is `static`-only: no `preset` / `port` / `rotation`
+- The synthesised pack is `static`-only: no `proxy_setup` / `rotation`
   verbs are inferred (those require human judgement and are hand-added).
 - A written pack always re-parses and validates — `write_pack_to` validates
   before writing, so a malformed pack never reaches disk.

@@ -1,0 +1,37 @@
+{
+ "baseline": {
+  "elapsed_s": 0.1,
+  "exit": 0,
+  "tail": "OK: README CLI section and print_help are in sync.\n    Flags verified: 29"
+ },
+ "break_patch": "--- a/docs/seed-packs.md\n+++ b/docs/seed-packs.md\n@@ -43,10 +43,10 @@\n `serde_json` accepts. Use this for values that don't depend on the\n instance index.\n \n-### `proxy_setup` \u2014 hand proxy settings to portmux\n+### `hand` \u2014 hand proxy settings to portmux\n \n ```json\n-\"proxy_setup\": { \"app\": \"feather\" }\n+\"PS\": { \"app\": \"feather\" }\n ```\n \n `app` is a recipe id for `portmux-port configure-app --app`. portmux\n@@ -56,7 +56,7 @@\n \n portmux runs before the pack's other keys are written, so a failure leaves the\n first-run config byte-identical. It runs again after them, so its settings win\n-over a `static` or `rotation` key of the same name. A pack with no `proxy_setup`\n+over a `static` or `rotation` key of the same name. A pack with no `PS`\n never calls portmux. See\n [`docs/integration-portmux-port.md`](integration-portmux-port.md).\n \n@@ -76,7 +76,7 @@\n ```\n \n (Per-instance ports do not belong here: they are portmux's, through\n-`proxy_setup`.)\n+`PS`.)\n \n ## Discovery chain\n \n@@ -136,7 +136,7 @@\n `{appimage}` is substituted at seed time with the AppImage filename.\n The manager will launch the AppImage once under `xvfb-run`, wait for\n the config file to appear at that path, then apply the pack's\n-`proxy_setup` / `static` / `rotation` verbs to it.\n+`PS` / `static` / `rotation` verbs to it.\n \n Validate locally before shipping:\n \n@@ -177,8 +177,8 @@\n ```\n \n The recorder only emits `static` literals (the added/changed top-level\n-keys). It does **not** infer `proxy_setup` or `rotation`. Delete any proxy or\n-port values it captured and add `proxy_setup` by hand afterwards, because those\n+keys). It does **not** infer `PS` or `rotation`. Delete any proxy or\n+port values it captured and add `PS` by hand afterwards, because those\n values are portmux's. Removed keys\n are reported but not encoded (a `static` pack cannot delete keys). The\n written file is not signed; the signed companion-repo delivery\n",
+ "build": null,
+ "created": "2026-11-02T19:03:40+00:00",
+ "fingerprint": "89adce987cd70d8a4078c8761af29413c046c35a360a4fc7d5b106106dc4c8b1",
+ "index": 1,
+ "kind": "claim",
+ "named_break": null,
+ "no_build_reason": "docs only; the test greps files",
+ "plan": "/mnt/vault/Portfolio/anon-tools/appimage-control/plans/2026-11-02-portmux-owns-proxy-setup-sub-02-appimage-control-delegates-plan.md",
+ "red": {
+  "elapsed_s": 0.1,
+  "exit": 1,
+  "tail": "OK: README CLI section and print_help are in sync.\n    Flags verified: 29"
+ },
+ "schema": 2,
+ "shell": "bash",
+ "task": "2.3",
+ "test": "cd /home/user/dev/anon-tools/appimage-control && sh scripts/verify-cli-doc-sync.sh && grep -q 'configure-app' docs/workflows/seeding.md && grep -q 'proxy_setup' docs/seed-packs.md && ! grep -q '^## BL-007 ' /mnt/vault/Portfolio/anon-tools/appimage-control/backlog.md && grep -q 'SeedPreset' /mnt/vault/Portfolio/anon-tools/appimage-control/backlog.md",
+ "text": "`cd /home/user/dev/anon-tools/appimage-control && sh scripts/verify-cli-doc-sync.sh && grep -q 'configure-app' docs/workflows/seeding.md && grep -q 'proxy_setup' docs/seed-packs.md && ! grep -q '^## BL-007 ' /mnt/vault/Portfolio/anon-tools/appimage-control/backlog.md && grep -q 'SeedPreset' /mnt/vault/Portfolio/anon-tools/appimage-control/backlog.md`",
+ "touched": [
+  "docs/seed-packs.md"
+ ],
+ "touched_blobs": {
+  "docs/seed-packs.md": "b6cfbf36c3bab032a96bd35408e359dda122292c"
+ },
+ "witness_blobs": {
+  "docs/seed-packs.md": "b6cfbf36c3bab032a96bd35408e359dda122292c",
+  "docs/workflows/seeding.md": "79018063671042c738cfa6eee19a8f0f254a8ec0",
+  "scripts/verify-cli-doc-sync.sh": "0353c50299aceb593bb60391d72a78b8db8bac63"
+ }
+}

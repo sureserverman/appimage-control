@@ -52,12 +52,13 @@ This repository ships only the **architecture** (loader, interpreter, signature 
   `update-desktop-database`, and `gtk-update-icon-cache`). Install `xvfb` on
   the host, not inside the Flatpak.
 
-- `portmux-port` on the host (shipped by the `portmux` `.deb`). Seed packs
-  resolve per-app SOCKS / HTTPTunnel ports through this CLI on both Ubuntu
-  (writes `/etc/tor/torrc` + reloads tor when the listener set changes) and
-  Whonix-Workstation (writes `~/.config/portmux/whonix-ports.conf`; never
-  reloads). See [`docs/integration-portmux-port.md`](docs/integration-portmux-port.md)
-  for the contract and the install hint surfaced when the binary is missing.
+- `portmux-port` with its `configure-app` command on the host (shipped by the
+  `portmux` `.deb`). A seed pack that declares `proxy_setup` hands the app's
+  proxy setup to it: portmux picks the port and writes it into the app's config,
+  on both Ubuntu and Whonix-Workstation. See
+  [`docs/integration-portmux-port.md`](docs/integration-portmux-port.md) for the
+  contract, the install hint surfaced when portmux is missing or too old, and how
+  to migrate an older pack.
 
 - Network access to download and run the upstream AppImages at least once.
 

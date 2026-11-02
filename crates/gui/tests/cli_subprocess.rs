@@ -303,7 +303,7 @@ fn record_baseline_names_a_refused_pack() {
     fs::create_dir_all(&seeds).expect("seeds");
     fs::write(
         seeds.join("feather.json"),
-        r#"{ "config_path": "c.json", "preset": { "a": { "from": "socks5_host" } } }"#,
+        r#"{ "config_path": "c.json", "preset": { "a": { "format": "x" } } }"#,
     )
     .expect("pack");
     let out = Command::new(app_exe().as_os_str())

@@ -1,82 +1,127 @@
 # Integration: appimage-control ← portmux-port
 
-Per-app SOCKS / HTTPTunnel port assignment for seed packs is
-delegated to the host's `portmux-port` CLI (shipped by the
-`portmux` `.deb`). This document is the consumer-side note;
-the producer-side contract lives in
+Seeding hands all proxy setup to the host's `portmux-port configure-app`
+command (shipped by the `portmux` `.deb`). portmux picks the port, writes it
+into the app's own config, and keeps its own record of the assignment. This app
+holds no port, proxy host or isolation class. This document is the consumer-side
+note; the producer-side contract lives in
 [`portmux/docs/integration-appimage-control.md`](../../portmux/docs/integration-appimage-control.md).
 
-## Why a separate tool
+## What a seed runs
 
-- One source of truth across both desktop platforms:
-  - **Ubuntu**: `/etc/tor/torrc` managed-block lines (created /
-    edited by portmux when needed, with `systemctl reload tor`
-    fired only when the listener fingerprint actually changes).
-  - **Whonix-Workstation**: `~/.config/portmux/whonix-ports.conf`
-    (annotation-only, never reloads anything — the gateway
-    publishes listeners independently).
-- Unbounded instance count. Feather 1 / 2 / 3 / … / 12+ each get
-  their own port; the legacy `feather_ports: [u16; 3]` cap is
-  gone.
-- Cross-tool consistency. The portmux GUI's port editor sees the
-  exact same annotated entries this pipeline writes.
+For Feather instance 4, after the first run has stopped and created its config:
+
+```bash
+portmux-port configure-app --app feather --instance 4 \
+    --config <instance dir>/<config_path> \
+    --desktop-app-id appimage-control-feather-4 --json-v2
+```
+
+Then the pack's `static` and `rotation` keys are written, and portmux runs once
+more with `--write-only`, so its proxy settings win over a pack key of the same
+name. Any failure restores the config the first run left.
+
+A pack with no `proxy_setup` never calls portmux, and that app gets no proxy
+from seeding.
 
 ## Required runtime dependency
 
-`portmux-port` must be on the host's `PATH` (resolved through
-`flatpak-spawn --host` when this app runs in a Flatpak sandbox).
+`portmux-port` with the `configure-app` command must be on the host's `PATH`
+(resolved through `flatpak-spawn --host` when this app runs in a Flatpak
+sandbox). `APPIMAGE_CONTROL_PORTMUX_PORT_BIN=/path/to/binary` overrides the
+location.
 
-On a host where portmux isn't installed, the first seed call
-fails with:
+The probe is `portmux-port configure-app --help`. It runs once per process,
+before the seed loop. A missing portmux and one too old to have the command get
+the same message:
 
-> portmux-port is the host-side helper that allocates SOCKS /
-> HTTPTunnel ports for seeded apps. Install with:
+> A required system helper for seeding is not installed, or is too old. Install
+> or upgrade the support package with:
 >   `sudo apt install portmux`
-> or set `APPIMAGE_CONTROL_PORTMUX_PORT_BIN=/path/to/portmux-port`
-> to point at a non-default location.
 
-The probe runs once per process; callers (the GUI startup or the
-`appimage-control` CLI pre-flight) can invoke
-[`portmux_port_probe_runtime`](../crates/core/src/portmux_port.rs)
-before the seed loop starts so the error message lands in a single
-top-level dialog instead of one-per-instance.
+Seeding is then skipped, and instances already installed stay installed.
+Preferences shows the same probe's result: the **Proxy setup via** row reads
+`portmux-port · not detected` with a `missing` pill.
+
+## Migrating a private seed pack
+
+Packs that still use `preset` or `port` are refused, and while one is refused no
+pack in that directory loads. This is deliberate: ignoring those keys would leave
+a wallet with no proxy and no warning.
+
+1. **Upgrade portmux**, so that `portmux-port configure-app --help` exits 0.
+2. **Find the pack.** Run `appimage-control --list-seed-packs`. The error names
+   the file. Per-user packs live in `~/.local/share/appimage-control/seeds/`.
+3. **Sort the keys under `preset`.** Each key is one of two kinds:
+   - A proxy setting (host, port, "use local Tor", or any key with a `port`
+     body). Delete it. portmux writes these now.
+   - Anything else. Move it to `static` as a literal value. A `from` or `format`
+     value has no literal form in the old pack, so write the value you want.
+4. **Delete the `preset` section.**
+5. **Add `proxy_setup`** with the recipe for the app:
+
+   | Pack's app | `proxy_setup.app` |
+   |---|---|
+   | Feather | `feather` |
+   | Electrum (Bitcoin) | `electrum-btc` |
+   | Electrum (Litecoin) | `electrum-ltc` |
+
+   Seeding patches a JSON config, so these three are the recipes a pack can use
+   today. portmux's other recipes write other file formats.
+6. **Check it loads.** `appimage-control --list-seed-packs` lists the pack with
+   no error.
+7. **Reseed one instance** with `appimage-control --seed-settings <app id>`, and
+   check that the config carries portmux's proxy settings and your `static`
+   keys.
+
+For example, this pack:
+
+```json
+{
+  "config_path": "{appimage}.config/feather/settings.json",
+  "static": { "compactMode": true },
+  "preset": {
+    "socks5Port": { "port": { "isolation": "dest-addr", "field": "port", "as_string": true } },
+    "themeId": { "format": "dark" }
+  }
+}
+```
+
+becomes:
+
+```json
+{
+  "config_path": "{appimage}.config/feather/settings.json",
+  "static": { "compactMode": true, "themeId": "dark" },
+  "proxy_setup": { "app": "feather" }
+}
+```
 
 ## Test override
 
-Tests and ad-hoc smoke runs point at a stub binary via:
+Tests and ad-hoc smoke runs point at a stub binary through
+`APPIMAGE_CONTROL_PORTMUX_PORT_BIN`. The stub must exit 0 on
+`configure-app --help`, and print a JSON object on stdout for a real call. An
+optional `manual_action` string in it is shown to the user. See `portmux_port.rs`
+and the `proxy_setup` tests in `seed.rs` for the canonical fakes.
 
-```bash
-APPIMAGE_CONTROL_PORTMUX_PORT_BIN=/tmp/fake-portmux-port \
-    cargo test -p appimage_control_core port_verb
-```
-
-The stub script must accept `portmux-port ensure --app … --json`
-and emit a JSON document matching portmux's `EnsuredPort` schema
-(`host`, `port`, `isolation`, `source_file`, `tor_reload_done`,
-`already_assigned`). See `seed_pack.rs::port_verb_tests` for the
-canonical fake.
-
-## Pack-side wiring
-
-A pack declares its port intent declaratively; see the
-[`port` verb section in `docs/seed-packs.md`](seed-packs.md). The
-three shipped packs (companion repo: `feather.json`,
-`electrum-btc.json`, `electrum-ltc.json`) are the canonical
-worked examples.
+`crates/core/tests/real_portmux_configure_app.rs` seeds through a real binary. It
+runs only when that variable is set, and reports itself skipped otherwise.
 
 ## Failure modes
 
-| Symptom from the CLI                        | Cause                          | Fix |
-|---------------------------------------------|--------------------------------|-----|
-| `portmux-port not found on host PATH`      | portmux not installed         | `sudo apt install portmux` |
-| `portmux-port exited 2`                    | gateway pool exhausted         | Disable an unused managed entry in `~/.config/portmux/whonix-ports.conf` or in `/etc/tor/torrc` |
-| `portmux-port exited N` (other)            | helper internal error          | Check `journalctl -u portmux` or rerun with `--no-reload` for diagnostics |
-| seed JSON missing `socks5Port`              | pack has `drop_if` that fired  | Expected when `feather_use_local_tor=true` on Ubuntu |
+An instance that fails keeps its first-run config byte-identical, and the seed
+report counts it as failed.
+
+| Message | Cause | Fix |
+|---|---|---|
+| The install hint above | portmux missing, or older than `configure-app` | `sudo apt install portmux` |
+| `Seeding helper: no free port for <app>#<n> — …` | Exit 2: the port pool is exhausted | Disable an unused managed entry in portmux |
+| `Seeding helper exited <n>: …` | Any other failure. portmux's own message follows, for example about logging out and in after joining the `portmux` group | Do what the message says, then reseed |
+| `seed pack <file>: uses the removed …` | The pack has not been migrated | See **Migrating a private seed pack** |
 
 ## Backwards compatibility
 
-Users mid-flight (already-seeded Feather instances with old
-hardcoded `9052 / 9053 / 9070` ports) will see their seeded
-`socks5Port` change on the next reseed. Existing on-disk wallet
-data is untouched — the seeder only rewrites `settings.json`'s
-proxy fields.
+Instances seeded before this change keep the proxy settings they have until they
+are next reseeded. A reseed asks portmux, which keeps an existing assignment for
+the same app and instance. Existing on-disk wallet data is untouched.
