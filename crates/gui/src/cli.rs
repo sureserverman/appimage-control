@@ -465,7 +465,13 @@ fn home_dir_or_exit() -> std::result::Result<std::path::PathBuf, glib::ExitCode>
 /// if one is discoverable. Used by the recorder to default the baseline
 /// launch when re-recording a pack that already ships.
 fn existing_pack_config(app_id: &str) -> Option<(String, Vec<String>)> {
-    let lib = SeedPackLibrary::discover_load(None).ok()?;
+    let lib = match SeedPackLibrary::discover_load(None) {
+        Ok(lib) => lib,
+        Err(e) => {
+            eprintln!("Ignoring existing seed packs: {e}");
+            return None;
+        }
+    };
     let pack = lib.get(app_id)?;
     Some((pack.config_path.clone(), pack.first_run_args.clone()))
 }
@@ -1717,7 +1723,7 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
     if let Some(targets) = seed_targets {
         // Pre-flight: bail before the per-instance loop if the host
         // is missing the required system helper. The seed pipeline
-        // resolves every per-app port through it; without it every
+        // hands all proxy setup to it; without it every
         // instance would fail with the same install hint. One message
         // at the top is the right UX.
         if let Err(msg) = portmux_port_probe_runtime() {
@@ -1876,23 +1882,22 @@ mod purge_prompt_tests {
             &bin.join("xvfb-run"),
             "#!/bin/sh\nshift\nshift\nexec \"$@\"\n",
         );
-        // Fake port-allocation helper. Accepts `--help` (probe path)
-        // and `ensure …` (per-instance lookup); both succeed. The
-        // JSON shape matches the real helper's documented contract.
+        // Fake portmux-port. Answers the probe (`configure-app --help`) and
+        // writes a proxy key into --config, as the real command does.
         let helper = bin.join("port-helper");
         write_exec(
             &helper,
             "#!/bin/sh\n\
-             if [ \"$1\" = \"--help\" ]; then exit 0; fi\n\
-             if [ \"$1\" = \"ensure\" ]; then\n  \
-               printf '%s\\n' '{\"host\":\"10.152.152.10\",\"port\":9168,\
-                                \"isolation\":\"dest-addr\",\
-                                \"source_file\":\"/tmp/stub\",\
-                                \"tor_reload_done\":false,\
-                                \"already_assigned\":false}'\n  \
-               exit 0\n\
-             fi\n\
-             exit 0\n",
+             [ \"$1\" = configure-app ] || exit 1\n\
+             [ \"$2\" = --help ] && exit 0\n\
+             CFG=\n\
+             prev=\n\
+             for a in \"$@\"; do [ \"$prev\" = --config ] && CFG=\"$a\"; prev=\"$a\"; done\n\
+             case \"$*\" in\n  \
+               *--write-only*) ;;\n  \
+               *) printf '{\"proxy\":1,\"socks5Port\":\"9168\"}' > \"$CFG\" ;;\n\
+             esac\n\
+             printf '{\"version\":2}\\n'\n",
         );
         let mut path = bin.as_os_str().to_os_string();
         path.push(":");
@@ -2268,9 +2273,8 @@ mod purge_prompt_tests {
         );
 
         // Curated packs are no longer shipped in this repo (Stage 8).
-        // Inject a synthetic feather-shaped pack that exercises the
-        // `preset.from` pipeline so the assertions on socks5Host /
-        // useLocalTor have something to render.
+        // Inject a synthetic feather-shaped pack: portmux's stub writes the
+        // proxy key and the pack's `static` key lands beside it.
         let seeds_dir = tmp.path().join("seeds");
         fs::create_dir_all(&seeds_dir).expect("seeds dir");
         fs::write(
@@ -2278,34 +2282,18 @@ mod purge_prompt_tests {
             r#"{
                 "config_path": "feather.AppImage.config/feather/settings.json",
                 "first_run_args": [],
-                "preset": {
-                    "socks5Host": { "from": "socks5_host" },
-                    "useLocalTor": { "from": "feather_use_local_tor" }
-                }
+                "static": { "language": "en" },
+                "proxy_setup": { "app": "feather" }
             }"#,
         )
         .expect("seed pack");
 
         let args = vec!["--seed-settings".to_string(), "feather".to_string()];
-        let code = with_fake_seed_env(&home, &catalog, Some(&seeds_dir), || {
-            // Pin the networking branch deterministically — without
-            // this the assertion would flip when the test host happens
-            // to have the workstation marker file present. Done inside
-            // the closure so it's serialised by the env-lock guard the
-            // helper already holds.
-            let prev_preset = std::env::var("APPIMAGE_CONTROL_SEED_PRESET").ok();
-            std::env::set_var("APPIMAGE_CONTROL_SEED_PRESET", "whonix");
-            let r = run_cli_ops(&args);
-            match prev_preset {
-                Some(v) => std::env::set_var("APPIMAGE_CONTROL_SEED_PRESET", v),
-                None => std::env::remove_var("APPIMAGE_CONTROL_SEED_PRESET"),
-            }
-            r
-        });
+        let code = with_fake_seed_env(&home, &catalog, Some(&seeds_dir), || run_cli_ops(&args));
         assert_eq!(code, Some(glib::ExitCode::SUCCESS));
         let body = fs::read_to_string(&cfg).expect("cfg");
-        assert!(body.contains("\"socks5Host\": \"10.152.152.10\""));
-        assert!(body.contains("\"useLocalTor\": false"));
+        assert!(body.contains("\"socks5Port\": \"9168\""), "got: {body}");
+        assert!(body.contains("\"language\": \"en\""), "got: {body}");
     }
 
     // ── Strict-parsing tests ────────────────────────────────────────────────
@@ -3191,9 +3179,8 @@ mod purge_prompt_tests {
             r#"{
                 "config_path": "feather.AppImage.config/feather/settings.json",
                 "first_run_args": [],
-                "preset": {
-                    "socks5Host": { "from": "socks5_host" }
-                }
+                "static": { "language": "en" },
+                "proxy_setup": { "app": "feather" }
             }"#,
         )
         .expect("seed pack");
@@ -3248,25 +3235,14 @@ mod purge_prompt_tests {
             r#"{
                 "config_path": "feather.AppImage.config/feather/settings.json",
                 "first_run_args": [],
-                "preset": {
-                    "socks5Host": { "from": "socks5_host" },
-                    "useLocalTor": { "from": "feather_use_local_tor" }
-                }
+                "static": { "language": "en" },
+                "proxy_setup": { "app": "feather" }
             }"#,
         )
         .expect("seed pack");
 
         let args = vec!["+feather".to_string(), "--seed-new".to_string()];
-        let code = with_fake_seed_env(&home, &catalog, Some(&seeds_dir), || {
-            let prev = std::env::var("APPIMAGE_CONTROL_SEED_PRESET").ok();
-            std::env::set_var("APPIMAGE_CONTROL_SEED_PRESET", "whonix");
-            let r = run_cli_ops(&args);
-            match prev {
-                Some(v) => std::env::set_var("APPIMAGE_CONTROL_SEED_PRESET", v),
-                None => std::env::remove_var("APPIMAGE_CONTROL_SEED_PRESET"),
-            }
-            r
-        });
+        let code = with_fake_seed_env(&home, &catalog, Some(&seeds_dir), || run_cli_ops(&args));
         assert_eq!(
             code,
             Some(glib::ExitCode::SUCCESS),
@@ -3275,63 +3251,12 @@ mod purge_prompt_tests {
         assert!(dir.exists(), "feather instance dir must exist");
         let body = fs::read_to_string(&cfg).expect("config must exist after seeding");
         assert!(
-            body.contains("\"socks5Host\": \"10.152.152.10\""),
-            "config must contain seeded socks5Host, got: {body}"
+            body.contains("\"socks5Port\": \"9168\""),
+            "config must contain portmux's proxy key, got: {body}"
         );
         assert!(
-            body.contains("\"useLocalTor\": false"),
-            "config must contain seeded useLocalTor, got: {body}"
-        );
-    }
-
-    /// `+feather --seed-new` with port-helper stub REMOVED from PATH →
-    /// exit FAILURE (probe fails), but instance IS still installed.
-    #[test]
-    fn seed_new_port_helper_missing_exits_failure_instance_installed() {
-        let tmp = tempfile::tempdir().expect("tmp");
-        let home = tmp.path().join("home");
-        fs::create_dir_all(&home).expect("home");
-        let catalog = tmp.path().join("catalog.json");
-        write_seed_catalog(&catalog);
-
-        // Pre-seed feather cache so install succeeds.
-        let cache = home.join(".local/share/appimages/cache/feather");
-        fs::create_dir_all(&cache).expect("cache");
-        fs::write(cache.join("feather.AppImage"), b"fake").expect("cached");
-
-        let seeds_dir = tmp.path().join("seeds");
-        fs::create_dir_all(&seeds_dir).expect("seeds dir");
-        fs::write(
-            seeds_dir.join("feather.json"),
-            r#"{
-                "config_path": "feather.AppImage.config/feather/settings.json",
-                "first_run_args": [],
-                "preset": {
-                    "socks5Host": { "from": "socks5_host" }
-                }
-            }"#,
-        )
-        .expect("seed pack");
-
-        use appimage_control_core::ENV_PORT_HELPER_BIN;
-        let args = vec!["+feather".to_string(), "--seed-new".to_string()];
-        // Use with_fake_seed_env to set up xvfb-run + path, then override the helper
-        // to a nonexistent path so probe fails.
-        let code = with_fake_seed_env(&home, &catalog, Some(&seeds_dir), || {
-            // Point the helper env-var at a nonexistent binary → probe fails.
-            std::env::set_var(ENV_PORT_HELPER_BIN, "/nonexistent/port-helper-no-such");
-            run_cli_ops(&args)
-        });
-        assert_eq!(
-            code,
-            Some(glib::ExitCode::FAILURE),
-            "probe failure must exit FAILURE"
-        );
-        // Instance must be installed (install ran before probe).
-        let inst_dir = home.join(".local/share/appimages/apps/feather/1");
-        assert!(
-            inst_dir.exists(),
-            "feather instance must still be installed even though seeding failed"
+            body.contains("\"language\": \"en\""),
+            "config must contain the pack's static key, got: {body}"
         );
     }
 

@@ -173,25 +173,23 @@ fn seed_settings_prints_summary_line() {
     xp.set_mode(0o755);
     fs::set_permissions(&xvfb, xp).expect("chmod xvfb");
 
-    // Fake port-allocation helper so the seed pre-flight + per-instance
-    // lookups don't depend on an installed system helper. Accepts
-    // `--help` (probe path) and `ensure …` (per-instance lookup); both
-    // succeed. The JSON shape matches the real helper's documented
-    // contract.
+    // Fake portmux-port so the seed pre-flight and proxy setup don't depend
+    // on an installed helper. Answers the probe (`configure-app --help`) and
+    // writes a proxy key into --config, as the real command does.
     let port_helper = bin_dir.join("port-helper");
     fs::write(
         &port_helper,
         "#!/bin/sh\n\
-         if [ \"$1\" = \"--help\" ]; then exit 0; fi\n\
-         if [ \"$1\" = \"ensure\" ]; then\n  \
-           printf '%s\\n' '{\"host\":\"127.0.0.1\",\"port\":9168,\
-                            \"isolation\":\"dest-addr\",\
-                            \"source_file\":\"/tmp/stub\",\
-                            \"tor_reload_done\":false,\
-                            \"already_assigned\":false}'\n  \
-           exit 0\n\
-         fi\n\
-         exit 0\n",
+         [ \"$1\" = configure-app ] || exit 1\n\
+         [ \"$2\" = --help ] && exit 0\n\
+         CFG=\n\
+         prev=\n\
+         for a in \"$@\"; do [ \"$prev\" = --config ] && CFG=\"$a\"; prev=\"$a\"; done\n\
+         case \"$*\" in\n  \
+           *--write-only*) ;;\n  \
+           *) printf '{\"proxy\":1,\"socks5Port\":\"9168\"}' > \"$CFG\" ;;\n\
+         esac\n\
+         printf '{\"version\":2}\\n'\n",
     )
     .expect("port-helper stub");
     let mut pp = fs::metadata(&port_helper).expect("ph meta").permissions();
@@ -225,6 +223,100 @@ fn seed_settings_prints_summary_line() {
     assert!(
         err.contains("Seed settings summary:") && err.contains("seeded"),
         "unexpected stderr: {err}"
+    );
+}
+
+/// Runs `+feather --seed-new` with `helper` named as the portmux-port binary
+/// and returns (exit ok, stderr, whether the instance is installed). Each run
+/// is its own process because the helper probe is cached per process.
+fn seed_new_with_helper(tmp: &Path, helper: &Path) -> (bool, String, bool) {
+    let home = tmp.join("home");
+    fs::create_dir_all(&home).expect("home");
+    let catalog = tmp.join("catalog.json");
+    fs::write(
+        &catalog,
+        r#"{ "apps": [ {
+            "id": "feather",
+            "display_name": "Feather Wallet",
+            "download_url": "http://127.0.0.1:9/x.AppImage",
+            "appimage_filename": "feather.AppImage"
+        } ] }"#,
+    )
+    .expect("catalog");
+    let cache = home.join(".local/share/appimages/cache/feather");
+    fs::create_dir_all(&cache).expect("cache");
+    fs::write(cache.join("feather.AppImage"), b"fake").expect("cached");
+    let out = Command::new(app_exe().as_os_str())
+        .env("HOME", &home)
+        .env("APPIMAGE_CONTROL_CATALOG", &catalog)
+        .env(appimage_control_core::ENV_PORT_HELPER_BIN, helper)
+        .args(["+feather", "--seed-new"])
+        .output()
+        .expect("seed-new");
+    let installed = home.join(".local/share/appimages/apps/feather/1").exists();
+    (
+        out.status.success(),
+        String::from_utf8_lossy(&out.stderr).into_owned(),
+        installed,
+    )
+}
+
+#[test]
+fn seed_new_missing_helper_exits_failure_with_hint_instance_installed() {
+    let tmp = tempfile::tempdir().expect("tmp");
+    let (ok, err, installed) = seed_new_with_helper(tmp.path(), Path::new("/nonexistent/helper"));
+    assert!(!ok, "missing helper must exit non-zero: {err}");
+    assert!(err.contains("sudo apt install portmux"), "hint: {err}");
+    assert!(installed, "the instance stays installed: {err}");
+}
+
+#[test]
+fn seed_new_old_helper_exits_failure_with_hint_instance_installed() {
+    use std::os::unix::fs::PermissionsExt;
+    let tmp = tempfile::tempdir().expect("tmp");
+    // A portmux older than configure-app: top-level --help works, the
+    // subcommand does not exist.
+    let helper = tmp.path().join("old-helper");
+    fs::write(
+        &helper,
+        "#!/bin/sh\n[ \"$1\" = --help ] && exit 0\nexit 1\n",
+    )
+    .expect("stub");
+    fs::set_permissions(&helper, fs::Permissions::from_mode(0o755)).expect("chmod");
+    let (ok, err, installed) = seed_new_with_helper(tmp.path(), &helper);
+    assert!(!ok, "old helper must exit non-zero: {err}");
+    assert!(err.contains("sudo apt install portmux"), "hint: {err}");
+    assert!(installed, "the instance stays installed: {err}");
+}
+
+/// The recorder only reads a pack for its defaults, so it carries on without
+/// one, but it says that the pack was refused rather than acting as if none
+/// exists.
+#[test]
+fn record_baseline_names_a_refused_pack() {
+    let tmp = tempfile::tempdir().expect("tmp");
+    let home = tmp.path().join("home");
+    fs::create_dir_all(&home).expect("home");
+    let catalog = tmp.path().join("catalog.json");
+    write_session_catalog(&catalog);
+    let seeds = tmp.path().join("seeds");
+    fs::create_dir_all(&seeds).expect("seeds");
+    fs::write(
+        seeds.join("feather.json"),
+        r#"{ "config_path": "c.json", "preset": { "a": { "from": "socks5_host" } } }"#,
+    )
+    .expect("pack");
+    let out = Command::new(app_exe().as_os_str())
+        .env("HOME", &home)
+        .env("APPIMAGE_CONTROL_CATALOG", &catalog)
+        .env(appimage_control_core::ENV_SEEDS_DIR, &seeds)
+        .args(["--record-pack-baseline", "session"])
+        .output()
+        .expect("record");
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        err.contains("Ignoring existing seed packs") && err.contains("proxy_setup"),
+        "stderr: {err}"
     );
 }
 

@@ -379,13 +379,13 @@ fn network_page(cfg: &Rc<RefCell<GuiConfig>>, save: &Rc<dyn Fn()>) -> gtk::Widge
     bind_switch(&auto_seed, cfg, save, |c, v| c.auto_seed = v);
     seeding.add(&auto_seed);
 
-    // Per-app ports via portmux-port — reflect a real runtime probe.
+    // Proxy setup via portmux-port — reflect a real runtime probe.
     let (port_sub, connected) = match portmux_port_probe_runtime() {
         Ok(o) => (format!("{} · detected on host", o.invocation), true),
         Err(_) => ("portmux-port · not detected".to_string(), false),
     };
     let ports_row = adw::ActionRow::builder()
-        .title("Per-app ports via")
+        .title("Proxy setup via")
         .subtitle(port_sub)
         .build();
     let pill = gtk::Label::new(Some(if connected { "connected" } else { "missing" }));

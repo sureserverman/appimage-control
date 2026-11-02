@@ -1896,7 +1896,20 @@ fn install_window_actions_for_catalog(
             Rc::new(move || {
                 // Installable apps (≥ 1 instance), with config_path /
                 // first_run_args pre-filled from any existing seed pack.
-                let lib = SeedPackLibrary::discover_load(None).ok();
+                // Packs only give the recorder its defaults, so a refused pack
+                // does not stop it, but the user is told.
+                let lib = match SeedPackLibrary::discover_load(None) {
+                    Ok(lib) => Some(lib),
+                    Err(e) => {
+                        present_message_window(
+                            window.application().as_ref().expect("app"),
+                            "Seed packs not loaded",
+                            &e.to_string(),
+                            None,
+                        );
+                        None
+                    }
+                };
                 let apps: Vec<RecordApp> = catalog
                     .apps
                     .iter()
