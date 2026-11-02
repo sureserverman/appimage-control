@@ -1725,6 +1725,17 @@ fn install_window_actions_for_catalog(
             let update_btn = update_btn.clone();
             let refresh = Rc::clone(&refresh_fn);
             Rc::new(move || {
+                // The check below falls back to the embedded packs, so a refused
+                // pack would read as "nothing to seed". Say what is wrong instead.
+                if let Err(e) = SeedPackLibrary::discover_load(None) {
+                    present_message_window(
+                        window.application().as_ref().expect("app"),
+                        "Seed packs not loaded",
+                        &e.to_string(),
+                        None,
+                    );
+                    return;
+                }
                 let installed_supported: Vec<(String, String, u32, usize)> = catalog
                     .apps
                     .iter()
@@ -1896,10 +1907,10 @@ fn install_window_actions_for_catalog(
             Rc::new(move || {
                 // Installable apps (≥ 1 instance), with config_path /
                 // first_run_args pre-filled from any existing seed pack.
-                // Packs only give the recorder its defaults, so a refused pack
-                // does not stop it, but the user is told.
+                // Stops here: the notice is not modal, so going on would open the
+                // recorder's modal dialog over it.
                 let lib = match SeedPackLibrary::discover_load(None) {
-                    Ok(lib) => Some(lib),
+                    Ok(lib) => lib,
                     Err(e) => {
                         present_message_window(
                             window.application().as_ref().expect("app"),
@@ -1907,7 +1918,7 @@ fn install_window_actions_for_catalog(
                             &e.to_string(),
                             None,
                         );
-                        None
+                        return;
                     }
                 };
                 let apps: Vec<RecordApp> = catalog
@@ -1919,8 +1930,7 @@ fn install_window_actions_for_catalog(
                             return None;
                         }
                         let (known_config_path, first_run_args) = lib
-                            .as_ref()
-                            .and_then(|l| l.get(&app.id))
+                            .get(&app.id)
                             .map(|p| (Some(p.config_path.clone()), p.first_run_args.clone()))
                             .unwrap_or((None, Vec::new()));
                         Some(RecordApp {

@@ -185,6 +185,7 @@ fn seed_settings_prints_summary_line() {
          CFG=\n\
          prev=\n\
          for a in \"$@\"; do [ \"$prev\" = --config ] && CFG=\"$a\"; prev=\"$a\"; done\n\
+         [ -n \"$CFG\" ] || exit 1\n\
          case \"$*\" in\n  \
            *--write-only*) ;;\n  \
            *) printf '{\"proxy\":1,\"socks5Port\":\"9168\"}' > \"$CFG\" ;;\n\

@@ -865,9 +865,9 @@ mod tests {
     #[test]
     fn rotation_from_preset_array_variant_is_no_longer_a_valid_pack_shape() {
         // The legacy `from_preset_array` rotation variant was retired
-        // together with the `feather_ports` preset-array field; new
-        // per-instance port assignment goes through the `port` verb in
-        // the `preset` section. Confirm the old shape fails to parse.
+        // together with the `feather_ports` preset-array field; ports are
+        // portmux's now, through `proxy_setup`. Confirm the old shape
+        // fails to parse.
         let raw = r#"{
             "config_path":"x",
             "rotation": {

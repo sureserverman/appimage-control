@@ -65,7 +65,7 @@ pub use migrate::{
 };
 pub use model::InstalledApp;
 /// Neutral alias for the override env var holding a custom path to
-/// the port-allocation helper. Same string value as
+/// the seeding helper. Same string value as
 /// [`ENV_PORTMUX_PORT_BIN`]; the alias exists so test code and
 /// future neutral-naming refactors can reference the override
 /// without naming the underlying tool.

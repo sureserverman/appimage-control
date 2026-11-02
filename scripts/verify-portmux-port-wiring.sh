@@ -90,10 +90,8 @@ hdr "1. Environment probes"
 if command -v portmux-port >/dev/null 2>&1; then
     info "portmux-port found at $(command -v portmux-port)"
     portmux-port configure-app --help 2>&1 | head -3 | sed 's/^/    | /' || true
-    REAL_PORTMUX=1
 else
-    warn "portmux-port not on PATH — section 4 will skip the happy-path test"
-    REAL_PORTMUX=0
+    info "portmux-port not on PATH — the checks below use stubs"
 fi
 
 if pkg-config --atleast-version=4.21 gtk4 2>/dev/null; then
@@ -169,12 +167,10 @@ if [ "$HAVE_GTK" = "1" ]; then
     if [ -x "$BIN" ]; then
         info "→ run with APPIMAGE_CONTROL_PORTMUX_PORT_BIN=/nonexistent/port-helper"
         OUT_FILE="$TMPDIR/missing-mp.log"
-        set +e
         HOME="$TMPDIR/home" APPIMAGE_CONTROL_PORTMUX_PORT_BIN=/nonexistent/port-helper \
             "$BIN" --seed-settings feather \
             > "$OUT_FILE" 2>&1
         RC=$?
-        set -e
         info "  exit code: $RC"
         sed 's/^/    | /' < "$OUT_FILE"
         # Assertion targets the neutralized install-hint wording in
@@ -217,12 +213,10 @@ chmod +x "$STUB"
 if [ "$HAVE_GTK" = "1" ] && [ -x "${BIN:-}" ]; then
     info "→ run with APPIMAGE_CONTROL_PORTMUX_PORT_BIN=$STUB"
     OUT_FILE="$TMPDIR/stub-mp.log"
-    set +e
     HOME="$TMPDIR/home" APPIMAGE_CONTROL_PORTMUX_PORT_BIN="$STUB" \
         "$BIN" --seed-settings feather \
         > "$OUT_FILE" 2>&1
     RC=$?
-    set -e
     info "  exit code: $RC"
     sed 's/^/    | /' < "$OUT_FILE"
     if [ "$RC" -eq 0 ]; then
@@ -255,12 +249,10 @@ chmod +x "$OLD_STUB"
 
 if [ "$HAVE_GTK" = "1" ] && [ -x "${BIN:-}" ]; then
     OUT_FILE="$TMPDIR/old-mp.log"
-    set +e
     HOME="$TMPDIR/home" APPIMAGE_CONTROL_PORTMUX_PORT_BIN="$OLD_STUB" \
         "$BIN" --seed-settings feather \
         > "$OUT_FILE" 2>&1
     RC=$?
-    set -e
     info "  exit code: $RC"
     sed 's/^/    | /' < "$OUT_FILE"
     if [ "$RC" -ne 0 ] && grep -q "sudo apt install portmux" "$OUT_FILE"; then
@@ -280,12 +272,10 @@ if [ "$HAVE_GTK" = "1" ] && [ "$HAVE_XVFB" = "1" ] && [ -x "${BIN:-}" ]; then
     info "→ launch the GUI under xvfb-run with the stub portmux-port; \
 let it idle for 3s; then SIGTERM and confirm there were no panics."
     OUT_FILE="$TMPDIR/gui-smoke.log"
-    set +e
     APPIMAGE_CONTROL_PORTMUX_PORT_BIN="$STUB" \
         timeout --signal=TERM 5s \
         xvfb-run -a "$BIN" > "$OUT_FILE" 2>&1
     RC=$?
-    set -e
     info "  exit code: $RC (124 = timeout-after-3s is normal, 143 = SIGTERM)"
     sed 's/^/    | /' < "$OUT_FILE" | tail -40
     if grep -qE "thread .* panicked|RUST_BACKTRACE|fatal:" "$OUT_FILE"; then

@@ -107,8 +107,9 @@ pub fn is_whonix_environment() -> bool {
 /// seed-pack library directly.
 ///
 /// Now data-driven: an app is "supported" when `data/seeds/<id>.json`
-/// exists in the active library (currently: the embedded slice baked
-/// in by `build.rs`).
+/// exists in the active library ([`active_seed_library`]). That lookup falls
+/// back past a refused pack, so a caller showing this to a user runs
+/// `SeedPackLibrary::discover_load` first and reports its error.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SupportedSeedApp {
     app_id: String,
@@ -197,7 +198,8 @@ fn recipe_from_library(lib: &SeedPackLibrary, app_id: &str) -> Option<SeedRecipe
 /// Centralised seed-pack library lookup. `discover_load` reaches the
 /// disk-override / Flatpak / embedded chain; on any failure we fall
 /// back to the embedded slice so a malformed disk pack can't break
-/// every "is this app seedable" probe.
+/// every "is this app seedable" probe. Seeding itself never takes this
+/// fallback: it uses the strict loader.
 fn active_seed_library() -> Result<SeedPackLibrary> {
     SeedPackLibrary::discover_load(None).or_else(|_| SeedPackLibrary::embedded())
 }

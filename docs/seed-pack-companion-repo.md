@@ -13,8 +13,8 @@ expects on the wire, see `crates/core/src/seed_pack_update.rs`.
 ## Why a separate repo
 
 Seed packs encode operational choices that are not for general
-public consumption — pinned `.onion` server addresses, vetted
-proxy ports, trust assumptions about specific wallet builds.
+public consumption — pinned `.onion` server addresses, trust
+assumptions about specific wallet builds.
 Curating them as content rather than code lets you:
 
 - Ship updates the same hour a pinned server changes, without

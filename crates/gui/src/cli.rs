@@ -118,8 +118,8 @@ When --purge, --clean, or --migrate is present, only one runs: --purge first if 
   +APP:N           Add N instances of APP (same cap).
   --seed-new       When present alongside +APP/+APP:N/=APP:N ops that add instances, automatically
                    seed settings for each newly added instance after all instance ops complete
-                   (matches the GUI's post-Apply auto-seed behaviour). Requires the portmux port
-                   helper to be installed; on probe failure the install hint is printed and newly
+                   (matches the GUI's post-Apply auto-seed behaviour). Requires portmux with its
+                   configure-app command; on probe failure the install hint is printed and newly
                    added instances are counted as not-seeded, then the command exits with failure
                    (instances remain installed). --seed-new without any instance-adding op is an
                    error.
@@ -1858,10 +1858,13 @@ mod purge_prompt_tests {
     /// - optional seed-pack directory override so callers can inject
     ///   synthetic packs without shipping anything in this repo.
     ///
-    /// The stub helper returns a deterministic JSON record sized to
-    /// match the real helper's documented contract. Test bodies do
-    /// not need to know which binary is being stubbed — that's the
-    /// point of the abstraction.
+    /// The stub helper behaves as `configure-app` does: it writes a proxy key
+    /// into `--config` and prints JSON. Test bodies do not need to know which
+    /// binary is being stubbed — that's the point of the abstraction.
+    ///
+    /// The helper probe is cached per process, and the first test to reach it
+    /// fixes the answer for this whole test binary. A test expecting a probe
+    /// failure therefore goes in `tests/cli_subprocess.rs`.
     fn with_fake_seed_env<T>(
         home: &std::path::Path,
         catalog: &std::path::Path,
@@ -1893,6 +1896,7 @@ mod purge_prompt_tests {
              CFG=\n\
              prev=\n\
              for a in \"$@\"; do [ \"$prev\" = --config ] && CFG=\"$a\"; prev=\"$a\"; done\n\
+             [ -n \"$CFG\" ] || exit 1\n\
              case \"$*\" in\n  \
                *--write-only*) ;;\n  \
                *) printf '{\"proxy\":1,\"socks5Port\":\"9168\"}' > \"$CFG\" ;;\n\

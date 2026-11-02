@@ -33,7 +33,7 @@ location.
 
 The probe is `portmux-port configure-app --help`. It runs once per process,
 before the seed loop. A missing portmux and one too old to have the command get
-the same message:
+the same install hint, after a first line that says which it was:
 
 > A required system helper for seeding is not installed, or is too old. Install
 > or upgrade the support package with:
@@ -46,17 +46,19 @@ Preferences shows the same probe's result: the **Proxy setup via** row reads
 ## Migrating a private seed pack
 
 Packs that still use `preset` or `port` are refused, and while one is refused no
-pack in that directory loads. This is deliberate: ignoring those keys would leave
+pack loads and seeding stops. This is deliberate: ignoring those keys would leave
 a wallet with no proxy and no warning.
 
 1. **Upgrade portmux**, so that `portmux-port configure-app --help` exits 0.
 2. **Find the pack.** Run `appimage-control --list-seed-packs`. The error names
-   the file. Per-user packs live in `~/.local/share/appimage-control/seeds/`.
+   one file at a time, so repeat these steps until it lists packs with no error.
+   Per-user packs live in `~/.local/share/appimage-control/seeds/`.
 3. **Sort the keys under `preset`.** Each key is one of two kinds:
-   - A proxy setting (host, port, "use local Tor", or any key with a `port`
-     body). Delete it. portmux writes these now.
+   - A proxy setting (host, port, a URL built from them, "use local Tor", or any
+     key with a `port` body). Delete it. portmux writes these now.
    - Anything else. Move it to `static` as a literal value. A `from` or `format`
-     value has no literal form in the old pack, so write the value you want.
+     value has no literal form in the old pack, so write the value you want. An
+     instance's current config shows what the old value resolved to.
 4. **Delete the `preset` section.**
 5. **Add `proxy_setup`** with the recipe for the app:
 
@@ -67,12 +69,21 @@ a wallet with no proxy and no warning.
    | Electrum (Litecoin) | `electrum-ltc` |
 
    Seeding patches a JSON config, so these three are the recipes a pack can use
-   today. portmux's other recipes write other file formats.
+   today. portmux's other recipes write other file formats. For any other app,
+   leave `proxy_setup` out: seeding then gives that app no proxy, so set one up
+   another way if it needs one.
 6. **Check it loads.** `appimage-control --list-seed-packs` lists the pack with
-   no error.
-7. **Reseed one instance** with `appimage-control --seed-settings <app id>`, and
-   check that the config carries portmux's proxy settings and your `static`
-   keys.
+   no error. This checks the pack's form only: a wrong recipe id fails at step 7.
+7. **Reseed** with `appimage-control --seed-settings <app id>`. This reseeds every
+   installed instance of that app; there is no per-instance form. With none
+   installed it reports `0 seeded` and proves nothing, so install one first with
+   `appimage-control +<app id>`.
+8. **Check the config** at
+   `~/.local/share/appimages/apps/<app id>/<N>/<config_path>`, with `{appimage}`
+   replaced by the AppImage's filename. It should hold your `static` keys and
+   portmux's proxy settings. For Feather those are `proxy`, `socks5Port` and
+   `useLocalTor`, plus `socks5Host` on Whonix. For Electrum they are `proxy` and
+   `enable_proxy`.
 
 For example, this pack:
 
@@ -111,7 +122,8 @@ runs only when that variable is set, and reports itself skipped otherwise.
 ## Failure modes
 
 An instance that fails keeps its first-run config byte-identical, and the seed
-report counts it as failed.
+report counts it as failed. The CLI starts some of these with `invalid path:`,
+which says nothing about the path.
 
 | Message | Cause | Fix |
 |---|---|---|
@@ -119,6 +131,7 @@ report counts it as failed.
 | `Seeding helper: no free port for <app>#<n> — …` | Exit 2: the port pool is exhausted | Disable an unused managed entry in portmux |
 | `Seeding helper exited <n>: …` | Any other failure. portmux's own message follows, for example about logging out and in after joining the `portmux` group | Do what the message says, then reseed |
 | `seed pack <file>: uses the removed …` | The pack has not been migrated | See **Migrating a private seed pack** |
+| `[portmux-port] WARNING …` beside `settings seeded` | The config was written, but tor is not listening on the port yet | Do what the message says |
 
 ## Backwards compatibility
 
