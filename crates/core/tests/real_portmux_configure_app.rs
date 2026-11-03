@@ -99,6 +99,29 @@ fn seeding_proxies_a_wallet_through_the_real_binary() {
         ),
     );
 
+    // The Linux installer's own Feather 4 is already there, as on a provisioned VM.
+    // Seeding must give this instance its own listener, and leave that one's stamp.
+    let helper = std::env::var_os(ENV_PORTMUX_PORT_BIN).unwrap();
+    let installer = std::process::Command::new(&helper)
+        .args([
+            "configure-app",
+            "--app",
+            "feather",
+            "--instance",
+            "4",
+            "--allocate-only",
+            "--json-v2",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        installer.status.success(),
+        "{}",
+        String::from_utf8_lossy(&installer.stderr)
+    );
+    let installer: serde_json::Value = serde_json::from_slice(&installer.stdout).unwrap();
+    let installer_port = installer["port"].to_string();
+
     let mut lines = Vec::new();
     let out = seed_instance_settings(&paths, &app, 4, SeedPreset::Ubuntu, &mut |s| {
         lines.push(s.to_string())
@@ -122,5 +145,13 @@ fn seeding_proxies_a_wallet_through_the_real_binary() {
     assert!(
         dropin.contains(&format!("SocksPort {port} ")),
         "port not in the drop-in: {dropin}"
+    );
+    assert_ne!(
+        port, installer_port,
+        "two installs share a listener: {dropin}"
+    );
+    assert!(
+        dropin.contains("\"desktop_app_id\":\"feather4\""),
+        "the installer's slot was retagged: {dropin}"
     );
 }

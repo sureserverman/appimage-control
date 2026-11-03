@@ -283,11 +283,12 @@ fn apply_recipe(
     config: &Path,
     on_progress: &mut dyn FnMut(&str),
 ) -> Result<()> {
+    // Both calls name this install, so portmux reads and writes its own slot.
+    let desktop_file = desktop_filename_for_instance(&app.id, instance_index);
+    let desktop_id = desktop_file
+        .strip_suffix(".desktop")
+        .unwrap_or(&desktop_file);
     if let Some(setup) = &recipe.pack.proxy_setup {
-        let desktop_file = desktop_filename_for_instance(&app.id, instance_index);
-        let desktop_id = desktop_file
-            .strip_suffix(".desktop")
-            .unwrap_or(&desktop_file);
         let done = configure_app(&setup.app, instance_index, config, desktop_id)?;
         if !done.warnings.is_empty() {
             on_progress(&format!(
@@ -303,7 +304,7 @@ fn apply_recipe(
     apply_pack(&recipe.pack, instance_index, &mut map)?;
     write_json_object(config, map)?;
     if let Some(setup) = &recipe.pack.proxy_setup {
-        rewrite_app_config(&setup.app, instance_index, config)?;
+        rewrite_app_config(&setup.app, instance_index, config, desktop_id)?;
     }
     Ok(())
 }
@@ -1873,6 +1874,12 @@ echo '{"version":2,"manual_action":null}'"#;
             s.config.display()
         );
         assert!(log.contains(&want), "argv wrong: {log}");
+        // The rewrite names the same install, or portmux reads another one's slot.
+        let rewrite = format!(
+            "configure-app --app feather --instance 1 --config {} --desktop-app-id appimage-control-{APP_ID}-1 --write-only --json-v2",
+            s.config.display()
+        );
+        assert!(log.contains(&rewrite), "rewrite argv wrong: {log}");
         let v: Value = serde_json::from_str(&fs::read_to_string(&s.config).unwrap()).unwrap();
         assert_eq!(v["sentinel"], "ran", "pack key lost");
         assert_eq!(v["socks5Port"], "9100", "proxy key lost");

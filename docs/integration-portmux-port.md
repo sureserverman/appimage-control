@@ -18,8 +18,12 @@ portmux-port configure-app --app feather --instance 4 \
 ```
 
 Then the pack's `static` and `rotation` keys are written, and portmux runs once
-more with `--write-only`, so its proxy settings win over a pack key of the same
-name. Any failure restores the config the first run left.
+more with `--write-only` and the same `--desktop-app-id`, so its proxy settings win
+over a pack key of the same name. Any failure restores the config the first run left.
+
+The desktop id is what tells this instance apart from the Linux installer's own
+copy of the app (`~/feather1`, `~/electrum-btc`): both ask for instance 1, and
+portmux gives each its own listener and keeps each one's stamp.
 
 A pack with no `proxy_setup` gets no `configure-app` call, and that app gets no
 proxy from seeding. The pre-flight probe below still runs, so seeding needs

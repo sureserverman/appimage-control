@@ -127,8 +127,25 @@ pub fn configure_app(
 
 /// Write `app`'s existing assignment into `config` again, so portmux's proxy
 /// settings win over anything written since. Never changes tor's config.
-pub fn rewrite_app_config(app: &str, instance: u32, config: &Path) -> Result<ConfiguredApp> {
-    run_configure(app, instance, config, &[OsStr::new("--write-only")])
+///
+/// `desktop_app_id` must be the one [`configure_app`] stamped: portmux finds this
+/// install's slot by it, so the installer's own copy of the app keeps its port.
+pub fn rewrite_app_config(
+    app: &str,
+    instance: u32,
+    config: &Path,
+    desktop_app_id: &str,
+) -> Result<ConfiguredApp> {
+    run_configure(
+        app,
+        instance,
+        config,
+        &[
+            OsStr::new("--desktop-app-id"),
+            OsStr::new(desktop_app_id),
+            OsStr::new("--write-only"),
+        ],
+    )
 }
 
 fn run_configure(
@@ -344,13 +361,17 @@ exit 1"#
     }
 
     #[test]
-    fn rewrite_passes_write_only_and_no_desktop_id() {
+    /// portmux finds an install's slot by its desktop id. A rewrite without it
+    /// would read the slot of the app's own launcher, another install's port.
+    fn rewrite_passes_write_only_and_the_desktop_id() {
         let dir = tmpdir("rewrite");
         let (stub, log) = logging_stub(&dir, r#"echo '{"version":2}'"#);
         let cfg = dir.join("settings.json");
-        with_bin(&stub, || rewrite_app_config("feather", 4, &cfg).unwrap());
+        with_bin(&stub, || {
+            rewrite_app_config("feather", 4, &cfg, "appimage-control-feather-4").unwrap()
+        });
         let want = format!(
-            "configure-app\n--app\nfeather\n--instance\n4\n--config\n{}\n--write-only\n--json-v2\n",
+            "configure-app\n--app\nfeather\n--instance\n4\n--config\n{}\n--desktop-app-id\nappimage-control-feather-4\n--write-only\n--json-v2\n",
             cfg.display()
         );
         assert_eq!(std::fs::read_to_string(&log).unwrap(), want);
