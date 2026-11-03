@@ -92,8 +92,8 @@ fn probe_runtime_uncached() -> std::result::Result<ProbeOutcome, String> {
 /// port or host: those are portmux's, and it already wrote them.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ConfiguredApp {
-    /// A step the user must take in the app, for an app portmux cannot
-    /// write (Telegram). `None` when the setup is complete.
+    /// A step the user must take in the app, if a portmux reports one. portmux
+    /// now writes every app, Telegram included, so it sends none: `None`.
     pub manual_action: Option<String>,
     /// portmux's stderr on success, such as a tor reload warning.
     pub warnings: String,
