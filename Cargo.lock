@@ -31,7 +31,7 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
 name = "appimage-control"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "appimage_control_core",
  "dirs",
@@ -43,7 +43,7 @@ dependencies = [
 
 [[package]]
 name = "appimage_control_core"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "assert_fs",
  "base64",
