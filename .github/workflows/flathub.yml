@@ -24,11 +24,16 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: read
+
 jobs:
   flatpak:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - name: Install Flatpak tooling
         run: |
           sudo apt-get update
@@ -52,6 +57,9 @@ jobs:
       - name: Run Flatpak smoke test
         run: |
           flatpak-builder --run build-flatpak flatpak/io.github.sureserverman.AppImageControl.yml appimage-control --help >/dev/null
+          # The inner script is single-quoted on purpose: its $VARS must
+          # expand inside the Flatpak sandbox, not in the runner shell.
+          # shellcheck disable=SC2016
           flatpak-builder --run build-flatpak flatpak/io.github.sureserverman.AppImageControl.yml sh -lc '
             set -eux
             export HOME=/tmp/aic-ci-smoke

@@ -5,11 +5,14 @@ on:
     branches: [main, master]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
     container:
-      image: archlinux:latest
+      image: archlinux@sha256:ece6c971fec3c532fd508bce299a446deaf469feecbfe7c353e995bc1a5e7bba # latest as of 2026-11-05
     steps:
       - name: Install system deps
         run: |
@@ -21,9 +24,11 @@ jobs:
             pkgconf \
             xorg-server-xvfb \
             desktop-file-utils appstream
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - name: Cargo cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
             ~/.cargo/registry
@@ -68,7 +73,7 @@ jobs:
             ./scripts/verify-portmux-port-wiring.sh
       - name: Upload verify-wiring log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: verify-portmux-port-wiring-log
           path: ${{ runner.temp }}/verify-portmux-port-wiring.log
