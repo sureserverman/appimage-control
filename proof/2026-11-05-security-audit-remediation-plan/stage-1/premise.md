@@ -39,3 +39,5 @@ Assumption: the bumped TLS stack still reaches GitHub release assets.
 Checked: Task 1.1's ignored test `live_github_download` from the host.
 Result: see Task 1.1 commit.
 Verdict: checked in Task 1.1.
+
+Note (Stage 1 gate, 2026-11-05): Premise 2 checked that the newest tags resolve. Task 1.2 pinned the newest tag of the major the workflows already used (checkout v4.4.0, cache v4.3.0, upload-artifact v4.6.2); moving to the current majors is a separate change. Outcome 2 above shows its Step 3.0 wording; the plan amended it at the gate with the owner's words.

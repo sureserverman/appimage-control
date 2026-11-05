@@ -104,6 +104,10 @@ fn live_github_download() {
     )
     .expect("live download");
     let head = fs::read(&dest).unwrap();
-    assert!(head.len() > 1_000_000, "suspiciously small: {} bytes", head.len());
+    assert!(
+        head.len() > 1_000_000,
+        "suspiciously small: {} bytes",
+        head.len()
+    );
     assert_eq!(&head[..4], b"\x7fELF", "not an ELF executable");
 }
