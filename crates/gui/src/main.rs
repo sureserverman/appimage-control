@@ -454,7 +454,7 @@ fn mount_empty_state(
     status.set_icon_name(Some("package-x-generic-symbolic"));
     status.set_title("No catalog loaded");
     status.set_description(Some(
-        "AppImage Control couldn’t find an application catalog. Open one, or start it from a folder that contains data/catalog.json.",
+        "AppImage Control couldn’t find an application catalog. Open one, or set APPIMAGE_CONTROL_CATALOG to a catalog file.",
     ));
 
     let body = GtkBox::new(Orientation::Vertical, 18);
@@ -467,7 +467,7 @@ fn mount_empty_state(
 
     let detail_label = Label::builder()
         .label(
-            "Search order:\n  1. APPIMAGE_CONTROL_CATALOG environment variable\n  2. ./data/catalog.json (cwd and parents)\n  3. /app/share/, /usr/share/appimage-control/catalog.json\n  4. catalog compiled into this build",
+            "Search order:\n  1. APPIMAGE_CONTROL_CATALOG environment variable\n  2. data/catalog.json next to the program or in its parents\n  3. /app/share/, /usr/share/appimage-control/catalog.json\n  4. catalog compiled into this build",
         )
         .halign(gtk::Align::Start)
         .xalign(0.0)

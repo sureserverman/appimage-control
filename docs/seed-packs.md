@@ -88,12 +88,13 @@ non-empty match wins:
 2. `APPIMAGE_CONTROL_SEEDS_DIR` env var, if non-empty and a directory.
 3. `~/.local/share/appimage-control/seeds/` — per-user, where
    `--update-seed-packs` installs companion-repo content.
-4. Walk cwd ancestors (depth 32) for `data/seeds/`.
-5. Walk `current_exe()` ancestors for `data/seeds/`.
-6. `/app/share/appimage-control/seeds/` (Flatpak install path —
+4. Walk `current_exe()` ancestors (depth 32) for `data/seeds/`. The
+   current directory is never searched: the GUI starts in `$HOME`,
+   where a planted `data/seeds/` would otherwise win.
+5. `/app/share/appimage-control/seeds/` (Flatpak install path —
    empty by default in this repo's Flatpak builds).
-7. `/usr/share/appimage-control/seeds/`.
-8. Slice baked in by `build.rs` from `data/seeds/*.json` at compile
+6. `/usr/share/appimage-control/seeds/`.
+7. Slice baked in by `build.rs` from `data/seeds/*.json` at compile
    time (empty by default in this repo).
 
 For local iteration on a pack you're authoring:

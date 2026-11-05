@@ -37,9 +37,9 @@ With no arguments, the graphical app starts.
                    Missing file, unreadable file, or invalid JSON → error naming PATH, exit 1.
 
 Catalog JSON resolution (when --catalog is not given): environment APPIMAGE_CONTROL_CATALOG
-(non-empty path to a readable file), then data/catalog.json (current dir or any parent, then
-from the binary path), then /app/share/ or /usr/share/appimage-control/catalog.json, then the
-catalog compiled into the binary. --catalog overrides all of these.
+(non-empty path to a readable file), then data/catalog.json next to the binary or in any of its
+parents (never the current directory), then /app/share/ or /usr/share/appimage-control/catalog.json,
+then the catalog compiled into the binary. --catalog overrides all of these.
 
 Operations (unrecognized arguments cause a non-zero exit with a message pointing to --help; they do not open the GUI).
 When --purge, --clean, or --migrate is present, only one runs: --purge first if present, else --clean, else --migrate (other operation flags are ignored for that run).

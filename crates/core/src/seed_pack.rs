@@ -35,7 +35,7 @@ use crate::error::{Error, Result};
 /// `APPIMAGE_CONTROL_CATALOG`'s shape.
 pub const ENV_SEEDS_DIR: &str = "APPIMAGE_CONTROL_SEEDS_DIR";
 
-/// Bound on the ancestor walk so a misconfigured cwd can't loop forever.
+/// Bound on the executable ancestor walk.
 /// Same value as `crate::catalog`'s walk.
 const MAX_ANCESTOR_DEPTH: usize = 32;
 
@@ -222,11 +222,11 @@ impl SeedPackLibrary {
     /// 3. `~/.local/share/appimage-control/seeds/` — per-user override.
     ///    This is where `--update-seed-packs` (Stage 7 of the
     ///    seed-pack-extraction plan) installs companion-repo packs.
-    /// 4. Walk cwd ancestors (depth 32) for `data/seeds/`.
-    /// 5. Walk `current_exe()` ancestors for `data/seeds/`.
-    /// 6. `/app/share/appimage-control/seeds/` (Flatpak install path).
-    /// 7. `/usr/share/appimage-control/seeds/`.
-    /// 8. Embedded slice baked in by `build.rs`.
+    /// 4. Walk `current_exe()` ancestors for `data/seeds/`. The current directory is never
+    ///    walked: the GUI starts in `$HOME`, where a planted `data/seeds/` would win.
+    /// 5. `/app/share/appimage-control/seeds/` (Flatpak install path).
+    /// 6. `/usr/share/appimage-control/seeds/`.
+    /// 7. Embedded slice baked in by `build.rs`.
     pub fn discover_load(explicit: Option<&Path>) -> Result<Self> {
         if let Some(dir) = explicit {
             if !dir.is_dir() {
@@ -253,11 +253,6 @@ impl SeedPackLibrary {
         }
         if let Some(user_dir) = user_seeds_dir() {
             if let Some(lib) = Self::load_from_dir(&user_dir)? {
-                return Ok(lib);
-            }
-        }
-        if let Ok(cwd) = std::env::current_dir() {
-            if let Some(lib) = Self::try_ancestors(&cwd)? {
                 return Ok(lib);
             }
         }
@@ -669,8 +664,8 @@ mod tests {
         let _g = env_lock().lock().unwrap();
         // Point XDG_DATA_HOME at a tempdir, populate the per-user
         // seeds dir, and verify discover_load picks it up over the
-        // cwd ancestor walk (which would otherwise hit the repo's
-        // real data/seeds during local testing).
+        // executable ancestor walk (which would otherwise hit the
+        // repo's real data/seeds during local testing).
         let tmp = tempfile::tempdir().unwrap();
         let xdg = tmp.path().to_path_buf();
         let user_dir = xdg.join("appimage-control").join("seeds");

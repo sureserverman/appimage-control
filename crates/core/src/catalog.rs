@@ -243,9 +243,8 @@ impl CatalogApp {
 }
 
 /// Walk `start` and its ancestors (bounded depth); return the first successfully parsed
-/// `data/catalog.json` on that chain. Used so the app works when the process cwd is a repo
-/// subdirectory (e.g. `crates/gui`) or when only the executable path points at a checkout
-/// under `target/debug/`.
+/// `data/catalog.json` on that chain. Started only from the executable's directory, so a build
+/// under `target/debug/` finds the checkout's catalog.
 /// JSON shipped with the workspace (also baked into Flatpak). Used only when no catalog file is
 /// found on disk so a misconfigured `.desktop` (`Exec=appimage-control` on the host) or an empty
 /// `APPIMAGE_CONTROL_CATALOG` still yields a usable catalog.
@@ -370,7 +369,8 @@ impl Catalog {
 
     /// Resolve catalog JSON: `explicit` path (must load if present), else non-empty
     /// `APPIMAGE_CONTROL_CATALOG` when it points to a readable file, then `data/catalog.json` on
-    /// the current directory or any ancestor, then the same walk from the executable’s directory,
+    /// the executable’s directory or any ancestor (how dev and test builds under `target/` find the
+    /// repo's catalog), never the current directory (the GUI starts in `$HOME`),
     /// then `/app/share/appimage-control/catalog.json` (Flatpak) and `/usr/share/appimage-control/catalog.json`,
     /// then the catalog JSON that was compiled into this crate (same as repo `data/catalog.json`).
     pub fn discover_load(explicit: Option<&Path>) -> crate::error::Result<Self> {
@@ -404,11 +404,6 @@ impl Catalog {
                         p.display()
                     );
                 }
-            }
-        }
-        if let Ok(cwd) = std::env::current_dir() {
-            if let Some(c) = try_load_catalog_from_data_json_ancestors(&cwd) {
-                return Ok(c);
             }
         }
         if let Ok(exe) = std::env::current_exe() {
