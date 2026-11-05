@@ -26,6 +26,8 @@ fn app_with_no_urls_is_valid_but_not_installable_on_any_arch() {
         max_instances: None,
         max_instances_tooltip: None,
         category: None,
+        sha256: None,
+        sha256_aarch64: None,
     };
     assert!(!app.has_any_download_url());
     assert!(app.resolved_download_url().is_err());

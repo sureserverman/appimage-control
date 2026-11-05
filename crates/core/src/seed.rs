@@ -1036,6 +1036,8 @@ exec "$@"
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         }
     }
 

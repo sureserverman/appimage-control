@@ -126,6 +126,12 @@ pub struct CatalogApp {
     /// Apps without one are grouped under [`CatalogApp::category_resolved`]'s `"Other"` fallback.
     #[serde(default)]
     pub category: Option<String>,
+    /// Expected SHA-256 (64 lower-case hex) of the x86_64 / x86 `.AppImage` download.
+    #[serde(default)]
+    pub sha256: Option<String>,
+    /// Expected SHA-256 (64 lower-case hex) of the aarch64 `.AppImage` download.
+    #[serde(default)]
+    pub sha256_aarch64: Option<String>,
 }
 
 fn nonempty_url(s: &Option<String>) -> Option<&str> {
@@ -354,6 +360,21 @@ impl Catalog {
                     }
                 }
             }
+            for (field, value) in [
+                ("sha256", app.sha256.as_deref()),
+                ("sha256_aarch64", app.sha256_aarch64.as_deref()),
+            ] {
+                if let Some(v) = value {
+                    if !crate::integrity::is_sha256_hex(v) {
+                        return Err(bad(
+                            &app.id,
+                            field,
+                            v,
+                            "must be exactly 64 lower-case hex characters",
+                        ));
+                    }
+                }
+            }
             // Each app owns `apps/<dir>/`: it must be a real name and not shared, or one app's
             // reset or uninstall would remove another's instances.
             let dir = app.instance_filesystem_dirname();
@@ -527,6 +548,8 @@ mod tests {
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         }
     }
 
@@ -554,6 +577,8 @@ mod tests {
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         };
         let paths = crate::paths::AppPaths::new(std::path::PathBuf::from("/home/user")).unwrap();
         let sock = paths
@@ -788,6 +813,31 @@ mod tests {
                     "{field} {bad:?}: error must name app and field: {err}"
                 );
             }
+        }
+    }
+
+    #[test]
+    fn validate_refuses_malformed_sha256_naming_app_and_field() {
+        let good = "a".repeat(64);
+        for field in ["sha256", "sha256_aarch64"] {
+            for bad in [
+                "a".repeat(63),
+                "a".repeat(65),
+                "A".repeat(64),
+                "g".repeat(64),
+                String::new(),
+            ] {
+                let json = catalog_json_with(&format!(r#""id":"evilapp","{field}":"{bad}""#));
+                let err = super::parse_catalog_json(&json)
+                    .expect_err(&format!("{field} {bad:?} must be refused"))
+                    .to_string();
+                assert!(
+                    err.contains("evilapp") && err.contains(&format!("`{field}`")),
+                    "{field} {bad:?}: error must name app and field: {err}"
+                );
+            }
+            let json = catalog_json_with(&format!(r#""id":"goodapp","{field}":"{good}""#));
+            super::parse_catalog_json(&json).expect("valid hash accepted");
         }
     }
 

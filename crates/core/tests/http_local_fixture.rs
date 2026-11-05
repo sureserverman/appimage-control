@@ -125,6 +125,8 @@ fn resolve_icon_image_url_prefers_explicit_icon_url() {
         max_instances: None,
         max_instances_tooltip: None,
         category: None,
+        sha256: None,
+        sha256_aarch64: None,
     };
     assert_eq!(resolve_icon_image_url(&app).as_deref(), Some(url.as_str()));
 }

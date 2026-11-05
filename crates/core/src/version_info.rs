@@ -205,18 +205,41 @@ fn pick_github_release_appimage_url(
     None
 }
 
+/// Base URL of the GitHub REST API. `APPIMAGE_CONTROL_GITHUB_API_BASE` overrides it (tests, mirrors).
+///
+/// The override is a trust-root change (it chooses where expected digests come from), so it is
+/// honoured only for https or loopback http; anything else falls back to the default.
+pub(crate) fn github_api_base() -> String {
+    std::env::var("APPIMAGE_CONTROL_GITHUB_API_BASE")
+        .ok()
+        .map(|v| v.trim().trim_end_matches('/').to_string())
+        .filter(|v| reqwest::Url::parse(v).is_ok_and(|u| crate::download::scheme_host_allowed(&u)))
+        .unwrap_or_else(|| "https://api.github.com".to_string())
+}
+
+/// One release asset as listed by the GitHub REST API (only the fields we use).
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Deserialize)]
+pub(crate) struct GithubAsset {
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub browser_download_url: Option<String>,
+    /// `"sha256:<hex>"`, or `null` for assets uploaded before 2025-06-03.
+    #[serde(default)]
+    pub digest: Option<String>,
+}
+
 fn fetch_github_latest_release_hint(
     owner: &str,
     repo: &str,
     catalog_download_url: Option<&str>,
 ) -> Option<GithubReleaseHint> {
-    let client = reqwest::blocking::Client::builder()
-        .user_agent(concat!("appimage-control/", env!("CARGO_PKG_VERSION")))
-        .build()
-        .ok()?;
+    let client = crate::download::http_client().ok()?;
     let api = format!(
-        "https://api.github.com/repos/{}/{}/releases/latest",
-        owner, repo
+        "{}/repos/{}/{}/releases/latest",
+        github_api_base(),
+        owner,
+        repo
     );
     let resp = client.get(api).send().ok()?;
     if !resp.status().is_success() {

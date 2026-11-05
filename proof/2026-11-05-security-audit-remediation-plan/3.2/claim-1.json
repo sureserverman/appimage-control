@@ -1,0 +1,29 @@
+{
+ "baseline": {
+  "elapsed_s": 0.2,
+  "exit": 0,
+  "tail": "running 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s\n\n     Running tests/integration_backup.rs (target/debug/deps/integration_backup-601bd662f61010b4)\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s\n\n     Running tests/integration_install.rs (target/debug/deps/integration_install-a4acd7eb603873fa)\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s\n\n     Running tests/integration_restore.rs (target/debug/deps/integration_restore-67d8ff5ab4eb1ddf)\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s\n\n     Running tests/integration_seed_discovery.rs (target/debug/deps/integration_seed_discovery-819213050d498a7b)\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s\n\n     Running tests/partial_catalog_states.rs (target/debug/deps/partial_catalog_states-d5c951c3a87af6e3)\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s\n\n     Running tests/real_portmux_configure_app.rs (target/debug/deps/real_portmux_configure_app-072ed9f31db9ad87)\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s\n"
+ },
+ "break_patch": "--- a/crates/core/src/integrity.rs\n+++ b/crates/core/src/integrity.rs\n@@ -96,7 +96,7 @@\n         .map_err(|e| format!(\"github api request failed: {e}\"))?;\n     let status = resp.status();\n     if !status.is_success() {\n-        return Err(format!(\"github api returned HTTP {status}\"));\n+        return Ok(Some(String::new()));\n     }\n     let v: serde_json::Value = resp\n         .json()\n",
+ "build": null,
+ "created": "2026-11-05T18:50:15+00:00",
+ "fingerprint": "d68bf6d745c4c7891a08c8f4f4646fe74808a0880ab6cfa9f3cf046f19e16b10",
+ "index": 1,
+ "kind": "claim",
+ "named_break": null,
+ "no_build_reason": "cargo test compiles first",
+ "plan": "/mnt/vault/Portfolio/anon-tools/appimage-control/plans/2026-11-05-security-audit-remediation-plan.md",
+ "red": {
+  "elapsed_s": 2.8,
+  "exit": 101,
+  "tail": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.78s\n     Running unittests src/lib.rs (target/debug/deps/appimage_control_core-382256ee9c1c1c3a)\n\nrunning 13 tests\ntest integrity::tests::api_base_override_refuses_remote_http ... ok\ntest integrity::tests::non_github_url_without_catalog_hash_is_unavailable ... ok\ntest integrity::tests::connection_error_is_unavailable ... ok\ntest integrity::tests::encoded_slash_in_asset_is_unavailable ... ok\ntest integrity::tests::catalog_aarch64_hash_used_only_on_aarch64 ... FAILED\ntest integrity::tests::catalog_sha256_wins_over_github ... ok\ntest integrity::tests::null_digest_is_unavailable ... ok\ntest integrity::tests::standard_notes_tag_is_decoded_then_encoded_as_one_segment ... ok\ntest integrity::tests::api_errors_are_unavailable_never_a_digest ... FAILED\ntest integrity::tests::pinned_github_url_resolves_via_tags_and_matches_asset_by_name ... ok\ntest integrity::tests::query_string_is_ignored ... ok\ntest integrity::tests::malformed_or_foreign_urls_never_query_and_are_unavailable ... ok\ntest integrity::tests::bad_json_missing_asset_and_malformed_digest_are_unavailable ... ok\n\nfailures:\n\n---- integrity::tests::catalog_aarch64_hash_used_only_on_aarch64 stdout ----\n\nthread 'integrity::tests::catalog_aarch64_hash_used_only_on_aarch64' (1800535) panicked at crates/core/src/integrity.rs:244:9:\nassertion failed: matches!(with_base(&base, || expected_digest(&a, GH, \"x86_64\")),\n    ExpectedDigest::Unavailable(_))\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n---- integrity::tests::api_errors_are_unavailable_never_a_digest stdout ----\n\nthread 'integrity::tests::api_errors_are_unavailable_never_a_digest' (1800533) panicked at crates/core/src/integrity.rs:287:13:\nHTTP 403: GithubDigest(\"\")\n\n\nfailures:\n    integrity::tests::api_errors_are_unavailable_never_a_digest\n    integrity::tests::catalog_aarch64_hash_used_only_on_aarch64\n\ntest result: FAILED. 11 passed; 2 failed; 0 ignored; 0 measured; 266 filtered out; finished in 0.01s\n\nerror: test failed, to rerun pass `-p appimage_control_core --lib`"
+ },
+ "schema": 2,
+ "shell": "bash",
+ "task": "3.2",
+ "test": "cd /home/user/dev/anon-tools/appimage-control && cargo test -p appimage_control_core integrity::",
+ "text": "tests with a loopback fixture as the API base: a catalog `sha256` wins over GitHub",
+ "touched": [
+  "crates/core/src/integrity.rs"
+ ]
+}

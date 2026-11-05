@@ -2277,6 +2277,8 @@ mod tests {
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         };
         assert!(super::use_absolute_desktop_icon_png(&app));
     }
@@ -2305,6 +2307,8 @@ mod tests {
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         };
         assert!(!super::use_absolute_desktop_icon_png(&app));
     }
@@ -2332,6 +2336,8 @@ mod tests {
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         }
     }
 
@@ -2943,6 +2949,8 @@ mod tests {
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         }
     }
 
@@ -2971,6 +2979,8 @@ mod tests {
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         };
         assert_eq!(instance_exec_suffix(&app, 1), "--name Feather1");
         assert_eq!(instance_exec_suffix(&app, 2), "--name Feather2");
@@ -3150,6 +3160,8 @@ mod tests {
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         };
         let w1 = instance_startup_wm_class_for_desktop(&app, 1);
         let w2 = instance_startup_wm_class_for_desktop(&app, 2);
@@ -3182,6 +3194,8 @@ mod tests {
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         };
         let wm = instance_startup_wm_class("my-app", 2);
         assert_eq!(wm, "io.github.appimagecontrol.my-app.i2");
@@ -3214,6 +3228,8 @@ mod tests {
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         };
         let cache = paths.catalog_cache_dir("feather");
         fs::create_dir_all(&cache).unwrap();
@@ -3277,6 +3293,8 @@ mod tests {
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         };
         let cache = paths.catalog_cache_dir("keepassxc");
         fs::create_dir_all(&cache).unwrap();
@@ -3324,6 +3342,8 @@ mod tests {
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         };
         let cache = paths.catalog_cache_dir("iso-app");
         fs::create_dir_all(&cache).unwrap();
@@ -3394,6 +3414,8 @@ mod tests {
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         };
         let cache = paths.catalog_cache_dir("jan");
         fs::create_dir_all(&cache).unwrap();
@@ -3444,6 +3466,8 @@ mod tests {
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         };
         let cache = paths.catalog_cache_dir("lm-studio");
         fs::create_dir_all(&cache).unwrap();
@@ -3521,6 +3545,8 @@ mod tests {
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         };
         let cache = paths.catalog_cache_dir("feather");
         fs::create_dir_all(&cache).unwrap();
@@ -3557,6 +3583,8 @@ mod tests {
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         };
         assert_eq!(
             instance_exec_suffix(&app, 1),
@@ -3592,6 +3620,8 @@ mod tests {
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         };
         let w1 = instance_startup_wm_class_for_desktop(&app, 1);
         let w2 = instance_startup_wm_class_for_desktop(&app, 2);
@@ -3624,6 +3654,8 @@ mod tests {
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         };
         let wm = instance_startup_wm_class("session", 2);
         assert_eq!(
@@ -3656,6 +3688,8 @@ mod tests {
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         };
         assert_eq!(instance_exec_suffix(&app, 1), "--name Feather1");
     }
@@ -3745,6 +3779,8 @@ java-options=-Dcryptomator.ipcSocketPath=@{userhome}/.config/Cryptomator/ipc.soc
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         };
         let cat = crate::catalog::Catalog {
             apps: vec![app.clone()],
@@ -3848,6 +3884,8 @@ java-options=-Dcryptomator.ipcSocketPath=@{userhome}/.config/Cryptomator/ipc.soc
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         };
         let joplin = CatalogApp {
             id: "joplin".into(),
@@ -3871,6 +3909,8 @@ java-options=-Dcryptomator.ipcSocketPath=@{userhome}/.config/Cryptomator/ipc.soc
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         };
 
         for (app, fname) in [(&session, "session.AppImage"), (&joplin, "Joplin.AppImage")] {
@@ -4321,6 +4361,8 @@ java-options=-Dcryptomator.ipcSocketPath=@{userhome}/.config/Cryptomator/ipc.soc
             max_instances: Some(5),
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         };
 
         // Install instances 1, 2, 3.
@@ -4525,6 +4567,8 @@ java-options=-Dcryptomator.ipcSocketPath=@{userhome}/.config/Cryptomator/ipc.soc
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         };
 
         let instance_dir = paths.instance_dir_for(&app, 1);

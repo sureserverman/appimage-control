@@ -366,6 +366,8 @@ mod tests {
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         };
         let url = resolve_icon_image_url(&app).expect("url");
         assert!(
@@ -399,6 +401,8 @@ mod tests {
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         };
         assert_eq!(
             resolve_icon_image_url(&app).as_deref(),
@@ -430,6 +434,8 @@ mod tests {
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         };
         assert_eq!(
             instance_icon_theme_name(&app, 1),
@@ -461,6 +467,8 @@ mod tests {
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         };
         assert_eq!(
             instance_icon_theme_name(&app, 2),
@@ -492,6 +500,8 @@ mod tests {
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         };
         assert_eq!(
             instance_icon_theme_name(&app, 2),
@@ -523,6 +533,8 @@ mod tests {
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         };
         assert_eq!(
             instance_icon_theme_name(&app, 3),
@@ -573,6 +585,8 @@ mod tests {
             max_instances: None,
             max_instances_tooltip: None,
             category: None,
+            sha256: None,
+            sha256_aarch64: None,
         };
 
         let theme_1 = instance_icon_theme_name(&app, 1);

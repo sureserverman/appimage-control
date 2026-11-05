@@ -11,6 +11,7 @@ mod host_cmd;
 mod icons;
 mod install;
 mod instances;
+mod integrity;
 mod list;
 mod migrate;
 mod model;
@@ -58,6 +59,7 @@ pub use instances::{
     update_all_installed_instances, update_instance_appimage, FleetInstalledDisplay,
     InstanceUpdateOutcome, ReconcileReport, UpdateAllReport, MAX_INSTANCES_PER_APP,
 };
+pub use integrity::{expected_digest, ExpectedDigest};
 pub use list::list_installed;
 pub use migrate::{
     discover_migration_candidates, run_portable_dir_migration, MigrationCandidate,

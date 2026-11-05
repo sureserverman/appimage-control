@@ -96,6 +96,8 @@ fn standard_notes_display_name_fallback_would_work_without_display_name() {
         max_instances: None,
         max_instances_tooltip: None,
         category: None,
+        sha256: None,
+        sha256_aarch64: None,
     };
     assert_eq!(app.display_name_resolved(), "standard notes");
 }

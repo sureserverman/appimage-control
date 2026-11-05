@@ -85,6 +85,8 @@ fn seeding_proxies_a_wallet_through_the_real_binary() {
         max_instances: None,
         max_instances_tooltip: None,
         category: None,
+        sha256: None,
+        sha256_aarch64: None,
     };
     let paths = AppPaths::new(tmp.path().join("home")).unwrap();
     let dir = paths.instance_dir_for(&app, 4);

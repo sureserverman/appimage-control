@@ -13,7 +13,7 @@ const MAX_REDIRECTS: usize = 10;
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// True for `https`, or plain `http` to a loopback host (127.0.0.0/8, ::1, localhost).
-fn scheme_host_allowed(url: &reqwest::Url) -> bool {
+pub(crate) fn scheme_host_allowed(url: &reqwest::Url) -> bool {
     match url.scheme() {
         "https" => true,
         "http" => url.host_str().is_some_and(|h| {
