@@ -42,6 +42,7 @@
 //! the vendor tree is local.
 
 use std::fs;
+use std::io::Read as _;
 use std::path::{Path, PathBuf};
 
 use base64::{engine::general_purpose::STANDARD, Engine as _};
@@ -90,10 +91,45 @@ pub const SEED_PACKS_PUB_KEY: &str = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 
 /// Magic bytes at the head of a seed-pack signature file.
 const SIG_MAGIC: &[u8] = b"AICS";
-/// Format version following the magic bytes.
-const SIG_VERSION: u8 = 1;
-/// Total signature-file size: 4-byte magic + 1-byte version + 64-byte ed25519 sig.
-const SIG_FILE_LEN: usize = 4 + 1 + 64;
+/// Format version following the magic bytes. v1 (no release sequence) is refused.
+const SIG_VERSION: u8 = 2;
+/// v2 signature-file size: 4-byte magic + 1-byte version + 8-byte big-endian release sequence
+/// + 64-byte ed25519 signature.
+const SIG_FILE_LEN: usize = 4 + 1 + 8 + 64;
+/// Domain tag at the head of the v2 signed message, so a v2 signature can never be read as
+/// any other signed object.
+const SIG_V2_DOMAIN: &[u8] = b"AICS-v2\0";
+
+/// Unpack limits for a seed-pack release: per entry, in total, and entry count.
+pub const MAX_PACK_ENTRY_BYTES: u64 = 4 * 1024 * 1024;
+pub const MAX_PACK_TOTAL_BYTES: u64 = 32 * 1024 * 1024;
+pub const MAX_PACK_ENTRIES: usize = 512;
+
+/// File in the manager data dir recording the last accepted release sequence.
+pub const RELEASE_SEQ_FILENAME: &str = "seed-pack-release-seq";
+
+/// The exact bytes a v2 signature covers: `"AICS-v2\0" || sequence (u64 BE) || SHA-512(tarball)`.
+/// Binding the sequence stops an older signed release from being replayed.
+pub fn signed_message_v2(sequence: u64, tarball: &[u8]) -> Vec<u8> {
+    let mut h = Sha512::new();
+    h.update(tarball);
+    let digest = h.finalize();
+    let mut m = Vec::with_capacity(SIG_V2_DOMAIN.len() + 8 + digest.len());
+    m.extend_from_slice(SIG_V2_DOMAIN);
+    m.extend_from_slice(&sequence.to_be_bytes());
+    m.extend_from_slice(&digest);
+    m
+}
+
+/// A v2 signature file: magic, version 2, the sequence, then the 64-byte signature.
+pub fn encode_signature_v2(sequence: u64, signature: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(SIG_FILE_LEN);
+    out.extend_from_slice(SIG_MAGIC);
+    out.push(SIG_VERSION);
+    out.extend_from_slice(&sequence.to_be_bytes());
+    out.extend_from_slice(signature);
+    out
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UpdateReport {
@@ -156,18 +192,29 @@ pub fn update_seed_packs(
     on_progress("downloading signature");
     download_to_file(&format!("{base}/seed-packs.tar.zst.sig"), &sig)?;
 
-    on_progress("verifying signature");
-    verify_signature(&tarball, &sig, SEED_PACKS_PUB_KEY)?;
-
-    let unpacked = staging.join("seeds");
-    on_progress("unpacking");
-    unpack_tar_zst(&tarball, &unpacked)?;
-
-    on_progress("validating packs");
-    let installed_count = validate_unpacked_packs(&unpacked)?;
-
-    on_progress("installing");
-    install_atomically(&unpacked, &target)?;
+    // Read once: the bytes verified are the bytes unpacked (no swap between the two reads).
+    // A release is a few compressed JSON files; refuse anything implausibly large before
+    // reading it into memory.
+    if fs::metadata(&tarball)?.len() > MAX_PACK_TOTAL_BYTES {
+        return Err(Error::InvalidPath(
+            "seed-pack tarball exceeds the 32 MiB limit".into(),
+        ));
+    }
+    let tarball_bytes = fs::read(&tarball)?;
+    let sig_bytes = fs::read(&sig)?;
+    let home = dirs::home_dir().ok_or(Error::NoHomeDir)?;
+    let seq_store = crate::paths::AppPaths::new(home)?
+        .manager_data_dir()
+        .join(RELEASE_SEQ_FILENAME);
+    on_progress("verifying signature, unpacking and validating");
+    let installed_count = install_verified_release(
+        &tarball_bytes,
+        &sig_bytes,
+        SEED_PACKS_PUB_KEY,
+        &seq_store,
+        &staging,
+        &target,
+    )?;
     let _ = fs::remove_dir_all(&staging);
 
     Ok(UpdateReport {
@@ -193,29 +240,38 @@ fn validate_unpacked_packs(unpacked: &Path) -> Result<usize> {
     Ok(lib.len())
 }
 
-/// Verify that `sig_path` is an AICSIG-1 file containing a valid
-/// ed25519 signature over `SHA-512(tarball)` made by the private key
-/// matching `pub_key_b64`.
-pub fn verify_signature(tarball: &Path, sig_path: &Path, pub_key_b64: &str) -> Result<()> {
-    let sig_bytes = fs::read(sig_path)?;
+/// Verify a v2 seed-pack signature over `tarball` (bytes already in memory) and return the
+/// release sequence it signs. A v1 file is refused by name.
+pub fn verify_signature_bytes(tarball: &[u8], sig_bytes: &[u8], pub_key_b64: &str) -> Result<u64> {
+    if sig_bytes.len() < 5 || &sig_bytes[..4] != SIG_MAGIC {
+        return Err(Error::SeedPackSignature(
+            "signature file is missing AICS magic bytes".into(),
+        ));
+    }
+    match sig_bytes[4] {
+        SIG_VERSION => {}
+        1 => {
+            return Err(Error::SeedPackSignature(
+                "signature format v1 is no longer accepted: it binds no release sequence, so an \
+                 older release could be replayed. Re-sign with `aic-sign-pack sign --sequence N` \
+                 (format v2)"
+                    .into(),
+            ))
+        }
+        v => {
+            return Err(Error::SeedPackSignature(format!(
+                "unsupported signature version: {v} (this build only knows v{SIG_VERSION})"
+            )))
+        }
+    }
     if sig_bytes.len() != SIG_FILE_LEN {
         return Err(Error::SeedPackSignature(format!(
             "signature file has wrong size: expected {SIG_FILE_LEN}, got {}",
             sig_bytes.len()
         )));
     }
-    if &sig_bytes[..4] != SIG_MAGIC {
-        return Err(Error::SeedPackSignature(
-            "signature file is missing AICS magic bytes".into(),
-        ));
-    }
-    if sig_bytes[4] != SIG_VERSION {
-        return Err(Error::SeedPackSignature(format!(
-            "unsupported signature version: {} (this build only knows v{SIG_VERSION})",
-            sig_bytes[4]
-        )));
-    }
-    let raw_sig = &sig_bytes[5..];
+    let sequence = u64::from_be_bytes(sig_bytes[5..13].try_into().expect("8 bytes"));
+    let raw_sig = &sig_bytes[13..];
 
     let pk_bytes = STANDARD
         .decode(pub_key_b64.trim())
@@ -226,27 +282,127 @@ pub fn verify_signature(tarball: &Path, sig_path: &Path, pub_key_b64: &str) -> R
             pk_bytes.len()
         )));
     }
-
-    let mut hasher = Sha512::new();
-    hasher.update(fs::read(tarball)?);
-    let digest = hasher.finalize();
-
     let pk = UnparsedPublicKey::new(&ED25519, pk_bytes.as_slice());
-    pk.verify(digest.as_slice(), raw_sig)
+    pk.verify(&signed_message_v2(sequence, tarball), raw_sig)
         .map_err(|_| Error::SeedPackSignature("ed25519 signature does not verify".into()))?;
+    Ok(sequence)
+}
+
+/// [`verify_signature_bytes`] for files on disk.
+#[cfg(test)]
+fn verify_signature(tarball: &Path, sig_path: &Path, pub_key_b64: &str) -> Result<u64> {
+    verify_signature_bytes(&fs::read(tarball)?, &fs::read(sig_path)?, pub_key_b64)
+}
+
+/// Refuse a release older than the last one accepted (an equal one re-installs).
+fn check_release_sequence(store: &Path, sequence: u64) -> Result<()> {
+    let installed = match fs::read_to_string(store) {
+        Ok(s) => s.trim().parse::<u64>().map_err(|_| {
+            Error::SeedPackSignature(format!(
+                "unreadable release sequence record {} — delete it to accept any signed \
+                 release again",
+                store.display()
+            ))
+        })?,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(e) => return Err(e.into()),
+    };
+    if sequence < installed {
+        return Err(Error::SeedPackSignature(format!(
+            "seed-pack release {sequence} is older than installed release {installed}"
+        )));
+    }
     Ok(())
+}
+
+/// Write the new sequence to a temp file next to the record, before anything is installed: a
+/// record that cannot be written refuses the update with nothing changed, instead of letting
+/// the install through and the replay check lapse. [`commit_release_sequence`] renames it in.
+fn prepare_release_sequence(store: &Path, sequence: u64) -> Result<PathBuf> {
+    if let Some(parent) = store.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let tmp = store.with_extension(format!("tmp.{}", std::process::id()));
+    let r = (|| -> std::io::Result<()> {
+        use std::io::Write as _;
+        let mut f = fs::File::create(&tmp)?;
+        f.write_all(format!("{sequence}\n").as_bytes())?;
+        f.sync_all()
+    })();
+    if let Err(e) = r {
+        let _ = fs::remove_file(&tmp);
+        return Err(e.into());
+    }
+    Ok(tmp)
+}
+
+fn commit_release_sequence(prepared: &Path, store: &Path) -> Result<()> {
+    fs::rename(prepared, store)?;
+    Ok(())
+}
+
+/// Verify, check the sequence, unpack (with caps), validate and install one release held in
+/// memory — the tarball is read once, so the bytes verified are the bytes unpacked. The
+/// sequence is recorded only after a successful install. Returns the number of packs.
+fn install_verified_release(
+    tarball: &[u8],
+    sig: &[u8],
+    pub_key_b64: &str,
+    seq_store: &Path,
+    staging: &Path,
+    target: &Path,
+) -> Result<usize> {
+    let sequence = verify_signature_bytes(tarball, sig, pub_key_b64)?;
+    check_release_sequence(seq_store, sequence)?;
+    let unpacked = staging.join("seeds");
+    let _ = fs::remove_dir_all(&unpacked);
+    unpack_tar_zst_bytes(tarball, &unpacked)?;
+    let count = validate_unpacked_packs(&unpacked)?;
+    let prepared = prepare_release_sequence(seq_store, sequence)?;
+    if let Err(e) = install_atomically(&unpacked, target) {
+        let _ = fs::remove_file(&prepared);
+        return Err(e);
+    }
+    commit_release_sequence(&prepared, seq_store)?;
+    Ok(count)
 }
 
 /// Unpack a `.tar.zst` whose entries are all top-level `*.json` files
 /// (no nested directories, no path traversal). Anything else is a
 /// hard error before any byte is written under `into`.
+#[cfg(test)]
 fn unpack_tar_zst(archive: &Path, into: &Path) -> Result<()> {
+    unpack_tar_zst_bytes(&fs::read(archive)?, into)
+}
+
+/// Unpack a flat tarball of `*.json` packs, refusing an entry over 4 MiB, a total over 32 MiB
+/// or more than 512 entries (nothing is installed from a refused release).
+fn unpack_tar_zst_bytes(archive: &[u8], into: &Path) -> Result<()> {
     fs::create_dir_all(into)?;
-    let f = fs::File::open(archive)?;
-    let dec = zstd::Decoder::new(f)?;
+    let dec = zstd::Decoder::new(archive)?;
     let mut tar = tar::Archive::new(dec);
+    let (mut count, mut total) = (0usize, 0u64);
     for entry in tar.entries()? {
         let mut entry = entry?;
+        count += 1;
+        if count > MAX_PACK_ENTRIES {
+            return Err(Error::InvalidPath(format!(
+                "seed-pack tarball: more than {MAX_PACK_ENTRIES} entries"
+            )));
+        }
+        // `Entry::size` is the logical size (larger than the stored one for a sparse entry).
+        let size = entry.size();
+        if size > MAX_PACK_ENTRY_BYTES {
+            return Err(Error::InvalidPath(format!(
+                "seed-pack tarball: an entry exceeds the 4 MiB limit ({size} bytes)"
+            )));
+        }
+        total += size;
+        if total > MAX_PACK_TOTAL_BYTES {
+            return Err(Error::InvalidPath(
+                "seed-pack tarball: entries exceed the 32 MiB total limit".into(),
+            ));
+        }
         let path = entry.path()?.into_owned();
 
         if path.components().count() != 1 {
@@ -270,11 +426,13 @@ fn unpack_tar_zst(archive: &Path, into: &Path) -> Result<()> {
         // Hard-anchor the destination to `into`; defense-in-depth on
         // top of the components-count check above.
         let dest = into.join(fname);
-        if let Some(parent) = dest.parent() {
-            fs::create_dir_all(parent)?;
-        }
         let mut out = fs::File::create(&dest)?;
-        std::io::copy(&mut entry, &mut out)?;
+        let copied = std::io::copy(&mut (&mut entry).take(MAX_PACK_ENTRY_BYTES + 1), &mut out)?;
+        if copied > MAX_PACK_ENTRY_BYTES {
+            return Err(Error::InvalidPath(
+                "seed-pack tarball: an entry exceeds the 4 MiB limit".into(),
+            ));
+        }
     }
     Ok(())
 }
@@ -331,19 +489,148 @@ mod tests {
         path
     }
 
+    /// A v2 signature (sequence 1) written next to the tarball.
     fn sign_test_tarball(tarball: &Path, kp: &Ed25519KeyPair) -> PathBuf {
         let body = fs::read(tarball).unwrap();
-        let mut hasher = Sha512::new();
-        hasher.update(&body);
-        let digest = hasher.finalize();
-        let sig = kp.sign(&digest);
-
         let sig_path = tarball.with_extension("zst.sig");
-        let mut f = fs::File::create(&sig_path).unwrap();
-        f.write_all(SIG_MAGIC).unwrap();
-        f.write_all(&[SIG_VERSION]).unwrap();
-        f.write_all(sig.as_ref()).unwrap();
+        fs::write(&sig_path, sign_v2(&body, 1, kp)).unwrap();
         sig_path
+    }
+
+    fn sign_v2(tarball: &[u8], sequence: u64, kp: &Ed25519KeyPair) -> Vec<u8> {
+        let sig = kp.sign(&signed_message_v2(sequence, tarball));
+        encode_signature_v2(sequence, sig.as_ref())
+    }
+
+    /// A tarball held in memory with `(name, body)` entries.
+    fn tar_bytes(entries: &[(String, Vec<u8>)]) -> Vec<u8> {
+        let mut zenc = zstd::Encoder::new(Vec::new(), 1).unwrap();
+        {
+            let mut tar = tar::Builder::new(&mut zenc);
+            for (name, body) in entries {
+                let mut header = tar::Header::new_gnu();
+                header.set_size(body.len() as u64);
+                header.set_mode(0o644);
+                header.set_cksum();
+                tar.append_data(&mut header, name, body.as_slice()).unwrap();
+            }
+            tar.finish().unwrap();
+        }
+        zenc.finish().unwrap()
+    }
+
+    fn one_pack() -> Vec<u8> {
+        tar_bytes(&[(
+            "feather.json".into(),
+            br#"{"config_path":"a.json"}"#.to_vec(),
+        )])
+    }
+
+    #[test]
+    fn v2_signature_verifies_and_returns_its_sequence() {
+        let (kp, pk) = test_keypair();
+        let t = one_pack();
+        assert_eq!(
+            verify_signature_bytes(&t, &sign_v2(&t, 7, &kp), &pk).unwrap(),
+            7
+        );
+    }
+
+    #[test]
+    fn v2_flipped_sequence_byte_fails() {
+        let (kp, pk) = test_keypair();
+        let t = one_pack();
+        let mut sig = sign_v2(&t, 5, &kp);
+        sig[5 + 7] ^= 0x01; // last byte of the u64 sequence: claims release 4
+        assert!(matches!(
+            verify_signature_bytes(&t, &sig, &pk).unwrap_err(),
+            Error::SeedPackSignature(_)
+        ));
+    }
+
+    #[test]
+    fn v1_signature_is_refused_naming_v2() {
+        let (kp, pk) = test_keypair();
+        let t = one_pack();
+        let mut h = Sha512::new();
+        h.update(&t);
+        let mut v1 = b"AICS\x01".to_vec();
+        v1.extend_from_slice(kp.sign(&h.finalize()).as_ref());
+        let err = verify_signature_bytes(&t, &v1, &pk)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("v2") && err.contains("--sequence"), "{err}");
+    }
+
+    fn release_dirs(tmp: &Path) -> (PathBuf, PathBuf, PathBuf) {
+        (tmp.join("seq"), tmp.join("staging"), tmp.join("seeds"))
+    }
+
+    #[test]
+    fn older_release_is_refused_and_installed_packs_untouched() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (kp, pk) = test_keypair();
+        let (seq, staging, target) = release_dirs(tmp.path());
+        fs::create_dir_all(&target).unwrap();
+        fs::write(
+            target.join("installed.json"),
+            br#"{"config_path":"i.json"}"#,
+        )
+        .unwrap();
+        fs::write(&seq, "5\n").unwrap();
+        let t = one_pack();
+        let err = install_verified_release(&t, &sign_v2(&t, 3, &kp), &pk, &seq, &staging, &target)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains("seed-pack release 3 is older than installed release 5"),
+            "{err}"
+        );
+        assert!(
+            target.join("installed.json").is_file(),
+            "installed packs untouched"
+        );
+        assert!(!target.join("feather.json").exists());
+        assert_eq!(fs::read_to_string(&seq).unwrap().trim(), "5");
+    }
+
+    #[test]
+    fn equal_release_reinstalls_and_newer_records_its_sequence() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (kp, pk) = test_keypair();
+        let (seq, staging, target) = release_dirs(tmp.path());
+        fs::write(&seq, "5\n").unwrap();
+        let t = one_pack();
+        install_verified_release(&t, &sign_v2(&t, 5, &kp), &pk, &seq, &staging, &target)
+            .expect("equal sequence re-installs");
+        assert!(target.join("feather.json").is_file());
+        install_verified_release(&t, &sign_v2(&t, 6, &kp), &pk, &seq, &staging, &target)
+            .expect("newer installs");
+        assert_eq!(fs::read_to_string(&seq).unwrap().trim(), "6");
+    }
+
+    #[test]
+    fn unpack_caps_refuse_large_entry_total_and_count() {
+        let tmp = tempfile::tempdir().unwrap();
+        let big = tar_bytes(&[("a.json".into(), vec![b' '; 5 * 1024 * 1024])]);
+        let e = unpack_tar_zst_bytes(&big, &tmp.path().join("o1"))
+            .unwrap_err()
+            .to_string();
+        assert!(e.contains("4 MiB"), "{e}");
+        let many_large: Vec<(String, Vec<u8>)> = (0..9)
+            .map(|i| (format!("p{i}.json"), vec![b' '; 4 * 1024 * 1024 - 1024]))
+            .collect();
+        let e = unpack_tar_zst_bytes(&tar_bytes(&many_large), &tmp.path().join("o2"))
+            .unwrap_err()
+            .to_string();
+        assert!(e.contains("32 MiB"), "{e}");
+        let many: Vec<(String, Vec<u8>)> = (0..513)
+            .map(|i| (format!("p{i}.json"), b"{}".to_vec()))
+            .collect();
+        let e = unpack_tar_zst_bytes(&tar_bytes(&many), &tmp.path().join("o3"))
+            .unwrap_err()
+            .to_string();
+        assert!(e.contains("512"), "{e}");
     }
 
     #[test]
@@ -563,5 +850,74 @@ mod tests {
         fs::write(dir.join("a.json"), r#"{"config_path":"a.json"}"#).unwrap();
         fs::write(dir.join("b.json"), r#"{"config_path":"b.json"}"#).unwrap();
         assert_eq!(super::validate_unpacked_packs(&dir).unwrap(), 2);
+    }
+
+    #[test]
+    fn unwritable_sequence_record_refuses_with_nothing_changed() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (kp, pk) = test_keypair();
+        let (_, staging, target) = release_dirs(tmp.path());
+        fs::create_dir_all(&target).unwrap();
+        fs::write(
+            target.join("installed.json"),
+            br#"{"config_path":"i.json"}"#,
+        )
+        .unwrap();
+        // The record's parent is a file, so the record cannot be written.
+        let blocker = tmp.path().join("blocker");
+        fs::write(&blocker, b"x").unwrap();
+        let seq = blocker.join("seed-pack-release-seq");
+        let t = one_pack();
+        assert!(
+            install_verified_release(&t, &sign_v2(&t, 4, &kp), &pk, &seq, &staging, &target)
+                .is_err()
+        );
+        assert!(
+            target.join("installed.json").is_file(),
+            "installed packs untouched"
+        );
+        assert!(!target.join("feather.json").exists(), "nothing installed");
+    }
+
+    #[test]
+    fn corrupt_sequence_record_says_how_to_recover() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (kp, pk) = test_keypair();
+        let (seq, staging, target) = release_dirs(tmp.path());
+        fs::write(&seq, b"garbage").unwrap();
+        let t = one_pack();
+        let err = install_verified_release(&t, &sign_v2(&t, 4, &kp), &pk, &seq, &staging, &target)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("delete it"), "{err}");
+    }
+
+    #[test]
+    fn capped_release_installs_nothing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (kp, pk) = test_keypair();
+        let (seq, staging, target) = release_dirs(tmp.path());
+        fs::create_dir_all(&target).unwrap();
+        fs::write(
+            target.join("installed.json"),
+            br#"{"config_path":"i.json"}"#,
+        )
+        .unwrap();
+        let big = tar_bytes(&[("a.json".into(), vec![b' '; 5 * 1024 * 1024])]);
+        assert!(install_verified_release(
+            &big,
+            &sign_v2(&big, 1, &kp),
+            &pk,
+            &seq,
+            &staging,
+            &target
+        )
+        .is_err());
+        let names: Vec<_> = fs::read_dir(&target)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(names, ["installed.json"]);
+        assert!(!seq.exists(), "no sequence recorded");
     }
 }

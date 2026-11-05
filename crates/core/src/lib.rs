@@ -100,8 +100,8 @@ pub use seed_pack_build::{
     build_static_pack, diff_configs, render_pack_json, write_pack_to, ConfigDiff,
 };
 pub use seed_pack_update::{
-    update_seed_packs, UpdateReport as SeedPackUpdateReport,
-    DEFAULT_RELEASE_URL as SEED_PACKS_DEFAULT_RELEASE_URL,
+    encode_signature_v2, signed_message_v2, update_seed_packs, verify_signature_bytes,
+    UpdateReport as SeedPackUpdateReport, DEFAULT_RELEASE_URL as SEED_PACKS_DEFAULT_RELEASE_URL,
     ENV_RELEASE_URL as SEED_PACKS_ENV_RELEASE_URL,
 };
 pub use seed_record::{

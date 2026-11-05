@@ -104,11 +104,14 @@ tar --create --zstd --file seed-packs.tar.zst -C packs/ \
 
 # Move the tarball to the cold-storage machine (USB / SD card).
 
-# On the cold-storage machine: sign it.
-aic-sign-pack sign ~/.aic-keys/seed-packs.key seed-packs.tar.zst
-# Produces seed-packs.tar.zst.sig (69 bytes).
+# On the cold-storage machine: sign it with this release's sequence number.
+# N must be higher than every earlier release's (keep a counter next to the key);
+# installs refuse a release older than the last one they accepted.
+aic-sign-pack sign --sequence N ~/.aic-keys/seed-packs.key seed-packs.tar.zst
+# Produces seed-packs.tar.zst.sig (77 bytes, format v2).
 
-# Sanity-check the signature against the embedded pubkey before upload.
+# Sanity-check the signature against the embedded pubkey before upload;
+# it prints the signed release sequence.
 aic-sign-pack verify "<EMBEDDED-PUBKEY-FROM-YOUR-FORK>" seed-packs.tar.zst
 
 # Move both files back to the network-connected machine, attach to a
@@ -137,10 +140,7 @@ control fits.
 $ appimage-control --update-seed-packs
 downloading seed-packs.tar.zst
 downloading signature
-verifying signature
-unpacking
-validating packs
-installing
+verifying signature, unpacking and validating
 Installed 3 seed packs to /home/alice/.local/share/appimage-control/seeds
   from https://github.com/your-org/your-private-pack-repo/releases/latest/download
 ```
@@ -171,24 +171,30 @@ No network requests are made. Distribution-safe.
 | Compromise the binary-distribution channel | ✓ | The signing pub-key is part of the binary; substituting the binary substitutes the trust root, but that's equivalent to source-code compromise |
 | Compromise the maintainer's online machine | ✓ | Private key stays on cold storage; CI does not have it |
 | Compromise the maintainer's cold-storage machine | ✗ | Out of scope — equivalent to source-code compromise |
-| Replay an old signed release | partially | GitHub `latest` only moves forward; an attacker who can rewrite GitHub state is covered by the next row |
+| Replay an old signed release | ✓ | The v2 signature binds a release sequence; an install records the last accepted one (`~/.local/share/appimages/seed-pack-release-seq`) and refuses an older release ("seed-pack release N is older than installed release M") |
+| Oversized or overlong tarball | ✓ | Unpack refuses an entry over 4 MiB, a total over 32 MiB, or more than 512 entries; nothing is installed |
 | Smuggle malicious JSON into a pack file | ✓ | Each pack runs through `SeedPackLibrary::validate` after unpack; bad shapes fail before install |
-| Path traversal in the tarball | ✓ | `unpack_tar_zst` rejects any entry whose path has more than one component or doesn't end in `.json` |
+| Path traversal in the tarball | ✓ | `unpack_tar_zst_bytes` rejects any entry whose path has more than one component or doesn't end in `.json` |
 | Distribute the binary to an unauthorised user | ✓ | Without a real `DEFAULT_RELEASE_URL` and `SEED_PACKS_PUB_KEY`, `--update-seed-packs` refuses to fetch anything |
 
-## File-format spec ("AICSIG-1")
+## File-format spec (signature v2)
 
-Reference: `crates/core/src/seed_pack_update.rs` const `SIG_FILE_LEN`.
+Reference: `crates/core/src/seed_pack_update.rs` (`SIG_FILE_LEN`,
+`signed_message_v2`).
 
 ```
 offset  bytes  meaning
 0       4      magic = b"AICS"
-4       1      version = 0x01
-5       64     ed25519 signature over SHA-512(seed-packs.tar.zst)
+4       1      version = 0x02
+5       8      release sequence, u64 big-endian
+13      64     ed25519 signature over
+               b"AICS-v2\0" || sequence (8 bytes BE) || SHA-512(seed-packs.tar.zst)
 ```
 
-Total 69 bytes. The signature is verified with the embedded base64
-ed25519 public key. Future versions can bump the version byte.
+Total 77 bytes. The signature is verified with the embedded base64
+ed25519 public key. A v1 file (69 bytes, no sequence) is refused with a
+message naming v2 and `aic-sign-pack sign --sequence`. The tarball is read
+once, and the same bytes are verified and unpacked.
 
 ## Rotating the signing key
 
