@@ -530,3 +530,109 @@ fn clean_cache_with_seed_new_errors_instead_of_silently_ignoring() {
         "expected a --seed-new-requires-instance-op error, got stderr: {err}"
     );
 }
+
+// --- Task 3.3/3.4: --allow-unverified -------------------------------------------------------
+
+/// Serve `body` to the next `times` HTTP requests on a loopback port; returns the URL.
+fn serve_bytes_times(body: &'static [u8], times: usize) -> String {
+    use std::io::{Read, Write};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+    let addr = listener.local_addr().expect("addr");
+    std::thread::spawn(move || {
+        for _ in 0..times {
+            let Ok((mut s, _)) = listener.accept() else {
+                return;
+            };
+            let mut buf = [0u8; 4096];
+            let _ = s.read(&mut buf);
+            let head = format!(
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                body.len()
+            );
+            let _ = s.write_all(head.as_bytes());
+            let _ = s.write_all(body);
+        }
+    });
+    format!("http://{addr}/vapp.AppImage")
+}
+
+fn write_vapp_catalog(path: &Path, url: &str, sha256: Option<&str>) {
+    let pin = sha256
+        .map(|h| format!(r#","sha256":"{h}","sha256_aarch64":"{h}""#))
+        .unwrap_or_default();
+    fs::write(
+        path,
+        format!(
+            r#"{{"apps":[{{"id":"vapp","display_name":"VApp","download_url":"{url}","download_url_aarch64":"{url}","appimage_filename":"vapp.AppImage"{pin}}}]}}"#
+        ),
+    )
+    .expect("catalog");
+}
+
+fn run_vapp(tmp: &Path, extra: &[&str]) -> (bool, String) {
+    let home = tmp.join("home");
+    fs::create_dir_all(&home).expect("home");
+    let mut args = vec!["+vapp"];
+    args.extend_from_slice(extra);
+    let out = Command::new(app_exe().as_os_str())
+        .env("HOME", &home)
+        .env("XDG_DATA_HOME", home.join(".local/share"))
+        .env("APPIMAGE_CONTROL_CATALOG", tmp.join("catalog.json"))
+        .args(&args)
+        .output()
+        .expect("run");
+    (
+        out.status.success(),
+        String::from_utf8_lossy(&out.stderr).into_owned(),
+    )
+}
+
+#[test]
+fn allow_unverified_needed_when_no_hash_is_published() {
+    let tmp = tempfile::tempdir().expect("tmp");
+    let url = serve_bytes_times(b"\x7fELF no hash anywhere", 1);
+    write_vapp_catalog(&tmp.path().join("catalog.json"), &url, None);
+    let (ok, err) = run_vapp(tmp.path(), &[]);
+    assert!(!ok, "must fail without the flag: {err}");
+    assert!(
+        err.contains("no published sha256") && err.contains("--allow-unverified"),
+        "stderr must name the flag: {err}"
+    );
+    let cached = tmp
+        .path()
+        .join("home/.local/share/appimages/cache/vapp/vapp.AppImage");
+    assert!(
+        !cached.exists(),
+        "nothing may be installed without the flag"
+    );
+}
+
+#[test]
+fn allow_unverified_flag_installs_and_records_it() {
+    let tmp = tempfile::tempdir().expect("tmp");
+    let url = serve_bytes_times(b"\x7fELF no hash anywhere", 1);
+    write_vapp_catalog(&tmp.path().join("catalog.json"), &url, None);
+    let (ok, err) = run_vapp(tmp.path(), &["--allow-unverified"]);
+    assert!(ok, "the flag must allow the install: {err}");
+    let side = tmp
+        .path()
+        .join("home/.local/share/appimages/cache/vapp/.appimage-control-sha256");
+    let side = fs::read_to_string(&side).expect("sidecar");
+    assert!(side.trim().ends_with("unverified user-allowed"), "{side}");
+}
+
+#[test]
+fn allow_unverified_never_overrides_a_mismatch() {
+    let tmp = tempfile::tempdir().expect("tmp");
+    let url = serve_bytes_times(b"\x7fELF not what was published", 2);
+    let wrong = "ab".repeat(32);
+    write_vapp_catalog(&tmp.path().join("catalog.json"), &url, Some(&wrong));
+    for extra in [&[][..], &["--allow-unverified"][..]] {
+        let (ok, err) = run_vapp(tmp.path(), extra);
+        assert!(!ok, "a mismatch must fail ({extra:?}): {err}");
+        assert!(
+            err.contains("does not match the expected sha256") && err.contains(&wrong),
+            "({extra:?}) {err}"
+        );
+    }
+}

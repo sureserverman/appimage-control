@@ -94,6 +94,7 @@ Instance-count operators (can be combined; ops run in argv order; a mixed-op sum
 -APP:N           Remove N instances (count not below 0).
 =APP:N           Set APP to exactly N instances (absolute). =APP:0 removes all. =APP without :N is an error.
 --seed-new       After all instance-adding ops (+APP/=APP:N), automatically seed newly added instances.
+--allow-unverified  With +APP/=APP:N and -update: install a download that has no published sha256 to check; a known-but-different sha256 is always refused.
 ```
 
 Seeding flags:

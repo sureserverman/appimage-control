@@ -11,12 +11,12 @@ use appimage_control_core::{
     fetch_github_release_hints, installed_version_fleet_display, instance_count, list_recordings,
     list_seed_forms, load_recording, load_seed_form, portmux_port_probe_runtime,
     parse_app_instance_spec, purge_appimage_control_state, read_instance_config,
-    reconcile_catalog_install_version_metadata, reconcile_instance_count,
-    reconcile_instance_count_with_report, repair_instance_launchers, restore_backup_archive,
-    run_portable_dir_migration, save_recording, save_seed_form, seed_new_instances_after_reconcile,
-    seed_supported_installed_apps, update_all_installed_instances, update_seed_packs,
-    user_seeds_dir, write_pack_to, AppPaths, BackupOptions, Catalog, MigrationConflict,
-    MigrationResolution, PackRecording, SavedSeedForm, SeedPackLibrary, SeedPreset,
+    reconcile_catalog_install_version_metadata, reconcile_instance_count_with_policy,
+    repair_instance_launchers, restore_backup_archive, run_portable_dir_migration, save_recording,
+    save_seed_form, seed_new_instances_after_reconcile, seed_supported_installed_apps,
+    update_all_installed_instances_with_policy, update_seed_packs, user_seeds_dir, write_pack_to,
+    AppPaths, BackupOptions, Catalog, MigrationConflict, MigrationResolution, PackRecording,
+    SavedSeedForm, SeedPackLibrary, SeedPreset,
 };
 
 pub fn want_help(args: &[String]) -> bool {
@@ -124,6 +124,11 @@ When --purge, --clean, or --migrate is present, only one runs: --purge first if 
                    added instances are counted as not-seeded, then the command exits with failure
                    (instances remain installed). --seed-new without any instance-adding op is an
                    error.
+  --allow-unverified
+                   With +APP/=APP:N and -update: install a download that has no published sha256
+                   to check (no catalog sha256, GitHub publishes no digest, or the lookup failed).
+                   Without it such a download is refused and nothing is installed. A download
+                   whose sha256 is known and differs is always refused, with or without this flag.
   -APP             Remove all instances of APP.
   -APP:N           Remove N instances (count not below 0).
   =APP:N           Set APP to exactly N instances regardless of current count (absolute). Capped by
@@ -770,6 +775,7 @@ const KNOWN_FLAGS: &[&str] = &[
     "--seed-list-forms",
     "--seed-delete-form",
     "--seed-new",
+    "--allow-unverified",
     "--list-seed-packs",
     "--update-seed-packs",
     "--record-pack-baseline",
@@ -1463,6 +1469,10 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
     }
 
     let want_seed_new = args.iter().any(|a| a == "--seed-new");
+    // DEC-001: a download with no published sha256 is installed only when asked for.
+    let policy = appimage_control_core::VerifyPolicy {
+        allow_unverified: args.iter().any(|a| a == "--allow-unverified"),
+    };
 
     // --seed-new is only meaningful when at least one instance-adding op
     // (+APP, +APP:N, =APP:N that adds) is present.  We can't know at parse
@@ -1550,10 +1560,11 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
                 .map_err(|e| e.to_string())
         } else if arg == "-update" || arg == "--update" {
             let remotes = fetch_github_release_hints(&catalog);
-            update_all_installed_instances(
+            update_all_installed_instances_with_policy(
                 &paths,
                 &catalog,
                 Some(&remotes),
+                policy,
                 &mut |m| {
                     eprintln!("{m}");
                 },
@@ -1570,9 +1581,13 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
                         let cur = instance_count(&paths, app).unwrap_or(0);
                         let target = cur.saturating_add(n).min(app.max_instances_allowed());
                         if want_seed_new {
-                            reconcile_instance_count_with_report(&paths, app, target, &mut |m| {
-                                eprintln!("{m}")
-                            })
+                            reconcile_instance_count_with_policy(
+                                &paths,
+                                app,
+                                target,
+                                policy,
+                                &mut |m| eprintln!("{m}"),
+                            )
                             .map(|rep| {
                                 if !rep.added.is_empty() {
                                     seed_new_pending.push((id.clone(), rep.added));
@@ -1580,8 +1595,15 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
                             })
                             .map_err(|e| e.to_string())
                         } else {
-                            reconcile_instance_count(&paths, app, target, &mut |m| eprintln!("{m}"))
-                                .map_err(|e| e.to_string())
+                            reconcile_instance_count_with_policy(
+                                &paths,
+                                app,
+                                target,
+                                policy,
+                                &mut |m| eprintln!("{m}"),
+                            )
+                            .map(|_| ())
+                            .map_err(|e| e.to_string())
                         }
                     }
                     None => Err(format!("unknown app id '{}' (see --list)", id)),
@@ -1597,9 +1619,13 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
                         // Absolute: target is exactly N, capped by the catalog limit.
                         let target = n.min(app.max_instances_allowed());
                         if want_seed_new {
-                            reconcile_instance_count_with_report(&paths, app, target, &mut |m| {
-                                eprintln!("{m}")
-                            })
+                            reconcile_instance_count_with_policy(
+                                &paths,
+                                app,
+                                target,
+                                policy,
+                                &mut |m| eprintln!("{m}"),
+                            )
                             .map(|rep| {
                                 if !rep.added.is_empty() {
                                     seed_new_pending.push((id.clone(), rep.added));
@@ -1607,8 +1633,15 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
                             })
                             .map_err(|e| e.to_string())
                         } else {
-                            reconcile_instance_count(&paths, app, target, &mut |m| eprintln!("{m}"))
-                                .map_err(|e| e.to_string())
+                            reconcile_instance_count_with_policy(
+                                &paths,
+                                app,
+                                target,
+                                policy,
+                                &mut |m| eprintln!("{m}"),
+                            )
+                            .map(|_| ())
+                            .map_err(|e| e.to_string())
                         }
                     }
                     None => Err(format!("unknown app id '{}' (see --list)", id)),
@@ -1626,8 +1659,11 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
             } else if !body.contains(':') {
                 match by_id.get(body) {
                     Some(app) => {
-                        reconcile_instance_count(&paths, app, 0, &mut |m| eprintln!("{m}"))
-                            .map_err(|e| e.to_string())
+                        reconcile_instance_count_with_policy(&paths, app, 0, policy, &mut |m| {
+                            eprintln!("{m}")
+                        })
+                        .map(|_| ())
+                        .map_err(|e| e.to_string())
                     }
                     None => Err(format!("unknown app id '{}' (see --list)", body)),
                 }
@@ -1637,8 +1673,15 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
                         Some(app) => {
                             let cur = instance_count(&paths, app).unwrap_or(0);
                             let target = cur.saturating_sub(n);
-                            reconcile_instance_count(&paths, app, target, &mut |m| eprintln!("{m}"))
-                                .map_err(|e| e.to_string())
+                            reconcile_instance_count_with_policy(
+                                &paths,
+                                app,
+                                target,
+                                policy,
+                                &mut |m| eprintln!("{m}"),
+                            )
+                            .map(|_| ())
+                            .map_err(|e| e.to_string())
                         }
                         None => Err(format!("unknown app id '{}' (see --list)", id)),
                     },
@@ -2325,6 +2368,13 @@ mod purge_prompt_tests {
             Some(glib::ExitCode::FAILURE),
             "--updaet should be a FAILURE, not None (which would open the GUI)"
         );
+    }
+
+    /// `--allow-unverified` is a known modifier, not an unknown flag.
+    #[test]
+    fn allow_unverified_is_a_known_flag() {
+        assert!(super::validate_unknown_flags(&["--allow-unverified".to_string()]).is_ok());
+        assert!(super::validate_unknown_flags(&["--allow-unverifed".to_string()]).is_err());
     }
 
     /// Another common typo: double-dash omitted.
