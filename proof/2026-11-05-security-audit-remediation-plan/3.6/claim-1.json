@@ -1,0 +1,29 @@
+{
+ "baseline": {
+  "elapsed_s": 0.2,
+  "exit": 0,
+  "tail": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.11s\n     Running tests/catalog_shipped_contract.rs (target/debug/deps/catalog_shipped_contract-ce063e5323294eaa)\n\nrunning 4 tests\ntest shipped_catalog_loads_and_covers_instance_strategies ... ok\ntest lm_studio_instance_cap_and_tooltip ... ok\ntest electrum_btc_compact_layout_and_desktop_flags ... ok\ntest standard_notes_display_name_fallback_would_work_without_display_name ... ok\n\ntest result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n"
+ },
+ "break_patch": "--- a/data/catalog.json\n+++ b/data/catalog.json\n@@ -144,7 +144,6 @@\n       \"display_name\": \"Electrum-LTC\",\n       \"homepage\": \"https://electrum-ltc.org/\",\n       \"download_url\": \"https://electrum-ltc.org/download/electrum-ltc-4.2.2.1-x86_64.AppImage\",\n-      \"sha256\": \"8c27621f87a51baf5b3a492696606a5b55c72b6a9804e3baa8f161cd7cc5d8f5\",\n       \"appimage_filename\": \"el.AppImage\",\n       \"instance_subdir\": \"eltc\",\n       \"desktop_pass_file_urls\": false,\n",
+ "build": null,
+ "created": "2026-11-05T18:51:18+00:00",
+ "fingerprint": "ebfba3abbd4ed904187b8ce13e3a36e5b08459d95c34a9b96bdd231e3da8b540",
+ "index": 1,
+ "kind": "claim",
+ "named_break": null,
+ "no_build_reason": "the test command builds itself",
+ "plan": "/mnt/vault/Portfolio/anon-tools/appimage-control/plans/2026-11-05-security-audit-remediation-plan.md",
+ "red": {
+  "elapsed_s": 1.5,
+  "exit": 1,
+  "tail": "   Compiling appimage_control_core v0.2.0 (/home/user/dev/anon-tools/appimage-control/crates/core)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.32s\n     Running tests/catalog_shipped_contract.rs (target/debug/deps/catalog_shipped_contract-ce063e5323294eaa)\n\nrunning 4 tests\ntest standard_notes_display_name_fallback_would_work_without_display_name ... ok\ntest lm_studio_instance_cap_and_tooltip ... ok\ntest electrum_btc_compact_layout_and_desktop_flags ... ok\ntest shipped_catalog_loads_and_covers_instance_strategies ... ok\n\ntest result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\nTraceback (most recent call last):\n  File \"<string>\", line 1, in <module>\nAssertionError: missing"
+ },
+ "schema": 2,
+ "shell": "bash",
+ "task": "3.6",
+ "test": "cd /home/user/dev/anon-tools/appimage-control && cargo test -p appimage_control_core --test catalog_shipped_contract && python3 -c \"import json; a={x['id']:x for x in json.load(open('data/catalog.json'))['apps']}; assert all(len(a[i].get('sha256',''))==64 for i in ('mattermost','electrum-btc','electrum-ltc')), 'missing'\"",
+ "text": "each hash is taken from the vendor's own published checksum, or from a download that verified against the vendor's PGP signature (Electrum publishes `.asc`",
+ "touched": [
+  "data/catalog.json"
+ ]
+}
