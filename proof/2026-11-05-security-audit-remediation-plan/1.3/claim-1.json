@@ -1,0 +1,11 @@
+{
+ "created": "2026-11-05T16:36:09+00:00",
+ "fingerprint": "b78d06dd45e14987bc8be53dda91fd3ca034735191ce5ce6e8c3e92ab3959eaa",
+ "index": 1,
+ "kind": "claim-deviation",
+ "plan": "/mnt/vault/Portfolio/anon-tools/appimage-control/plans/2026-11-05-security-audit-remediation-plan.md",
+ "schema": 2,
+ "task": "1.3",
+ "text": "repair\": the script is `#!/usr/bin/env bash` and line 40 `exec > >(tee \"$LOG\")` is bash-only syntax present before this plan, so `sh -n` exits 2 on the unmodified file",
+ "why": "prove-claim refuses a break of a file the test command names, and Task 1.3's test lints exactly that script. Checked by hand 2026-11-05: the script with '|| exit 1' removed (scratch copy) makes shellcheck -S style report SC2164; the committed script passes shellcheck -S style and bash -n."
+}

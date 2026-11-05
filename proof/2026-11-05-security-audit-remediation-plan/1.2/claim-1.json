@@ -1,0 +1,36 @@
+{
+ "baseline": {
+  "elapsed_s": 0.1,
+  "exit": 0,
+  "tail": " INFO zizmor: \ud83c\udf08 zizmor v1.24.1\n INFO audit: zizmor: \ud83c\udf08 completed .github/workflows/ci.yml\n INFO audit: zizmor: \ud83c\udf08 completed .github/workflows/flathub.yml\nNo findings to report. Good job! (4 suppressed)"
+ },
+ "break_patch": "--- a/.github/workflows/ci.yml\n+++ b/.github/workflows/ci.yml\n@@ -24,7 +24,7 @@\n             pkgconf \\\n             xorg-server-xvfb \\\n             desktop-file-utils appstream\n-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0\n+      - uses: actions/checkout@v4\n         with:\n           persist-credentials: false\n       - name: Cargo cache\n",
+ "build": null,
+ "created": "2026-11-05T16:36:01+00:00",
+ "fingerprint": "b78d06dd45e14987bc8be53dda91fd3ca034735191ce5ce6e8c3e92ab3959eaa",
+ "index": 1,
+ "kind": "claim",
+ "named_break": null,
+ "no_build_reason": "workflow lint, nothing to compile",
+ "plan": "/mnt/vault/Portfolio/anon-tools/appimage-control/plans/2026-11-05-security-audit-remediation-plan.md",
+ "red": {
+  "elapsed_s": 0.1,
+  "exit": 1,
+  "tail": " INFO zizmor: \ud83c\udf08 zizmor v1.24.1\n INFO audit: zizmor: \ud83c\udf08 completed .github/workflows/ci.yml\n INFO audit: zizmor: \ud83c\udf08 completed .github/workflows/flathub.yml\nerror[unpinned-uses]: unpinned action reference\n  --> .github/workflows/ci.yml:27:15\n   |\n27 |       - uses: actions/checkout@v4\n   |               ^^^^^^^^^^^^^^^^^^^ action is not pinned to a hash (required by blanket policy)\n   |\n   = note: audit confidence \u2192 High\n   = help: audit documentation \u2192 https://docs.zizmor.sh/audits/#unpinned-uses\n\n5 findings (4 suppressed): 0 informational, 0 low, 0 medium, 1 high"
+ },
+ "schema": 2,
+ "shell": "bash",
+ "task": "1.2",
+ "test": "cd /home/user/dev/anon-tools/appimage-control && zizmor --format plain .github/workflows/ci.yml .github/workflows/flathub.yml; test $? -eq 0 && actionlint .github/workflows/*.yml && ! grep -nE 'uses: [^@]+@v[0-9]+\\s*$|image: [^@]+:latest' .github/workflows/*.yml",
+ "text": "every `uses:` is a 40-hex SHA with a `# vN.N.N` comment (resolved with `gh api repos/<owner>/<repo>/git/ref/tags/<tag>`), the container image is pinned `archlinux@sha256:\u2026`, a top-level `permissions: contents: read` exists in both files (and any job needing more widens it locally), and every `actions/checkout` sets `persist-credentials: false`. Break: restore `@v4` on one step and zizmor reports unpinned-uses.",
+ "touched": [
+  ".github/workflows/ci.yml"
+ ],
+ "touched_blobs": {
+  ".github/workflows/ci.yml": "8d5a81c871146cbb8f66486b6ef1562f6d10490c"
+ },
+ "witness_blobs": {
+  ".github/workflows/ci.yml": "8d5a81c871146cbb8f66486b6ef1562f6d10490c",
+  ".github/workflows/flathub.yml": "a9f274fbe28d97cb0f01a497a67ff40588fe10e5"
+ }
+}
