@@ -115,6 +115,13 @@ const EXEC_RESERVED: &[char] = &[
     '`',
 ];
 
+/// How a path holding `%` is started, as written in the file (both escape layers applied):
+/// `sh -c 'exec "$0" "$@"' <path> …`, using double quotes because the spec allows only those.
+const PERCENT_PATH_RUNNER: &str = r#"sh -c "exec \\"\\$0\\" \\"\\$@\\"""#;
+
+/// The same prefix after the string-value layer is unescaped (what [`strip_exec_args`] sees).
+const PERCENT_PATH_RUNNER_UNESCAPED: &str = r#"sh -c "exec \"\$0\" \"\$@\"" "#;
+
 /// Turn a path into one `Exec=` argument, as written in the file.
 ///
 /// Applies the quoting rule (double quotes when a reserved character or `%` is present; inside
@@ -123,9 +130,10 @@ const EXEC_RESERVED: &[char] = &[
 /// [`unquote_exec_arg`] inverts this exactly. A carriage return is dropped (it cannot be
 /// represented safely on one line).
 ///
-/// A path holding `%` is prefixed with `env `: GLib (GNOME's launcher loader) checks that the
-/// `Exec=` program exists *before* it turns `%%` back into `%`, so a `%` path as the program
-/// never loads. With `env` first the check passes and `env` runs the exact file.
+/// A path holding `%` is run through [`PERCENT_PATH_RUNNER`]: GLib (GNOME's launcher loader)
+/// checks that the `Exec=` program exists *before* it turns `%%` back into `%`, so a `%` path as
+/// the program never loads. With `sh` first the check passes, and `exec "$0" "$@"` runs the exact
+/// file (`env` would not do: it reads a path holding `=` as a variable assignment).
 /// [`strip_exec_args`] skips that prefix when parsing.
 fn quote_exec_arg(path: &str) -> String {
     let path = path.replace('\r', "");
@@ -148,7 +156,7 @@ fn quote_exec_arg(path: &str) -> String {
     }
     out.push('"');
     if path.contains('%') {
-        format!("env {out}")
+        format!("{PERCENT_PATH_RUNNER} {out}")
     } else {
         out
     }
@@ -254,8 +262,11 @@ fn parse_bool(v: &str) -> bool {
 /// Exec often has `%U` etc.; keep only the command path.
 fn strip_exec_args(exec: &str) -> String {
     let value = unescape_desktop_value(exec);
-    // `env "<path>"` is how a path holding `%` is written (see `quote_exec_arg`).
-    let value = match value.trim_start().strip_prefix("env ") {
+    // A path holding `%` is written behind `PERCENT_PATH_RUNNER` (see `quote_exec_arg`).
+    let value = match value
+        .trim_start()
+        .strip_prefix(PERCENT_PATH_RUNNER_UNESCAPED)
+    {
         Some(rest) => rest.trim_start().to_string(),
         None => value,
     };
@@ -443,8 +454,11 @@ mod tests {
     /// GLib checks that an `Exec=` program exists before it turns `%%` back into `%`, so a
     /// path holding `%` as the program never loads on GNOME. Such a path runs through `env`.
     #[test]
-    fn exec_percent_is_doubled_and_runs_through_env() {
-        assert_roundtrip("/o/50%.AppImage", r#"Exec=env "/o/50%%.AppImage" %U"#);
+    fn exec_percent_is_doubled_and_runs_through_sh() {
+        assert_roundtrip(
+            "/o/50%.AppImage",
+            r#"Exec=sh -c "exec \\"\\$0\\" \\"\\$@\\"" "/o/50%%.AppImage" %U"#,
+        );
     }
 
     #[test]
@@ -471,7 +485,7 @@ mod tests {
     fn exec_all_reserved_combined() {
         assert_roundtrip(
             "/o/a b%c$d\"e`f\\g;h",
-            r#"Exec=env "/o/a b%%c\\$d\\"e\\`f\\\\g;h" %U"#,
+            r#"Exec=sh -c "exec \\"\\$0\\" \\"\\$@\\"" "/o/a b%%c\\$d\\"e\\`f\\\\g;h" %U"#,
         );
     }
 
@@ -495,5 +509,15 @@ mod tests {
         assert_eq!(e.exec.as_deref(), Some("/opt/a b/x.AppImage"));
         let e = parse_desktop_str("[Desktop Entry]\nExec=/opt/x.AppImage\n").unwrap();
         assert_eq!(e.exec.as_deref(), Some("/opt/x.AppImage"));
+    }
+
+    /// `env` would read a path holding `=` as a variable assignment, so a `%` path runs through
+    /// `sh -c 'exec "$0" "$@"'`, which takes any path as-is.
+    #[test]
+    fn exec_percent_and_equals_round_trip() {
+        assert_roundtrip(
+            "/o/a=b%c.AppImage",
+            r#"Exec=sh -c "exec \\"\\$0\\" \\"\\$@\\"" "/o/a=b%%c.AppImage" %U"#,
+        );
     }
 }

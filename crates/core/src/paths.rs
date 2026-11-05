@@ -9,11 +9,30 @@ use crate::error::{Error, Result};
 /// location to find the checkout's `data/` (catalog and seed packs). An installed binary
 /// (`/usr/bin`, `~/.cargo/bin`, `~/.local/bin`) never walks: from there the walk would pass
 /// through `$HOME` or `/`, where a planted `data/catalog.json` would win.
+///
+/// Recognised layouts: `target/{debug,release}`, `target/<triple>/{debug,release}`, each with an
+/// optional trailing `deps` (where test binaries live).
 pub(crate) fn dev_build_dir(exe_dir: &Path) -> Option<&Path> {
-    exe_dir
-        .ancestors()
-        .any(|a| a.file_name().is_some_and(|n| n == "target"))
-        .then_some(exe_dir)
+    let names: Vec<&str> = exe_dir
+        .components()
+        .filter_map(|c| match c {
+            Component::Normal(n) => n.to_str(),
+            _ => None,
+        })
+        .collect();
+    let mut rest: &[&str] = &names;
+    if rest.last() == Some(&"deps") {
+        rest = &rest[..rest.len() - 1];
+    }
+    let profile = |n: &&str| *n == "debug" || *n == "release";
+    let is_build = match rest {
+        [.., t, p] => *t == "target" && profile(p),
+        _ => false,
+    } || match rest {
+        [.., t, _triple, p] => *t == "target" && profile(p),
+        _ => false,
+    };
+    is_build.then_some(exe_dir)
 }
 
 /// `true` when `rel` is a relative path that stays under whatever directory it is joined to:
@@ -223,6 +242,8 @@ mod tests {
             "/home/u/dev/aic/target/debug",
             "/home/u/dev/aic/target/release",
             "/home/u/dev/aic/target/debug/deps",
+            "/home/u/dev/aic/target/x86_64-unknown-linux-gnu/release",
+            "/home/u/dev/aic/target/aarch64-unknown-linux-gnu/debug/deps",
         ] {
             assert!(dev_build_dir(Path::new(dev)).is_some(), "{dev}");
         }
@@ -232,6 +253,9 @@ mod tests {
             "/home/u/.local/bin",
             "/app/bin",
             "/home/u/Applications",
+            "/home/u/target/bin",
+            "/home/u/target",
+            "/opt/target/tools/bin",
         ] {
             assert!(dev_build_dir(Path::new(installed)).is_none(), "{installed}");
         }
