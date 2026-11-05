@@ -151,3 +151,220 @@ fn live_github_download() {
     );
     assert_eq!(&head[..4], b"\x7fELF", "not an ELF executable");
 }
+
+// --- Task 3.3: a download is verified before anything is made executable -----------------
+
+use appimage_control_core::{
+    ensure_cached_appimage_with_policy, parse_catalog_json, AppPaths, Error, VerifyPolicy,
+    CACHE_SHA256_FILENAME,
+};
+use sha2::{Digest, Sha256};
+use std::os::unix::fs::PermissionsExt;
+
+fn sha256_hex(b: &[u8]) -> String {
+    let mut h = Sha256::new();
+    h.update(b);
+    h.finalize().iter().map(|x| format!("{x:02x}")).collect()
+}
+
+/// A catalog app downloading from `url` into `t.AppImage`, with an optional pinned sha256.
+fn verify_app(url: &str, sha256: Option<&str>) -> CatalogApp {
+    let pin = sha256
+        .map(|h| format!(r#","sha256":"{h}","sha256_aarch64":"{h}""#))
+        .unwrap_or_default();
+    let json = format!(
+        r#"{{"apps":[{{"id":"vapp","download_url":"{url}","download_url_aarch64":"{url}","appimage_filename":"t.AppImage"{pin}}}]}}"#
+    );
+    parse_catalog_json(&json).unwrap().apps.remove(0)
+}
+
+fn strict() -> VerifyPolicy {
+    VerifyPolicy {
+        allow_unverified: false,
+    }
+}
+
+fn allowed() -> VerifyPolicy {
+    VerifyPolicy {
+        allow_unverified: true,
+    }
+}
+
+fn no_residue(dir: &std::path::Path) {
+    let names: Vec<String> = fs::read_dir(dir)
+        .map(|r| {
+            r.filter_map(|e| e.ok())
+                .map(|e| e.file_name().to_string_lossy().into_owned())
+                .collect()
+        })
+        .unwrap_or_default();
+    assert!(
+        !names
+            .iter()
+            .any(|n| n.contains("partdownload") || n.contains("unverified")),
+        "temporary download files left behind: {names:?}"
+    );
+}
+
+#[test]
+fn verify_matching_catalog_hash_installs_executable() {
+    let tmp = tempfile::tempdir().unwrap();
+    let paths = AppPaths::new(tmp.path().to_path_buf()).unwrap();
+    let body = b"\x7fELF verified payload";
+    let url = common::serve_bytes_once(body, "application/octet-stream");
+    let app = verify_app(&url, Some(&sha256_hex(body)));
+    let p = ensure_cached_appimage_with_policy(&paths, &app, strict(), &mut |_| {}).unwrap();
+    assert_eq!(fs::read(&p).unwrap(), body);
+    assert_eq!(
+        fs::metadata(&p).unwrap().permissions().mode() & 0o777,
+        0o755
+    );
+    let side =
+        fs::read_to_string(paths.catalog_cache_dir("vapp").join(CACHE_SHA256_FILENAME)).unwrap();
+    assert_eq!(
+        side.trim(),
+        format!("{} verified catalog", sha256_hex(body))
+    );
+}
+
+#[test]
+fn verify_mismatch_refuses_and_keeps_existing_cache() {
+    let tmp = tempfile::tempdir().unwrap();
+    let paths = AppPaths::new(tmp.path().to_path_buf()).unwrap();
+    let dir = paths.catalog_cache_dir("vapp");
+    fs::create_dir_all(&dir).unwrap();
+    // A pre-existing cached blob that does not match the pin either, so a download happens.
+    let old = b"old cached bytes";
+    fs::write(dir.join("t.AppImage"), old).unwrap();
+    let served = b"\x7fELF tampered upstream";
+    let url = common::serve_bytes_once(served, "application/octet-stream");
+    let expected = sha256_hex(b"what upstream published");
+    let app = verify_app(&url, Some(&expected));
+    let err = ensure_cached_appimage_with_policy(&paths, &app, allowed(), &mut |_| {})
+        .expect_err("a mismatch must be refused, even with --allow-unverified");
+    assert!(matches!(err, Error::DigestMismatch { .. }), "{err:?}");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("vapp: download does not match the expected sha256")
+            && msg.contains(&expected)
+            && msg.contains(&sha256_hex(served))
+            && msg.contains("nothing was installed"),
+        "{msg}"
+    );
+    assert_eq!(
+        fs::read(dir.join("t.AppImage")).unwrap(),
+        old,
+        "cached blob must be untouched"
+    );
+    no_residue(&dir);
+}
+
+#[test]
+fn verify_mismatch_without_cache_leaves_no_file() {
+    let tmp = tempfile::tempdir().unwrap();
+    let paths = AppPaths::new(tmp.path().to_path_buf()).unwrap();
+    let url = common::serve_bytes_once(b"\x7fELF bad", "application/octet-stream");
+    let app = verify_app(&url, Some(&sha256_hex(b"good")));
+    let err = ensure_cached_appimage_with_policy(&paths, &app, strict(), &mut |_| {}).unwrap_err();
+    assert!(matches!(err, Error::DigestMismatch { .. }), "{err:?}");
+    let dir = paths.catalog_cache_dir("vapp");
+    assert!(!dir.join("t.AppImage").exists());
+    no_residue(&dir);
+}
+
+#[test]
+fn verify_unavailable_strict_refuses_and_writes_nothing() {
+    let tmp = tempfile::tempdir().unwrap();
+    let paths = AppPaths::new(tmp.path().to_path_buf()).unwrap();
+    let url = common::serve_bytes_once(b"\x7fELF no hash", "application/octet-stream");
+    let app = verify_app(&url, None);
+    let err = ensure_cached_appimage_with_policy(&paths, &app, strict(), &mut |_| {}).unwrap_err();
+    assert!(matches!(err, Error::UnverifiedDownload { .. }), "{err:?}");
+    assert!(
+        err.to_string().contains(
+            "vapp: no published sha256 to verify this download; re-run with --allow-unverified to install it anyway"
+        ),
+        "{err}"
+    );
+    let dir = paths.catalog_cache_dir("vapp");
+    assert!(!dir.join("t.AppImage").exists());
+    no_residue(&dir);
+}
+
+#[test]
+fn verify_unavailable_allowed_installs_and_marks_sidecar() {
+    let tmp = tempfile::tempdir().unwrap();
+    let paths = AppPaths::new(tmp.path().to_path_buf()).unwrap();
+    let body = b"\x7fELF user allowed";
+    let url = common::serve_bytes_once(body, "application/octet-stream");
+    let app = verify_app(&url, None);
+    let p = ensure_cached_appimage_with_policy(&paths, &app, allowed(), &mut |_| {}).unwrap();
+    assert_eq!(fs::read(&p).unwrap(), body);
+    assert_eq!(
+        fs::metadata(&p).unwrap().permissions().mode() & 0o777,
+        0o755
+    );
+    let side =
+        fs::read_to_string(paths.catalog_cache_dir("vapp").join(CACHE_SHA256_FILENAME)).unwrap();
+    assert_eq!(
+        side.trim(),
+        format!("{} unverified user-allowed", sha256_hex(body))
+    );
+}
+
+#[test]
+fn verify_tampered_cache_is_redownloaded() {
+    let tmp = tempfile::tempdir().unwrap();
+    let paths = AppPaths::new(tmp.path().to_path_buf()).unwrap();
+    let dir = paths.catalog_cache_dir("vapp");
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join("t.AppImage"), b"tampered after verification").unwrap();
+    let body = b"\x7fELF the real thing";
+    let url = common::serve_bytes_once(body, "application/octet-stream");
+    let app = verify_app(&url, Some(&sha256_hex(body)));
+    let p = ensure_cached_appimage_with_policy(&paths, &app, strict(), &mut |_| {}).unwrap();
+    assert_eq!(
+        fs::read(&p).unwrap(),
+        body,
+        "the tampered blob must not be reused"
+    );
+}
+
+#[test]
+fn verify_sidecar_mismatch_is_redownloaded() {
+    let tmp = tempfile::tempdir().unwrap();
+    let paths = AppPaths::new(tmp.path().to_path_buf()).unwrap();
+    let dir = paths.catalog_cache_dir("vapp");
+    fs::create_dir_all(&dir).unwrap();
+    // Verified once (allowed, no pin), then the blob changed under the sidecar.
+    fs::write(dir.join("t.AppImage"), b"changed later").unwrap();
+    fs::write(
+        dir.join(CACHE_SHA256_FILENAME),
+        format!(
+            "{} unverified user-allowed\n",
+            sha256_hex(b"what was allowed")
+        ),
+    )
+    .unwrap();
+    let body = b"\x7fELF fresh copy";
+    let url = common::serve_bytes_once(body, "application/octet-stream");
+    let app = verify_app(&url, None);
+    let p = ensure_cached_appimage_with_policy(&paths, &app, allowed(), &mut |_| {}).unwrap();
+    assert_eq!(fs::read(&p).unwrap(), body);
+}
+
+#[test]
+fn verify_corrupt_sidecar_is_not_trusted() {
+    let tmp = tempfile::tempdir().unwrap();
+    let paths = AppPaths::new(tmp.path().to_path_buf()).unwrap();
+    let dir = paths.catalog_cache_dir("vapp");
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join("t.AppImage"), b"blob behind a damaged record").unwrap();
+    // A write cut short: an empty sidecar must not read as "cached before verification".
+    fs::write(dir.join(CACHE_SHA256_FILENAME), b"").unwrap();
+    let body = b"\x7fELF fresh after corrupt record";
+    let url = common::serve_bytes_once(body, "application/octet-stream");
+    let app = verify_app(&url, None);
+    let p = ensure_cached_appimage_with_policy(&paths, &app, allowed(), &mut |_| {}).unwrap();
+    assert_eq!(fs::read(&p).unwrap(), body);
+}

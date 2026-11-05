@@ -5,7 +5,10 @@
 //! as [`ExpectedDigest::Unavailable`] and never as a digest.
 
 use crate::catalog::CatalogApp;
+use crate::error::{Error, Result};
 use crate::version_info::{github_api_base, GithubAsset};
+use std::fs;
+use std::path::Path;
 
 /// The digest a downloaded file should have, and where it came from.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -95,7 +98,7 @@ fn github_asset_digest(
     repo: &str,
     tag: &str,
     asset: &str,
-) -> Result<Option<String>, String> {
+) -> std::result::Result<Option<String>, String> {
     let client = crate::download::http_client().map_err(|e| format!("http client: {e}"))?;
     let api = format!(
         "{}/repos/{}/{}/releases/tags/{}",
@@ -135,21 +138,34 @@ fn github_asset_digest(
     }
 }
 
-/// Expected SHA-256 of the file at `url` for `arch` (`std::env::consts::ARCH` style).
-pub fn expected_digest(app: &CatalogApp, url: &str, arch: &str) -> ExpectedDigest {
-    let pinned = if arch == "aarch64" {
+/// The sha256 the catalog pins for `arch` (`sha256_aarch64` on aarch64, `sha256` otherwise).
+pub fn catalog_pin<'a>(app: &'a CatalogApp, arch: &str) -> Option<&'a str> {
+    if arch == "aarch64" {
         app.sha256_aarch64.as_deref()
     } else {
         app.sha256.as_deref()
-    };
-    if let Some(h) = pinned {
+    }
+}
+
+/// Expected SHA-256 of the file at `url` for `arch` (`std::env::consts::ARCH` style).
+pub fn expected_digest(app: &CatalogApp, url: &str, arch: &str) -> ExpectedDigest {
+    if let Some(h) = catalog_pin(app, arch) {
         if is_sha256_hex(h) {
             return ExpectedDigest::Catalog(h.to_string());
         }
         return ExpectedDigest::Unavailable("catalog sha256 is malformed".to_string());
     }
-    let Some((owner, repo, tag, asset)) = parse_github_asset_url(url) else {
+    if parse_github_asset_url(url).is_none() {
         return ExpectedDigest::Unavailable("no catalog sha256 and not a GitHub asset".to_string());
+    }
+    expected_github_digest(url)
+}
+
+/// GitHub's published digest for a release-asset URL, ignoring any catalog pin. The update
+/// path uses this for a newer GitHub release than the one the catalog pins.
+pub fn expected_github_digest(url: &str) -> ExpectedDigest {
+    let Some((owner, repo, tag, asset)) = parse_github_asset_url(url) else {
+        return ExpectedDigest::Unavailable("not a GitHub release asset".to_string());
     };
     match github_asset_digest(&owner, &repo, &tag, &asset) {
         Ok(Some(hex)) => ExpectedDigest::GithubDigest(hex),
@@ -158,23 +174,169 @@ pub fn expected_digest(app: &CatalogApp, url: &str, arch: &str) -> ExpectedDiges
     }
 }
 
+/// Whether a download with no known sha256 may proceed (the user's opt-in).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct VerifyPolicy {
+    pub allow_unverified: bool,
+}
+
+/// Sidecar in a catalog cache dir recording the cached blob's sha256 and how it was accepted:
+/// `<hex> verified catalog`, `<hex> verified github-digest` or `<hex> unverified user-allowed`.
+pub const CACHE_SHA256_FILENAME: &str = ".appimage-control-sha256";
+
+/// sha256 of a file, lower-case hex.
+pub fn sha256_file(path: &Path) -> Result<String> {
+    use sha2::{Digest, Sha256};
+    use std::io::Read;
+    let mut f = fs::File::open(path)?;
+    let mut h = Sha256::new();
+    let mut buf = vec![0u8; 64 * 1024];
+    loop {
+        let n = f.read(&mut buf)?;
+        if n == 0 {
+            break;
+        }
+        h.update(&buf[..n]);
+    }
+    Ok(h.finalize().iter().map(|b| format!("{b:02x}")).collect())
+}
+
+/// What the cache dir's sidecar says.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CacheSidecar {
+    /// No sidecar: the blob was cached before verification existed.
+    Absent,
+    /// `<hex> <label>`.
+    Present { hex: String, label: String },
+    /// A sidecar exists but cannot be read or parsed (e.g. a write cut short): the blob it
+    /// described must not be trusted.
+    Corrupt,
+}
+
+/// Read the cache dir's sidecar. A present-but-unparseable file is [`CacheSidecar::Corrupt`],
+/// never [`CacheSidecar::Absent`], so a damaged sidecar cannot pass a blob as "legacy".
+pub fn read_cache_sidecar(cache_dir: &Path) -> CacheSidecar {
+    let path = cache_dir.join(CACHE_SHA256_FILENAME);
+    let raw = match fs::read_to_string(&path) {
+        Ok(r) => r,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return CacheSidecar::Absent,
+        Err(_) => return CacheSidecar::Corrupt,
+    };
+    match raw.trim().split_once(' ') {
+        Some((hex, label)) if is_sha256_hex(hex) && !label.trim().is_empty() => {
+            CacheSidecar::Present {
+                hex: hex.to_string(),
+                label: label.trim().to_string(),
+            }
+        }
+        _ => CacheSidecar::Corrupt,
+    }
+}
+
+/// Write the sidecar atomically (temp file in the same dir, then rename), so a crash or a full
+/// disk leaves the old sidecar or the new one, never a truncated one.
+pub fn write_cache_sidecar(cache_dir: &Path, hex: &str, label: &str) -> Result<()> {
+    let tmp = cache_dir.join(format!(
+        ".{CACHE_SHA256_FILENAME}.{}.tmp",
+        uuid::Uuid::new_v4()
+    ));
+    if let Err(e) = fs::write(&tmp, format!("{hex} {label}\n")) {
+        let _ = fs::remove_file(&tmp);
+        return Err(e.into());
+    }
+    if let Err(e) = fs::rename(&tmp, cache_dir.join(CACHE_SHA256_FILENAME)) {
+        let _ = fs::remove_file(&tmp);
+        return Err(e.into());
+    }
+    Ok(())
+}
+
+/// Serialises tests that set `APPIMAGE_CONTROL_GITHUB_API_BASE` (process-global) across modules.
+#[cfg(test)]
+pub(crate) fn github_api_env_lock() -> std::sync::MutexGuard<'static, ()> {
+    static L: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+    L.get_or_init(|| std::sync::Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+}
+
+/// Download `url` to `dest` and check it before it lands there.
+///
+/// The bytes go to a hidden sibling first and are hashed; only a match (or, with no known hash,
+/// the user's opt-in) renames them onto `dest`. Nothing here makes a file executable. A mismatch
+/// is always fatal and leaves `dest` exactly as it was. With no known hash and no opt-in, nothing
+/// is downloaded at all. Returns the sha256 and the sidecar label.
+pub fn download_verified(
+    app_id: &str,
+    url: &str,
+    dest: &Path,
+    expected: &ExpectedDigest,
+    policy: VerifyPolicy,
+) -> Result<(String, &'static str)> {
+    let label = match expected {
+        ExpectedDigest::Catalog(_) => "verified catalog",
+        ExpectedDigest::GithubDigest(_) => "verified github-digest",
+        ExpectedDigest::Unavailable(why) => {
+            if !policy.allow_unverified {
+                return Err(Error::UnverifiedDownload {
+                    app: app_id.to_string(),
+                    reason: why.clone(),
+                });
+            }
+            "unverified user-allowed"
+        }
+    };
+    let fname = dest
+        .file_name()
+        .ok_or_else(|| Error::InvalidPath(dest.display().to_string()))?;
+    // Unique per run, so two runs (GUI and CLI) can never swap bytes between hash and rename.
+    let staging = dest.with_file_name(format!(
+        ".{}.{}.unverified",
+        fname.to_string_lossy(),
+        uuid::Uuid::new_v4()
+    ));
+    crate::download::download_to_file(url, &staging).map_err(|e| match e {
+        Error::DownloadFailed(msg) => Error::DownloadFailed(format!("{app_id}: {msg}")),
+        other => other,
+    })?;
+    let actual = match sha256_file(&staging) {
+        Ok(h) => h,
+        Err(e) => {
+            let _ = fs::remove_file(&staging);
+            return Err(e);
+        }
+    };
+    if let ExpectedDigest::Catalog(want) | ExpectedDigest::GithubDigest(want) = expected {
+        if &actual != want {
+            let _ = fs::remove_file(&staging);
+            return Err(Error::DigestMismatch {
+                app: app_id.to_string(),
+                expected: want.clone(),
+                actual,
+            });
+        }
+    }
+    if let Err(e) = fs::rename(&staging, dest) {
+        let _ = fs::remove_file(&staging);
+        return Err(e.into());
+    }
+    Ok((actual, label))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::catalog::parse_catalog_json;
     use std::io::{Read, Write};
     use std::net::TcpListener;
-    use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
+    use std::sync::{Arc, Mutex, MutexGuard};
 
     const GOOD: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
     const CATALOG_HASH: &str = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
     const GH: &str = "https://github.com/o/r/releases/download/v1.0/x-1.0.AppImage";
 
     fn env_lock() -> MutexGuard<'static, ()> {
-        static L: OnceLock<Mutex<()>> = OnceLock::new();
-        L.get_or_init(|| Mutex::new(()))
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
+        super::github_api_env_lock()
     }
 
     /// Loopback API fixture: answers every request with `(status, body)` and records paths.

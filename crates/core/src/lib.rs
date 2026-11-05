@@ -46,20 +46,26 @@ pub use icons::{
 pub use install::{install_appimage, uninstall_app, InstallOptions, InstallResult};
 pub use instances::{
     appimage_file_identity_unchanged, catalog_row_latest_version_label,
-    clean_catalog_download_cache, clean_installed_catalog_apps_keep_cache, installed_appimage_size,
-    installed_version_fleet_display, installed_version_fleet_has_distinct_recorded_versions,
-    instance_count, instance_desktop_display_name, instance_exec_suffix, instance_startup_wm_class,
+    clean_catalog_download_cache, clean_installed_catalog_apps_keep_cache,
+    ensure_cached_appimage_with_policy, installed_appimage_size, installed_version_fleet_display,
+    installed_version_fleet_has_distinct_recorded_versions, instance_count,
+    instance_desktop_display_name, instance_exec_suffix, instance_startup_wm_class,
     list_instance_indices, list_managed_instance_indices, parse_app_instance_spec,
     purge_appimage_control_state, read_installed_version, read_installed_version_fleet_max_semver,
     read_installed_version_fleet_per_instance_breakdown, read_installed_version_fleet_summary,
     read_instance_recorded_version, reconcile_catalog_install_version_metadata,
     reconcile_instance_count, reconcile_instance_count_for_portable_migration,
-    reconcile_instance_count_with_report,
+    reconcile_instance_count_with_policy, reconcile_instance_count_with_report,
     reconcile_instance_version_metadata_if_binary_matches_cache, repair_instance_launchers,
-    update_all_installed_instances, update_instance_appimage, FleetInstalledDisplay,
-    InstanceUpdateOutcome, ReconcileReport, UpdateAllReport, MAX_INSTANCES_PER_APP,
+    update_all_installed_instances, update_all_installed_instances_with_policy,
+    update_instance_appimage, FleetInstalledDisplay, InstanceUpdateOutcome, ReconcileReport,
+    UpdateAllReport, MAX_INSTANCES_PER_APP,
 };
-pub use integrity::{expected_digest, ExpectedDigest};
+pub use integrity::{
+    catalog_pin, download_verified, expected_digest, expected_github_digest, read_cache_sidecar,
+    sha256_file, write_cache_sidecar, CacheSidecar, ExpectedDigest, VerifyPolicy,
+    CACHE_SHA256_FILENAME,
+};
 pub use list::list_installed;
 pub use migrate::{
     discover_migration_candidates, run_portable_dir_migration, MigrationCandidate,

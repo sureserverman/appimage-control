@@ -1,0 +1,35 @@
+{
+ "baseline": {
+  "elapsed_s": 0.2,
+  "exit": 0,
+  "tail": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.12s\n     Running tests/http_local_fixture.rs (target/debug/deps/http_local_fixture-21ee444f7118f233)\n\nrunning 8 tests\ntest verify_unavailable_strict_refuses_and_writes_nothing ... ok\ntest verify_mismatch_without_cache_leaves_no_file ... ok\ntest verify_unavailable_allowed_installs_and_marks_sidecar ... ok\ntest verify_mismatch_refuses_and_keeps_existing_cache ... ok\ntest verify_sidecar_mismatch_is_redownloaded ... ok\ntest verify_matching_catalog_hash_installs_executable ... ok\ntest verify_tampered_cache_is_redownloaded ... ok\ntest verify_corrupt_sidecar_is_not_trusted ... ok\n\ntest result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.01s\n"
+ },
+ "break_patch": "--- a/crates/core/src/integrity.rs\n+++ b/crates/core/src/integrity.rs\n@@ -307,7 +307,7 @@\n         }\n     };\n     if let ExpectedDigest::Catalog(want) | ExpectedDigest::GithubDigest(want) = expected {\n-        if &actual != want {\n+        if false && &actual != want {\n             let _ = fs::remove_file(&staging);\n             return Err(Error::DigestMismatch {\n                 app: app_id.to_string(),\n",
+ "build": null,
+ "created": "2026-11-05T19:02:22+00:00",
+ "fingerprint": "1ba4e0cfb2c988c6e5520fd7599f52f2b3bedc431a97ead2ffaf4ecca2f9760a",
+ "index": 1,
+ "kind": "claim",
+ "named_break": null,
+ "no_build_reason": "cargo test compiles first",
+ "plan": "/mnt/vault/Portfolio/anon-tools/appimage-control/plans/2026-11-05-security-audit-remediation-plan.md",
+ "red": {
+  "elapsed_s": 1.3,
+  "exit": 101,
+  "tail": "   Compiling appimage_control_core v0.2.0 (/home/user/dev/anon-tools/appimage-control/crates/core)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.26s\n     Running tests/http_local_fixture.rs (target/debug/deps/http_local_fixture-21ee444f7118f233)\n\nrunning 8 tests\ntest verify_unavailable_strict_refuses_and_writes_nothing ... ok\ntest verify_mismatch_without_cache_leaves_no_file ... FAILED\ntest verify_unavailable_allowed_installs_and_marks_sidecar ... ok\ntest verify_sidecar_mismatch_is_redownloaded ... ok\ntest verify_mismatch_refuses_and_keeps_existing_cache ... FAILED\ntest verify_tampered_cache_is_redownloaded ... ok\ntest verify_corrupt_sidecar_is_not_trusted ... ok\ntest verify_matching_catalog_hash_installs_executable ... ok\n\nfailures:\n\n---- verify_mismatch_without_cache_leaves_no_file stdout ----\n\nthread 'verify_mismatch_without_cache_leaves_no_file' (2612866) panicked at crates/core/tests/http_local_fixture.rs:268:87:\ncalled `Result::unwrap_err()` on an `Ok` value: \"/tmp/claude-1000/-home-user-dev-anon-tools-appimage-control/4d18acac-3d47-456b-83c9-ed7ae2ed9ec4/scratchpad/.tmppGwjqC/.local/share/appimages/cache/vapp/t.AppImage\"\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n---- verify_mismatch_refuses_and_keeps_existing_cache stdout ----\n\nthread 'verify_mismatch_refuses_and_keeps_existing_cache' (2612865) panicked at crates/core/tests/http_local_fixture.rs:244:10:\na mismatch must be refused, even with --allow-unverified: \"/tmp/claude-1000/-home-user-dev-anon-tools-appimage-control/4d18acac-3d47-456b-83c9-ed7ae2ed9ec4/scratchpad/.tmpngpX5Y/.local/share/appimages/cache/vapp/t.AppImage\"\n\n\nfailures:\n    verify_mismatch_refuses_and_keeps_existing_cache\n    verify_mismatch_without_cache_leaves_no_file\n\ntest result: FAILED. 6 passed; 2 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.01s\n\nerror: test failed, to rerun pass `-p appimage_control_core --test http_local_fixture`"
+ },
+ "schema": 2,
+ "shell": "bash",
+ "task": "3.3",
+ "test": "cd /home/user/dev/anon-tools/appimage-control && cargo test -p appimage_control_core --test http_local_fixture verify_ && grep -q 'sha256' docs/workflows/apply-reconcile.md && grep -q 'DEC-001' /mnt/vault/Portfolio/anon-tools/appimage-control/decisions.md",
+ "text": "fixture tests drive the real `ensure_cached_appimage`: matching catalog hash \u2192 installed, 0755",
+ "touched": [
+  "crates/core/src/integrity.rs"
+ ],
+ "touched_blobs": {
+  "crates/core/src/integrity.rs": "fa41cc354a320c8810b9e78e831155d7a9a880cc"
+ },
+ "witness_blobs": {
+  "docs/workflows/apply-reconcile.md": "4e80a15e92dfacd0f7248e581a3979bdcf10a1cc"
+ }
+}

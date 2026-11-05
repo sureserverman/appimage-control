@@ -52,6 +52,22 @@ pub enum Error {
     #[error("download failed: {0}")]
     DownloadFailed(String),
 
+    /// The downloaded bytes differ from the expected sha256. Never overridable.
+    #[error(
+        "{app}: download does not match the expected sha256 (expected {expected}, got {actual}); nothing was installed"
+    )]
+    DigestMismatch {
+        app: String,
+        expected: String,
+        actual: String,
+    },
+
+    /// No sha256 is known for this download and the user has not opted in.
+    #[error(
+        "{app}: no published sha256 to verify this download; re-run with --allow-unverified to install it anyway ({reason})"
+    )]
+    UnverifiedDownload { app: String, reason: String },
+
     #[error("{id}: cannot exceed {max} instance(s) for this app")]
     TooManyInstances { id: String, max: u32 },
 

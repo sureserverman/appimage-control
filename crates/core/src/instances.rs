@@ -10,10 +10,10 @@ use crate::catalog::{Catalog, CatalogApp, InstanceStrategy};
 use crate::desktop::{
     build_instance_desktop_entry, desktop_filename_for_instance, sanitize_app_id, DESKTOP_PREFIX,
 };
-use crate::download::download_to_file;
 use crate::error::{Error, Result};
 use crate::host_cmd::host_command;
 use crate::icons::write_instance_icon_png;
+use crate::integrity::VerifyPolicy;
 use crate::paths::AppPaths;
 use semver::Version;
 use std::io::Read;
@@ -777,10 +777,66 @@ pub fn purge_appimage_control_state(
     Ok(())
 }
 
-/// Cached AppImage path (download if missing or if cache file is older than the catalog-pinned version).
-pub fn ensure_cached_appimage(
+/// Whether the cached blob at `blob` may be reused, by its sha256 (WF-APPLY-001 step 5):
+/// against the catalog pin when there is one, else against the cache sidecar when there is one.
+/// A blob cached before verification existed (no pin, no sidecar) is reused as before.
+fn cached_blob_trusted(
+    app: &CatalogApp,
+    cache_dir: &Path,
+    blob: &Path,
+    on_progress: &mut dyn FnMut(&str),
+) -> Result<bool> {
+    let name = blob
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    if let Some(pin) = crate::integrity::catalog_pin(app, std::env::consts::ARCH) {
+        let actual = crate::integrity::sha256_file(blob)?;
+        if actual == pin {
+            let recorded = match crate::integrity::read_cache_sidecar(cache_dir) {
+                crate::integrity::CacheSidecar::Present { hex, .. } => Some(hex),
+                _ => None,
+            };
+            if recorded.as_deref() != Some(actual.as_str()) {
+                crate::integrity::write_cache_sidecar(cache_dir, pin, "verified catalog")?;
+            }
+            return Ok(true);
+        }
+        on_progress(&format!(
+            "Cached {name} does not match the catalog sha256; downloading again …"
+        ));
+        return Ok(false);
+    }
+    match crate::integrity::read_cache_sidecar(cache_dir) {
+        crate::integrity::CacheSidecar::Present { hex, .. } => {
+            if crate::integrity::sha256_file(blob)? == hex {
+                return Ok(true);
+            }
+            on_progress(&format!(
+                "Cached {name} changed since it was checked; downloading again …"
+            ));
+            Ok(false)
+        }
+        crate::integrity::CacheSidecar::Corrupt => {
+            on_progress(&format!(
+                "Cached {name} has an unreadable checksum record; downloading again …"
+            ));
+            Ok(false)
+        }
+        // Cached before verification existed: reused as before (DEC-001).
+        crate::integrity::CacheSidecar::Absent => Ok(true),
+    }
+}
+
+/// Cached AppImage path (download if missing or if cache file is older than the catalog-pinned
+/// version), with an explicit verification policy: the download is checked
+/// against the catalog sha256 or GitHub's published digest before it lands in the cache or is
+/// made executable; a mismatch is always fatal; with no known hash it proceeds only when
+/// `policy.allow_unverified` is set.
+pub fn ensure_cached_appimage_with_policy(
     paths: &AppPaths,
     app: &CatalogApp,
+    policy: VerifyPolicy,
     on_progress: &mut dyn FnMut(&str),
 ) -> Result<std::path::PathBuf> {
     let url = app.download_url_required()?;
@@ -793,35 +849,43 @@ pub fn ensure_cached_appimage(
     if dest.is_file() {
         let meta = fs::metadata(&dest)?;
         if meta.len() > 0 {
-            match pinned.as_deref() {
-                None => {
+            let fresh = match pinned.as_deref() {
+                None => true,
+                Some(p) => crate::version_info::catalog_cache_fresh_for_pinned(&filename, p),
+            };
+            if fresh {
+                if cached_blob_trusted(app, &dir, &dest, on_progress)? {
                     on_progress(&format!("Using cached {}", filename));
                     return Ok(dest);
                 }
-                Some(p) => {
-                    if crate::version_info::catalog_cache_fresh_for_pinned(&filename, p) {
-                        on_progress(&format!("Using cached {}", filename));
-                        return Ok(dest);
-                    }
-                }
+            } else {
+                on_progress(&format!(
+                    "Cache {} is outdated for this catalog; replacing …",
+                    filename
+                ));
             }
-            on_progress(&format!(
-                "Cache {} is outdated for this catalog; replacing …",
-                filename
-            ));
-            // Do NOT remove the stale file here.  `download_to_file` writes to a
-            // `.partdownload` sibling first and renames into `dest` only on success
-            // (atomic replace).  Removing the stale copy pre-emptively means a
-            // failed download leaves no usable binary at all.  The stale file
-            // survives any download error and is replaced atomically on success.
+            // Do NOT remove the stale file here.  `download_verified` writes to a hidden
+            // sibling first and renames into `dest` only once the bytes are accepted
+            // (atomic replace).  Removing the stale copy pre-emptively means a failed or
+            // refused download leaves no usable binary at all.
         }
     }
 
+    let expected = crate::integrity::expected_digest(app, url, std::env::consts::ARCH);
+    if let crate::integrity::ExpectedDigest::Unavailable(why) = &expected {
+        if policy.allow_unverified {
+            on_progress(&format!(
+                "{}: no published sha256 ({why}); installing unverified as allowed",
+                app.id
+            ));
+        }
+    }
     on_progress(&format!("Downloading {} …", url));
-    download_to_file(url, &dest)?;
+    let (hex, label) = crate::integrity::download_verified(&app.id, url, &dest, &expected, policy)?;
     let mut perms = fs::metadata(&dest)?.permissions();
     perms.set_mode(0o755);
     fs::set_permissions(&dest, perms)?;
+    crate::integrity::write_cache_sidecar(&dir, &hex, label)?;
     // Blob is now from the catalog URL; drop any GitHub-latest sidecar so it cannot override the
     // new `.appimage-control-version` during install / migration reconcile.
     let _ = fs::remove_file(dir.join(crate::version_info::GITHUB_CACHE_TAG_FILENAME));
@@ -1591,6 +1655,7 @@ pub fn update_instance_appimage(
         app,
         instance_index,
         remote_hint,
+        VerifyPolicy::default(),
         on_progress,
         &mut None,
     )
@@ -1601,6 +1666,7 @@ fn update_instance_appimage_with_shared_cache(
     app: &CatalogApp,
     instance_index: u32,
     remote_hint: Option<&crate::version_info::GithubReleaseHint>,
+    policy: VerifyPolicy,
     on_progress: &mut dyn FnMut(&str),
     shared_catalog_blob: &mut Option<PathBuf>,
 ) -> Result<InstanceUpdateOutcome> {
@@ -1708,7 +1774,10 @@ fn update_instance_appimage_with_shared_cache(
 
     let meta_at_start = fs::metadata(&dest_bin)?;
 
-    if crate::update::appimageupdatetool_available() {
+    // appimageupdatetool replaces the binary from the AppImage's own update info, with no
+    // sha256 this app can check, so under DEC-001 it runs only when the user allowed
+    // unverified installs; otherwise the verified download below is used.
+    if policy.allow_unverified && crate::update::appimageupdatetool_available() {
         on_progress(&format!(
             "{} instance {}: running appimageupdatetool …",
             app.id, instance_index
@@ -1763,6 +1832,7 @@ fn update_instance_appimage_with_shared_cache(
     // Inner closure so that any `?` propagation is caught here and we can
     // clean up the temp file before returning the error to the caller.
     // This guarantees `dest_bin` is never left missing or truncated on failure.
+    let mut gh_verified: Option<(String, &'static str)> = None;
     let stage_result = (|| -> Result<()> {
         if use_gh {
             let hint = remote_hint.ok_or_else(|| {
@@ -1773,9 +1843,17 @@ fn update_instance_appimage_with_shared_cache(
             })?;
             let cache_dir = paths.catalog_cache_dir(&app.id);
             let cache_path = cache_dir.join(&filename);
-            if crate::version_info::github_catalog_cache_looks_fresh(
+            // The cached GitHub build is reused only while it still matches its sidecar.
+            let gh_cache_ok = crate::version_info::github_catalog_cache_looks_fresh(
                 &cache_dir, &filename, &hint.tag,
-            ) {
+            ) && match crate::integrity::read_cache_sidecar(&cache_dir) {
+                crate::integrity::CacheSidecar::Present { hex, .. } => {
+                    crate::integrity::sha256_file(&cache_path).is_ok_and(|h| h == hex)
+                }
+                crate::integrity::CacheSidecar::Corrupt => false,
+                crate::integrity::CacheSidecar::Absent => true,
+            };
+            if gh_cache_ok {
                 on_progress(&format!(
                     "{} instance {}: using cached GitHub release {} …",
                     app.id, instance_index, hint.tag
@@ -1789,13 +1867,26 @@ fn update_instance_appimage_with_shared_cache(
                     "{} instance {}: downloading GitHub release {} …",
                     app.id, instance_index, hint.tag
                 ));
-                download_to_file(gh_url, &tmp_path)?;
+                // A newer release than the catalog pins: GitHub's own digest is the reference,
+                // never the catalog sha256 (which is for the pinned build).
+                let expected = crate::integrity::expected_github_digest(gh_url);
+                if let crate::integrity::ExpectedDigest::Unavailable(why) = &expected {
+                    if policy.allow_unverified {
+                        on_progress(&format!(
+                            "{}: no published sha256 ({why}); installing unverified as allowed",
+                            app.id
+                        ));
+                    }
+                }
+                gh_verified = Some(crate::integrity::download_verified(
+                    &app.id, gh_url, &tmp_path, &expected, policy,
+                )?);
             }
         } else {
             let cached = if let Some(ref p) = shared_catalog_blob {
                 p.clone()
             } else {
-                let p = ensure_cached_appimage(paths, app, on_progress)?;
+                let p = ensure_cached_appimage_with_policy(paths, app, policy, on_progress)?;
                 *shared_catalog_blob = Some(p.clone());
                 p
             };
@@ -1838,6 +1929,14 @@ fn update_instance_appimage_with_shared_cache(
         if let Some(h) = remote_hint {
             crate::version_info::write_github_cache_tag_sidecar(&cache_dir, &h.tag)?;
             crate::version_info::write_catalog_cache_recorded_version(&cache_dir, &h.tag)?;
+        }
+        if let Some((hex, label)) = &gh_verified {
+            if let Err(e) = crate::integrity::write_cache_sidecar(&cache_dir, hex, label) {
+                on_progress(&format!(
+                    "warning: could not record the checksum of the cached {} build: {e}",
+                    app.id
+                ));
+            }
         }
     }
 
@@ -1910,6 +2009,25 @@ pub fn update_all_installed_instances(
     catalog: &Catalog,
     remote_hints: Option<&[Option<crate::version_info::GithubReleaseHint>]>,
     on_progress: &mut dyn FnMut(&str),
+    on_fraction: Option<&mut dyn FnMut(f64, u32, u32)>,
+) -> Result<UpdateAllReport> {
+    update_all_installed_instances_with_policy(
+        paths,
+        catalog,
+        remote_hints,
+        VerifyPolicy::default(),
+        on_progress,
+        on_fraction,
+    )
+}
+
+/// [`update_all_installed_instances`] with an explicit download verification policy.
+pub fn update_all_installed_instances_with_policy(
+    paths: &AppPaths,
+    catalog: &Catalog,
+    remote_hints: Option<&[Option<crate::version_info::GithubReleaseHint>]>,
+    policy: VerifyPolicy,
+    on_progress: &mut dyn FnMut(&str),
     mut on_fraction: Option<&mut dyn FnMut(f64, u32, u32)>,
 ) -> Result<UpdateAllReport> {
     let mut work: Vec<(usize, u32)> = Vec::new();
@@ -1957,6 +2075,7 @@ pub fn update_all_installed_instances(
             app,
             *i,
             remote,
+            policy,
             on_progress,
             &mut shared_catalog_blob,
         ) {
@@ -2003,9 +2122,13 @@ pub fn repair_instance_launchers(
             let dir = paths.instance_dir_for(app, i);
             let dest_bin = dir.join(&filename);
             if !dest_bin.is_file() {
-                // Attempt to recreate the instance dir from cached AppImage if available.
-                let cached = paths.catalog_cache_dir(&app.id).join(&filename);
-                if cached.is_file() {
+                // Attempt to recreate the instance dir from cached AppImage if available,
+                // and only while it still matches its catalog pin or cache sidecar.
+                let cache_dir = paths.catalog_cache_dir(&app.id);
+                let cached = cache_dir.join(&filename);
+                if cached.is_file()
+                    && cached_blob_trusted(app, &cache_dir, &cached, on_progress).unwrap_or(false)
+                {
                     fs::create_dir_all(&dir)?;
                     copy_or_hardlink(&cached, &dest_bin)?;
                     let mut perms = fs::metadata(&dest_bin)?.permissions();
@@ -2104,7 +2227,25 @@ pub fn reconcile_instance_count_with_report(
     target: u32,
     on_progress: &mut dyn FnMut(&str),
 ) -> Result<ReconcileReport> {
-    reconcile_instance_count_inner(paths, app, target, true, on_progress)
+    reconcile_instance_count_inner(
+        paths,
+        app,
+        target,
+        true,
+        VerifyPolicy::default(),
+        on_progress,
+    )
+}
+
+/// [`reconcile_instance_count_with_report`] with an explicit download verification policy.
+pub fn reconcile_instance_count_with_policy(
+    paths: &AppPaths,
+    app: &CatalogApp,
+    target: u32,
+    policy: VerifyPolicy,
+    on_progress: &mut dyn FnMut(&str),
+) -> Result<ReconcileReport> {
+    reconcile_instance_count_inner(paths, app, target, true, policy, on_progress)
 }
 
 /// Like [`reconcile_instance_count`] but does not pre-create empty portable `*.home` / `*.config`
@@ -2115,7 +2256,15 @@ pub fn reconcile_instance_count_for_portable_migration(
     target: u32,
     on_progress: &mut dyn FnMut(&str),
 ) -> Result<()> {
-    reconcile_instance_count_inner(paths, app, target, false, on_progress).map(|_| ())
+    reconcile_instance_count_inner(
+        paths,
+        app,
+        target,
+        false,
+        VerifyPolicy::default(),
+        on_progress,
+    )
+    .map(|_| ())
 }
 
 fn reconcile_instance_count_inner(
@@ -2123,6 +2272,7 @@ fn reconcile_instance_count_inner(
     app: &CatalogApp,
     target: u32,
     provision_portable_dirs: bool,
+    policy: VerifyPolicy,
     on_progress: &mut dyn FnMut(&str),
 ) -> Result<ReconcileReport> {
     if target > MAX_INSTANCES_PER_APP {
@@ -2175,7 +2325,7 @@ fn reconcile_instance_count_inner(
     // on_progress fires AFTER a successful install for the same truthfulness guarantee.
     let mut added: Vec<u32> = Vec::with_capacity(to_add.len());
     if !to_add.is_empty() {
-        let cached = ensure_cached_appimage(paths, app, on_progress)?;
+        let cached = ensure_cached_appimage_with_policy(paths, app, policy, on_progress)?;
         for i in to_add {
             install_instance_from_cache_inner(
                 paths,
@@ -2848,8 +2998,15 @@ mod tests {
         fs::create_dir_all(&cache).unwrap();
         let dest = cache.join("feather-2.8.0.AppImage");
         fs::write(&dest, b"old-binary").unwrap();
-        let r = ensure_cached_appimage(&paths, &app, &mut |_| {});
-        assert!(r.is_err(), "download to unroutable address must fail");
+        // allow_unverified: this test is about a failed download, so it must get that far.
+        let allow = VerifyPolicy {
+            allow_unverified: true,
+        };
+        let r = ensure_cached_appimage_with_policy(&paths, &app, allow, &mut |_| {});
+        assert!(
+            matches!(r, Err(Error::DownloadFailed(_))),
+            "download to unroutable address must fail: {r:?}"
+        );
         assert!(
             dest.exists(),
             "stale cache file must survive a failed download attempt"
@@ -2903,7 +3060,11 @@ mod tests {
         let sidecar = cache.join(crate::version_info::GITHUB_CACHE_TAG_FILENAME);
         fs::write(&sidecar, b"2.8.0").unwrap();
 
-        let result_path = ensure_cached_appimage(&paths, &app, &mut |_| {}).unwrap();
+        let allow = VerifyPolicy {
+            allow_unverified: true,
+        };
+        let result_path =
+            ensure_cached_appimage_with_policy(&paths, &app, allow, &mut |_| {}).unwrap();
         assert_eq!(
             result_path, dest,
             "returned path must be the final cache path"
@@ -4624,5 +4785,77 @@ java-options=-Dcryptomator.ipcSocketPath=@{userhome}/.config/Cryptomator/ipc.soc
             "no temp-file residue expected after failure; found: {:?}",
             leftovers.iter().map(|e| e.path()).collect::<Vec<_>>()
         );
+    }
+
+    /// A loopback stand-in for the GitHub API that answers every request with `body`.
+    fn serve_github_api(body: String) -> String {
+        use std::io::{Read as _, Write as _};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                let Ok(mut s) = stream else { return };
+                let mut buf = [0u8; 4096];
+                let _ = s.read(&mut buf);
+                let resp = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                );
+                let _ = s.write_all(resp.as_bytes());
+            }
+        });
+        base
+    }
+
+    /// The GitHub-latest update path: GitHub publishes no digest, the user did not opt in.
+    /// Nothing is downloaded and the installed binary is untouched. The catalog pin (for the
+    /// older pinned build) must not stand in for GitHub's digest either.
+    #[test]
+    fn github_latest_update_without_digest_is_refused_and_ignores_catalog_pin() {
+        let _g = crate::integrity::github_api_env_lock();
+        let api = serve_github_api(
+            r#"{"assets":[{"name":"session-1.18.0.AppImage","digest":null}]}"#.to_string(),
+        );
+        std::env::set_var("APPIMAGE_CONTROL_GITHUB_API_BASE", &api);
+
+        let tmp = tempfile::tempdir().unwrap();
+        let paths = AppPaths::new(tmp.path().to_path_buf()).unwrap();
+        let mut app = versioned_catalog_app(
+            "sessionish",
+            "session-1.17.17.AppImage",
+            "https://example.invalid/wont/session-1.17.17.AppImage",
+        );
+        app.sha256 = Some("ab".repeat(32));
+        let idx = 1u32;
+        let dir = paths.instance_dir_for(&app, idx);
+        fs::create_dir_all(&dir).unwrap();
+        let bin = dir.join("session-1.17.17.AppImage");
+        fs::write(&bin, b"installed build").unwrap();
+        fs::write(
+            dir.join(crate::version_info::INSTANCE_VERSION_FILENAME),
+            b"1.17.17\n",
+        )
+        .unwrap();
+        let gh = crate::version_info::GithubReleaseHint {
+            tag: "1.18.0".into(),
+            appimage_download_url: Some(
+                "https://github.com/o/r/releases/download/1.18.0/session-1.18.0.AppImage".into(),
+            ),
+        };
+        let r = update_instance_appimage(&paths, &app, idx, Some(&gh), &mut |_| {});
+        std::env::remove_var("APPIMAGE_CONTROL_GITHUB_API_BASE");
+
+        assert!(
+            matches!(r, Err(Error::UnverifiedDownload { .. })),
+            "GitHub-latest with no digest must be refused (a leaked catalog pin would try to download): {r:?}"
+        );
+        assert_eq!(fs::read(&bin).unwrap(), b"installed build");
+        let leftovers: Vec<_> = fs::read_dir(&dir)
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .filter(|n| n.contains(".new.") || n.contains("unverified"))
+            .collect();
+        assert!(leftovers.is_empty(), "{leftovers:?}");
     }
 }
