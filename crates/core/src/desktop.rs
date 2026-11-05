@@ -16,7 +16,7 @@ pub fn build_desktop_entry(
     exec_path: &Path,
     icon_path: Option<&Path>,
 ) -> String {
-    let exec = exec_path.to_string_lossy().replace('\n', "");
+    let exec = quote_exec_arg(&exec_path.to_string_lossy());
     let mut s = String::new();
     s.push_str("[Desktop Entry]\n");
     s.push_str("Type=Application\n");
@@ -59,15 +59,7 @@ pub fn build_instance_desktop_entry(
     icon_file: Option<&Path>,
     startup_wm_class: &str,
 ) -> String {
-    let path_str = appimage_path.to_string_lossy();
-    let quoted_exec = if path_str.contains(' ') || path_str.contains('\t') {
-        format!(
-            "\"{}\"",
-            path_str.replace('\\', "\\\\").replace('"', "\\\"")
-        )
-    } else {
-        path_str.into_owned()
-    };
+    let quoted_exec = quote_exec_arg(&appimage_path.to_string_lossy());
     let url_suffix = if pass_file_urls { " %U" } else { "" };
     let exec_line = if extra_exec_args.trim().is_empty() {
         format!("{}{}", quoted_exec, url_suffix)
@@ -115,6 +107,81 @@ pub fn desktop_filename_for_instance(catalog_id: &str, instance_index: u32) -> S
         sanitize_app_id(catalog_id),
         instance_index
     )
+}
+
+/// Characters that force an `Exec` argument into double quotes (Desktop Entry spec, "exec-variables").
+const EXEC_RESERVED: &[char] = &[
+    ' ', '\t', '\n', '"', '\'', '\\', '>', '<', '~', '|', '&', ';', '$', '*', '?', '#', '(', ')',
+    '`',
+];
+
+/// Turn a path into one `Exec=` argument, as written in the file.
+///
+/// Applies the quoting rule (double quotes when a reserved character or `%` is present; inside
+/// them `"`, `` ` ``, `$` and `\` get a backslash; `%` becomes `%%`) and then the string-value
+/// escape layer on top (every `\` doubled, newline as `\n`). A plain path is returned unchanged.
+/// [`unquote_exec_arg`] inverts this exactly. A carriage return is dropped (it cannot be
+/// represented safely on one line).
+fn quote_exec_arg(path: &str) -> String {
+    let path = path.replace('\r', "");
+    if !path.contains(|c| EXEC_RESERVED.contains(&c) || c == '%') {
+        return path;
+    }
+    let mut out = String::with_capacity(path.len() + 2);
+    out.push('"');
+    for c in path.chars() {
+        match c {
+            '"' | '`' | '$' => {
+                out.push_str("\\\\");
+                out.push(c);
+            }
+            '\\' => out.push_str("\\\\\\\\"),
+            '%' => out.push_str("%%"),
+            '\n' => out.push_str("\\n"),
+            _ => out.push(c),
+        }
+    }
+    out.push('"');
+    out
+}
+
+/// Take the first argument of an `Exec` value (already string-unescaped): a leading
+/// double-quoted argument with its quote escapes, or a bare word; `%%` becomes `%`. Anything
+/// after the argument (field codes such as `%U`, extra flags) is dropped.
+fn unquote_exec_arg(exec: &str) -> String {
+    let mut out = String::with_capacity(exec.len());
+    let mut chars = exec.chars().peekable();
+    if chars.peek() == Some(&'"') {
+        chars.next();
+        while let Some(c) = chars.next() {
+            match c {
+                '"' => break,
+                '\\' => match chars.peek() {
+                    Some(&n) if matches!(n, '"' | '`' | '$' | '\\') => {
+                        out.push(n);
+                        chars.next();
+                    }
+                    _ => out.push('\\'),
+                },
+                '%' if chars.peek() == Some(&'%') => {
+                    chars.next();
+                    out.push('%');
+                }
+                _ => out.push(c),
+            }
+        }
+    } else {
+        while let Some(c) = chars.next() {
+            if c.is_whitespace() {
+                break;
+            }
+            if c == '%' && chars.peek() == Some(&'%') {
+                chars.next();
+            }
+            out.push(c);
+        }
+    }
+    out
 }
 
 fn escape_desktop_value(v: &str) -> String {
@@ -177,7 +244,12 @@ fn parse_bool(v: &str) -> bool {
 
 /// Exec often has `%U` etc.; keep only the command path.
 fn strip_exec_args(exec: &str) -> String {
-    exec.split_whitespace().next().unwrap_or(exec).to_string()
+    let first = unquote_exec_arg(&unescape_desktop_value(exec));
+    if first.is_empty() {
+        exec.to_string()
+    } else {
+        first
+    }
 }
 
 fn unescape_desktop_value(v: &str) -> String {
@@ -307,5 +379,104 @@ mod tests {
             body
         );
         assert!(!body.contains("%U"));
+    }
+
+    fn exec_line(path: &str) -> String {
+        let body = build_desktop_entry("N", "n", Path::new(path), None);
+        body.lines()
+            .find(|l| l.starts_with("Exec="))
+            .unwrap()
+            .to_string()
+    }
+
+    fn instance_body(path: &str) -> String {
+        build_instance_desktop_entry(
+            "N",
+            "n-1",
+            "n",
+            1,
+            Path::new(path),
+            "",
+            true,
+            None,
+            None,
+            "c",
+        )
+    }
+
+    fn assert_roundtrip(path: &str, expected_exec: &str) {
+        assert_eq!(exec_line(path), expected_exec);
+        let parsed =
+            parse_desktop_str(&build_desktop_entry("N", "n", Path::new(path), None)).unwrap();
+        assert_eq!(parsed.appimage_path().unwrap(), PathBuf::from(path));
+        let inst = instance_body(path);
+        assert!(inst.contains(&format!("{}\n", expected_exec)), "{}", inst);
+        let parsed = parse_desktop_str(&inst).unwrap();
+        assert_eq!(parsed.appimage_path().unwrap(), PathBuf::from(path));
+    }
+
+    #[test]
+    fn exec_plain_path_stays_unquoted() {
+        assert_roundtrip("/opt/Foo-1.2_x.AppImage", "Exec=/opt/Foo-1.2_x.AppImage %U");
+    }
+
+    #[test]
+    fn exec_space_is_quoted() {
+        assert_roundtrip("/o/a b.AppImage", r#"Exec="/o/a b.AppImage" %U"#);
+    }
+
+    #[test]
+    fn exec_percent_is_doubled() {
+        assert_roundtrip("/o/50%.AppImage", r#"Exec="/o/50%%.AppImage" %U"#);
+    }
+
+    #[test]
+    fn exec_dollar_is_escaped() {
+        assert_roundtrip("/o/a$b", r#"Exec="/o/a\\$b" %U"#);
+    }
+
+    #[test]
+    fn exec_double_quote_is_escaped() {
+        assert_roundtrip("/o/a\"b", r#"Exec="/o/a\\"b" %U"#);
+    }
+
+    #[test]
+    fn exec_backtick_is_escaped() {
+        assert_roundtrip("/o/a`b", r#"Exec="/o/a\\`b" %U"#);
+    }
+
+    #[test]
+    fn exec_backslash_is_escaped() {
+        assert_roundtrip("/o/a\\b", r#"Exec="/o/a\\\\b" %U"#);
+    }
+
+    #[test]
+    fn exec_all_reserved_combined() {
+        assert_roundtrip(
+            "/o/a b%c$d\"e`f\\g;h",
+            r#"Exec="/o/a b%%c\\$d\\"e\\`f\\\\g;h" %U"#,
+        );
+    }
+
+    #[test]
+    fn exec_newline_cannot_inject_a_line() {
+        let body = instance_body("/o/a\nExec=evil");
+        assert_eq!(body.lines().filter(|l| l.starts_with("Exec=")).count(), 1);
+        let parsed = parse_desktop_str(&body).unwrap();
+        assert_eq!(
+            parsed.appimage_path().unwrap(),
+            PathBuf::from("/o/a\nExec=evil")
+        );
+    }
+
+    #[test]
+    fn exec_legacy_launchers_still_parse() {
+        let e = parse_desktop_str("[Desktop Entry]\nExec=/opt/x.AppImage %U\n").unwrap();
+        assert_eq!(e.exec.as_deref(), Some("/opt/x.AppImage"));
+        let e =
+            parse_desktop_str("[Desktop Entry]\nExec=\"/opt/a b/x.AppImage\" --flag %F\n").unwrap();
+        assert_eq!(e.exec.as_deref(), Some("/opt/a b/x.AppImage"));
+        let e = parse_desktop_str("[Desktop Entry]\nExec=/opt/x.AppImage\n").unwrap();
+        assert_eq!(e.exec.as_deref(), Some("/opt/x.AppImage"));
     }
 }
