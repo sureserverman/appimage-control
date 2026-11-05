@@ -8,13 +8,13 @@ Entry points:
 
 Steps (backup, `crates/core/src/backup.rs::create_backup_archive`):
 1. `collect_backup_inventory`: enumerate managed files (manager data dir, managed `.desktop` entries, managed hicolor icons) into logical paths under `manager-data/`, `applications/`, `hicolor/`.
-2. Stream a zstd-compressed tar to the staging file `{name}.aic-tmp-{pid}` next to the target path: `catalog-snapshot.json`, every payload file, then `manifest.json` (format version, entry count, entry list).
+2. Stream a zstd-compressed tar to the staging file `{name}.aic-tmp-{pid}` (created mode 0600) next to the target path: `catalog-snapshot.json`, every payload file, then `manifest.json` (format version, entry count, entry list).
 3. On success, `fs::rename` the staging file over the archive path; on any error, remove the staging file and return the error.
 
 Steps (restore, `crates/core/src/backup.rs::restore_backup_archive`):
 1. `restore_preflight`: unless `--force`, refuse when any managed state exists (non-empty manager data dir, managed desktop entries, or managed icons).
 2. `validate_backup_archive`: full pass over the archive — manifest + snapshot present, supported `format_version`, `entry_count` matches, every manifest entry present in the payload, every entry path sanitized.
-3. Phase 1 — extract the ENTIRE payload into the staging dir `.appimages-restore-stage.<pid>` (sibling of the manager data dir, outside it). Any I/O or path error removes the staging dir and returns with managed state untouched.
+3. Phase 1 — extract the ENTIRE payload into the staging dir `.appimages-restore-stage.<pid>` (sibling of the manager data dir, outside it), hashing each staged file against the sha256 its manifest entry recorded. Any I/O or path error, or a hash mismatch (named by entry), removes the staging dir and returns with managed state untouched.
 4. Phase 2 — swap: clear managed state (manager data dir contents, managed desktops, managed icons), then copy every staged file to its destination under the three managed roots.
 5. Remove the staging dir (best-effort) regardless of swap outcome.
 
@@ -24,6 +24,8 @@ Postconditions:
 
 Invariants:
 - The backup staging file is `{name}.aic-tmp-{pid}` (PID-qualified, so concurrent backups to the same path cannot clobber each other); an existing archive is never deleted before its replacement is complete — it is only atomically renamed over on success.
+- The backup archive is created mode 0600 (it holds wallet and password-manager homes), regardless of umask.
+- Restore checks each entry's sha256 against the manifest before any managed state is cleared; a tampered entry fails the restore, naming the entry.
 - Restore extracts the ENTIRE archive into `.appimages-restore-stage.<pid>` and validates it BEFORE clearing any managed state: a failed restore (corrupt archive, bad path, I/O error in Phase 1) leaves the prior state byte-identical.
 - Hostile tar entries are rejected by `safe_relative_archive_path`: `..` components, absolute/rooted/prefixed paths, and `.`-interleaved sequences cannot escape (`Path::components()` exposes every `ParentDir`); an all-`.` entry collapsing to an empty path is also rejected, plus a defense-in-depth `starts_with(stage_dir)` check on the join.
 - Restore refuses without `--force` when managed state exists, where "state" means at least one actual **file** under the managed roots. **Empty managed directories do not count** (`restore_preflight` → `dir_contains_any_file`): a `--purge`d manager dir holds only an empty `cache/`, so a follow-up `--restore-backup` proceeds **without** `--force` (BL-003 fix, 2026-06-30). `--force` still bypasses the check unconditionally.

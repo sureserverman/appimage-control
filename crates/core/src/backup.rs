@@ -224,7 +224,19 @@ pub fn create_backup_archive(
     };
 
     let result = (|| -> Result<BackupReport> {
-        let file = fs::File::create(&tmp)?;
+        // The archive holds wallet and password-manager homes: owner-only from the first byte
+        // (umask cannot widen it; an existing stale staging file is truncated and re-moded).
+        let file = {
+            use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+            let f = fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .mode(0o600)
+                .open(&tmp)?;
+            f.set_permissions(fs::Permissions::from_mode(0o600))?;
+            f
+        };
         let enc = zstd::stream::Encoder::new(file, 3)
             .map_err(|e| Error::Backup(format!("zstd encoder init failed: {e}")))?;
         let mut tar = tar::Builder::new(enc);
@@ -498,7 +510,7 @@ fn restore_destination_path(paths: &AppPaths, logical_path: &Path) -> Result<Pat
 
 pub fn restore_backup_archive(paths: &AppPaths, archive_path: &Path, force: bool) -> Result<()> {
     restore_preflight(paths, force)?;
-    let (_manifest, _snapshot) = validate_backup_archive(archive_path)?;
+    let (manifest, _snapshot) = validate_backup_archive(archive_path)?;
 
     // Phase 1 — extract the ENTIRE archive into a staging directory that lives
     // OUTSIDE manager_data_dir so it is not touched by clear_managed_state_for_restore.
@@ -570,6 +582,23 @@ pub fn restore_backup_archive(paths: &AppPaths, archive_path: &Path, force: bool
                 ))
             })?;
             std::io::copy(&mut ent, &mut out_file)?;
+            drop(out_file);
+            // Each payload entry must match the sha256 its manifest recorded at backup time,
+            // checked here, before any managed state is cleared.
+            if let Some(want) = manifest
+                .backup_entries
+                .iter()
+                .find(|e| e.logical_path == logical_s)
+                .and_then(|e| e.sha256.as_deref())
+            {
+                let got = path_sha256(&stage_path)?;
+                if got != want {
+                    return Err(Error::Backup(format!(
+                        "archive entry {logical_s} does not match its recorded sha256 \
+                         (expected {want}, got {got}); nothing was restored"
+                    )));
+                }
+            }
         }
         Ok(())
     })();

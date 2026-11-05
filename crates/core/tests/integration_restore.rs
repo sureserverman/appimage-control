@@ -501,3 +501,90 @@ fn path_traversal_rejected() {
     let err = restore_backup_archive(&dst_paths, &bad, false).unwrap_err();
     assert!(err.to_string().contains("unsafe component"));
 }
+
+/// Snapshot every file under the managed roots: (relative path, bytes).
+fn managed_snapshot(paths: &AppPaths) -> Vec<(String, Vec<u8>)> {
+    let mut out = Vec::new();
+    for root in [paths.manager_data_dir(), paths.applications_dir()] {
+        let mut stack = vec![root.clone()];
+        while let Some(d) = stack.pop() {
+            let Ok(rd) = fs::read_dir(&d) else { continue };
+            for e in rd.flatten() {
+                let p = e.path();
+                if p.is_dir() {
+                    stack.push(p);
+                } else {
+                    out.push((p.display().to_string(), fs::read(&p).unwrap_or_default()));
+                }
+            }
+        }
+    }
+    out.sort();
+    out
+}
+
+/// Rewrite `archive` with one byte flipped in the payload entry `target`, keeping the original
+/// manifest (and its recorded sha256) as it was.
+fn flip_payload_byte(archive: &std::path::Path, target: &str) -> std::path::PathBuf {
+    let f = fs::File::open(archive).expect("open");
+    let mut ar = tar::Archive::new(zstd::stream::Decoder::new(f).expect("dec"));
+    let out_path = archive.with_file_name("tampered.tar.zst");
+    let enc =
+        zstd::stream::Encoder::new(fs::File::create(&out_path).expect("create"), 3).expect("enc");
+    let mut b = tar::Builder::new(enc);
+    let mut flipped = false;
+    for ent in ar.entries().expect("entries") {
+        let mut ent = ent.expect("entry");
+        let mut header = ent.header().clone();
+        let path = ent.path().expect("path").to_string_lossy().into_owned();
+        let mut data = Vec::new();
+        std::io::Read::read_to_end(&mut ent, &mut data).expect("read");
+        if path == target && !data.is_empty() {
+            data[0] ^= 0x01;
+            flipped = true;
+        }
+        header.set_cksum();
+        b.append(&header, data.as_slice()).expect("append");
+    }
+    b.into_inner().expect("finish").finish().expect("zstd");
+    assert!(flipped, "payload entry {target} not found");
+    out_path
+}
+
+#[test]
+fn tampered_entry_fails_restore_and_leaves_state_unchanged() {
+    let src = tempfile::tempdir().expect("src");
+    let src_paths = AppPaths::new(src.path().to_path_buf()).expect("src paths");
+    seed_managed_state(&src_paths);
+    let cat = fake_catalog(&src);
+    let archive = src.path().join("backup.tar.zst");
+    create_backup_archive(&src_paths, &cat, &archive, &BackupOptions::default()).expect("backup");
+    let target = "manager-data/apps/session/1/session.AppImage";
+    let tampered = flip_payload_byte(&archive, target);
+
+    // Existing managed state the forced restore would otherwise replace.
+    let dst = tempfile::tempdir().expect("dst");
+    let dst_paths = AppPaths::new(dst.path().to_path_buf()).expect("dst paths");
+    seed_managed_state(&dst_paths);
+    fs::write(
+        dst_paths
+            .manager_data_dir()
+            .join("apps/session/1/session.AppImage"),
+        b"existing install",
+    )
+    .expect("existing");
+    let before = managed_snapshot(&dst_paths);
+
+    let err = restore_backup_archive(&dst_paths, &tampered, true)
+        .expect_err("a tampered entry must fail restore")
+        .to_string();
+    assert!(
+        err.contains("session.AppImage"),
+        "error names the entry: {err}"
+    );
+    assert_eq!(
+        managed_snapshot(&dst_paths),
+        before,
+        "managed state must be byte-identical"
+    );
+}

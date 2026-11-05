@@ -24,6 +24,7 @@ uuid = { version = "1", features = ["v4"] }
 zstd = "0.13.3"
 
 [dev-dependencies]
+libc = "0.2"
 assert_fs = "1"
 predicates = "3"
 tempfile = "3"

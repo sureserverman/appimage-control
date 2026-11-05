@@ -176,3 +176,29 @@ fn backup_overwrites_existing_archive_with_fresh_one() {
     assert!(names.iter().any(|n| n == "manifest.json"));
     let _ = first_mtime; // used only to verify the assignment above
 }
+
+/// The archive holds wallet and password-manager homes: it is never readable by others.
+#[test]
+fn archive_mode_is_0600() {
+    use std::os::unix::fs::PermissionsExt;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let paths = AppPaths::new(tmp.path().to_path_buf()).expect("paths");
+    fs::create_dir_all(paths.manager_data_dir().join("apps/session/1")).expect("mkdir");
+    fs::write(
+        paths
+            .manager_data_dir()
+            .join("apps/session/1/session.AppImage"),
+        b"binary",
+    )
+    .expect("write");
+    let out = tmp.path().join("b.tar.zst");
+    let cat = fake_catalog(&tmp);
+    // A common desktop umask: plain file creation would give 0644.
+    // SAFETY: umask only swaps the process file-mode mask; restored right after.
+    let prev = unsafe { libc::umask(0o022) };
+    let r = create_backup_archive(&paths, &cat, &out, &BackupOptions::default());
+    unsafe { libc::umask(prev) };
+    r.expect("backup");
+    let mode = fs::metadata(&out).expect("meta").permissions().mode() & 0o777;
+    assert_eq!(mode, 0o600, "archive mode {mode:o}");
+}

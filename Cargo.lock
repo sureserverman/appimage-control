@@ -50,6 +50,7 @@ dependencies = [
  "blake3",
  "dirs",
  "image",
+ "libc",
  "predicates",
  "regex",
  "reqwest",
