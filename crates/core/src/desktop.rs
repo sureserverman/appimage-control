@@ -122,6 +122,11 @@ const EXEC_RESERVED: &[char] = &[
 /// escape layer on top (every `\` doubled, newline as `\n`). A plain path is returned unchanged.
 /// [`unquote_exec_arg`] inverts this exactly. A carriage return is dropped (it cannot be
 /// represented safely on one line).
+///
+/// A path holding `%` is prefixed with `env `: GLib (GNOME's launcher loader) checks that the
+/// `Exec=` program exists *before* it turns `%%` back into `%`, so a `%` path as the program
+/// never loads. With `env` first the check passes and `env` runs the exact file.
+/// [`strip_exec_args`] skips that prefix when parsing.
 fn quote_exec_arg(path: &str) -> String {
     let path = path.replace('\r', "");
     if !path.contains(|c| EXEC_RESERVED.contains(&c) || c == '%') {
@@ -142,7 +147,11 @@ fn quote_exec_arg(path: &str) -> String {
         }
     }
     out.push('"');
-    out
+    if path.contains('%') {
+        format!("env {out}")
+    } else {
+        out
+    }
 }
 
 /// Take the first argument of an `Exec` value (already string-unescaped): a leading
@@ -244,7 +253,13 @@ fn parse_bool(v: &str) -> bool {
 
 /// Exec often has `%U` etc.; keep only the command path.
 fn strip_exec_args(exec: &str) -> String {
-    let first = unquote_exec_arg(&unescape_desktop_value(exec));
+    let value = unescape_desktop_value(exec);
+    // `env "<path>"` is how a path holding `%` is written (see `quote_exec_arg`).
+    let value = match value.trim_start().strip_prefix("env ") {
+        Some(rest) => rest.trim_start().to_string(),
+        None => value,
+    };
+    let first = unquote_exec_arg(&value);
     if first.is_empty() {
         exec.to_string()
     } else {
@@ -425,9 +440,11 @@ mod tests {
         assert_roundtrip("/o/a b.AppImage", r#"Exec="/o/a b.AppImage" %U"#);
     }
 
+    /// GLib checks that an `Exec=` program exists before it turns `%%` back into `%`, so a
+    /// path holding `%` as the program never loads on GNOME. Such a path runs through `env`.
     #[test]
-    fn exec_percent_is_doubled() {
-        assert_roundtrip("/o/50%.AppImage", r#"Exec="/o/50%%.AppImage" %U"#);
+    fn exec_percent_is_doubled_and_runs_through_env() {
+        assert_roundtrip("/o/50%.AppImage", r#"Exec=env "/o/50%%.AppImage" %U"#);
     }
 
     #[test]
@@ -454,7 +471,7 @@ mod tests {
     fn exec_all_reserved_combined() {
         assert_roundtrip(
             "/o/a b%c$d\"e`f\\g;h",
-            r#"Exec="/o/a b%%c\\$d\\"e\\`f\\\\g;h" %U"#,
+            r#"Exec=env "/o/a b%%c\\$d\\"e\\`f\\\\g;h" %U"#,
         );
     }
 
