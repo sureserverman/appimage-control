@@ -11,8 +11,10 @@ mod record_dialog;
 mod seed_dialog;
 mod status_text;
 mod ui;
+mod unverified;
 
 use std::cell::{Cell, RefCell};
+use std::collections::HashSet;
 use std::rc::Rc;
 use std::sync::mpsc;
 
@@ -33,11 +35,11 @@ use appimage_control_core::{
     fetch_github_release_hints, installed_appimage_size, installed_version_fleet_display,
     instance_count, list_managed_instance_indices, portmux_port_probe_runtime,
     purge_appimage_control_state, read_instance_config, reconcile_catalog_install_version_metadata,
-    reconcile_instance_count_with_report, repair_instance_launchers, restore_backup_archive,
+    reconcile_instance_count_with_policy, repair_instance_launchers, restore_backup_archive,
     run_portable_dir_migration, save_recording, seed_instance_settings,
-    update_all_installed_instances, write_pack_to, AppPaths, BackupOptions, Catalog, CatalogApp,
-    GithubReleaseHint, GuiConfig, PackRecording, SeedPackLibrary, SeedPreset, SupportedSeedApp,
-    UpdateAllReport,
+    update_all_installed_instances_with_policy, write_pack_to, AppPaths, BackupOptions, Catalog,
+    CatalogApp, GithubReleaseHint, GuiConfig, PackRecording, SeedPackLibrary, SeedPreset,
+    SupportedSeedApp, UpdateAllReport,
 };
 use cli::{has_cli_ops, print_help, run_cli_ops, want_help};
 use gtk::glib;
@@ -1091,6 +1093,11 @@ fn mount_catalog_view(
     // Apply button: reconcile every row's spin to its target instance count.
     let window_for_apply: gtk::ApplicationWindow = window.clone().upcast();
     let window_for_update: gtk::ApplicationWindow = window.clone().upcast();
+    // App ids the user allowed to install unverified for the NEXT Apply / Update run only
+    // (set by the "Install without verification?" dialog, drained when the run starts).
+    let apply_unverified_once: Rc<RefCell<HashSet<String>>> = Rc::new(RefCell::new(HashSet::new()));
+    let update_unverified_once: Rc<RefCell<HashSet<String>>> =
+        Rc::new(RefCell::new(HashSet::new()));
     apply.connect_clicked({
         let paths = Rc::clone(&paths);
         let catalog = Rc::clone(&catalog);
@@ -1103,7 +1110,11 @@ fn mount_catalog_view(
         let update_weak = update_weak.clone();
         let recompute_pending = Rc::clone(&recompute_pending);
         let apply_filter = Rc::clone(&apply_filter);
+        let apply_unverified_once = Rc::clone(&apply_unverified_once);
         move |_| {
+            // DEC-001: only apps the user just allowed in the dialog skip verification.
+            let allow_unverified_ids: HashSet<String> =
+                apply_unverified_once.borrow_mut().drain().collect();
             let mut specs = Vec::new();
             for h in rows.borrow().iter() {
                 let target = h.spin.value() as u32;
@@ -1195,10 +1206,11 @@ fn mount_catalog_view(
             statusbar.set_text("Working…");
 
             let (tx_prog, rx_prog) = mpsc::channel::<(f64, String)>();
-            // (log, seed_failed, helper_missing): seed_failed = seeding
+            // (log, seed_failed, helper_missing, unverified): seed_failed = seeding
             // errors from seed_new_instances_after_reconcile; helper_missing
-            // = instances skipped because portmux-port probe failed.
-            let (tx, rx) = mpsc::channel::<(String, u32, u32)>();
+            // = instances skipped because portmux-port probe failed; unverified =
+            // apps refused for lack of a published sha256 (offered in a dialog).
+            let (tx, rx) = mpsc::channel::<(String, u32, u32, Vec<unverified::UnverifiedApp>)>();
 
             let remote_for_idle = Rc::clone(&remote_latest_cache);
             let window_idle = window_for_apply.clone();
@@ -1206,6 +1218,7 @@ fn mount_catalog_view(
             let total_idle = total_label.clone();
             let paths_total = Rc::clone(&paths);
             let catalog_total = Rc::clone(&catalog);
+            let unverified_once_idle = Rc::clone(&apply_unverified_once);
             let apply_filter_done = Rc::clone(&apply_filter);
             glib::idle_add_local(move || {
                 while let Ok((f, label)) = rx_prog.try_recv() {
@@ -1213,7 +1226,7 @@ fn mount_catalog_view(
                     progress_done.set_text(Some(&label));
                 }
                 match rx.try_recv() {
-                    Ok((log_final, seed_failed, helper_missing)) => {
+                    Ok((log_final, seed_failed, helper_missing, unverified_apps)) => {
                         progress_done.set_visible(false);
                         progress_done.set_fraction(0.0);
                         let not_seeded = seed_failed + helper_missing;
@@ -1268,6 +1281,15 @@ fn mount_catalog_view(
                         update_total_label(&total_idle, &paths_total, &catalog_total);
                         (recompute_done)();
                         (apply_filter_done)();
+                        if !unverified_apps.is_empty() {
+                            offer_unverified_install(
+                                &window_idle,
+                                unverified_apps,
+                                Rc::clone(&rows_idle),
+                                Rc::clone(&unverified_once_idle),
+                                apply_done.clone(),
+                            );
+                        }
                         glib::ControlFlow::Break
                     }
                     Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
@@ -1305,6 +1327,7 @@ fn mount_catalog_view(
                 // Instances that were installed but skipped at the probe
                 // stage (portmux-port helper not found / not working).
                 let mut helper_missing: u32 = 0;
+                let mut unverified_list: Vec<unverified::UnverifiedApp> = Vec::new();
                 let n = specs.len();
                 if n == 0 {
                     let _ = tx_prog.send((1.0, "Working…".to_string()));
@@ -1319,10 +1342,14 @@ fn mount_catalog_view(
                                 std::env::consts::ARCH
                             ));
                         } else {
-                            let r = reconcile_instance_count_with_report(
+                            let policy = appimage_control_core::VerifyPolicy {
+                                allow_unverified: allow_unverified_ids.contains(&app.id),
+                            };
+                            let r = reconcile_instance_count_with_policy(
                                 &paths_t,
                                 app,
                                 target,
+                                policy,
                                 &mut |m| {
                                     log.push_str(m);
                                     log.push('\n');
@@ -1401,6 +1428,16 @@ fn mount_catalog_view(
                                 }
                                 Err(e) => {
                                     log.push_str(&format!("{}: {}\n", app.id, e));
+                                    let name = app.display_name_resolved();
+                                    unverified_list.extend(unverified::unverified_from_outcomes(&[
+                                        unverified::AppOutcome {
+                                            app_index,
+                                            app_id: &app.id,
+                                            name: &name,
+                                            target,
+                                            error: Some(&e),
+                                        },
+                                    ]));
                                 }
                             }
                         }
@@ -1413,7 +1450,7 @@ fn mount_catalog_view(
                 if log.is_empty() {
                     log.push_str("No changes applied.\n");
                 }
-                let _ = tx.send((log, seed_failed, helper_missing));
+                let _ = tx.send((log, seed_failed, helper_missing, unverified_list));
             });
         }
     });
@@ -1430,9 +1467,27 @@ fn mount_catalog_view(
         let update_weak = update_weak.clone();
         let recompute_pending = Rc::clone(&recompute_pending);
         let apply_filter = Rc::clone(&apply_filter);
+        let update_unverified_once = Rc::clone(&update_unverified_once);
         move |_| {
+            // DEC-001: a re-run after "Install unverified" updates only those apps, with the
+            // opt-in; a normal run updates everything, strictly.
+            let allow_ids: HashSet<String> = update_unverified_once.borrow_mut().drain().collect();
+            let policy = appimage_control_core::VerifyPolicy {
+                allow_unverified: !allow_ids.is_empty(),
+            };
             let paths_t = (*paths).clone();
-            let catalog_t = (*catalog).clone();
+            let catalog_t = if allow_ids.is_empty() {
+                (*catalog).clone()
+            } else {
+                Catalog {
+                    apps: catalog
+                        .apps
+                        .iter()
+                        .filter(|a| allow_ids.contains(&a.id))
+                        .cloned()
+                        .collect(),
+                }
+            };
             let rows_idle = Rc::clone(&rows);
             let catalog_idle = Rc::clone(&catalog);
             let paths_idle = Rc::clone(&paths);
@@ -1466,6 +1521,7 @@ fn mount_catalog_view(
             let paths_total = Rc::clone(&paths);
             let catalog_total = Rc::clone(&catalog);
             let apply_filter_done = Rc::clone(&apply_filter);
+            let unverified_once_idle = Rc::clone(&update_unverified_once);
             glib::idle_add_local(move || {
                 while let Ok((f, label)) = rx_prog.try_recv() {
                     progress_done.set_fraction(f);
@@ -1514,6 +1570,33 @@ fn mount_catalog_view(
                         update_total_label(&total_idle, &paths_total, &catalog_total);
                         (recompute_done)();
                         (apply_filter_done)();
+                        if !rep.unverified_apps.is_empty() {
+                            let apps: Vec<unverified::UnverifiedApp> = rep
+                                .unverified_apps
+                                .iter()
+                                .filter_map(|id| {
+                                    let (i, a) = catalog_idle
+                                        .apps
+                                        .iter()
+                                        .enumerate()
+                                        .find(|(_, a)| &a.id == id)?;
+                                    Some(unverified::UnverifiedApp {
+                                        app_index: i,
+                                        app_id: a.id.clone(),
+                                        name: a.display_name_resolved(),
+                                        target: instance_count(paths_idle.as_ref(), a).unwrap_or(0),
+                                        reason: "no published sha256 for the new build".into(),
+                                    })
+                                })
+                                .collect();
+                            offer_unverified_install(
+                                &window_idle,
+                                apps,
+                                Rc::clone(&rows_idle),
+                                Rc::clone(&unverified_once_idle),
+                                update_done.clone(),
+                            );
+                        }
                         glib::ControlFlow::Break
                     }
                     Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
@@ -1548,10 +1631,11 @@ fn mount_catalog_view(
                     };
                     let _ = tx_prog.send((f, label));
                 };
-                let report = match update_all_installed_instances(
+                let report = match update_all_installed_instances_with_policy(
                     &paths_t,
                     &catalog_t,
                     Some(&remotes),
+                    policy,
                     &mut |m| {
                         log.push_str(m);
                         log.push('\n');
@@ -1590,6 +1674,49 @@ fn mount_catalog_view(
         Rc::clone(&recompute_pending),
         Rc::clone(&apply_filter),
     );
+}
+
+/// After an Apply or Update run, ask whether to install the apps that were refused for lack of a
+/// published sha256 (DEC-001). Cancel (the default) changes nothing. "Install unverified" puts
+/// the Apply targets back, marks exactly those apps as allowed for the next run only, and
+/// re-runs it by clicking `rerun`. Shown from a fresh idle so it never nests inside the
+/// worker's completion handler.
+fn offer_unverified_install(
+    window: &gtk::ApplicationWindow,
+    apps: Vec<unverified::UnverifiedApp>,
+    rows: Rc<RefCell<Vec<RowHandles>>>,
+    allow_once: Rc<RefCell<HashSet<String>>>,
+    rerun: glib::WeakRef<Button>,
+) {
+    let window = window.clone();
+    glib::idle_add_local_once(move || {
+        let detail = glib::markup_escape_text(&unverified::dialog_detail(&apps));
+        let confirmed = ask_confirmation(
+            &window,
+            ConfirmKind::Warn,
+            "Install without verification?",
+            "No published sha256 is available to check these downloads, so they were not \
+             installed. Install them anyway only if you trust where they come from.",
+            Some(&format!("<small>{detail}</small>")),
+            "Install unverified",
+        );
+        let Some(req) = unverified::rerun_for_response(&apps, confirmed) else {
+            return;
+        };
+        for (app_index, target) in &req.apps {
+            if let Some(h) = rows.borrow().iter().find(|h| h.app_index == *app_index) {
+                h.spin.set_value(*target as f64);
+            }
+        }
+        let mut set = allow_once.borrow_mut();
+        for a in &apps {
+            set.insert(a.app_id.clone());
+        }
+        drop(set);
+        if let Some(b) = rerun.upgrade() {
+            b.emit_clicked();
+        }
+    });
 }
 
 fn refresh_all_rows(

@@ -86,6 +86,7 @@ mod tests {
             unchanged: 1,
             skipped_up_to_date: 0,
             errors: 2,
+            unverified_apps: vec![],
         });
         assert!(s.contains("failed"));
         assert!(s.contains("2"));

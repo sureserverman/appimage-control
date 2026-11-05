@@ -1,0 +1,11 @@
+{
+ "created": "2026-11-05T19:15:47+00:00",
+ "fingerprint": "e07f5a4c1259f42d987080452e78d82eb1a137ee51cd5d8e52325fc90622a226",
+ "index": 1,
+ "kind": "claim-deviation",
+ "plan": "/mnt/vault/Portfolio/anon-tools/appimage-control/plans/2026-11-05-security-audit-remediation-plan.md",
+ "schema": 2,
+ "task": "3.5",
+ "text": "unit tests on the pure parts: the worker result \u2192 dialog-model mapping lists exactly the apps that returned `UnverifiedDownload`, not the ones that failed otherwise",
+ "why": "The Test (cargo test -p appimage-control unverified_) is VM-only: the GUI crate needs gtk4 >= 4.21, absent on the host, and prove-claim never runs on a VM. Checked by hand on the VM 2026-11-05: with unverified_from_outcomes also offering a DigestMismatch, unverified_dialog_lists_only_apps_refused_for_lack_of_a_hash FAILED; restored, the 3 unverified tests pass and the GUI suite passes (86 tests). Live dialog behaviour is the Stage 4 gate's VM check."
+}

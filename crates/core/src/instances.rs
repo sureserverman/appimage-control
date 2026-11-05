@@ -1980,13 +1980,16 @@ fn refresh_instance_version_metadata(
 }
 
 /// Aggregate counts from [`update_all_installed_instances`].
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone)]
 pub struct UpdateAllReport {
     pub updated: u32,
     pub unchanged: u32,
     /// Instances that matched the catalog URL version before any tool or download ran.
     pub skipped_up_to_date: u32,
     pub errors: u32,
+    /// Catalog ids whose update was refused for lack of a published sha256
+    /// ([`Error::UnverifiedDownload`]), once each — what the GUI offers to install unverified.
+    pub unverified_apps: Vec<String>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -2084,6 +2087,11 @@ pub fn update_all_installed_instances_with_policy(
             Ok(InstanceUpdateOutcome::SkippedUpToDate) => report.skipped_up_to_date += 1,
             Err(e) => {
                 report.errors += 1;
+                if matches!(e, Error::UnverifiedDownload { .. })
+                    && !report.unverified_apps.contains(&app.id)
+                {
+                    report.unverified_apps.push(app.id.clone());
+                }
                 on_progress(&format!("{} instance {}: {}", app.id, i, e));
             }
         }
