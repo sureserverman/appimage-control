@@ -1,4 +1,5 @@
-//! Deterministic HTTP-backed tests (no live internet).
+//! Deterministic HTTP-backed tests (no live internet), plus one `#[ignore]`d
+//! live check run on demand with `-- --ignored`.
 
 mod common;
 
@@ -88,4 +89,21 @@ fn resolve_icon_image_url_prefers_explicit_icon_url() {
         category: None,
     };
     assert_eq!(resolve_icon_image_url(&app).as_deref(), Some(url.as_str()));
+}
+
+/// Live check (needs internet): the vendored TLS stack still reaches a real
+/// GitHub release asset. Run with `-- --ignored live_github_download`.
+#[test]
+#[ignore = "live network: downloads a ~49 MB GitHub release asset"]
+fn live_github_download() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dest = tmp.path().join("KeePassXC.AppImage");
+    download_to_file(
+        "https://github.com/keepassxreboot/keepassxc/releases/download/2.7.12/KeePassXC-2.7.12-x86_64.AppImage",
+        &dest,
+    )
+    .expect("live download");
+    let head = fs::read(&dest).unwrap();
+    assert!(head.len() > 1_000_000, "suspiciously small: {} bytes", head.len());
+    assert_eq!(&head[..4], b"\x7fELF", "not an ELF executable");
 }

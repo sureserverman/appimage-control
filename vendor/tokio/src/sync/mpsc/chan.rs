@@ -114,7 +114,23 @@ impl<T, S> panic::UnwindSafe for Chan<T, S> {}
 
 pub(crate) fn channel<T, S: Semaphore>(semaphore: S) -> (Tx<T, S>, Rx<T, S>) {
     let (tx, rx) = list::channel();
+    channel_from_list(tx, rx, semaphore)
+}
 
+#[cfg(all(test, not(loom)))]
+pub(crate) fn channel_from_index<T, S: Semaphore>(
+    start_index: usize,
+    semaphore: S,
+) -> (Tx<T, S>, Rx<T, S>) {
+    let (tx, rx) = list::channel_from_index(start_index);
+    channel_from_list(tx, rx, semaphore)
+}
+
+fn channel_from_list<T, S: Semaphore>(
+    tx: list::Tx<T>,
+    rx: list::Rx<T>,
+    semaphore: S,
+) -> (Tx<T, S>, Rx<T, S>) {
     let chan = Arc::new(Chan {
         notify_rx_closed: Notify::new(),
         tx: CachePadded::new(tx),
@@ -436,7 +452,9 @@ impl<T, S: Semaphore> Rx<T, S> {
                         }
                         TryPopResult::Closed => return Err(TryRecvError::Disconnected),
                         // If close() was called, an empty queue should report Disconnected.
-                        TryPopResult::Empty if rx_fields.rx_closed => {
+                        TryPopResult::Empty
+                            if rx_fields.rx_closed && self.inner.semaphore.is_idle() =>
+                        {
                             return Err(TryRecvError::Disconnected)
                         }
                         TryPopResult::Empty => return Err(TryRecvError::Empty),
@@ -516,6 +534,11 @@ impl<T, S: Semaphore> Drop for Rx<T, S> {
                 tx: &self.inner.tx,
                 sem: &self.inner.semaphore,
             };
+
+            // When Rx is dropped, there is nothing for a task to poll anymore.
+            // This means we can drop our waker to potentially free up resources.
+            // Do so before draining the channel where panics may occur.
+            self.inner.rx_waker.take_waker();
 
             guard.drain();
         });

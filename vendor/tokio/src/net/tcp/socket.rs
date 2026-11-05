@@ -286,6 +286,7 @@ impl TcpSocket {
         not(target_os = "solaris"),
         not(target_os = "illumos"),
         not(target_os = "cygwin"),
+        not(target_os = "nuttx"),
     ))]
     #[cfg_attr(
         docsrs,
@@ -294,6 +295,7 @@ impl TcpSocket {
             not(target_os = "solaris"),
             not(target_os = "illumos"),
             not(target_os = "cygwin"),
+            not(target_os = "nuttx"),
         )))
     )]
     pub fn set_reuseport(&self, reuseport: bool) -> io::Result<()> {
@@ -331,6 +333,7 @@ impl TcpSocket {
         not(target_os = "solaris"),
         not(target_os = "illumos"),
         not(target_os = "cygwin"),
+        not(target_os = "nuttx"),
     ))]
     #[cfg_attr(
         docsrs,
@@ -339,6 +342,7 @@ impl TcpSocket {
             not(target_os = "solaris"),
             not(target_os = "illumos"),
             not(target_os = "cygwin"),
+            not(target_os = "nuttx"),
         )))
     )]
     pub fn reuseport(&self) -> io::Result<bool> {
@@ -900,7 +904,8 @@ impl TcpSocket {
     /// }
     /// ```
     pub fn listen(self, backlog: u32) -> io::Result<TcpListener> {
-        self.inner.listen(backlog as i32)?;
+        self.inner
+            .listen(i32::try_from(backlog).unwrap_or(i32::MAX))?;
         #[cfg(not(windows))]
         let mio = {
             use std::os::fd::{FromRawFd, IntoRawFd};
@@ -945,7 +950,6 @@ impl TcpSocket {
     ///
     /// #[tokio::main]
     /// async fn main() -> std::io::Result<()> {
-    /// #   if cfg!(miri) { return Ok(()); } // No `socket` in miri.
     ///     let socket2_socket = Socket::new(Domain::IPV4, Type::STREAM, None)?;
     ///     socket2_socket.set_nonblocking(true)?;
     ///

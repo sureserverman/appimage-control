@@ -1,13 +1,11 @@
 #![warn(rust_2018_idioms)]
 // WASIp1 doesn't support bind
-// No `socket` on miri.
 #![cfg(all(
     feature = "net",
     feature = "macros",
     feature = "rt",
     feature = "io-util",
     not(all(target_os = "wasi", target_env = "p1")),
-    not(miri)
 ))]
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt, Interest};
@@ -24,7 +22,7 @@ use std::time::Duration;
 
 #[tokio::test]
 #[cfg(not(target_os = "wasi"))] // WASI does not yet support `SO_LINGER`
-#[cfg_attr(miri, ignore)] // No `socket` on miri.
+#[cfg_attr(miri, ignore = "Miri doesn't support `SO_LINGER`")]
 #[expect(deprecated)] // set_linger is deprecated
 async fn set_linger() {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -44,13 +42,8 @@ async fn set_linger() {
 }
 
 #[tokio::test]
-#[cfg_attr(
-    target_os = "wasi",
-    ignore = "temporarily disabled for WASI pending https://github.com/WebAssembly/wasi-libc/pull/734"
-)]
-#[cfg_attr(miri, ignore)] // No `socket` on miri.
 async fn try_read_write() {
-    const DATA: &[u8] = b"this is some data to write to the socket";
+    const DATA: &[u8] = &[2u8; 4000];
 
     // Create listener
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -61,6 +54,13 @@ async fn try_read_write() {
         .unwrap();
     let (server, _) = listener.accept().await.unwrap();
     let mut written = DATA.to_vec();
+
+    // An accepted socket starts out assumed readable; a read that finds
+    // nothing clears that.
+    assert_eq!(
+        server.try_read(&mut [0; 1]).unwrap_err().kind(),
+        io::ErrorKind::WouldBlock
+    );
 
     // Track the server receiving data
     let mut readable = task::spawn(server.readable());
@@ -235,11 +235,13 @@ macro_rules! assert_not_writable_by_polling {
 }
 
 #[tokio::test]
-#[cfg_attr(miri, ignore)] // No `socket` on miri.
 async fn poll_read_ready() {
     let (mut client, mut server) = create_pair().await;
 
-    // Initial state - not readable.
+    // Initial state - an accepted socket is assumed readable until a read
+    // finds nothing.
+    assert_readable_by_polling!(server);
+    read_until_pending(&mut server);
     assert_not_readable_by_polling!(server);
 
     // There is data in the buffer - readable.
@@ -259,7 +261,6 @@ async fn poll_read_ready() {
 }
 
 #[tokio::test]
-#[cfg_attr(miri, ignore)] // No `socket` on miri.
 async fn poll_write_ready() {
     let (mut client, server) = create_pair().await;
 
@@ -313,9 +314,8 @@ fn write_until_pending(stream: &mut TcpStream) -> usize {
 }
 
 #[tokio::test]
-#[cfg_attr(miri, ignore)] // No `socket` on miri.
 async fn try_read_buf() {
-    const DATA: &[u8] = b"this is some data to write to the socket";
+    const DATA: &[u8] = &[2u8; 4000];
 
     // Create listener
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -326,6 +326,13 @@ async fn try_read_buf() {
         .unwrap();
     let (server, _) = listener.accept().await.unwrap();
     let mut written = DATA.to_vec();
+
+    // An accepted socket starts out assumed readable; a read that finds
+    // nothing clears that.
+    assert_eq!(
+        server.try_read(&mut [0; 1]).unwrap_err().kind(),
+        io::ErrorKind::WouldBlock
+    );
 
     // Track the server receiving data
     let mut readable = task::spawn(server.readable());
@@ -382,12 +389,7 @@ async fn try_read_buf() {
 
     #[cfg(not(target_os = "wasi"))] // WASI does not yet support `POLLHUP` or `POLLRDHUP`
     {
-        let mut count = 0;
         loop {
-            count += 1;
-            if count > 100 {
-                panic!("loop 4")
-            }
             let ready = server.ready(Interest::READABLE).await.unwrap();
 
             if ready.is_read_closed() {
@@ -401,11 +403,6 @@ async fn try_read_buf() {
 
 // read_closed is a best effort event, so test only for no false positives.
 #[tokio::test]
-#[cfg_attr(
-    target_os = "wasi",
-    ignore = "temporarily disabled for WASI pending https://github.com/WebAssembly/wasi-libc/pull/732"
-)]
-#[cfg_attr(miri, ignore)] // No `socket` on miri.
 async fn read_closed() {
     let (client, mut server) = create_pair().await;
 
@@ -421,7 +418,6 @@ async fn read_closed() {
 
 // write_closed is a best effort event, so test only for no false positives.
 #[tokio::test]
-#[cfg_attr(miri, ignore)] // No `socket` on miri.
 async fn write_closed() {
     let (mut client, mut server) = create_pair().await;
 

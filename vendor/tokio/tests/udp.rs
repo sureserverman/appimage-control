@@ -1,6 +1,6 @@
 #![warn(rust_2018_idioms)]
 // WASIp1 doesn't support bind
-// No `socket` on miri.
+// No UDP sockets on miri.
 #![cfg(all(
     feature = "net",
     feature = "macros",
@@ -13,7 +13,8 @@
 use std::future::poll_fn;
 use std::io;
 use std::sync::Arc;
-use tokio::{io::ReadBuf, net::UdpSocket};
+use std::time::Duration;
+use tokio::{io::ReadBuf, net::UdpSocket, time};
 use tokio_test::assert_ok;
 
 const MSG: &[u8] = b"hello";
@@ -55,10 +56,33 @@ async fn send_recv_poll() -> std::io::Result<()> {
 }
 
 #[tokio::test]
-#[cfg_attr(
-    target_os = "wasi",
-    ignore = "temporarily disabled for WASI pending https://github.com/WebAssembly/wasi-libc/pull/734"
-)]
+async fn send_to_recv_closed_returns_err() -> std::io::Result<()> {
+    let sender = UdpSocket::bind("127.0.0.1:0").await?;
+    let receiver = UdpSocket::bind("127.0.0.1:0").await?;
+
+    let receiver_addr = receiver.local_addr()?;
+    drop(receiver);
+    sender.connect(receiver_addr).await?;
+    sender.send(MSG).await?;
+
+    let mut recv_buf = [0u8; 32];
+    let err = time::timeout(Duration::from_secs(5), sender.recv(&mut recv_buf))
+        .await
+        .expect("timed out instead of returning error")
+        .unwrap_err();
+    let errno = err.kind();
+
+    assert!(
+        // Linux/BSD returns ECONNREFUSED, but Windows will usually return ECONNRESET instead.
+        matches!(
+            errno,
+            io::ErrorKind::ConnectionRefused | io::ErrorKind::ConnectionReset
+        )
+    );
+    Ok(())
+}
+
+#[tokio::test]
 async fn send_to_recv_from() -> std::io::Result<()> {
     let sender = UdpSocket::bind("127.0.0.1:0").await?;
     let receiver = UdpSocket::bind("127.0.0.1:0").await?;
@@ -75,10 +99,6 @@ async fn send_to_recv_from() -> std::io::Result<()> {
 }
 
 #[tokio::test]
-#[cfg_attr(
-    target_os = "wasi",
-    ignore = "temporarily disabled for WASI pending https://github.com/WebAssembly/wasi-libc/pull/734"
-)]
 async fn send_to_recv_from_poll() -> std::io::Result<()> {
     let sender = UdpSocket::bind("127.0.0.1:0").await?;
     let receiver = UdpSocket::bind("127.0.0.1:0").await?;
@@ -465,10 +485,6 @@ async fn try_send_recv() {
 }
 
 #[tokio::test]
-#[cfg_attr(
-    target_os = "wasi",
-    ignore = "temporarily disabled for WASI pending https://github.com/WebAssembly/wasi-libc/pull/734"
-)]
 async fn try_send_to_recv_from() {
     // Create listener
     let server = UdpSocket::bind("127.0.0.1:0").await.unwrap();
@@ -573,10 +589,6 @@ async fn recv_buf() -> std::io::Result<()> {
 }
 
 #[tokio::test]
-#[cfg_attr(
-    target_os = "wasi",
-    ignore = "temporarily disabled for WASI pending https://github.com/WebAssembly/wasi-libc/pull/734"
-)]
 async fn try_recv_buf_from() {
     // Create listener
     let server = UdpSocket::bind("127.0.0.1:0").await.unwrap();
@@ -620,10 +632,6 @@ async fn try_recv_buf_from() {
 }
 
 #[tokio::test]
-#[cfg_attr(
-    target_os = "wasi",
-    ignore = "temporarily disabled for WASI pending https://github.com/WebAssembly/wasi-libc/pull/734"
-)]
 async fn recv_buf_from() -> std::io::Result<()> {
     let sender = UdpSocket::bind("127.0.0.1:0").await?;
     let receiver = UdpSocket::bind("127.0.0.1:0").await?;
@@ -641,10 +649,6 @@ async fn recv_buf_from() -> std::io::Result<()> {
 }
 
 #[tokio::test]
-#[cfg_attr(
-    target_os = "wasi",
-    ignore = "temporarily disabled for WASI pending https://github.com/WebAssembly/wasi-libc/pull/734"
-)]
 async fn poll_ready() {
     // Create listener
     let server = UdpSocket::bind("127.0.0.1:0").await.unwrap();
