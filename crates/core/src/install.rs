@@ -115,6 +115,24 @@ fn update_desktop_database_best_effort(paths: &AppPaths) {
         .status();
 }
 
+/// True when `target` is inside `root`: no `..` component, and — when `target` exists — the
+/// canonical paths agree, so a symlink cannot escape. A missing target falls back to the
+/// (`..`-free) lexical prefix check, since there is nothing to resolve.
+pub(crate) fn is_contained_in(target: &Path, root: &Path) -> bool {
+    use std::path::Component;
+    if target.components().any(|c| c == Component::ParentDir) {
+        return false;
+    }
+    // `symlink_metadata` so a dangling symlink still counts as existing.
+    if target.symlink_metadata().is_ok() {
+        return match (fs::canonicalize(target), fs::canonicalize(root)) {
+            (Ok(t), Ok(r)) => t.starts_with(r),
+            _ => false,
+        };
+    }
+    target.starts_with(root)
+}
+
 /// Remove managed AppImage, its `.desktop`, and optional managed icon.
 pub fn uninstall_app(paths: &AppPaths, desktop_path: &Path) -> Result<()> {
     let entry = crate::desktop::parse_desktop_file(desktop_path)?;
@@ -124,11 +142,28 @@ pub fn uninstall_app(paths: &AppPaths, desktop_path: &Path) -> Result<()> {
         ));
     }
     let img = entry.appimage_path()?;
-    if img.starts_with(paths.managed_files_dir()) && img.exists() {
+    // Validate everything before deleting anything: a launcher pointing outside the managed
+    // dirs (via `..` or a symlink) is reported and its targets are left alone.
+    let img_lexical = img.starts_with(paths.managed_files_dir());
+    if img_lexical && !is_contained_in(&img, &paths.managed_files_dir()) {
+        return Err(Error::InvalidPath(format!(
+            "refusing to remove AppImage outside manager directory: {}",
+            img.display()
+        )));
+    }
+    let icon_path = entry.icon.as_deref().map(PathBuf::from);
+    if let Some(p) = &icon_path {
+        if p.starts_with(paths.icons_dir()) && !is_contained_in(p, &paths.icons_dir()) {
+            return Err(Error::InvalidPath(format!(
+                "refusing to remove icon outside manager icon directory: {}",
+                p.display()
+            )));
+        }
+    }
+    if img_lexical && img.exists() {
         let _ = fs::remove_file(&img);
     }
-    if let Some(icon) = entry.icon {
-        let p = PathBuf::from(&icon);
+    if let Some(p) = icon_path {
         if p.starts_with(paths.icons_dir()) && p.exists() {
             let _ = fs::remove_file(&p);
         }
@@ -161,5 +196,53 @@ mod tests {
             .mode();
         assert!(mode & 0o111 != 0);
         assert!(res.desktop_path.exists());
+    }
+
+    fn write_launcher(paths: &AppPaths, name: &str, exec: &Path) -> PathBuf {
+        let body = build_desktop_entry(name, name, exec, None);
+        let p = paths
+            .applications_dir()
+            .join(desktop_filename_for_app_id(name));
+        fs::write(&p, body).unwrap();
+        p
+    }
+
+    #[test]
+    fn uninstall_ignores_dotdot_exec() {
+        let tmp = assert_fs::TempDir::new().unwrap();
+        let paths = AppPaths::new(tmp.path().to_path_buf()).unwrap();
+        fs::create_dir_all(paths.applications_dir()).unwrap();
+        fs::create_dir_all(paths.managed_files_dir()).unwrap();
+
+        // `<managed files>/../../victim` is lexically under the managed dir.
+        let victim = paths
+            .managed_files_dir()
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("victim");
+        fs::write(&victim, b"precious").unwrap();
+        let evil_exec = paths.managed_files_dir().join("../../victim");
+        let desktop = write_launcher(&paths, "evil", &evil_exec);
+
+        let res = uninstall_app(&paths, &desktop);
+        assert!(res.is_err(), "escaping launcher must be reported");
+        assert!(victim.exists(), "file outside managed dir must survive");
+
+        // Symlink escape.
+        let link = paths.managed_files_dir().join("link.AppImage");
+        std::os::unix::fs::symlink(&victim, &link).unwrap();
+        let desktop2 = write_launcher(&paths, "evil2", &link);
+        assert!(uninstall_app(&paths, &desktop2).is_err());
+        assert!(victim.exists(), "symlink escape must not delete the target");
+
+        // A normal launcher still uninstalls.
+        let src = tmp.child("Good.AppImage");
+        src.write_binary(b"fake").unwrap();
+        let inst = install_appimage(&paths, src.path(), &InstallOptions::default()).unwrap();
+        uninstall_app(&paths, &inst.desktop_path).unwrap();
+        assert!(!inst.appimage_path.exists());
+        assert!(!inst.desktop_path.exists());
     }
 }

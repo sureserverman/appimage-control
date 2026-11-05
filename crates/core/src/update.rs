@@ -64,7 +64,7 @@ pub fn update_from_file(
         return Err(Error::DesktopParse("not a managed desktop entry".into()));
     }
     let current = parsed.appimage_path()?;
-    if !current.starts_with(paths.managed_files_dir()) {
+    if !crate::install::is_contained_in(&current, &paths.managed_files_dir()) {
         return Err(Error::InvalidPath(
             "managed AppImage is outside manager directory".into(),
         ));
@@ -173,5 +173,52 @@ mod tests {
         let bytes = fs::read(&inst.appimage_path).unwrap();
         assert_eq!(bytes, b"v2");
         assert!(inst.desktop_path.exists());
+    }
+
+    #[test]
+    fn update_refuses_dotdot_exec() {
+        let tmp = assert_fs::TempDir::new().unwrap();
+        let paths = AppPaths::new(tmp.path().to_path_buf()).unwrap();
+        fs::create_dir_all(paths.applications_dir()).unwrap();
+        fs::create_dir_all(paths.managed_files_dir()).unwrap();
+        let new_file = tmp.child("New.AppImage");
+        new_file.write_binary(b"v2").unwrap();
+
+        let victim = paths
+            .managed_files_dir()
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("victim.AppImage");
+        fs::write(&victim, b"precious").unwrap();
+        let evil_exec = paths.managed_files_dir().join("../../victim.AppImage");
+        let body = crate::desktop::build_desktop_entry("evil", "evil", &evil_exec, None);
+        let desktop = paths
+            .applications_dir()
+            .join(crate::desktop::desktop_filename_for_app_id("evil"));
+        fs::write(&desktop, body).unwrap();
+
+        let res = update_from_file(&paths, &desktop, new_file.path());
+        assert!(res.is_err(), "escaping launcher must be refused");
+        assert_eq!(fs::read(&victim).unwrap(), b"precious");
+
+        // Symlink escape.
+        let link = paths.managed_files_dir().join("link.AppImage");
+        std::os::unix::fs::symlink(&victim, &link).unwrap();
+        let body = crate::desktop::build_desktop_entry("evil2", "evil2", &link, None);
+        let desktop2 = paths
+            .applications_dir()
+            .join(crate::desktop::desktop_filename_for_app_id("evil2"));
+        fs::write(&desktop2, body).unwrap();
+        assert!(update_from_file(&paths, &desktop2, new_file.path()).is_err());
+        assert_eq!(fs::read(&victim).unwrap(), b"precious");
+
+        // A normal launcher still updates.
+        let src = tmp.child("Old.AppImage");
+        src.write_binary(b"v1").unwrap();
+        let inst = install_appimage(&paths, src.path(), &InstallOptions::default()).unwrap();
+        update_from_file(&paths, &inst.desktop_path, new_file.path()).unwrap();
+        assert_eq!(fs::read(&inst.appimage_path).unwrap(), b"v2");
     }
 }

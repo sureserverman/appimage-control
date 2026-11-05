@@ -1,0 +1,29 @@
+{
+ "baseline": {
+  "elapsed_s": 0.4,
+  "exit": 0,
+  "tail": "running 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s\n\n     Running tests/integration_backup.rs (target/debug/deps/integration_backup-601bd662f61010b4)\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s\n\n     Running tests/integration_install.rs (target/debug/deps/integration_install-a4acd7eb603873fa)\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s\n\n     Running tests/integration_restore.rs (target/debug/deps/integration_restore-67d8ff5ab4eb1ddf)\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s\n\n     Running tests/integration_seed_discovery.rs (target/debug/deps/integration_seed_discovery-819213050d498a7b)\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s\n\n     Running tests/partial_catalog_states.rs (target/debug/deps/partial_catalog_states-d5c951c3a87af6e3)\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s\n\n     Running tests/real_portmux_configure_app.rs (target/debug/deps/real_portmux_configure_app-072ed9f31db9ad87)\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s\n"
+ },
+ "break_patch": "--- a/crates/core/src/install.rs\n+++ b/crates/core/src/install.rs\n@@ -120,6 +120,9 @@\n /// (`..`-free) lexical prefix check, since there is nothing to resolve.\n pub(crate) fn is_contained_in(target: &Path, root: &Path) -> bool {\n     use std::path::Component;\n+    if true {\n+        return target.starts_with(root);\n+    }\n     if target.components().any(|c| c == Component::ParentDir) {\n         return false;\n     }\n",
+ "build": null,
+ "created": "2026-11-05T17:13:41+00:00",
+ "fingerprint": "83bbb49c60d25b1a8870d3f0017a7fc2a2f49d9e4ce94107e44b1218e784334d",
+ "index": 1,
+ "kind": "claim",
+ "named_break": null,
+ "no_build_reason": "cargo test compiles first",
+ "plan": "/mnt/vault/Portfolio/anon-tools/appimage-control/plans/2026-11-05-security-audit-remediation-plan.md",
+ "red": {
+  "elapsed_s": 2.3,
+  "exit": 101,
+  "tail": "   Compiling appimage_control_core v0.2.0 (/home/user/dev/anon-tools/appimage-control/crates/core)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.29s\n     Running unittests src/lib.rs (target/debug/deps/appimage_control_core-382256ee9c1c1c3a)\n\nrunning 1 test\ntest install::tests::uninstall_ignores_dotdot_exec ... FAILED\n\nfailures:\n\n---- install::tests::uninstall_ignores_dotdot_exec stdout ----\n\nthread 'install::tests::uninstall_ignores_dotdot_exec' (3797499) panicked at crates/core/src/install.rs:233:9:\nescaping launcher must be reported\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    install::tests::uninstall_ignores_dotdot_exec\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 240 filtered out; finished in 0.00s\n\nerror: test failed, to rerun pass `-p appimage_control_core --lib`"
+ },
+ "schema": 2,
+ "shell": "bash",
+ "task": "2.4",
+ "test": "cd /home/user/dev/anon-tools/appimage-control && cargo test -p appimage_control_core install::tests::uninstall_ignores_dotdot_exec && cargo test -p appimage_control_core update::tests::update_refuses_dotdot_exec",
+ "text": "a managed `.desktop` whose `Exec=` is `<managed files>/../../victim` leaves `victim` in place and the call reports it",
+ "touched": [
+  "crates/core/src/install.rs"
+ ]
+}
