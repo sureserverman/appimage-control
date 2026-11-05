@@ -43,7 +43,10 @@ use appimage_control_core::{
 };
 use cli::{has_cli_ops, print_help, run_cli_ops, want_help};
 use gtk::glib;
-use status_text::{catalog_row_hint, format_seed_status_summary, format_update_status_summary};
+use status_text::{
+    apply_error_log_line, catalog_row_hint, format_apply_status, format_seed_status_summary,
+    format_update_status_summary, nothing_pending_summary,
+};
 
 use gtk::{
     gdk::Texture, Box as GtkBox, Button, CssProvider, FlowBox, FlowBoxChild, Image, Label,
@@ -860,7 +863,11 @@ fn mount_catalog_view(
 
     // Pending-summary recompute: drives the bottom bar's two lines + the Apply
     // button label/sensitivity. (Mirrors the design mock's summary math.)
+    // Apps that failed in the last Apply run (a refused download included), so the bottom bar
+    // does not claim "All changes applied" after the failed targets were dropped.
+    let last_apply_failed: Rc<Cell<u32>> = Rc::new(Cell::new(0));
     let recompute_pending = {
+        let last_apply_failed = Rc::clone(&last_apply_failed);
         let rows = Rc::clone(&rows);
         let apply_weak = apply_weak.clone();
         let summary_line1 = summary_line1.clone();
@@ -907,8 +914,9 @@ fn mount_catalog_view(
                 }
                 statusbar.set_text(&parts.join("  \u{b7}  "));
             } else {
-                summary_line1.set_text("All changes applied");
-                statusbar.set_text("Nothing pending — you're up to date");
+                let (line1, status) = nothing_pending_summary(last_apply_failed.get());
+                summary_line1.set_text(&line1);
+                statusbar.set_text(&status);
             }
         }) as Rc<dyn Fn()>
     };
@@ -1111,7 +1119,9 @@ fn mount_catalog_view(
         let recompute_pending = Rc::clone(&recompute_pending);
         let apply_filter = Rc::clone(&apply_filter);
         let apply_unverified_once = Rc::clone(&apply_unverified_once);
+        let last_apply_failed = Rc::clone(&last_apply_failed);
         move |_| {
+            last_apply_failed.set(0);
             // DEC-001: only apps the user just allowed in the dialog skip verification.
             let allow_unverified_ids: HashSet<String> =
                 apply_unverified_once.borrow_mut().drain().collect();
@@ -1210,7 +1220,9 @@ fn mount_catalog_view(
             // errors from seed_new_instances_after_reconcile; helper_missing
             // = instances skipped because portmux-port probe failed; unverified =
             // apps refused for lack of a published sha256 (offered in a dialog).
-            let (tx, rx) = mpsc::channel::<(String, u32, u32, Vec<unverified::UnverifiedApp>)>();
+            let (tx, rx) =
+                mpsc::channel::<(String, u32, u32, u32, Vec<unverified::UnverifiedApp>)>();
+            let last_apply_failed_idle = Rc::clone(&last_apply_failed);
 
             let remote_for_idle = Rc::clone(&remote_latest_cache);
             let window_idle = window_for_apply.clone();
@@ -1226,7 +1238,8 @@ fn mount_catalog_view(
                     progress_done.set_text(Some(&label));
                 }
                 match rx.try_recv() {
-                    Ok((log_final, seed_failed, helper_missing, unverified_apps)) => {
+                    Ok((log_final, seed_failed, helper_missing, apply_failed, unverified_apps)) => {
+                        last_apply_failed_idle.set(apply_failed);
                         progress_done.set_visible(false);
                         progress_done.set_fraction(0.0);
                         let not_seeded = seed_failed + helper_missing;
@@ -1238,13 +1251,7 @@ fn mount_catalog_view(
                             log_final
                         };
                         present_activity_log_dialog(&window_idle, &display_log);
-                        if not_seeded > 0 {
-                            status_idle.set_text(&format!(
-                                "Applied — {not_seeded} instance(s) NOT seeded (see activity log)"
-                            ));
-                        } else {
-                            status_idle.set_text("Applied.");
-                        }
+                        status_idle.set_text(&format_apply_status(apply_failed, not_seeded));
                         let rem = remote_for_idle.borrow();
                         for h in rows_idle.borrow().iter() {
                             let app = &catalog_idle.apps[h.app_index];
@@ -1328,6 +1335,7 @@ fn mount_catalog_view(
                 // stage (portmux-port helper not found / not working).
                 let mut helper_missing: u32 = 0;
                 let mut unverified_list: Vec<unverified::UnverifiedApp> = Vec::new();
+                let mut apply_failed: u32 = 0;
                 let n = specs.len();
                 if n == 0 {
                     let _ = tx_prog.send((1.0, "Working…".to_string()));
@@ -1427,7 +1435,9 @@ fn mount_catalog_view(
                                     }
                                 }
                                 Err(e) => {
-                                    log.push_str(&format!("{}: {}\n", app.id, e));
+                                    apply_failed += 1;
+                                    log.push_str(&apply_error_log_line(&app.id, &e.to_string()));
+                                    log.push('\n');
                                     let name = app.display_name_resolved();
                                     unverified_list.extend(unverified::unverified_from_outcomes(&[
                                         unverified::AppOutcome {
@@ -1450,7 +1460,7 @@ fn mount_catalog_view(
                 if log.is_empty() {
                     log.push_str("No changes applied.\n");
                 }
-                let _ = tx.send((log, seed_failed, helper_missing, unverified_list));
+                let _ = tx.send((log, seed_failed, helper_missing, apply_failed, unverified_list));
             });
         }
     });
