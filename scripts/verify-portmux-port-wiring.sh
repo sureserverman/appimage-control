@@ -21,14 +21,13 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$ROOT"
+cd "$ROOT" || exit 1
 
 # --- Configuration -----------------------------------------------------------
 
 LOG="${LOG:-/tmp/portmux-port-wiring-verify.log}"
 CARGO="${CARGO:-cargo}"
 PORTMUX_REPO="${PORTMUX_REPO:-$ROOT/../portmux}"
-SECTION=""
 PASS_COUNT=0
 FAIL_COUNT=0
 WARN_COUNT=0
@@ -40,7 +39,6 @@ WARN_COUNT=0
 exec > >(tee "$LOG") 2>&1
 
 hdr() {
-    SECTION="$1"
     echo
     echo "================================================================"
     echo "  $1"
@@ -72,6 +70,7 @@ run() {
 
 TMPDIR="$(mktemp -d -t aic-verify-XXXXXX)"
 mkdir -p "$TMPDIR/home"
+# shellcheck disable=SC2329  # invoked by the trap below
 cleanup() { rm -rf "$TMPDIR" || true; }
 trap cleanup EXIT INT TERM
 
@@ -134,7 +133,7 @@ fi
 if [ -d "$PORTMUX_REPO/rust" ]; then
     info "checking portmux sibling repo at $PORTMUX_REPO"
     (cd "$PORTMUX_REPO/rust" && "$CARGO" check --bin portmux-port 2>&1) | sed 's/^/    | /'
-    if [ ${PIPESTATUS[0]} -eq 0 ]; then
+    if [ "${PIPESTATUS[0]}" -eq 0 ]; then
         pass "portmux-port binary builds against sibling repo"
     else
         fail "portmux-port binary failed to build — check log"
