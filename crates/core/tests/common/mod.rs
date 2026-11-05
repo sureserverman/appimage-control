@@ -69,6 +69,34 @@ pub fn serve_truncated_once(body: &[u8], advertised_len: usize) -> String {
     format!("http://{addr}/")
 }
 
+/// Serve one `302` redirect to `location`, then close. Returns the URL to GET.
+pub fn serve_redirect_once(location: &str) -> String {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind localhost");
+    let addr = listener.local_addr().expect("local_addr");
+    let location = location.to_string();
+    thread::spawn(move || {
+        let Ok((mut stream, _)) = listener.accept() else {
+            return;
+        };
+        let mut buf = [0u8; 2048];
+        let _ = stream.read(&mut buf);
+        let resp = format!(
+            "HTTP/1.1 302 Found\r\nLocation: {location}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+        );
+        let _ = stream.write_all(resp.as_bytes());
+    });
+    thread::sleep(Duration::from_millis(10));
+    format!("http://{addr}/")
+}
+
+/// A loopback URL whose port is closed (connection refused).
+pub fn closed_port_url() -> String {
+    let l = TcpListener::bind("127.0.0.1:0").expect("bind localhost");
+    let addr = l.local_addr().expect("local_addr");
+    drop(l);
+    format!("http://{addr}/")
+}
+
 /// Placeholder "AppImage": executable shell that exits 0 (good enough for paths that exec it).
 pub fn write_executable_sh(path: &Path, script_body: &str) {
     use std::fs;

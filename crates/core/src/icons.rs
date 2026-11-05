@@ -40,10 +40,7 @@ static FEATHER_SLOT_3_PNG: &[u8] = include_bytes!(concat!(
 ));
 
 fn http_client() -> Option<reqwest::blocking::Client> {
-    reqwest::blocking::Client::builder()
-        .user_agent(concat!("appimage-control/", env!("CARGO_PKG_VERSION")))
-        .build()
-        .ok()
+    crate::download::http_client().ok()
 }
 
 /// Best-effort host from `https://example.org/path` → `example.org`.

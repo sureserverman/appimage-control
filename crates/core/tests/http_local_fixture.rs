@@ -63,6 +63,44 @@ fn download_to_file_exact_content_length_succeeds() {
 }
 
 #[test]
+fn download_refuses_non_https_non_loopback_url_before_connecting() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dest = tmp.path().join("out.bin");
+    let t = std::time::Instant::now();
+    let err = download_to_file("http://example.com/x", &dest).unwrap_err();
+    assert!(t.elapsed() < std::time::Duration::from_secs(1));
+    assert!(
+        err.to_string()
+            .contains("refusing non-https download URL http://example.com/x"),
+        "{err}"
+    );
+    assert!(!dest.exists());
+}
+
+#[test]
+fn download_refuses_redirect_to_non_https_remote() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dest = tmp.path().join("out.bin");
+    let url = common::serve_redirect_once("http://example.com/");
+    let err = download_to_file(&url, &dest).unwrap_err();
+    let text = err.to_string();
+    assert!(
+        text.contains("redirect") && text.contains("example.com"),
+        "{text}"
+    );
+    assert!(!dest.exists());
+}
+
+#[test]
+fn download_connect_failure_carries_cause_chain() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dest = tmp.path().join("out.bin");
+    let err = download_to_file(&common::closed_port_url(), &dest).unwrap_err();
+    let text = err.to_string();
+    assert!(text.matches(": ").count() >= 2, "{text}");
+}
+
+#[test]
 fn resolve_icon_image_url_prefers_explicit_icon_url() {
     let url = common::serve_bytes_once(b"x", "image/png");
     let app = CatalogApp {
