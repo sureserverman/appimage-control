@@ -255,9 +255,38 @@ pub fn create_backup_archive(
             if !src.is_file() {
                 continue;
             }
-            tar.append_path_with_name(src, &ent.logical_path)?;
-            total_bytes += ent.size_bytes;
-            archived_entries.push(ent.clone());
+            // Hash the bytes as they go into the archive, so the manifest describes exactly
+            // what was archived even if a running app changes the file meanwhile (a hash taken
+            // during inventory would then fail an untampered restore).
+            let f = fs::File::open(src)?;
+            let meta = f.metadata()?;
+            let mut header = tar::Header::new_gnu();
+            header.set_metadata(&meta);
+            header.set_size(meta.len());
+            let mut reader = HashingReader {
+                inner: f.take(meta.len()),
+                hasher: Sha256::new(),
+                read: 0,
+            };
+            tar.append_data(&mut header, &ent.logical_path, &mut reader)?;
+            if reader.read != meta.len() {
+                return Err(Error::Backup(format!(
+                    "{} changed size while it was being backed up; close the app and retry",
+                    ent.source_path
+                )));
+            }
+            let mut archived = ent.clone();
+            archived.size_bytes = reader.read;
+            archived.sha256 = Some(
+                reader
+                    .hasher
+                    .finalize()
+                    .iter()
+                    .map(|b| format!("{b:02x}"))
+                    .collect(),
+            );
+            total_bytes += archived.size_bytes;
+            archived_entries.push(archived);
         }
 
         let manifest = BackupManifest {
@@ -342,6 +371,22 @@ pub fn restore_preflight(paths: &AppPaths, force: bool) -> Result<()> {
         ));
     }
     Ok(())
+}
+
+/// A reader that hashes everything read through it.
+struct HashingReader<R> {
+    inner: R,
+    hasher: Sha256,
+    read: u64,
+}
+
+impl<R: Read> Read for HashingReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let n = self.inner.read(buf)?;
+        self.hasher.update(&buf[..n]);
+        self.read += n as u64;
+        Ok(n)
+    }
 }
 
 fn safe_relative_archive_path(p: &Path) -> Result<PathBuf> {
@@ -511,6 +556,18 @@ fn restore_destination_path(paths: &AppPaths, logical_path: &Path) -> Result<Pat
 pub fn restore_backup_archive(paths: &AppPaths, archive_path: &Path, force: bool) -> Result<()> {
     restore_preflight(paths, force)?;
     let (manifest, _snapshot) = validate_backup_archive(archive_path)?;
+    // Every payload entry must be listed in the manifest with a sha256 (keys normalised the
+    // same way the archive paths are), so nothing is restored unchecked.
+    let mut recorded: std::collections::HashMap<String, Option<String>> =
+        std::collections::HashMap::new();
+    for e in &manifest.backup_entries {
+        let key = safe_relative_archive_path(Path::new(&e.logical_path))?
+            .to_string_lossy()
+            .into_owned();
+        recorded.insert(key, e.sha256.clone());
+    }
+    // Archived mode per entry, applied (owner bits only) when the file is restored.
+    let mut modes: std::collections::HashMap<PathBuf, u32> = std::collections::HashMap::new();
 
     // Phase 1 — extract the ENTIRE archive into a staging directory that lives
     // OUTSIDE manager_data_dir so it is not touched by clear_managed_state_for_restore.
@@ -528,7 +585,15 @@ pub fn restore_backup_archive(paths: &AppPaths, archive_path: &Path, force: bool
     if stage_dir.exists() {
         let _ = fs::remove_dir_all(&stage_dir);
     }
-    fs::create_dir_all(&stage_dir).map_err(|e| {
+    // Owner-only: the staged files are the user's decrypted wallet and password data.
+    {
+        use std::os::unix::fs::DirBuilderExt;
+        fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(&stage_dir)
+    }
+    .map_err(|e| {
         Error::Backup(format!(
             "failed to create restore stage dir {}: {e}",
             stage_dir.display()
@@ -575,7 +640,17 @@ pub fn restore_backup_archive(paths: &AppPaths, archive_path: &Path, force: bool
                     ))
                 })?;
             }
-            let mut out_file = fs::File::create(&stage_path).map_err(|e| {
+            let mode = ent.header().mode().unwrap_or(0o600);
+            let mut out_file = {
+                use std::os::unix::fs::OpenOptionsExt;
+                fs::OpenOptions::new()
+                    .write(true)
+                    .create(true)
+                    .truncate(true)
+                    .mode(0o600)
+                    .open(&stage_path)
+            }
+            .map_err(|e| {
                 Error::Backup(format!(
                     "failed to create staged file {}: {e}",
                     stage_path.display()
@@ -583,22 +658,30 @@ pub fn restore_backup_archive(paths: &AppPaths, archive_path: &Path, force: bool
             })?;
             std::io::copy(&mut ent, &mut out_file)?;
             drop(out_file);
-            // Each payload entry must match the sha256 its manifest recorded at backup time,
-            // checked here, before any managed state is cleared.
-            if let Some(want) = manifest
-                .backup_entries
-                .iter()
-                .find(|e| e.logical_path == logical_s)
-                .and_then(|e| e.sha256.as_deref())
-            {
-                let got = path_sha256(&stage_path)?;
-                if got != want {
+            // Each payload entry must match the sha256 its manifest entry recorded at backup
+            // time, checked here, before any managed state is cleared. An entry the manifest
+            // does not list, or lists without a hash, is refused too.
+            let want = match recorded.get(&logical_s) {
+                Some(Some(h)) => h,
+                Some(None) => {
                     return Err(Error::Backup(format!(
-                        "archive entry {logical_s} does not match its recorded sha256 \
-                         (expected {want}, got {got}); nothing was restored"
-                    )));
+                        "archive entry {logical_s} has no recorded sha256; nothing was restored"
+                    )))
                 }
+                None => {
+                    return Err(Error::Backup(format!(
+                    "archive entry {logical_s} is not listed in the manifest; nothing was restored"
+                )))
+                }
+            };
+            let got = path_sha256(&stage_path)?;
+            if &got != want {
+                return Err(Error::Backup(format!(
+                    "archive entry {logical_s} does not match its recorded sha256 \
+                     (expected {want}, got {got}); nothing was restored"
+                )));
             }
+            modes.insert(logical.clone(), mode);
         }
         Ok(())
     })();
@@ -649,6 +732,13 @@ pub fn restore_backup_archive(paths: &AppPaths, archive_path: &Path, force: bool
                             dst.display()
                         ))
                     })?;
+                    // The archived owner bits (an AppImage stays executable), never group or
+                    // other: restored files hold wallet and password-manager data.
+                    let mode = modes.get(logical).copied().unwrap_or(0o600) & 0o700 | 0o600;
+                    {
+                        use std::os::unix::fs::PermissionsExt;
+                        fs::set_permissions(&dst, fs::Permissions::from_mode(mode))?;
+                    }
                 }
             }
         }

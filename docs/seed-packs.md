@@ -119,8 +119,9 @@ appimage-control --update-seed-packs
 ```
 
 fetches the latest release from the configured companion repo,
-verifies its 69-byte AICSIG-1 signature against the embedded
-ed25519 public key, unpacks the tarball (rejecting any non-flat /
+verifies its 77-byte v2 signature (which binds a release sequence; an
+older release than the last one installed is refused) against the
+embedded ed25519 public key, unpacks the tarball (rejecting any non-flat /
 non-`*.json` entry), validates every pack via the same loader the
 binary uses at startup, and atomically installs into the per-user
 seeds dir.

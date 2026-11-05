@@ -171,8 +171,9 @@ No network requests are made. Distribution-safe.
 | Compromise the binary-distribution channel | ✓ | The signing pub-key is part of the binary; substituting the binary substitutes the trust root, but that's equivalent to source-code compromise |
 | Compromise the maintainer's online machine | ✓ | Private key stays on cold storage; CI does not have it |
 | Compromise the maintainer's cold-storage machine | ✗ | Out of scope — equivalent to source-code compromise |
-| Replay an old signed release | ✓ | The v2 signature binds a release sequence; an install records the last accepted one (`~/.local/share/appimages/seed-pack-release-seq`) and refuses an older release ("seed-pack release N is older than installed release M") |
-| Oversized or overlong tarball | ✓ | Unpack refuses an entry over 4 MiB, a total over 32 MiB, or more than 512 entries; nothing is installed |
+| Replay an old signed release | ✓ | The v2 signature binds a release sequence; an install records the last accepted one (`~/.local/share/appimage-control/seed-pack-release-seq`, outside what backup archives and restore clears) and refuses an older release ("seed-pack release N is older than installed release M") |
+| Oversized or overlong tarball | ✓ | The tarball download is capped at 32 MiB and the signature at 77 bytes; unpack bounds the decompressed stream, accepts regular files only, and refuses an entry over 4 MiB, a total over 32 MiB, or more than 512 entries; nothing is installed |
+| Replay after a fresh install | partially | A fresh install (or a deleted record) has no floor and accepts any validly signed release once |
 | Smuggle malicious JSON into a pack file | ✓ | Each pack runs through `SeedPackLibrary::validate` after unpack; bad shapes fail before install |
 | Path traversal in the tarball | ✓ | `unpack_tar_zst_bytes` rejects any entry whose path has more than one component or doesn't end in `.json` |
 | Distribute the binary to an unauthorised user | ✓ | Without a real `DEFAULT_RELEASE_URL` and `SEED_PACKS_PUB_KEY`, `--update-seed-packs` refuses to fetch anything |

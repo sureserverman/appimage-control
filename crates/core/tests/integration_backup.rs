@@ -202,3 +202,44 @@ fn archive_mode_is_0600() {
     let mode = fs::metadata(&out).expect("meta").permissions().mode() & 0o777;
     assert_eq!(mode, 0o600, "archive mode {mode:o}");
 }
+
+/// The manifest records the sha256 of the bytes actually archived.
+#[test]
+fn manifest_hash_matches_archived_bytes() {
+    use sha2::{Digest, Sha256};
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let paths = AppPaths::new(tmp.path().to_path_buf()).expect("paths");
+    fs::create_dir_all(paths.manager_data_dir().join("apps/session/1")).expect("mkdir");
+    fs::write(
+        paths
+            .manager_data_dir()
+            .join("apps/session/1/session.AppImage"),
+        b"binary",
+    )
+    .expect("write");
+    let out = tmp.path().join("b.tar.zst");
+    let cat = fake_catalog(&tmp);
+    create_backup_archive(&paths, &cat, &out, &BackupOptions::default()).expect("backup");
+    let mut ar =
+        tar::Archive::new(zstd::stream::Decoder::new(fs::File::open(&out).unwrap()).unwrap());
+    let (mut files, mut manifest) = (std::collections::HashMap::new(), None);
+    for e in ar.entries().unwrap() {
+        let mut e = e.unwrap();
+        let p = e.path().unwrap().to_string_lossy().into_owned();
+        let mut d = Vec::new();
+        std::io::Read::read_to_end(&mut e, &mut d).unwrap();
+        if p == "manifest.json" {
+            manifest = Some(serde_json::from_slice::<serde_json::Value>(&d).unwrap());
+        } else {
+            files.insert(p, d);
+        }
+    }
+    for e in manifest.unwrap()["backup_entries"].as_array().unwrap() {
+        let p = e["logical_path"].as_str().unwrap();
+        let got: String = Sha256::digest(&files[p])
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
+        assert_eq!(e["sha256"].as_str().unwrap(), got, "{p}");
+    }
+}

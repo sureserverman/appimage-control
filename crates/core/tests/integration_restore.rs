@@ -588,3 +588,130 @@ fn tampered_entry_fails_restore_and_leaves_state_unchanged() {
         "managed state must be byte-identical"
     );
 }
+
+/// Rewrite `archive` with `edit` applied to (path, data) pairs and optional extra entries.
+fn rewrite_archive(
+    archive: &std::path::Path,
+    out_name: &str,
+    mut edit: impl FnMut(&str, &mut Vec<u8>),
+    extra: &[(&str, &[u8])],
+) -> std::path::PathBuf {
+    let f = fs::File::open(archive).expect("open");
+    let mut ar = tar::Archive::new(zstd::stream::Decoder::new(f).expect("dec"));
+    let out_path = archive.with_file_name(out_name);
+    let enc =
+        zstd::stream::Encoder::new(fs::File::create(&out_path).expect("create"), 3).expect("enc");
+    let mut b = tar::Builder::new(enc);
+    for ent in ar.entries().expect("entries") {
+        let mut ent = ent.expect("entry");
+        let mut header = ent.header().clone();
+        let path = ent.path().expect("path").to_string_lossy().into_owned();
+        let mut data = Vec::new();
+        std::io::Read::read_to_end(&mut ent, &mut data).expect("read");
+        if path == "manifest.json" {
+            for (p, d) in extra {
+                let mut h = tar::Header::new_gnu();
+                h.set_size(d.len() as u64);
+                h.set_mode(0o644);
+                h.set_cksum();
+                b.append_data(&mut h, p, *d).expect("extra");
+            }
+        }
+        edit(&path, &mut data);
+        header.set_size(data.len() as u64);
+        header.set_cksum();
+        b.append(&header, data.as_slice()).expect("append");
+    }
+    b.into_inner().expect("finish").finish().expect("zstd");
+    out_path
+}
+
+fn fresh_backup() -> (tempfile::TempDir, std::path::PathBuf) {
+    let src = tempfile::tempdir().expect("src");
+    let src_paths = AppPaths::new(src.path().to_path_buf()).expect("src paths");
+    seed_managed_state(&src_paths);
+    let cat = fake_catalog(&src);
+    let archive = src.path().join("backup.tar.zst");
+    create_backup_archive(&src_paths, &cat, &archive, &BackupOptions::default()).expect("backup");
+    (src, archive)
+}
+
+#[test]
+fn tampered_entry_not_in_manifest_fails_restore() {
+    let (_src, archive) = fresh_backup();
+    let bad = rewrite_archive(
+        &archive,
+        "extra.tar.zst",
+        |_, _| {},
+        &[("manager-data/apps/session/1/planted.sh", b"#!/bin/sh\n")],
+    );
+    let dst = tempfile::tempdir().expect("dst");
+    let dst_paths = AppPaths::new(dst.path().to_path_buf()).expect("dst paths");
+    let err = restore_backup_archive(&dst_paths, &bad, true)
+        .expect_err("must fail")
+        .to_string();
+    assert!(err.contains("planted.sh"), "{err}");
+    assert!(!dst_paths
+        .manager_data_dir()
+        .join("apps/session/1/planted.sh")
+        .exists());
+}
+
+#[test]
+fn tampered_entry_with_null_hash_fails_restore() {
+    let (_src, archive) = fresh_backup();
+    let bad = rewrite_archive(
+        &archive,
+        "nullhash.tar.zst",
+        |p, d| {
+            if p == "manifest.json" {
+                let mut m: serde_json::Value = serde_json::from_slice(d).expect("manifest");
+                for e in m["backup_entries"].as_array_mut().expect("entries") {
+                    e["sha256"] = serde_json::Value::Null;
+                }
+                *d = serde_json::to_vec(&m).expect("ser");
+            }
+        },
+        &[],
+    );
+    let dst = tempfile::tempdir().expect("dst");
+    let dst_paths = AppPaths::new(dst.path().to_path_buf()).expect("dst paths");
+    let err = restore_backup_archive(&dst_paths, &bad, true)
+        .expect_err("must fail")
+        .to_string();
+    assert!(err.contains("no recorded sha256"), "{err}");
+}
+
+/// Restored files keep the owner's bits of their archived mode (an AppImage stays
+/// executable) but are never readable by others.
+#[test]
+fn restore_keeps_owner_exec_and_drops_group_other() {
+    use std::os::unix::fs::PermissionsExt;
+    let src = tempfile::tempdir().expect("src");
+    let src_paths = AppPaths::new(src.path().to_path_buf()).expect("src paths");
+    seed_managed_state(&src_paths);
+    let img = src_paths
+        .manager_data_dir()
+        .join("apps/session/1/session.AppImage");
+    fs::set_permissions(&img, fs::Permissions::from_mode(0o755)).expect("chmod");
+    let cat = fake_catalog(&src);
+    let archive = src.path().join("backup.tar.zst");
+    create_backup_archive(&src_paths, &cat, &archive, &BackupOptions::default()).expect("backup");
+    let dst = tempfile::tempdir().expect("dst");
+    let dst_paths = AppPaths::new(dst.path().to_path_buf()).expect("dst paths");
+    restore_backup_archive(&dst_paths, &archive, false).expect("restore");
+    let m = |p: std::path::PathBuf| fs::metadata(p).expect("meta").permissions().mode() & 0o777;
+    assert_eq!(
+        m(dst_paths
+            .manager_data_dir()
+            .join("apps/session/1/session.AppImage")),
+        0o700
+    );
+    assert_eq!(
+        m(dst_paths
+            .applications_dir()
+            .join("appimage-control-session-1.desktop"))
+            & 0o077,
+        0
+    );
+}

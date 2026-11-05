@@ -9,9 +9,9 @@
 //! - `seed-packs.tar.zst` — gzip-free zstd-compressed tar of
 //!   `feather.json`, `electrum-btc.json`, and any other curated packs
 //!   the maintainer publishes.
-//! - `seed-packs.tar.zst.sig` — a 69-byte file containing the magic
-//!   bytes `AICS\x01` followed by a 64-byte ed25519 signature over the
-//!   SHA-512 of the tarball.
+//! - `seed-packs.tar.zst.sig` — a 77-byte v2 signature: the magic bytes
+//!   `AICS`, version `0x02`, the release sequence and a 64-byte ed25519
+//!   signature binding the sequence and the tarball.
 //!
 //! The verifying public key is committed as [`SEED_PACKS_PUB_KEY`] in
 //! this file. The matching private key is held offline by the
@@ -20,16 +20,19 @@
 //! crate (so anyone can audit the signing code; the user runs it on a
 //! cold-storage machine only).
 //!
-//! ## File-format spec ("AICSIG-1")
+//! ## File-format spec (signature v2)
 //!
 //! ```text
 //! offset  bytes  meaning
 //! 0       4      magic = b"AICS"
-//! 4       1      version = 0x01
-//! 5       64     ed25519 signature over SHA-512(tarball-bytes)
+//! 4       1      version = 0x02
+//! 5       8      release sequence, u64 big-endian
+//! 13      64     ed25519 signature over
+//!                b"AICS-v2\0" || sequence (8 bytes BE) || SHA-512(tarball-bytes)
 //! ```
 //!
-//! Total: 69 bytes. Anything else is rejected.
+//! Total: 77 bytes. A v1 file (69 bytes, no sequence) is refused by name;
+//! anything else is rejected.
 //!
 //! ## Why not minisign-verify
 //!
@@ -49,7 +52,6 @@ use base64::{engine::general_purpose::STANDARD, Engine as _};
 use ring::signature::{UnparsedPublicKey, ED25519};
 use sha2::{Digest, Sha512};
 
-use crate::download::download_to_file;
 use crate::error::{Error, Result};
 use crate::seed_pack::{user_seeds_dir, SeedPackLibrary};
 
@@ -105,8 +107,17 @@ pub const MAX_PACK_ENTRY_BYTES: u64 = 4 * 1024 * 1024;
 pub const MAX_PACK_TOTAL_BYTES: u64 = 32 * 1024 * 1024;
 pub const MAX_PACK_ENTRIES: usize = 512;
 
-/// File in the manager data dir recording the last accepted release sequence.
+/// File recording the last accepted release sequence.
 pub const RELEASE_SEQ_FILENAME: &str = "seed-pack-release-seq";
+
+/// Where the last accepted release sequence is kept: next to the seeds dir
+/// (`~/.local/share/appimage-control/`), outside the manager data dir that backup archives and
+/// restore clears — so a restore can neither delete the replay floor nor roll it back.
+pub(crate) fn release_seq_store() -> Option<PathBuf> {
+    user_seeds_dir()
+        .and_then(|d| d.parent().map(Path::to_path_buf))
+        .map(|d| d.join(RELEASE_SEQ_FILENAME))
+}
 
 /// The exact bytes a v2 signature covers: `"AICS-v2\0" || sequence (u64 BE) || SHA-512(tarball)`.
 /// Binding the sequence stops an older signed release from being replayed.
@@ -188,9 +199,17 @@ pub fn update_seed_packs(
     let sig = staging.join("seed-packs.tar.zst.sig");
 
     on_progress("downloading seed-packs.tar.zst");
-    download_to_file(&format!("{base}/seed-packs.tar.zst"), &tarball)?;
+    crate::download::download_to_file_capped(
+        &format!("{base}/seed-packs.tar.zst"),
+        &tarball,
+        MAX_PACK_TOTAL_BYTES,
+    )?;
     on_progress("downloading signature");
-    download_to_file(&format!("{base}/seed-packs.tar.zst.sig"), &sig)?;
+    crate::download::download_to_file_capped(
+        &format!("{base}/seed-packs.tar.zst.sig"),
+        &sig,
+        SIG_FILE_LEN as u64,
+    )?;
 
     // Read once: the bytes verified are the bytes unpacked (no swap between the two reads).
     // A release is a few compressed JSON files; refuse anything implausibly large before
@@ -202,10 +221,7 @@ pub fn update_seed_packs(
     }
     let tarball_bytes = fs::read(&tarball)?;
     let sig_bytes = fs::read(&sig)?;
-    let home = dirs::home_dir().ok_or(Error::NoHomeDir)?;
-    let seq_store = crate::paths::AppPaths::new(home)?
-        .manager_data_dir()
-        .join(RELEASE_SEQ_FILENAME);
+    let seq_store = release_seq_store().ok_or(Error::NoHomeDir)?;
     on_progress("verifying signature, unpacking and validating");
     let installed_count = install_verified_release(
         &tarball_bytes,
@@ -375,11 +391,35 @@ fn unpack_tar_zst(archive: &Path, into: &Path) -> Result<()> {
     unpack_tar_zst_bytes(&fs::read(archive)?, into)
 }
 
+/// A reader that fails once more than `left` bytes have been read.
+struct DecompressLimit<R> {
+    inner: R,
+    left: u64,
+}
+
+impl<R: std::io::Read> std::io::Read for DecompressLimit<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let n = self.inner.read(buf)?;
+        if n as u64 > self.left {
+            return Err(std::io::Error::other(
+                "seed-pack tarball decompresses past the 33 MiB limit",
+            ));
+        }
+        self.left -= n as u64;
+        Ok(n)
+    }
+}
+
 /// Unpack a flat tarball of `*.json` packs, refusing an entry over 4 MiB, a total over 32 MiB
 /// or more than 512 entries (nothing is installed from a refused release).
 fn unpack_tar_zst_bytes(archive: &[u8], into: &Path) -> Result<()> {
     fs::create_dir_all(into)?;
-    let dec = zstd::Decoder::new(archive)?;
+    // Bound the decompressed stream itself: tar reads GNU long-name and PAX records into
+    // memory before any per-entry check, and zstd compresses zeros enormously.
+    let dec = DecompressLimit {
+        inner: zstd::Decoder::new(archive)?,
+        left: MAX_PACK_TOTAL_BYTES + 1024 * 1024,
+    };
     let mut tar = tar::Archive::new(dec);
     let (mut count, mut total) = (0usize, 0u64);
     for entry in tar.entries()? {
@@ -401,6 +441,11 @@ fn unpack_tar_zst_bytes(archive: &[u8], into: &Path) -> Result<()> {
         if total > MAX_PACK_TOTAL_BYTES {
             return Err(Error::InvalidPath(
                 "seed-pack tarball: entries exceed the 32 MiB total limit".into(),
+            ));
+        }
+        if entry.header().entry_type() != tar::EntryType::Regular {
+            return Err(Error::InvalidPath(
+                "seed-pack tarball: every entry must be a regular file".into(),
             ));
         }
         let path = entry.path()?.into_owned();
@@ -919,5 +964,54 @@ mod tests {
             .collect();
         assert_eq!(names, ["installed.json"]);
         assert!(!seq.exists(), "no sequence recorded");
+    }
+
+    #[test]
+    fn unpack_bounds_decompressed_bytes_and_refuses_non_regular_entries() {
+        let tmp = tempfile::tempdir().unwrap();
+        // A GNU long-name record of 40 MiB: never counted as an entry, read into memory by
+        // the tar crate before any per-entry cap applies.
+        let mut zenc = zstd::Encoder::new(Vec::new(), 1).unwrap();
+        {
+            let mut tar = tar::Builder::new(&mut zenc);
+            let mut header = tar::Header::new_gnu();
+            header.set_size(2);
+            header.set_mode(0o644);
+            let long = format!("{}.json", "a".repeat(40 * 1024 * 1024));
+            tar.append_data(&mut header, long, &b"{}"[..]).unwrap();
+            tar.finish().unwrap();
+        }
+        let bomb = zenc.finish().unwrap();
+        let e = unpack_tar_zst_bytes(&bomb, &tmp.path().join("o1"))
+            .unwrap_err()
+            .to_string();
+        assert!(e.contains("decompresses past"), "{e}");
+
+        let mut zenc = zstd::Encoder::new(Vec::new(), 1).unwrap();
+        {
+            let mut tar = tar::Builder::new(&mut zenc);
+            let mut header = tar::Header::new_gnu();
+            header.set_entry_type(tar::EntryType::Symlink);
+            header.set_size(0);
+            tar.append_link(&mut header, "x.json", "/etc/passwd")
+                .unwrap();
+            tar.finish().unwrap();
+        }
+        let link = zenc.finish().unwrap();
+        let e = unpack_tar_zst_bytes(&link, &tmp.path().join("o2"))
+            .unwrap_err()
+            .to_string();
+        assert!(e.contains("regular file"), "{e}");
+    }
+
+    #[test]
+    fn release_sequence_record_lives_outside_the_backed_up_dir() {
+        let p = release_seq_store().expect("data dir");
+        let s = p.to_string_lossy();
+        assert!(s.ends_with("appimage-control/seed-pack-release-seq"), "{s}");
+        assert!(
+            !s.contains("/appimages/"),
+            "must not be under the manager data dir: {s}"
+        );
     }
 }

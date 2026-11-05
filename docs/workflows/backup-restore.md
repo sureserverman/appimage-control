@@ -25,7 +25,10 @@ Postconditions:
 Invariants:
 - The backup staging file is `{name}.aic-tmp-{pid}` (PID-qualified, so concurrent backups to the same path cannot clobber each other); an existing archive is never deleted before its replacement is complete — it is only atomically renamed over on success.
 - The backup archive is created mode 0600 (it holds wallet and password-manager homes), regardless of umask.
-- Restore checks each entry's sha256 against the manifest before any managed state is cleared; a tampered entry fails the restore, naming the entry.
+- Restore checks each entry's sha256 against the manifest before any managed state is cleared; a tampered entry, an entry the manifest does not list, or one listed without a hash fails the restore, naming the entry.
+- The manifest's sha256 is taken from the bytes as they are written into the archive (a file that changes size mid-backup fails the backup), so an untampered archive always restores.
+- Restored files keep the owner bits of their archived mode (an AppImage stays executable) and are never group- or other-readable; the restore staging dir is 0700.
+- The seed-pack replay floor (`~/.local/share/appimage-control/seed-pack-release-seq`) lives outside the backed-up tree, so a restore neither deletes nor rolls it back.
 - Restore extracts the ENTIRE archive into `.appimages-restore-stage.<pid>` and validates it BEFORE clearing any managed state: a failed restore (corrupt archive, bad path, I/O error in Phase 1) leaves the prior state byte-identical.
 - Hostile tar entries are rejected by `safe_relative_archive_path`: `..` components, absolute/rooted/prefixed paths, and `.`-interleaved sequences cannot escape (`Path::components()` exposes every `ParentDir`); an all-`.` entry collapsing to an empty path is also rejected, plus a defense-in-depth `starts_with(stage_dir)` check on the join.
 - Restore refuses without `--force` when managed state exists, where "state" means at least one actual **file** under the managed roots. **Empty managed directories do not count** (`restore_preflight` → `dir_contains_any_file`): a `--purge`d manager dir holds only an empty `cache/`, so a follow-up `--restore-backup` proceeds **without** `--force` (BL-003 fix, 2026-06-30). `--force` still bypasses the check unconditionally.
