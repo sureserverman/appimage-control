@@ -4,151 +4,166 @@ Environment: (see below)
 
 Fill in Verdict and Evidence under each Outcome. Do not edit the quoted lines.
 
-Setup used for every run (Ubuntu VM `user@192.168.122.204`, x86_64):
-- Built as shipped for dev: `cd ~/aic && bash -lc 'cargo build -p appimage-control'` → `~/aic/target/debug/appimage-control`, always run from that path. VM tree `crates/**/*.rs|*.json` checksum equals the host branch tree (`7c0d89a7…`).
-- Every run: fresh `HOME=$(mktemp -d /tmp/aicdemo-*)`, `XDG_DATA_HOME=$HOME/.local/share`; scratch one-app catalogs via `APPIMAGE_CONTROL_CATALOG=` (written by a small generator; entry = the real keepassxc entry with `download_url` / `sha256` changed).
-- Loopback stand-ins (`python3 standin.py`): file server + fake GitHub API on 127.0.0.1:18080 (real digest), :18081 (digest replaced by `sha256:abab…ab`), :18082 (digest `null`), :18083 (HTTP 500). Each logs the requests it receives. `openssl s_server` with a self-signed cert on :18443 for the TLS case.
-- Real upstream digest (fetched from api.github.com on the host): `KeePassXC-2.7.12-x86_64.AppImage sha256:564fe8b751b9ef7aa057e4d3d0b2878db24eaa0f6b1c855c82e699ab0913ae49`.
+Setup for every run (round 2, after gate round 1; Ubuntu VM `user@192.168.122.204`, x86_64):
+- The VM tree `~/aic` was checked first. The sha256 of every git-tracked file under `crates/`, plus `Cargo.toml` and `Cargo.lock`, equals the host branch at `f3daaa2d`. Built as shipped for dev: `cd ~/aic && bash -lc 'cargo build -p appimage-control'` → `~/aic/target/debug/appimage-control`. It was always run from that path.
+- Every CLI run used a fresh `HOME=$(mktemp -d /tmp/aicdemo-*)` with `XDG_DATA_HOME=$HOME/.local/share`. Scratch one-app catalogs were given with `APPIMAGE_CONTROL_CATALOG=<abs path>`. Each is the real `keepassxc` entry with `download_url`, `sha256` or `sha256_aarch64` changed.
+- Loopback stand-ins (`standin.py`) are a file server plus a fake GitHub API. They ran on 127.0.0.1:18080 (real digest), :18081 (digest replaced by `sha256:abab…ab`), :18082 (digest `null`) and :18083 (HTTP 500), and each logs the requests it gets. `openssl s_server` with a self-signed cert ran on :18443.
+- Real upstream digest, from `api.github.com` on the host today: `KeePassXC-2.7.12-x86_64.AppImage sha256:564fe8b751b9ef7aa057e4d3d0b2878db24eaa0f6b1c855c82e699ab0913ae49`.
+- In the output, `BAD` = `cdcd…cd` (64 hex characters).
 
 ## Outcome 1
 > Works: a GitHub-hosted app downloads, its bytes match GitHub's `digest`, and it installs as before; the cache dir gains a `.appimage-control-sha256` sidecar reading `<hex> verified github-digest`.
 Verdict: holds
 Evidence:
-Built-in catalog, real GitHub, real API:
+Built-in catalog, real GitHub download, real GitHub API (no overrides apart from the scratch HOME):
 ```
-$ HOME=/tmp/aicdemo-o1.ywaO … appimage-control +keepassxc
+$ HOME=/tmp/aicdemo-o1.51Ow … appimage-control +keepassxc
 Downloading https://github.com/keepassxreboot/keepassxc/releases/download/2.7.12/KeePassXC-2.7.12-x86_64.AppImage …
 Installed keepassxc instance 1 …
 exit=0
--rw-rw-r-- 88 …/cache/keepassxc/.appimage-control-sha256
--rwxr-xr-x 49247424 …/cache/keepassxc/KeePassXC.AppImage
+-rwxr-xr-x 2332     apps/keepassxc/1/appimage-control-launch.sh
+-rw-rw-r-- 7        apps/keepassxc/1/.appimage-control-version
+-rwxr-xr-x 49247424 apps/keepassxc/1/KeePassXC.AppImage
+-rw-rw-r-- 7        cache/keepassxc/.appimage-control-version
+-rw-rw-r-- 88       cache/keepassxc/.appimage-control-sha256
+-rwxr-xr-x 49247424 cache/keepassxc/KeePassXC.AppImage
 sidecar: 564fe8b751b9ef7aa057e4d3d0b2878db24eaa0f6b1c855c82e699ab0913ae49 verified github-digest
 sha256sum cache file: 564fe8b751b9ef7aa057e4d3d0b2878db24eaa0f6b1c855c82e699ab0913ae49
 $ appimage-control --list   →   keepassxc  KeePassXC  1  installed 2.7.12
-apps/keepassxc/1/KeePassXC.AppImage (49247424, executable), applications/appimage-control-keepassxc-1.desktop
+.local/share/applications/appimage-control-keepassxc-1.desktop present
 ```
-Extra check (same HOME): appended one byte to the cached file, then `+keepassxc` again → `Cached KeePassXC.AppImage changed since it was checked; downloading again …` / `Installed keepassxc instance 2 …`; cache back to `564fe8…`, sidecar unchanged. (Instance 1 also carried the appended byte because instances are hard links of the cache file — that came from my tampering, not from the app.)
 
 
 ## Outcome 2
 > Works: a catalog entry with `sha256` (or `sha256_aarch64` on arm64) downloads and is checked against it; a catalog hash takes precedence over GitHub's.
-Verdict: holds (x86_64 half; the `sha256_aarch64` half cannot reach by the user's route — no arm64 host available)
+Verdict: holds on x86_64. The arm64 variant (`sha256_aarch64` on arm64) cannot reach by the user's route: no arm64 host is available.
 Evidence:
-Non-GitHub URL with catalog `sha256` = real hash:
 ```
-$ HOME=… APPIMAGE_CONTROL_CATALOG=/tmp/aicscripts/cat-o2c.json appimage-control +keepassxc
-Downloading http://127.0.0.1:18080/files/KeePassXC-2.7.12-x86_64.AppImage …
-Installed keepassxc instance 1 …
-exit=0
-sidecar: 564fe8b751b9ef7aa057e4d3d0b2878db24eaa0f6b1c855c82e699ab0913ae49 verified catalog
-```
-Precedence, real GitHub download, API pointed at stand-ins:
-```
-# catalog sha256 = correct, GitHub stand-in serves a WRONG digest (:18081)
-$ … cat-o2a.json APPIMAGE_CONTROL_GITHUB_API_BASE=http://127.0.0.1:18081 appimage-control +keepassxc
+# Precedence 1: catalog sha256 = correct; GitHub API stand-in :18081 serves a WRONG digest; real GitHub download
+$ … APPIMAGE_CONTROL_CATALOG=/tmp/aicscripts/cat-gh-good.json APPIMAGE_CONTROL_GITHUB_API_BASE=http://127.0.0.1:18081 appimage-control +keepassxc
 Downloading https://github.com/keepassxreboot/keepassxc/releases/download/2.7.12/KeePassXC-2.7.12-x86_64.AppImage …
 Installed keepassxc instance 1 …
 exit=0
-sidecar: 564fe8…ae49 verified catalog
-stand-in log: (empty — API not asked)
+sidecar: 564fe8b751b9ef7aa057e4d3d0b2878db24eaa0f6b1c855c82e699ab0913ae49 verified catalog
+stand-in :18081 log: (empty — the API was not asked)
 
-# catalog sha256 = WRONG (cdcd…), GitHub stand-in serves the REAL digest (:18080)
-$ … cat-o2b.json APPIMAGE_CONTROL_GITHUB_API_BASE=http://127.0.0.1:18080 appimage-control +keepassxc
-keepassxc: download does not match the expected sha256 (expected cdcdcdcd…cdcd, got 564fe8b751b9ef7aa057e4d3d0b2878db24eaa0f6b1c855c82e699ab0913ae49); nothing was installed
-exit=1
-files: (none)
+# Precedence 2: catalog sha256 = BAD; GitHub API stand-in :18080 serves the REAL digest
+$ … cat-gh-bad.json … API_BASE=http://127.0.0.1:18080 appimage-control +keepassxc
+Downloading https://github.com/…/KeePassXC-2.7.12-x86_64.AppImage …
+keepassxc: download does not match the expected sha256 (expected cdcd…cd, got 564fe8b751b9ef7aa057e4d3d0b2878db24eaa0f6b1c855c82e699ab0913ae49); nothing was installed
+exit=1   files: none   stand-in log: (empty)
+
+# Non-GitHub URL, catalog sha256 = correct
+$ … cat-loc-good.json appimage-control +keepassxc
+Downloading http://127.0.0.1:18080/files/KeePassXC-2.7.12-x86_64.AppImage …
+Installed keepassxc instance 1 …
+exit=0   sidecar: 564fe8…ae49 verified catalog   stand-in log: GET /files/KeePassXC-2.7.12-x86_64.AppImage
+
+# x86_64 ignores sha256_aarch64: sha256 = correct, sha256_aarch64 = efef…ef
+$ … cat-arch.json appimage-control +keepassxc
+Installed keepassxc instance 1 …   exit=0   sidecar: c5d5fbed…daaa6 verified catalog
 ```
-Control showing the stand-in API is really used when the catalog has no hash: catalog without `sha256`, API :18081 → `expected abab…ab, got 564fe8…`; stand-in log `GET /repos/keepassxreboot/keepassxc/releases/tags/2.7.12`.
-`sha256_aarch64`: the VM and host are x86_64; arm64 multiarch is off-limits on this host. Not exercised.
+Control showing that the stand-in API is really consulted when the catalog has no hash: built-in catalog with API :18081 gave `keepassxc: download does not match the expected sha256 (expected abab…ab, got 564fe8…ae49); nothing was installed`, exit 1. The stand-in logged `GET /repos/keepassxreboot/keepassxc/releases/tags/2.7.12`.
 
 
 ## Outcome 3
 > The hash does not match → the `.partdownload` is deleted, nothing is made executable, the cached copy (if any) is left as it was, and the user sees `<app>: download does not match the expected sha256 (expected <a>, got <b>); nothing was installed`. No opt-in overrides a mismatch.
 Verdict: holds
 Evidence:
-No cached copy: see Outcome 2 (catalog mismatch) and the GitHub-digest mismatch (`expected abab…`): exit 1, nothing under `appimages/`.
-Cached copy present (`+keepassxc` again, catalog sha256 now wrong):
+No cached copy: see Outcome 2, precedence 2 (catalog mismatch), and the control (GitHub-digest mismatch). Both exit 1 with nothing under `appimages/`.
+
+Cached copy present. This is the HOME from Outcome 1, where the cache holds the verified 2.7.12 build. The catalog URL now points at loopback, with sha256 = BAD. A poller watched for `*partdownload*` every 50 ms:
 ```
-cache before: KeePassXC.AppImage 200000 mtime 19:25:38.311349349, sha 8f3d8183…c9e2, sidecar "8f3d…c9e2 unverified user-allowed"
-$ … cat-small-bad.json appimage-control +keepassxc
-Cached KeePassXC.AppImage does not match the catalog sha256; downloading again …
-Downloading http://127.0.0.1:18080/files/small.AppImage …
-keepassxc: download does not match the expected sha256 (expected cdcd…cdcd, got 8f3d81833cef9e2ecf370fa9c74b16c7062c3bd258238afbeee53f0b5479c9e2); nothing was installed
-exit=1
-$ … same + --allow-unverified        → same message, exit=1
-cache after both: same size, same mtime, same sha, same sidecar
-```
-Update path with a cached older build (2.7.11 installed, catalog moved to a 2.7.12 build with a wrong sha256), with a poller watching for `*.partdownload`:
-```
-$ … cat-kp-bad.json appimage-control -update
+before: cache/keepassxc/KeePassXC.AppImage 49247424 mtime 19:47:03.6282037620, sha 564fe8…ae49, sidecar "564fe8…ae49 verified github-digest"
+$ … cat-loc-bad.json appimage-control +keepassxc
 Cached KeePassXC.AppImage does not match the catalog sha256; downloading again …
 Downloading http://127.0.0.1:18080/files/KeePassXC-2.7.12-x86_64.AppImage …
-keepassxc instance 1: keepassxc: download does not match the expected sha256 (expected cdcd…cdcd, got 564fe8…ae49); nothing was installed
-Summary: 0 updated, 0 unchanged, 0 skipped (already catalog), 1 failed.
-exit=0
-poller during run: .local/share/appimages/cache/keepassxc/.KeePassXC.AppImage.0406300d-….unverified.partdownload 3137536 … 38232064
-after run: no *.partdownload
-cache + instance 1: unchanged (200000 bytes, mtime 19:26:07.0156, version file 2.7.11, sidecar unchanged)
-$ … -update --allow-unverified       → same mismatch line, 1 failed, nothing changed
+keepassxc: download does not match the expected sha256 (expected cdcd…cd, got 564fe8b751b9ef7aa057e4d3d0b2878db24eaa0f6b1c855c82e699ab0913ae49); nothing was installed
+exit=1
+poller: .KeePassXC.AppImage.beb4e618-….unverified.partdownload 16811643 … 47685632
+after: no *partdownload; cache, instance 1, version files, sidecar: same sizes, same mtimes, same sha
+$ … same + --allow-unverified  →  same mismatch line, exit=1; partdownload seen then gone; nothing changed
 ```
-(`-update` exits 0 with "1 failed" — see Findings.)
+Update path with an older cached build. 2.7.11 was installed and verified (`c5d5fbed… verified catalog`). Then the catalog moved to the 2.7.12 URL with sha256 = BAD:
+```
+$ … cat-loc-bad.json appimage-control -update
+Cache KeePassXC.AppImage is outdated for this catalog; replacing …
+Downloading http://127.0.0.1:18080/files/KeePassXC-2.7.12-x86_64.AppImage …
+keepassxc instance 1: keepassxc: download does not match the expected sha256 (expected cdcd…cd, got 564fe8…ae49); nothing was installed
+Summary: 0 updated, 0 unchanged, 0 skipped (already catalog), 1 failed.
+1 instance update(s) failed (see above)
+exit=1
+poller: -rw-rw-r-- .KeePassXC.AppImage.94ade991-….unverified.partdownload (never executable), gone after the run
+after: cache + instance 1 unchanged (200000 bytes, mtime 19:49:05.9046811950, version 2.7.11, sidecar unchanged)
+$ … -update --allow-unverified  →  same mismatch line, "1 failed", exit=1, nothing changed
+```
+GUI, Demo Delta (catalog sha256 = BAD): `+` then `Apply (1)`. No confirm dialog was offered. The new Activity log window read `Downloading http://127.0.0.1:18080/files/d.AppImage …` / `demo-d: demo-d: download does not match the expected sha256 (expected cdcd…cd, got 1b4d8780…a960); nothing was installed`. No AppImage was written for demo-d; only an empty `cache/demo-d/` directory was left. The main window's status line contradicts this (see M1).
 
 
 ## Outcome 4
 > No hash is available (catalog has none and GitHub returns `null`, the URL is not a GitHub asset, or the digest lookup failed) → CLI: the op fails with `<app>: no published sha256 to verify this download; re-run with --allow-unverified to install it anyway`. GUI: a dialog names the apps and offers Cancel (default) and "Install unverified"; Cancel leaves everything untouched, "Install unverified" re-runs Apply for those apps only. An opted-in install writes the sidecar as `<hex> unverified user-allowed`.
-Verdict: does not hold — the CLI half holds; the GUI crashes on Apply before any dialog appears (Blocking B1)
+Verdict: holds
 Evidence:
-CLI, all three causes:
+CLI, every cause (all exit=1, no files written):
 ```
 # GitHub digest null (:18082)
 keepassxc: no published sha256 to verify this download; re-run with --allow-unverified to install it anyway (github has no digest for this asset)
-exit=1, files: none, stand-in log: GET /repos/keepassxreboot/keepassxc/releases/tags/2.7.12
-# lookup failed, HTTP 500 (:18083)
+# digest lookup failed, HTTP 500 (:18083)
 keepassxc: no published sha256 to verify this download; re-run with --allow-unverified to install it anyway (github api returned HTTP 500 Internal Server Error)
-exit=1
-# lookup failed, nothing listening (:18099)
+# digest lookup failed, nothing listening (:18099)
 keepassxc: no published sha256 to verify this download; re-run with --allow-unverified to install it anyway (github api request failed: error sending request for url (http://127.0.0.1:18099/repos/keepassxreboot/keepassxc/releases/tags/2.7.12))
-exit=1
 # not a GitHub asset, no catalog sha256
 keepassxc: no published sha256 to verify this download; re-run with --allow-unverified to install it anyway (no catalog sha256 and not a GitHub asset)
-exit=1, files: none, file server log: no request for the file
+  file server log: no request
+# -update, older build installed, catalog moved to a 2.7.12 loopback URL with no sha256
+keepassxc instance 1: keepassxc: no published sha256 to verify this download; re-run with --allow-unverified to install it anyway (no catalog sha256 and not a GitHub asset)
+1 instance update(s) failed (see above); no published sha256 for keepassxc: re-run with --allow-unverified to install anyway
+exit=1, instance still 2.7.11, cache unchanged, file server: no request
 ```
 CLI opt-in:
 ```
 $ … cat-small.json appimage-control +keepassxc --allow-unverified
 keepassxc: no published sha256 (no catalog sha256 and not a GitHub asset); installing unverified as allowed
 Downloading http://127.0.0.1:18080/files/small.AppImage …
-Installed keepassxc instance 1 …
-exit=0
-sidecar: 8f3d81833cef9e2ecf370fa9c74b16c7062c3bd258238afbeee53f0b5479c9e2 unverified user-allowed
+Installed keepassxc instance 1 …   exit=0
+sidecar: c5d5fbed8d28f989e252f910831082a244a224370244e70d46a822713f3daaa6 unverified user-allowed
+$ … cat-gh-none.json API :18082 (null) appimage-control +keepassxc --allow-unverified
+keepassxc: no published sha256 (github has no digest for this asset); installing unverified as allowed
+Installed keepassxc instance 1 …   exit=0
+sidecar: 564fe8b751b9ef7aa057e4d3d0b2878db24eaa0f6b1c855c82e699ab0913ae49 unverified user-allowed
+$ … cat-loc-none.json appimage-control -update --allow-unverified     (the 2.7.11 install above)
+keepassxc instance 1: applying build from catalog cache …   Summary: 1 updated …   exit=0
+instance now 49247424 bytes, version 2.7.12; sidecar "564fe8…ae49 unverified user-allowed"
 ```
-Mixed CLI op: `+demo-c +demo-a` (demo-c has a catalog sha256, demo-a none) → `Installed demo-c instance 1 …`, then the demo-a refusal; `Summary: +demo-c OK; +demo-a FAILED (…)`, exit=1; demo-c sidecar `… verified catalog`.
-
-GUI: the GUI was started on the VM's live Wayland session (`GTK_A11Y=atspi`, scratch HOME/XDG dirs, a 3-app catalog: Demo Alpha and Demo Bravo with no sha256 served from loopback, Demo Charlie with a correct catalog sha256). It was driven over AT-SPI: click the card's `+` tile, then click `Apply (N)`, then poll the app's toplevel windows and the process.
+GUI: started on the VM's live Wayland session with `GTK_A11Y=atspi`, scratch HOME/XDG dirs and a 4-app catalog. Demo Alpha and Demo Bravo have no sha256. Demo Charlie has a correct sha256. Demo Delta has a BAD sha256. All are served from loopback. The GUI was driven over AT-SPI.
 ```
-Run 1 — + Alpha, + Bravo, + Charlie → "3 apps changing", click 'Apply (3)'
-  within 4 s the app vanished from the a11y bus; process gone
-  gui.log: thread 'main' panicked at crates/gui/src/main.rs:870:27:
-           RefCell already mutably borrowed
-           … panic in a function that cannot unwind … thread caused non-unwinding panic. aborting.
-           (stack: gtk4 SpinButton::connect_value_changed trampoline ← gtk_spin_button_set_value
-            ← appimage_control::mount_catalog_view::{{closure}}::{{closure}} at crates/gui/src/main.rs:1254:36
-            ← glib source trampoline ← g_application_run)
-  stand-in log: GET /files/c.AppImage only; files: demo-c installed, sidecar "2509b5f9…45e2 verified catalog"; nothing for Alpha/Bravo
-Run 2 — control, + Charlie only (verified) → click 'Apply (1)': no crash over 15 s; demo-c installed, "verified catalog"
-Run 3 — + Alpha only (no hash) → click 'Apply (1)'
-  t=1s: no toplevel windows; t=2s: GUI process GONE
-  thread 'main' (1125127) panicked at crates/gui/src/main.rs:870:27: RefCell already mutably borrowed
-  stand-in log: empty; files: none
-Run 4 — + Alpha, + Bravo → click 'Apply (2)'
-  t=2s: GUI process GONE; same panic at main.rs:870:27 via main.rs:1254:36; files: none
+Apply 1: + Alpha, + Bravo, + Charlie → "3 apps changing" → click 'Apply (3)'
+  t=1s: new toplevel dialog 'Install without verification?'
+    label: 'No published sha256 is available to check these downloads, so they were not installed. Install them anyway only if you trust where they come from.'
+    label: 'Demo Alpha: no catalog sha256 and not a GitHub asset\nDemo Bravo: no catalog sha256 and not a GitHub asset'
+    button: 'Cancel' [focused]
+    button: 'Install unverified'
+  stand-in log: GET /files/c.AppImage only; files: demo-c installed, sidecar "7e08acf6…fb28 verified catalog"
+  click Cancel → dialog closes; GUI alive; Alpha/Bravo 'Available + no instances'
+    file tree (names, modes, mtimes) identical before and after Cancel; stand-in log: no request
+Apply 2: + Alpha, + Bravo, + Charlie (2nd instance) → click 'Apply (3)'
+  t=1s: same dialog naming Demo Alpha and Demo Bravo, Cancel focused
+  Charlie instance 2 installed from cache ("Using cached DemoCharlie.AppImage"); no request
+  click 'Install unverified' →
+    stand-in log: GET /files/a.AppImage, GET /files/b.AppImage   (nothing for c)
+    Activity log: "demo-a: no published sha256 (…); installing unverified as allowed" / "Installed demo-a instance 1 …" / same for demo-b
+    cells: Alpha 'Installed 1', Bravo 'Installed 1', Charlie 'Installed 2 instances' (not 3)
+    sidecars: demo-a "bf30c344…6d4ed0 unverified user-allowed"
+              demo-b "79952caf…7c834f unverified user-allowed"
+              demo-c "7e08acf6…dfb28 verified catalog"
+  gui.log: empty (no panic) across all GUI runs
 ```
-No "Install unverified" dialog appeared in any run. Cancel, its default state, and the "re-run Apply for those apps only" path could not be reached. A GUI user cannot install an app that has no published hash. The GUI aborts every time they try.
+Round 1's Blocking crash on Apply did not happen in any GUI run here.
 
 
 ## Outcome 5
 > A download URL is plain http (not loopback), or redirects to one → refused with `<app>: refusing non-https download URL <url>`.
-Verdict: holds (redirect case refused with different wording — see Findings)
+Verdict: holds. The redirect case is refused with different wording; see m1.
 Evidence:
 ```
 # http URL, catalog sha256 present
@@ -156,16 +171,13 @@ $ … cat-http-sha.json appimage-control +keepassxc
 Downloading http://example.com/files/KeePassXC.AppImage …
 download failed: keepassxc: refusing non-https download URL http://example.com/files/KeePassXC.AppImage
 exit=1, files: none
-# http URL, no hash, opted in
-$ … cat-http.json appimage-control +keepassxc --allow-unverified
-download failed: keepassxc: refusing non-https download URL http://example.com/files/KeePassXC.AppImage
-exit=1
-# http URL, no hash, not opted in → the no-hash refusal comes first and tells the user to re-run with --allow-unverified
-keepassxc: no published sha256 to verify this download; re-run with --allow-unverified to install it anyway (no catalog sha256 and not a GitHub asset)
-# loopback URL that answers 302 → http://example.com/files/x.AppImage
-$ … cat-redir.json appimage-control +keepassxc --allow-unverified
+# http URL, no hash, --allow-unverified
+download failed: keepassxc: refusing non-https download URL http://example.com/files/KeePassXC.AppImage   exit=1
+# http URL, no hash, no flag → the no-hash refusal comes first (see m3)
+keepassxc: no published sha256 to verify this download; re-run with --allow-unverified to install it anyway (no catalog sha256 and not a GitHub asset)   exit=1
+# loopback URL answering 302 → http://example.com/files/x.AppImage (with a catalog sha256, and again with no hash + --allow-unverified)
 download failed: keepassxc: error following redirect for url (http://127.0.0.1:18080/redirect-http): refusing redirect to non-https URL http://example.com/files/x.AppImage
-exit=1, files: none, stand-in log: GET /redirect-http
+exit=1, files: none; stand-in log: GET /redirect-http (×2), nothing fetched from example.com
 ```
 
 
@@ -173,24 +185,25 @@ exit=1, files: none, stand-in log: GET /redirect-http
 > A download exceeds 4 GiB (Content-Length or streamed) → stopped, partial file removed, `<app>: download exceeds the 4 GiB limit`.
 Verdict: holds
 Evidence:
-Content-Length 5 GiB (server sends 64 MiB then stalls):
+Content-Length 5 GiB. The server sends 64 MiB, then stalls:
 ```
-$ … cat-hugecl.json appimage-control +keepassxc --allow-unverified
+$ … cat-hugecl.json (catalog sha256) appimage-control +keepassxc
 download failed: keepassxc: download exceeds the 4 GiB limit
-exit=1   real 0m0.108s   files: none, no *partdownload
-$ … cat-hugecl-sha.json (catalog sha256 set) appimage-control +keepassxc
+exit=1   real 0m0.123s   files: none, no *partdownload
+$ … cat-hugecl-none.json appimage-control +keepassxc --allow-unverified
 download failed: keepassxc: download exceeds the 4 GiB limit
-exit=1
+exit=1   real 0m0.109s
 stand-in log: huge-cl stopped: BrokenPipeError / ConnectionResetError (client hung up at once)
 ```
-Streamed (chunked, no Content-Length, 6 GiB of zeros). /tmp (3.7 G) and / (1 G free) cannot hold 4 GiB, so HOME was put on a temporary `tmpfs size=4700M` at /mnt/aicbig (unmounted and removed afterwards):
+Streamed download: chunked, with no Content-Length, 6 GiB of zeros. The VM's disk cannot hold 4 GiB, so HOME was put on a temporary `tmpfs size=4700M` at `/mnt/aicbig-d3`, which was unmounted and removed afterwards:
 ```
-$ HOME=/mnt/aicbig/aicdemo-run.qBRZ … cat-hugestream.json appimage-control +keepassxc --allow-unverified
+$ HOME=/mnt/aicbig-d3/aicdemo-run.Fu5d … cat-hugestream.json appimage-control +keepassxc
+Downloading http://127.0.0.1:18080/huge-stream …
 download failed: keepassxc: download exceeds the 4 GiB limit
-exit=1   real 0m9.485s
-poller: partdownload size 2218786816 … 3230281728 … 4067191654
-after: no *partdownload, files: none
-stand-in log: huge-stream stopped after 4299161600 bytes: BrokenPipeError
+exit=1   real 0m9.621s
+poller: -rw-rw-r-- partdownload 41461397 … 4265431040
+after: no *partdownload, HOME 0 bytes
+stand-in log: huge-stream stopped after 4299161600 bytes: ConnectionResetError
 ```
 
 
@@ -203,12 +216,12 @@ Evidence:
 download failed: keepassxc: error sending request for url (https://nonexistent-host.invalid/KeePassXC.AppImage): client error (Connect): dns error: failed to lookup address information: Name or service not known
 # connect
 download failed: keepassxc: error sending request for url (https://127.0.0.1:18099/KeePassXC.AppImage): client error (Connect): tcp connect error: Connection refused (os error 111)
-# TLS, plain-http server on the https port
+# TLS: plain-http server on the https port
 download failed: keepassxc: error sending request for url (https://127.0.0.1:18080/files/small.AppImage): client error (Connect): tls handshake eof
-# TLS, self-signed cert
+# TLS: self-signed cert (openssl s_server)
 download failed: keepassxc: error sending request for url (https://127.0.0.1:18443/KeePassXC.AppImage): client error (Connect): invalid peer certificate: Other(OtherError(CaUsedAsEndEntity))
 ```
-All exit=1, files: none. (The digest-lookup failure reason in Outcome 4 is still only reqwest's top line — see Findings.)
+All exit=1, files: none. The GitHub digest lookup's failure reason still shows only reqwest's top line; see m5.
 
 
 ## Findings
@@ -216,31 +229,37 @@ All exit=1, files: none. (The digest-lookup failure reason in Outcome 4 is still
 | Outcome | Verdict |
 |---|---|
 | 1 GitHub digest verified, sidecar | holds |
-| 2 catalog sha256, precedence | holds (x86_64); `sha256_aarch64` cannot reach by the user's route (no arm64 host) |
-| 3 mismatch refused | holds |
-| 4 no hash: CLI refuse / GUI dialog / opt-in sidecar | does not hold — CLI and opt-in sidecar hold, GUI crashes |
-| 5 non-https refused | holds (redirect wording differs) |
+| 2 catalog sha256, precedence | holds on x86_64; the `sha256_aarch64`-on-arm64 variant cannot reach by the user's route (no arm64 host) |
+| 3 mismatch refused, cache kept, no opt-in override | holds |
+| 4 no hash: CLI refusal, GUI dialog, opt-in sidecar | holds |
+| 5 non-https refused | holds (redirect wording differs, m1) |
 | 6 4 GiB limit | holds (Content-Length and streamed) |
 | 7 full error chain | holds |
 
-Plan goal check (host, at evaluation time): `cargo audit --json` → `vulnerabilities.count` = 0.
+Plan goal (host, at evaluation time): `cargo audit --json | python3 … sys.exit(count)` → `vulnerabilities.count = 0`, exit 0.
+
+Fixed since round 1, checked again: the GUI no longer aborts on Apply (round-1 B1). `-update` no longer relabels a stale cached build when no hash is available; it now refuses (round-1 M1). `-update` now exits 1 when an update is refused (round-1 M2).
 
 ### Blocking
-- **B1. The GUI aborts on Apply when any pending add has no published hash.** This reproduced in 3 of 3 runs: Alpha+Bravo+Charlie, Alpha alone, and Alpha+Bravo. The panic is `crates/gui/src/main.rs:870:27: RefCell already mutably borrowed`. It is raised inside a SpinButton `value-changed` handler, called through `set_value` from a glib source closure in `mount_catalog_view` (`main.rs:1254:36`). That handler cannot unwind, so the process aborts. The unverified-confirm dialog never shows. The GUI half of Outcome 4 cannot be used at all. A verified app in the same Apply (Charlie) was installed before the abort. An Apply that has only verified apps does not crash.
+- None among the Outcomes as reachable here.
+- Not reached: the arm64 variant of Outcome 2 (`sha256_aarch64` checked on an arm64 host). The VM and host are x86_64, and arm64 multiarch is off-limits on this host. On x86_64 the product correctly ignores a wrong `sha256_aarch64`. Under the brief's rule, "cannot reach" is Blocking. The gate must decide whether this platform variant needs an arm64 run.
 
 ### Material
-- **M1. `-update` relabels a stale cached build as the new version when no hash is available.** Setup: keepassxc 2.7.11 was installed with `--allow-unverified`. Then the catalog moved to a `…-2.7.12-…` URL with no sha256, and the URL is not a GitHub asset. Plain `-update` (no `--allow-unverified`) printed `Using cached KeePassXC.AppImage` / `applying build from catalog cache …` / `Summary: 1 updated`. It made no request to the server. The instance version file now says `2.7.12`, but the bytes are still the 200000-byte 2.7.11 file. The user is told they updated when they did not. The new build's missing hash is never surfaced. A similar thing happened when only the URL changed: `reconciled install metadata to 2.7.12 (AppImage size matches catalog cache)`, then "already at catalog version; skipping". The cache does not seem to be tied to the URL or version. It may predate this stage, but it undercuts the stage goal.
-- **M2. `-update` exits 0 when an update is refused for a hash mismatch** (`Summary: … 1 failed.` / `exit=0`). A script cannot tell that a tampered download was refused. `+APP` exits 1 for the same refusal.
+- **M1. The GUI says "All changes applied" after a download was refused.** Case 1: Demo Delta with a hash mismatch. After `Apply (1)`, the main window reads `All changes applied` / `Nothing pending — you're up to date`. The Activity log header reads `2 lines · 0 errors`. The only sign of the refusal is the mismatch line inside the log text. Case 2: after Cancel in the unverified dialog, the same status text shows, and the pending `+1` for Alpha and Bravo has been dropped. Files are handled correctly in both cases. But a GUI user who does not read the log is told a refused, possibly tampered download was "applied".
 
 ### Minor
-- m1. The redirect-to-http refusal reads `download failed: keepassxc: error following redirect for url (http://127.0.0.1:18080/redirect-http): refusing redirect to non-https URL http://example.com/files/x.AppImage`. The Outcome specifies `<app>: refusing non-https download URL <url>`. The download is refused, but the wording differs. Several messages also carry a `download failed: ` prefix before `<app>:`.
-- m2. For an `http://` URL with no hash, the first refusal tells the user to "re-run with --allow-unverified". Re-running with that flag then fails on the non-https check. The no-hash check runs before the https check.
-- m3. `Downloading <url> …` is printed before refusals that make no request at all: the no-hash refusal (the file server logged nothing) and the non-https refusal.
-- m4. The reason given for a failed digest lookup is only reqwest's top line: `(github api request failed: error sending request for url (http://127.0.0.1:18099/…))`. It has no `tcp connect error: Connection refused`. Outcome 7's full error chain is applied to downloads but not to this lookup.
-- m5. The temporary file is named `.KeePassXC.AppImage.<uuid>.unverified.partdownload` even when the download has a catalog sha256 that is about to be checked.
-
-### Not reached
-- `sha256_aarch64` on arm64: no arm64 host is available (arm64 multiarch on this host is off-limits).
+- m1. The redirect-to-http refusal reads `download failed: keepassxc: error following redirect for url (http://127.0.0.1:18080/redirect-http): refusing redirect to non-https URL http://example.com/files/x.AppImage`. That is not the specified `<app>: refusing non-https download URL <url>`. The download is still refused. Several CLI messages also start with `download failed: ` before `<app>:`.
+- m2. Two problems with the GUI Activity log lines. The app id is doubled: `demo-a: demo-a: no published sha256 …` and `demo-d: demo-d: download does not match …`. The no-hash line also tells a GUI user to "re-run with --allow-unverified", which is a CLI flag.
+- m3. For an `http://` URL with no hash, the first refusal says "re-run with --allow-unverified". Re-running with that flag then fails on the non-https check.
+- m4. `Downloading <url> …` is printed before refusals that make no request at all. This happens for the no-hash refusal, where the file server logged nothing, and for the non-https refusal.
+- m5. When the digest lookup fails, the reason shown is only reqwest's top line: `(github api request failed: error sending request for url (http://127.0.0.1:18099/…))`. The underlying `tcp connect error: Connection refused` is not shown.
+- m6. The temporary file is named `….unverified.partdownload` even when a catalog sha256 is about to be checked.
+- m7. Each GUI Apply opens one more "Activity log" window. Four were stacked after four Applies.
+- m8. A refused GUI download leaves an empty `cache/<app>/` directory (`cache/demo-d`).
 
 ### Housekeeping
-All background jobs finished on their own: the two GUI scenario runs and both waiters. Afterwards the stand-in servers (python, `openssl s_server`) were killed. No appimage-control process is left running; the GUI aborted in each crashing run, and the control run's GUI was killed by the next scenario. The temporary tmpfs `/mnt/aicbig` was unmounted and removed. `/tmp/aicdemo-*`, `/tmp/aicsrv` and `/tmp/aicscripts` were deleted. No system file was changed. The real HOME was only read once, by a stray `--list`, which is read-only.
+- No background job is left running. One GUI step ran past the 120 s tool timeout: its AT-SPI `toplevels` query hung while the dialog was open. It was moved to the background and finished on its own. Its completion notice was awaited, and the output read.
+- On the VM, the stand-in servers and `openssl s_server` were killed, and the GUI was closed with `kill`. Afterwards `pgrep` found no appimage-control, stand-in or s_server process.
+- The temporary tmpfs `/mnt/aicbig-d3` was unmounted and removed. `/tmp/aicscripts`, `/tmp/aicsrv` and `/tmp/aicdemo-*` were deleted, and the `/tmp` listing matches the pre-run baseline. Two `nice-dns-*` files that disappeared belonged to another session and were not touched by this run.
+- No system file was changed. `target/debug/appimage-control` was rebuilt by the instructed build command.
+- One read-only `appimage-control --catalog /tmp/aicscripts/cat-gui.json --list` ran with the real HOME. It only listed four demo apps with 0 instances and wrote nothing.
