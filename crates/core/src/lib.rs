@@ -31,7 +31,7 @@ pub use backup::{
     BackupEntry, BackupManifest, BackupOptions, BackupReport, BACKUP_FORMAT_VERSION,
 };
 pub use batch::install_batch;
-pub use catalog::{Catalog, CatalogApp, InstanceStrategy};
+pub use catalog::{parse_catalog_json, Catalog, CatalogApp, InstanceStrategy};
 pub use config::{GuiConfig, ThemePref};
 pub use desktop::{
     app_id_from_appimage_path, build_desktop_entry, parse_desktop_file, parse_desktop_str,

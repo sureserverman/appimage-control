@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 
 use crate::desktop::sanitize_app_id;
-use crate::error::Result;
+use crate::error::{Error, Result};
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
@@ -291,11 +291,81 @@ fn try_load_catalog_from_data_json_ancestors(start: &Path) -> Option<Catalog> {
     None
 }
 
+/// `true` when `s` is one plain file or directory name: non-empty, not `.` or `..`, and made of
+/// `A-Za-z0-9._-` only. Catalog `id` and `appimage_filename` become path parts, so anything else
+/// (a `/`, a `..`, a space) could steer a write outside the app's own directory.
+fn is_plain_name(s: &str) -> bool {
+    !s.is_empty()
+        && s != "."
+        && s != ".."
+        && s.bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-'))
+}
+
+/// Deserialize catalog JSON and validate it. Every catalog source (an explicit file,
+/// `APPIMAGE_CONTROL_CATALOG`, the `data/catalog.json` walks, the system paths and the embedded
+/// copy) goes through here, so no unvalidated catalog reaches the rest of the app.
+pub fn parse_catalog_json(raw: &str) -> Result<Catalog> {
+    let c: Catalog = serde_json::from_str(raw)?;
+    c.validate()?;
+    Ok(c)
+}
+
+/// The embedded catalog's load path, separate so a test can feed it a bad string.
+fn parse_embedded_catalog(raw: &str) -> Result<Catalog> {
+    parse_catalog_json(raw)
+}
+
 impl Catalog {
+    /// Refuse a catalog whose fields would be used as unsafe path parts: an `id` or
+    /// `appimage_filename` that is not one plain name, or a `reset_*_dirs` entry that is empty,
+    /// `.`, absolute or contains `..`. The error names the app and the field.
+    pub fn validate(&self) -> Result<()> {
+        let bad = |id: &str, field: &str, value: &str, why: &str| {
+            Error::InvalidCatalog(format!("app {id:?}: field `{field}` = {value:?} {why}"))
+        };
+        for app in &self.apps {
+            if !is_plain_name(&app.id) {
+                return Err(bad(
+                    &app.id,
+                    "id",
+                    &app.id,
+                    "must be one plain name (A-Za-z0-9._-, not . or ..)",
+                ));
+            }
+            if let Some(f) = &app.appimage_filename {
+                if !is_plain_name(f) {
+                    return Err(bad(
+                        &app.id,
+                        "appimage_filename",
+                        f,
+                        "must be one plain name (A-Za-z0-9._-, not . or ..)",
+                    ));
+                }
+            }
+            for (field, entries) in [
+                ("reset_config_dirs", &app.reset_config_dirs),
+                ("reset_cache_dirs", &app.reset_cache_dirs),
+                ("reset_data_dirs", &app.reset_data_dirs),
+            ] {
+                for rel in entries {
+                    if !crate::reset::is_safe_reset_rel(rel) {
+                        return Err(bad(
+                            &app.id,
+                            field,
+                            rel,
+                            "must be a relative path with a name in it and no `..`",
+                        ));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub fn load_from_path(path: &Path) -> Result<Self> {
         let raw = fs::read_to_string(path)?;
-        let c: Catalog = serde_json::from_str(&raw)?;
-        Ok(c)
+        parse_catalog_json(&raw)
     }
 
     /// Resolve catalog JSON: `explicit` path (must load if present), else non-empty
@@ -356,7 +426,7 @@ impl Catalog {
                 return Ok(c);
             }
         }
-        serde_json::from_str::<Catalog>(SHIPPED_CATALOG_JSON).map_err(|e| {
+        parse_embedded_catalog(SHIPPED_CATALOG_JSON).map_err(|e| {
             crate::error::Error::InvalidPath(format!(
                 "built-in catalog failed to parse (report as a bug): {e}"
             ))
@@ -508,7 +578,8 @@ mod tests {
 
     #[test]
     fn shipped_catalog_embed_constant_parses() {
-        let c: Catalog = serde_json::from_str(super::SHIPPED_CATALOG_JSON).expect("embed parse");
+        let c: Catalog =
+            super::parse_catalog_json(super::SHIPPED_CATALOG_JSON).expect("embed parse");
         assert!(!c.apps.is_empty(), "shipped catalog should list apps");
     }
 
@@ -600,5 +671,126 @@ mod tests {
 
         let catalog = result.expect("should fall through to embedded catalog");
         assert!(!catalog.apps.is_empty());
+    }
+
+    // --- Task 2.1: every catalog load path validates its fields ---------------------------
+
+    /// A catalog JSON with one good app and one app built from `extra` (a JSON object body).
+    fn catalog_json_with(extra: &str) -> String {
+        format!(
+            r#"{{"apps":[{{"id":"okapp","download_url":"https://example.com/a.AppImage"}},{{{extra}}}]}}"#
+        )
+    }
+
+    fn bad_name_values() -> [&'static str; 7] {
+        ["../x", "/abs", "a/b", "", ".", "..", "x y"]
+    }
+
+    #[test]
+    fn validate_refuses_bad_id_naming_the_field() {
+        for bad in bad_name_values() {
+            let json =
+                catalog_json_with(&format!(r#""id":{}"#, serde_json::to_string(bad).unwrap()));
+            let err = super::parse_catalog_json(&json)
+                .expect_err(&format!("id {bad:?} must be refused"))
+                .to_string();
+            assert!(
+                err.contains("`id`"),
+                "id {bad:?}: error must name the field: {err}"
+            );
+        }
+    }
+
+    #[test]
+    fn validate_refuses_bad_appimage_filename_naming_app_and_field() {
+        for bad in bad_name_values() {
+            let json = catalog_json_with(&format!(
+                r#""id":"evilapp","appimage_filename":{}"#,
+                serde_json::to_string(bad).unwrap()
+            ));
+            let err = super::parse_catalog_json(&json)
+                .expect_err(&format!("appimage_filename {bad:?} must be refused"))
+                .to_string();
+            assert!(
+                err.contains("evilapp") && err.contains("`appimage_filename`"),
+                "appimage_filename {bad:?}: error must name app and field: {err}"
+            );
+        }
+    }
+
+    #[test]
+    fn validate_refuses_bad_reset_entries_naming_the_field() {
+        for field in ["reset_config_dirs", "reset_cache_dirs", "reset_data_dirs"] {
+            for bad in ["", ".", "/etc", "a/../.."] {
+                let json = catalog_json_with(&format!(
+                    r#""id":"evilapp","{field}":[{}]"#,
+                    serde_json::to_string(bad).unwrap()
+                ));
+                let err = super::parse_catalog_json(&json)
+                    .expect_err(&format!("{field} {bad:?} must be refused"))
+                    .to_string();
+                assert!(
+                    err.contains("evilapp") && err.contains(&format!("`{field}`")),
+                    "{field} {bad:?}: error must name app and field: {err}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn validate_accepts_shipped_and_embedded_catalogs() {
+        let embedded = super::parse_catalog_json(super::SHIPPED_CATALOG_JSON).expect("embedded");
+        assert!(!embedded.apps.is_empty());
+        let file = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/catalog.json");
+        Catalog::load_from_path(&file).expect("shipped data/catalog.json validates");
+    }
+
+    #[test]
+    fn load_path_file_refuses_bad_catalog() {
+        let tmp = tempfile::tempdir().unwrap();
+        let p = tmp.path().join("catalog.json");
+        fs::write(
+            &p,
+            catalog_json_with(r#""id":"evilapp","appimage_filename":"../x""#),
+        )
+        .unwrap();
+        let err = Catalog::load_from_path(&p)
+            .expect_err("bad file must be refused")
+            .to_string();
+        assert!(err.contains("`appimage_filename`"), "{err}");
+        assert!(Catalog::discover_load(Some(p.as_path())).is_err());
+    }
+
+    #[test]
+    fn load_path_env_refuses_bad_catalog_and_falls_through() {
+        let _g = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+        let tmp = tempfile::tempdir().unwrap();
+        let p = tmp.path().join("bad.json");
+        fs::write(
+            &p,
+            r#"{"apps":[{"id":"env-decoy-ok","download_url":"https://example.com/a.AppImage"},{"id":"evilapp","reset_config_dirs":[""]}]}"#,
+        )
+        .unwrap();
+        let prev = std::env::var("APPIMAGE_CONTROL_CATALOG").ok();
+        std::env::set_var("APPIMAGE_CONTROL_CATALOG", p.to_str().unwrap());
+        let result = Catalog::discover_load(None);
+        match prev {
+            Some(v) => std::env::set_var("APPIMAGE_CONTROL_CATALOG", v),
+            None => std::env::remove_var("APPIMAGE_CONTROL_CATALOG"),
+        }
+        let c = result.expect("falls through to another source");
+        assert!(
+            !c.apps.iter().any(|a| a.id == "env-decoy-ok"),
+            "an invalid APPIMAGE_CONTROL_CATALOG must not be used"
+        );
+    }
+
+    #[test]
+    fn load_path_embedded_refuses_bad_catalog() {
+        let bad = catalog_json_with(r#""id":"evilapp","reset_data_dirs":["."]"#);
+        let err = super::parse_embedded_catalog(&bad)
+            .expect_err("embedded parse must validate")
+            .to_string();
+        assert!(err.contains("`reset_data_dirs`"), "{err}");
     }
 }

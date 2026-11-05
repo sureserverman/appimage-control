@@ -10,6 +10,9 @@ pub enum Error {
     #[error("invalid path: {0}")]
     InvalidPath(String),
 
+    #[error("invalid catalog: {0}")]
+    InvalidCatalog(String),
+
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 

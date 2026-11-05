@@ -15,29 +15,31 @@ pub struct ResetPreview {
 ///
 /// A path is rejected when it:
 /// - Is absolute (starts with `/`), or
-/// - Contains any `..` component (path traversal escape).
-///
-/// Empty strings pass through and produce the base directory itself (`.exists()` will be false
-/// in practice because the base dirs only exist when apps are installed, not for empty strings).
-fn is_safe_reset_rel(rel: &str) -> bool {
+/// - Contains any `..` component (path traversal escape), or
+/// - Has no normal component at all (`""`, `.`, `./.`): joined onto `~/.config` it would name the
+///   base directory itself, and reset would delete all of it.
+pub(crate) fn is_safe_reset_rel(rel: &str) -> bool {
     let p = Path::new(rel);
     // Reject absolute paths outright.
     if p.is_absolute() {
         return false;
     }
-    // Reject any component that is `..`.
+    let mut has_normal = false;
     for comp in p.components() {
-        if comp == Component::ParentDir {
-            return false;
+        match comp {
+            Component::Normal(_) => has_normal = true,
+            Component::CurDir => {}
+            // `..`, a root or a prefix all leave the base directory.
+            Component::ParentDir | Component::RootDir | Component::Prefix(_) => return false,
         }
     }
-    true
+    has_normal
 }
 
 /// Resolve directories that would be deleted for an app id using optional catalog hints.
 ///
-/// Catalog-supplied relative path segments are validated with [`is_safe_reset_rel`]; any segment
-/// containing `..` or an absolute path is skipped with a warning to stderr.
+/// Catalog-supplied relative path segments are validated with [`is_safe_reset_rel`]; any unsafe
+/// segment (empty, `.`, absolute, or containing `..`) is skipped with a warning to stderr.
 pub fn preview_reset_paths(
     paths: &AppPaths,
     catalog: Option<&Catalog>,
@@ -49,7 +51,7 @@ pub fn preview_reset_paths(
             for rel in &entry.reset_config_dirs {
                 if !is_safe_reset_rel(rel) {
                     eprintln!(
-                        "appimage-control: warning: reset_config_dirs entry {:?} for app '{}' contains '..' or is absolute; skipping",
+                        "appimage-control: warning: reset_config_dirs entry {:?} for app '{}' is empty, '.', absolute or contains '..'; skipping",
                         rel, app_id
                     );
                     continue;
@@ -62,7 +64,7 @@ pub fn preview_reset_paths(
             for rel in &entry.reset_cache_dirs {
                 if !is_safe_reset_rel(rel) {
                     eprintln!(
-                        "appimage-control: warning: reset_cache_dirs entry {:?} for app '{}' contains '..' or is absolute; skipping",
+                        "appimage-control: warning: reset_cache_dirs entry {:?} for app '{}' is empty, '.', absolute or contains '..'; skipping",
                         rel, app_id
                     );
                     continue;
@@ -75,7 +77,7 @@ pub fn preview_reset_paths(
             for rel in &entry.reset_data_dirs {
                 if !is_safe_reset_rel(rel) {
                     eprintln!(
-                        "appimage-control: warning: reset_data_dirs entry {:?} for app '{}' contains '..' or is absolute; skipping",
+                        "appimage-control: warning: reset_data_dirs entry {:?} for app '{}' is empty, '.', absolute or contains '..'; skipping",
                         rel, app_id
                     );
                     continue;
@@ -227,5 +229,16 @@ mod tests {
             "expected no paths for absolute reset dir, got: {:?}",
             prev.paths
         );
+    }
+
+    #[test]
+    fn reset_rel_requires_a_normal_component() {
+        assert!(!is_safe_reset_rel(""));
+        assert!(!is_safe_reset_rel("."));
+        assert!(!is_safe_reset_rel("./."));
+        assert!(!is_safe_reset_rel("/etc"));
+        assert!(!is_safe_reset_rel("a/../.."));
+        assert!(is_safe_reset_rel("feather"));
+        assert!(is_safe_reset_rel("Standard Notes"));
     }
 }

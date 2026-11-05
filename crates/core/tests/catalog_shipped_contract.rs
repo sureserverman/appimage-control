@@ -4,7 +4,9 @@ mod common;
 
 use std::fs;
 
-use appimage_control_core::{Catalog, CatalogApp, InstanceStrategy, MAX_INSTANCES_PER_APP};
+use appimage_control_core::{
+    parse_catalog_json, Catalog, CatalogApp, InstanceStrategy, MAX_INSTANCES_PER_APP,
+};
 
 fn catalog_has_strategy(catalog: &Catalog, strategy: InstanceStrategy) -> bool {
     catalog.apps.iter().any(|a| a.instance_strategy == strategy)
@@ -19,7 +21,7 @@ fn shipped_catalog_loads_and_covers_instance_strategies() {
         path.display()
     );
     let raw = fs::read_to_string(&path).expect("read catalog");
-    let catalog: Catalog = serde_json::from_str(&raw).expect("deserialize catalog");
+    let catalog: Catalog = parse_catalog_json(&raw).expect("deserialize and validate catalog");
 
     for app in &catalog.apps {
         if matches!(std::env::consts::ARCH, "x86_64" | "x86") {
