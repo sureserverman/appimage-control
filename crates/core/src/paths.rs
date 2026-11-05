@@ -1,8 +1,28 @@
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use crate::catalog::CatalogApp;
 use crate::desktop::DESKTOP_PREFIX;
 use crate::error::{Error, Result};
+
+/// `true` when `rel` is a relative path that stays under whatever directory it is joined to:
+/// not absolute, no `..` component, and at least one normal component (so `""` and `.` do not
+/// name the base directory itself). Catalog reset hints and seed-pack `config_path` both use
+/// this one rule.
+pub(crate) fn is_safe_relative_path(rel: &str) -> bool {
+    let p = Path::new(rel);
+    if p.is_absolute() {
+        return false;
+    }
+    let mut has_normal = false;
+    for comp in p.components() {
+        match comp {
+            Component::Normal(_) => has_normal = true,
+            Component::CurDir => {}
+            Component::ParentDir | Component::RootDir | Component::Prefix(_) => return false,
+        }
+    }
+    has_normal
+}
 
 /// Filesystem layout for managed AppImages (override `home` in tests).
 #[derive(Debug, Clone)]

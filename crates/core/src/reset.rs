@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::{Component, Path, PathBuf};
+use std::path::PathBuf;
 
 use crate::catalog::Catalog;
 use crate::error::{Error, Result};
@@ -19,21 +19,7 @@ pub struct ResetPreview {
 /// - Has no normal component at all (`""`, `.`, `./.`): joined onto `~/.config` it would name the
 ///   base directory itself, and reset would delete all of it.
 pub(crate) fn is_safe_reset_rel(rel: &str) -> bool {
-    let p = Path::new(rel);
-    // Reject absolute paths outright.
-    if p.is_absolute() {
-        return false;
-    }
-    let mut has_normal = false;
-    for comp in p.components() {
-        match comp {
-            Component::Normal(_) => has_normal = true,
-            Component::CurDir => {}
-            // `..`, a root or a prefix all leave the base directory.
-            Component::ParentDir | Component::RootDir | Component::Prefix(_) => return false,
-        }
-    }
-    has_normal
+    crate::paths::is_safe_relative_path(rel)
 }
 
 /// Resolve directories that would be deleted for an app id using optional catalog hints.

@@ -143,6 +143,9 @@ include!(concat!(env!("OUT_DIR"), "/shipped_seeds.rs"));
 pub struct SeedPackLibrary {
     packs: BTreeMap<String, SeedPack>,
     sources: BTreeMap<String, PathBuf>,
+    /// Packs in the loaded directory that failed to parse or validate, keyed by app id (file
+    /// stem), with the reason. They are skipped; every other pack still loads (WF-SEED-001).
+    refused: BTreeMap<String, String>,
 }
 
 impl SeedPackLibrary {
@@ -180,7 +183,9 @@ impl SeedPackLibrary {
 
     /// Load every `*.json` file in `dir` as a seed pack keyed by file
     /// stem. Returns `Ok(None)` when `dir` is missing or contains no
-    /// `*.json` files; `Err` when a present `*.json` fails to parse.
+    /// `*.json` files. A pack that fails to parse or validate is refused:
+    /// a warning names it and the reason, it is listed by
+    /// [`SeedPackLibrary::refused`], and every other pack still loads.
     pub fn load_from_dir(dir: &Path) -> Result<Option<Self>> {
         if !dir.is_dir() {
             return Ok(None);
@@ -201,17 +206,43 @@ impl SeedPackLibrary {
                 })?
                 .to_string();
             let raw = fs::read_to_string(&path).map_err(Error::Io)?;
-            let pack = parse_pack(&raw)
-                .map_err(|e| Error::InvalidPath(format!("seed pack {}: {e}", path.display())))?;
-            lib.packs.insert(stem.clone(), pack);
-            lib.sources.insert(stem, path);
+            let checked = parse_pack(&raw)
+                .map_err(|e| format!("seed pack {}: {e}", path.display()))
+                .and_then(|pack| {
+                    validate_pack(&pack).map(|()| pack).map_err(|e| {
+                        let msg = match e {
+                            Error::InvalidPath(msg) => msg,
+                            other => other.to_string(),
+                        };
+                        format!("seed pack `{stem}` ({}): {msg}", path.display())
+                    })
+                });
+            match checked {
+                Ok(pack) => {
+                    lib.packs.insert(stem.clone(), pack);
+                    lib.sources.insert(stem, path);
+                }
+                Err(reason) => {
+                    eprintln!("appimage-control: warning: {reason}; skipping this pack");
+                    lib.refused.insert(stem, reason);
+                }
+            }
         }
-        if lib.is_empty() {
+        if lib.is_empty() && lib.refused.is_empty() {
             Ok(None)
         } else {
-            lib.validate()?;
             Ok(Some(lib))
         }
+    }
+
+    /// Packs refused at load, as `(app_id, reason)` in id order.
+    pub fn refused(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.refused.iter().map(|(k, v)| (k.as_str(), v.as_str()))
+    }
+
+    /// Why the pack for `app_id` was refused, if it was.
+    pub fn refusal_for(&self, app_id: &str) -> Option<&str> {
+        self.refused.get(app_id).map(String::as_str)
     }
 
     /// Resolve a seed-pack library against the same fallback chain
@@ -349,8 +380,13 @@ impl SeedPackLibrary {
 }
 
 fn validate_pack(pack: &SeedPack) -> Result<()> {
-    if pack.config_path.is_empty() {
-        return Err(Error::InvalidPath("config_path must be non-empty".into()));
+    // `config_path` is joined onto the instance directory, so it must stay inside it.
+    if !crate::paths::is_safe_relative_path(&pack.config_path) {
+        return Err(Error::InvalidPath(format!(
+            "field `config_path` = {:?} must be a relative path inside the instance directory \
+             (not absolute, no `..`, not empty)",
+            pack.config_path
+        )));
     }
     if pack.proxy_setup.as_ref().is_some_and(|p| p.app.is_empty()) {
         return Err(Error::InvalidPath(
@@ -469,9 +505,14 @@ mod tests {
             r#"{"config_path":"x.json","preset":{"k":{"port":{"isolation":"none","field":"url"}}}}"#,
         )
         .unwrap();
-        let err = SeedPackLibrary::load_from_dir(tmp.path())
-            .unwrap_err()
-            .to_string();
+        // Refused by name, with the migration message; the directory still loads
+        // (WF-SEED-001 step 2: a refused pack is skipped, the others load).
+        let lib = SeedPackLibrary::load_from_dir(tmp.path()).unwrap().unwrap();
+        assert!(
+            lib.get("old-wallet").is_none(),
+            "a legacy pack is not loaded"
+        );
+        let err = lib.refusal_for("old-wallet").expect("refused").to_string();
         assert!(err.contains("old-wallet.json"), "names the file: {err}");
         assert!(err.contains("proxy_setup"), "says how to migrate: {err}");
     }
@@ -776,8 +817,12 @@ mod tests {
         let dir = tmp.path().join("seeds");
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("bad.json"), "{not json}").unwrap();
-        let err = SeedPackLibrary::load_from_dir(&dir).unwrap_err();
-        let s = err.to_string();
+        // Refused by file name with the parse position, not a whole-directory failure.
+        let lib = SeedPackLibrary::load_from_dir(&dir).unwrap().unwrap();
+        let s = lib
+            .refusal_for("bad")
+            .expect("bad.json refused")
+            .to_string();
         assert!(
             s.contains("bad.json"),
             "expected filename in error, got: {s}"
@@ -792,9 +837,9 @@ mod tests {
 
     #[test]
     fn load_from_dir_attributes_validation_errors_to_pack_id() {
-        // Pack parses cleanly but has an empty rotation list. validate()
-        // is called from inside load_from_dir, so the mistake surfaces
-        // here, not at first seed.
+        // Pack parses cleanly but has an empty rotation list. Each pack is
+        // validated inside load_from_dir, so the mistake surfaces here (the
+        // pack is refused by id), not at first seed.
         let tmp = tempfile::tempdir().unwrap();
         let dir = tmp.path().join("seeds");
         std::fs::create_dir_all(&dir).unwrap();
@@ -803,9 +848,9 @@ mod tests {
             r#"{"config_path":"x","rotation":{"k":{"values":[]}}}"#,
         )
         .unwrap();
-        let err = SeedPackLibrary::load_from_dir(&dir)
-            .unwrap_err()
-            .to_string();
+        let lib = SeedPackLibrary::load_from_dir(&dir).unwrap().unwrap();
+        assert!(lib.get("typo").is_none(), "an invalid pack is not loaded");
+        let err = lib.refusal_for("typo").expect("typo refused").to_string();
         assert!(
             err.contains("typo"),
             "expected pack id `typo` in error, got: {err}"
@@ -985,6 +1030,79 @@ mod tests {
                 !pack.config_path.is_empty(),
                 "pack {id}: config_path should be non-empty"
             );
+        }
+    }
+
+    // --- Task 2.3: config_path stays inside the instance directory ------------------------
+
+    #[test]
+    fn config_path_refuses_absolute_and_parent_paths_naming_pack_and_field() {
+        for bad in [
+            "/abs/x.json",
+            "../x",
+            "{appimage}/../../x",
+            "a/./../b",
+            "",
+            ".",
+        ] {
+            let raw = format!(
+                r#"{{"config_path":{}}}"#,
+                serde_json::to_string(bad).unwrap()
+            );
+            let lib = SeedPackLibrary::from_pairs(vec![("evilpack", raw.as_str())]).unwrap();
+            let err = lib
+                .validate()
+                .expect_err(&format!("config_path {bad:?} must be refused"))
+                .to_string();
+            assert!(
+                err.contains("evilpack") && err.contains("`config_path`"),
+                "config_path {bad:?}: error must name the pack and the field: {err}"
+            );
+        }
+    }
+
+    #[test]
+    fn config_path_refused_pack_is_skipped_and_others_load() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("seeds");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("evilpack.json"),
+            r#"{"config_path":"{appimage}/../../x"}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("goodpack.json"),
+            r#"{"config_path":"{appimage}.config/good/settings.json"}"#,
+        )
+        .unwrap();
+        let lib = SeedPackLibrary::load_from_dir(&dir).unwrap().unwrap();
+        assert!(
+            lib.get("evilpack").is_none(),
+            "the unsafe pack must not load"
+        );
+        assert!(lib.get("goodpack").is_some(), "the other pack still loads");
+        let err = lib.refusal_for("evilpack").expect("evilpack refused");
+        assert!(
+            err.contains("evilpack") && err.contains("`config_path`"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn config_path_accepts_shipped_shapes() {
+        for ok in [
+            "{appimage}.config/feather/settings.json",
+            "{appimage}.home/.electrum/config",
+            "settings.json",
+        ] {
+            let raw = format!(
+                r#"{{"config_path":{}}}"#,
+                serde_json::to_string(ok).unwrap()
+            );
+            let lib = SeedPackLibrary::from_pairs(vec![("okpack", raw.as_str())]).unwrap();
+            lib.validate()
+                .unwrap_or_else(|e| panic!("{ok:?} must load: {e}"));
         }
     }
 }

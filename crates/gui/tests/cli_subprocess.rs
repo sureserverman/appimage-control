@@ -292,7 +292,8 @@ fn seed_new_old_helper_exits_failure_with_hint_instance_installed() {
 
 /// The recorder only reads a pack for its defaults, so it carries on without
 /// one, but it says that the pack was refused rather than acting as if none
-/// exists.
+/// exists. A refused pack is skipped by name and the others load
+/// (WF-SEED-001 step 2), so the warning names the pack and the migration.
 #[test]
 fn record_baseline_names_a_refused_pack() {
     let tmp = tempfile::tempdir().expect("tmp");
@@ -316,7 +317,9 @@ fn record_baseline_names_a_refused_pack() {
         .expect("record");
     let err = String::from_utf8_lossy(&out.stderr);
     assert!(
-        err.contains("Ignoring existing seed packs") && err.contains("proxy_setup"),
+        err.contains("feather.json")
+            && err.contains("skipping this pack")
+            && err.contains("proxy_setup"),
         "stderr: {err}"
     );
 }

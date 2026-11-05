@@ -50,13 +50,15 @@ Preferences shows the same probe's result: the **Proxy setup via** row reads
 
 ## Migrating a private seed pack
 
-Packs that still use `preset` or `port` are refused, and while one is refused no
-pack loads and seeding stops. This is deliberate: ignoring those keys would leave
-a wallet with no proxy and no warning.
+Packs that still use `preset` or `port` are refused by name and skipped: the other
+packs still load, and seeding the refused pack's app fails with the migration
+message. This is deliberate: ignoring those keys would leave a wallet with no proxy
+and no warning.
 
 1. **Upgrade portmux**, so that `portmux-port configure-app --help` exits 0.
-2. **Find the pack.** Run `appimage-control --list-seed-packs`. The error names
-   one file at a time, so repeat these steps until it lists packs with no error.
+2. **Find the pack.** Run `appimage-control --list-seed-packs`. It lists every
+   refused pack on stderr (`refused<TAB>id<TAB>reason`) and exits non-zero until
+   none is left.
    Per-user packs live in `~/.local/share/appimage-control/seeds/`.
 3. **Sort the keys under `preset`.** Each key is one of two kinds:
    - A proxy setting (host, port, a URL built from them, "use local Tor", or any

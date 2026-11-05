@@ -1725,16 +1725,34 @@ fn install_window_actions_for_catalog(
             let update_btn = update_btn.clone();
             let refresh = Rc::clone(&refresh_fn);
             Rc::new(move || {
-                // The check below falls back to the embedded packs, so a refused
-                // pack would read as "nothing to seed". Say what is wrong instead.
-                if let Err(e) = SeedPackLibrary::discover_load(None) {
-                    present_message_window(
-                        window.application().as_ref().expect("app"),
-                        "Seed packs not loaded",
-                        &e.to_string(),
-                        None,
-                    );
-                    return;
+                // The check below falls back to the embedded packs, so a library that
+                // cannot load would read as "nothing to seed". Say what is wrong instead.
+                match SeedPackLibrary::discover_load(None) {
+                    Err(e) => {
+                        present_message_window(
+                            window.application().as_ref().expect("app"),
+                            "Seed packs not loaded",
+                            &e.to_string(),
+                            None,
+                        );
+                        return;
+                    }
+                    // A refused pack is skipped and the others still seed (WF-SEED-001
+                    // step 2); name it so its app is not silently missing from the list.
+                    Ok(lib) => {
+                        let refused: Vec<String> = lib
+                            .refused()
+                            .map(|(id, why)| format!("{id}: {why}"))
+                            .collect();
+                        if !refused.is_empty() {
+                            present_message_window(
+                                window.application().as_ref().expect("app"),
+                                "Some seed packs were skipped",
+                                &refused.join("\n\n"),
+                                None,
+                            );
+                        }
+                    }
                 }
                 let installed_supported: Vec<(String, String, u32, usize)> = catalog
                     .apps
@@ -2755,6 +2773,13 @@ fn install_window_actions_for_catalog(
                             log.push_str("Loaded seed packs:\n");
                             for (id, src) in rows {
                                 log.push_str(&format!("  {id}\t{src}\n"));
+                            }
+                        }
+                        let refused: Vec<_> = lib.refused().collect();
+                        if !refused.is_empty() {
+                            log.push_str("Refused seed packs (skipped):\n");
+                            for (id, why) in refused {
+                                log.push_str(&format!("  {id}\t{why}\n"));
                             }
                         }
                     }

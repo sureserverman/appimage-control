@@ -73,7 +73,8 @@ When --purge, --clean, or --migrate is present, only one runs: --purge first if 
                    Print one tab-separated row per loaded seed pack:
                    `<app-id>\\t<source-path-or-embedded>`. Useful to confirm which
                    override the discovery chain (APPIMAGE_CONTROL_SEEDS_DIR, ancestor
-                   walk, /app/share/ or /usr/share/, embedded) picked.
+                   walk, /app/share/ or /usr/share/, embedded) picked. A refused pack is
+                   printed to stderr as `refused\\t<app-id>\\t<reason>` and the run exits 1.
   --update-seed-packs
                    Fetch the latest signed seed-pack tarball from the companion
                    GitHub repo, verify the ed25519 signature against the embedded
@@ -471,6 +472,10 @@ fn existing_pack_config(app_id: &str) -> Option<(String, Vec<String>)> {
             return None;
         }
     };
+    if let Some(why) = lib.refusal_for(app_id) {
+        eprintln!("Ignoring existing seed packs: {why}");
+        return None;
+    }
     let pack = lib.get(app_id)?;
     Some((pack.config_path.clone(), pack.first_run_args.clone()))
 }
@@ -1046,7 +1051,18 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
                 for (id, src) in lib.list_rows() {
                     println!("{id}\t{src}");
                 }
-                return Some(glib::ExitCode::SUCCESS);
+                // A refused pack was skipped (the others loaded); name it and fail the run
+                // so a script notices.
+                let mut refused = false;
+                for (id, why) in lib.refused() {
+                    eprintln!("refused\t{id}\t{why}");
+                    refused = true;
+                }
+                return Some(if refused {
+                    glib::ExitCode::FAILURE
+                } else {
+                    glib::ExitCode::SUCCESS
+                });
             }
             Err(e) => {
                 eprintln!("{e}");

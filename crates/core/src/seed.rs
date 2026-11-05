@@ -151,8 +151,17 @@ pub struct SeedRecipe {
 }
 
 impl SeedRecipe {
-    pub fn config_path_for(&self, filename: &str) -> PathBuf {
-        PathBuf::from(self.pack.config_path.replace("{appimage}", filename))
+    /// The config file path relative to the instance directory, with `{appimage}` replaced by
+    /// the AppImage's filename. Re-checked after the substitution, so a filename cannot carry
+    /// the path out of the instance directory either.
+    pub fn config_path_for(&self, filename: &str) -> Result<PathBuf> {
+        let rel = self.pack.config_path.replace("{appimage}", filename);
+        if !crate::paths::is_safe_relative_path(&rel) {
+            return Err(Error::InvalidPath(format!(
+                "seed pack config_path resolves outside the instance directory: {rel:?}"
+            )));
+        }
+        Ok(PathBuf::from(rel))
     }
 }
 
@@ -175,7 +184,7 @@ pub struct SeedReport {
 /// Resolve a [`CatalogApp`] to its [`SeedRecipe`] from the active
 /// [`SeedPackLibrary`] (discovered via the same fallback chain
 /// `Catalog::discover_load` uses for `catalog.json`: explicit dir →
-/// `APPIMAGE_CONTROL_SEEDS_DIR` env → cwd ancestor walk → exe-parent
+/// `APPIMAGE_CONTROL_SEEDS_DIR` env → per-user seeds dir → exe-parent
 /// ancestor walk → `/app/share/...` → `/usr/share/...` → embedded).
 pub fn recipe_for_supported_app(app: &CatalogApp) -> Option<SeedRecipe> {
     recipe_for_app_id(&app.id)
@@ -214,6 +223,11 @@ pub fn seed_instance_settings(
     // The strict loader, not `recipe_for_supported_app`: its fallback to the
     // embedded packs would seed from those over a refused pack, with no warning.
     let library = SeedPackLibrary::discover_load(None)?;
+    // A refused pack fails this app's seeding with its reason (never "unsupported"); the other
+    // packs still load, so other apps still seed (WF-SEED-001 step 2).
+    if let Some(reason) = library.refusal_for(&app.id) {
+        return Err(Error::InvalidPath(reason.to_string()));
+    }
     let Some(recipe) = recipe_from_library(&library, &app.id) else {
         on_progress(&format!(
             "{} instance {}: seeding skipped (unsupported app)",
@@ -243,7 +257,7 @@ pub fn seed_instance_settings_with_recipe(
         return Ok(SeedOutcome::SkippedMissingInstance);
     }
 
-    let expected = dir.join(recipe.config_path_for(&filename));
+    let expected = dir.join(recipe.config_path_for(&filename)?);
     on_progress(&format!(
         "{} instance {}: seeding settings …",
         app.id, instance_index
@@ -320,12 +334,17 @@ pub fn seed_supported_installed_apps(
         selected_app_ids.map(|v| v.iter().map(|s| s.as_str()).collect::<HashSet<_>>());
     let mut report = SeedReport::default();
 
-    // Refuse here rather than report every app as unsupported: see
-    // `seed_instance_settings`.
-    SeedPackLibrary::discover_load(None)?;
+    // A refused pack fails its own app (counted, with the reason) and every other app still
+    // seeds (WF-SEED-001 step 2); a library that cannot load at all still stops here.
+    let library = SeedPackLibrary::discover_load(None)?;
 
     if let Some(selected) = &selected_set {
         for app_id in selected {
+            if let Some(reason) = library.refusal_for(app_id) {
+                report.failed += 1;
+                on_progress(&format!("{app_id}: seeding failed: {reason}"));
+                continue;
+            }
             if recipe_for_app_id(app_id).is_none() {
                 report.skipped_unsupported += 1;
                 on_progress(&format!("{app_id}: seeding skipped (unsupported app)"));
@@ -338,6 +357,14 @@ pub fn seed_supported_installed_apps(
             if !selected.contains(app.id.as_str()) {
                 continue;
             }
+        }
+        if let Some(reason) = library.refusal_for(&app.id) {
+            // Selected apps were reported above; for "all", report an app that has instances.
+            if selected_set.is_none() && !list_instance_indices(paths, app)?.is_empty() {
+                report.failed += 1;
+                on_progress(&format!("{}: seeding failed: {reason}", app.id));
+            }
+            continue;
         }
         if recipe_for_supported_app(app).is_none() {
             continue;
@@ -1233,12 +1260,14 @@ exec "$@"
             let catalog = Catalog {
                 apps: vec![app.clone()],
             };
+            let mut progress = Vec::new();
+            let selected = vec!["old-wallet".to_string()];
             let all = seed_supported_installed_apps(
                 &paths,
                 &catalog,
                 SeedPreset::Ubuntu,
-                None,
-                &mut |_| {},
+                Some(&selected),
+                &mut |m| progress.push(m.to_string()),
             );
 
             match prev {
@@ -1246,7 +1275,12 @@ exec "$@"
                 None => std::env::remove_var("APPIMAGE_CONTROL_SEEDS_DIR"),
             }
 
-            for err in [one.unwrap_err().to_string(), all.unwrap_err().to_string()] {
+            // Seeding that app fails with the refusal; seeding a set counts it as failed with
+            // the same reason and carries on (WF-SEED-001 step 2).
+            let report = all.expect("a refused pack does not stop the run");
+            assert_eq!(report.failed, 1, "{report:?}");
+            let reported = progress.join("\n");
+            for err in [one.unwrap_err().to_string(), reported] {
                 assert!(err.contains("old-wallet.json"), "names the pack: {err}");
                 assert!(err.contains("proxy_setup"), "says how to migrate: {err}");
             }

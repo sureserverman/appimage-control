@@ -63,7 +63,11 @@ portmux. See
 
 The removed `preset` section and `port` verb are refused by name at load time,
 because ignoring them would leave a wallet with no proxy and no warning. That
-document has the migration steps.
+document has the migration steps. A refused pack is skipped and the other packs
+still load; seeding the refused pack's app fails with the reason.
+
+`config_path` must be a relative path inside the instance directory: an absolute
+path, a `..` component or an empty value refuses the pack the same way.
 
 ### `rotation` — per-instance values
 
