@@ -1,22 +1,22 @@
 {
  "baseline": {
-  "elapsed_s": 0.3,
+  "elapsed_s": 1.4,
   "exit": 0,
-  "tail": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.16s\n     Running tests/integration_backup.rs (target/debug/deps/integration_backup-719629002518691f)\n\nrunning 1 test\ntest archive_mode_is_0600 ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s\n\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.11s\n     Running tests/integration_restore.rs (target/debug/deps/integration_restore-dca79bf1ffa8a93d)\n\nrunning 1 test\ntest tampered_entry_fails_restore_and_leaves_state_unchanged ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s\n"
+  "tail": "   Compiling appimage_control_core v0.2.0 (/home/user/dev/anon-tools/appimage-control/crates/core)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.71s\n     Running tests/integration_backup.rs (target/debug/deps/integration_backup-719629002518691f)\n\nrunning 1 test\ntest archive_mode_is_0600 ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s\n\n   Compiling appimage_control_core v0.2.0 (/home/user/dev/anon-tools/appimage-control/crates/core)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.58s\n     Running tests/integration_restore.rs (target/debug/deps/integration_restore-dca79bf1ffa8a93d)\n\nrunning 3 tests\ntest tampered_entry_with_null_hash_fails_restore ... ok\ntest tampered_entry_not_in_manifest_fails_restore ... ok\ntest tampered_entry_fails_restore_and_leaves_state_unchanged ... ok\n\ntest result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s\n"
  },
- "break_patch": "--- a/crates/core/src/backup.rs\n+++ b/crates/core/src/backup.rs\n@@ -592,7 +592,7 @@\n                 .and_then(|e| e.sha256.as_deref())\n             {\n                 let got = path_sha256(&stage_path)?;\n-                if got != want {\n+                if false && got != want {\n                     return Err(Error::Backup(format!(\n                         \"archive entry {logical_s} does not match its recorded sha256 \\\n                          (expected {want}, got {got}); nothing was restored\"\n",
+ "break_patch": "--- a/crates/core/src/backup.rs\n+++ b/crates/core/src/backup.rs\n@@ -675,7 +675,7 @@\n                 }\n             };\n             let got = path_sha256(&stage_path)?;\n-            if &got != want {\n+            if false && &got != want {\n                 return Err(Error::Backup(format!(\n                     \"archive entry {logical_s} does not match its recorded sha256 \\\n                      (expected {want}, got {got}); nothing was restored\"\n",
  "build": null,
- "created": "2026-11-05T20:09:40+00:00",
- "fingerprint": "73d246d351efa4850ea88b26c358d5e38e28ad082ba6ecdcb2b9f6030fd26668",
+ "created": "2026-11-05T20:51:37+00:00",
+ "fingerprint": "9fd5a64bf65f8ac684f874fc3e6d88551c57323795dd6666bee7deadd93910d6",
  "index": 1,
  "kind": "claim",
  "named_break": null,
  "no_build_reason": "cargo test compiles first",
  "plan": "/mnt/vault/Portfolio/anon-tools/appimage-control/plans/2026-11-05-security-audit-remediation-plan.md",
  "red": {
-  "elapsed_s": 2.1,
+  "elapsed_s": 2.2,
   "exit": 101,
-  "tail": "   Compiling appimage_control_core v0.2.0 (/home/user/dev/anon-tools/appimage-control/crates/core)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.40s\n     Running tests/integration_backup.rs (target/debug/deps/integration_backup-719629002518691f)\n\nrunning 1 test\ntest archive_mode_is_0600 ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s\n\n   Compiling appimage_control_core v0.2.0 (/home/user/dev/anon-tools/appimage-control/crates/core)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.56s\n     Running tests/integration_restore.rs (target/debug/deps/integration_restore-dca79bf1ffa8a93d)\n\nrunning 1 test\ntest tampered_entry_fails_restore_and_leaves_state_unchanged ... FAILED\n\nfailures:\n\n---- tampered_entry_fails_restore_and_leaves_state_unchanged stdout ----\n\nthread 'tampered_entry_fails_restore_and_leaves_state_unchanged' (3703061) panicked at crates/core/tests/integration_restore.rs:579:10:\na tampered entry must fail restore: ()\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    tampered_entry_fails_restore_and_leaves_state_unchanged\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.01s\n\nerror: test failed, to rerun pass `-p appimage_control_core --test integration_restore`"
+  "tail": "   Compiling appimage_control_core v0.2.0 (/home/user/dev/anon-tools/appimage-control/crates/core)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.49s\n     Running tests/integration_backup.rs (target/debug/deps/integration_backup-719629002518691f)\n\nrunning 1 test\ntest archive_mode_is_0600 ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s\n\n   Compiling appimage_control_core v0.2.0 (/home/user/dev/anon-tools/appimage-control/crates/core)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.61s\n     Running tests/integration_restore.rs (target/debug/deps/integration_restore-dca79bf1ffa8a93d)\n\nrunning 3 tests\ntest tampered_entry_with_null_hash_fails_restore ... ok\ntest tampered_entry_not_in_manifest_fails_restore ... ok\ntest tampered_entry_fails_restore_and_leaves_state_unchanged ... FAILED\n\nfailures:\n\n---- tampered_entry_fails_restore_and_leaves_state_unchanged stdout ----\n\nthread 'tampered_entry_fails_restore_and_leaves_state_unchanged' (594409) panicked at crates/core/tests/integration_restore.rs:579:10:\na tampered entry must fail restore: ()\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    tampered_entry_fails_restore_and_leaves_state_unchanged\n\ntest result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.01s\n\nerror: test failed, to rerun pass `-p appimage_control_core --test integration_restore`"
  },
  "schema": 2,
  "shell": "bash",
@@ -27,9 +27,9 @@
   "crates/core/src/backup.rs"
  ],
  "touched_blobs": {
-  "crates/core/src/backup.rs": "03bf9bf72947d6a058024269b3afe345de2fcc8d"
+  "crates/core/src/backup.rs": "aabf39b22bc6a959d6f9c53be139362c8ea69645"
  },
  "witness_blobs": {
-  "docs/workflows/backup-restore.md": "1919e157824be68f7e3c6fe98c2729a3d768f115"
+  "docs/workflows/backup-restore.md": "831209df19523f835b5fb45c0fa87404bb2f0d57"
  }
 }
