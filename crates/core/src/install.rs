@@ -115,22 +115,32 @@ fn update_desktop_database_best_effort(paths: &AppPaths) {
         .status();
 }
 
-/// True when `target` is inside `root`: no `..` component, and — when `target` exists — the
-/// canonical paths agree, so a symlink cannot escape. A missing target falls back to the
-/// (`..`-free) lexical prefix check, since there is nothing to resolve.
+/// True when `target` is inside `root`: no `..` component, and the canonical path of `target`
+/// — or, when it does not exist yet, of its deepest existing ancestor — lies under the canonical
+/// `root`. So neither a symlinked file nor a symlinked parent directory can escape.
 pub(crate) fn is_contained_in(target: &Path, root: &Path) -> bool {
     use std::path::Component;
     if target.components().any(|c| c == Component::ParentDir) {
         return false;
     }
-    // `symlink_metadata` so a dangling symlink still counts as existing.
-    if target.symlink_metadata().is_ok() {
-        return match (fs::canonicalize(target), fs::canonicalize(root)) {
-            (Ok(t), Ok(r)) => t.starts_with(r),
-            _ => false,
-        };
+    if !target.starts_with(root) {
+        return false;
     }
-    target.starts_with(root)
+    let Ok(root) = fs::canonicalize(root) else {
+        return false;
+    };
+    // `symlink_metadata` so a dangling symlink counts as existing (and then fails canonicalize).
+    let mut probe = target;
+    while probe.symlink_metadata().is_err() {
+        match probe.parent() {
+            Some(p) => probe = p,
+            None => return false,
+        }
+    }
+    match fs::canonicalize(probe) {
+        Ok(c) => c.starts_with(&root),
+        Err(_) => false,
+    }
 }
 
 /// Remove managed AppImage, its `.desktop`, and optional managed icon.

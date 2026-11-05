@@ -164,9 +164,7 @@ pub fn update_seed_packs(
     unpack_tar_zst(&tarball, &unpacked)?;
 
     on_progress("validating packs");
-    let lib = SeedPackLibrary::load_from_dir(&unpacked)?
-        .ok_or_else(|| Error::InvalidPath("seed-pack tarball contains no *.json packs".into()))?;
-    let installed_count = lib.len();
+    let installed_count = validate_unpacked_packs(&unpacked)?;
 
     on_progress("installing");
     install_atomically(&unpacked, &target)?;
@@ -177,6 +175,22 @@ pub fn update_seed_packs(
         source_url: base,
         install_dir: target,
     })
+}
+
+/// Load the unpacked release and refuse it unless every pack loads. The per-user seeds dir
+/// shadows the embedded packs, so installing a release with a refused pack would silently stop
+/// that app from seeding; an update is all or nothing. Returns the number of packs.
+fn validate_unpacked_packs(unpacked: &Path) -> Result<usize> {
+    let lib = SeedPackLibrary::load_from_dir(unpacked)?
+        .ok_or_else(|| Error::InvalidPath("seed-pack tarball contains no *.json packs".into()))?;
+    let refused: Vec<String> = lib.refused().map(|(_, why)| why.to_string()).collect();
+    if !refused.is_empty() {
+        return Err(Error::InvalidPath(format!(
+            "seed-pack release refused, nothing installed: {}",
+            refused.join("; ")
+        )));
+    }
+    Ok(lib.len())
 }
 
 /// Verify that `sig_path` is an AICSIG-1 file containing a valid
@@ -522,5 +536,32 @@ mod tests {
         assert!(!target.join("old.json").exists());
         // Backup tempfile cleaned up on success.
         assert!(!target.with_extension("backup").exists());
+    }
+
+    #[test]
+    fn validate_unpacked_refuses_a_tarball_with_any_refused_pack() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("seeds");
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(
+            dir.join("good.json"),
+            r#"{"config_path":"{appimage}.config/g.json"}"#,
+        )
+        .unwrap();
+        fs::write(dir.join("evil.json"), r#"{"config_path":"../../x"}"#).unwrap();
+        let err = super::validate_unpacked_packs(&dir)
+            .expect_err("an update carrying a refused pack must not install")
+            .to_string();
+        assert!(err.contains("evil") && err.contains("config_path"), "{err}");
+    }
+
+    #[test]
+    fn validate_unpacked_counts_good_packs() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("seeds");
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("a.json"), r#"{"config_path":"a.json"}"#).unwrap();
+        fs::write(dir.join("b.json"), r#"{"config_path":"b.json"}"#).unwrap();
+        assert_eq!(super::validate_unpacked_packs(&dir).unwrap(), 2);
     }
 }

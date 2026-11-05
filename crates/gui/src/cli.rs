@@ -37,8 +37,9 @@ With no arguments, the graphical app starts.
                    Missing file, unreadable file, or invalid JSON → error naming PATH, exit 1.
 
 Catalog JSON resolution (when --catalog is not given): environment APPIMAGE_CONTROL_CATALOG
-(non-empty path to a readable file), then data/catalog.json next to the binary or in any of its
-parents (never the current directory), then /app/share/ or /usr/share/appimage-control/catalog.json,
+(non-empty path to a readable file), then — for a dev build running from a cargo target/ dir
+only — data/catalog.json next to the binary or in any of its parents (never the current
+directory), then /app/share/ or /usr/share/appimage-control/catalog.json,
 then the catalog compiled into the binary. --catalog overrides all of these.
 
 Operations (unrecognized arguments cause a non-zero exit with a message pointing to --help; they do not open the GUI).
@@ -473,7 +474,7 @@ fn existing_pack_config(app_id: &str) -> Option<(String, Vec<String>)> {
         }
     };
     if let Some(why) = lib.refusal_for(app_id) {
-        eprintln!("Ignoring existing seed packs: {why}");
+        eprintln!("Ignoring the refused seed pack for {app_id}: {why}");
         return None;
     }
     let pack = lib.get(app_id)?;

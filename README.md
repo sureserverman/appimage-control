@@ -28,7 +28,7 @@ cargo build --release -p appimage-control
 ./target/release/appimage-control
 ```
 
-A build under `target/` finds the repo's `data/catalog.json` by walking up from the binary (the current directory is never searched), or set:
+A build under `target/` finds the repo's `data/catalog.json` by walking up from the binary (only builds under a cargo `target/` dir walk; the current directory is never searched), or set:
 
 `export APPIMAGE_CONTROL_CATALOG=/path/to/catalog.json`
 

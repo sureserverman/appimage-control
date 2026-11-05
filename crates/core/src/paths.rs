@@ -4,6 +4,18 @@ use crate::catalog::CatalogApp;
 use crate::desktop::DESKTOP_PREFIX;
 use crate::error::{Error, Result};
 
+/// The directory of a cargo build output (`…/target/debug`, `…/target/release/deps`, …) that
+/// the running executable sits in, if it sits in one. Only such a build walks up from its own
+/// location to find the checkout's `data/` (catalog and seed packs). An installed binary
+/// (`/usr/bin`, `~/.cargo/bin`, `~/.local/bin`) never walks: from there the walk would pass
+/// through `$HOME` or `/`, where a planted `data/catalog.json` would win.
+pub(crate) fn dev_build_dir(exe_dir: &Path) -> Option<&Path> {
+    exe_dir
+        .ancestors()
+        .any(|a| a.file_name().is_some_and(|n| n == "target"))
+        .then_some(exe_dir)
+}
+
 /// `true` when `rel` is a relative path that stays under whatever directory it is joined to:
 /// not absolute, no `..` component, and at least one normal component (so `""` and `.` do not
 /// name the base directory itself). Catalog reset hints and seed-pack `config_path` both use
@@ -202,5 +214,26 @@ mod tests {
         assert_eq!(d.len(), 1);
         let i = p.managed_hicolor_icon_files().unwrap();
         assert_eq!(i.len(), 1);
+    }
+
+    #[test]
+    fn only_cargo_build_dirs_walk_for_data() {
+        use super::dev_build_dir;
+        for dev in [
+            "/home/u/dev/aic/target/debug",
+            "/home/u/dev/aic/target/release",
+            "/home/u/dev/aic/target/debug/deps",
+        ] {
+            assert!(dev_build_dir(Path::new(dev)).is_some(), "{dev}");
+        }
+        for installed in [
+            "/usr/bin",
+            "/home/u/.cargo/bin",
+            "/home/u/.local/bin",
+            "/app/bin",
+            "/home/u/Applications",
+        ] {
+            assert!(dev_build_dir(Path::new(installed)).is_none(), "{installed}");
+        }
     }
 }

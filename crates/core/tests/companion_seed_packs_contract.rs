@@ -50,6 +50,8 @@ fn companion_seed_packs_parse_and_validate() {
     let lib = SeedPackLibrary::load_from_dir(&dir)
         .expect("load companion packs")
         .expect("companion repo has no *.json packs");
+    let refused: Vec<_> = lib.refused().collect();
+    assert!(refused.is_empty(), "companion packs refused: {refused:?}");
     let rows = lib.list_rows();
     assert!(!rows.is_empty(), "expected at least one companion pack");
 
@@ -67,6 +69,8 @@ fn companion_packs_declare_proxy_setup() {
     let lib = SeedPackLibrary::load_from_dir(&dir)
         .expect("load companion packs")
         .expect("companion repo has no *.json packs");
+    let refused: Vec<_> = lib.refused().collect();
+    assert!(refused.is_empty(), "companion packs refused: {refused:?}");
     for id in ["feather", "electrum-btc", "electrum-ltc"] {
         let pack = lib
             .get(id)

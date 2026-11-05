@@ -323,7 +323,65 @@ impl Catalog {
         let bad = |id: &str, field: &str, value: &str, why: &str| {
             Error::InvalidCatalog(format!("app {id:?}: field `{field}` = {value:?} {why}"))
         };
+        let mut dirs: HashMap<String, &str> = HashMap::new();
         for app in &self.apps {
+            // Fields written into launchers and `.desktop` files: a newline there could add an
+            // `Exec=` line or a command to the launcher script.
+            for (field, value) in [
+                ("display_name", app.display_name.as_deref()),
+                (
+                    "instance_exec_args_template",
+                    app.instance_exec_args_template.as_deref(),
+                ),
+                (
+                    "instance_name_template",
+                    app.instance_name_template.as_deref(),
+                ),
+                (
+                    "desktop_name_template",
+                    app.desktop_name_template.as_deref(),
+                ),
+                ("wayland_app_id", app.wayland_app_id.as_deref()),
+            ] {
+                if let Some(v) = value {
+                    if v.chars().any(char::is_control) {
+                        return Err(bad(
+                            &app.id,
+                            field,
+                            v,
+                            "must not contain control characters",
+                        ));
+                    }
+                }
+            }
+            // Each app owns `apps/<dir>/`: it must be a real name and not shared, or one app's
+            // reset or uninstall would remove another's instances.
+            let dir = app.instance_filesystem_dirname();
+            let dir_field = if app
+                .instance_subdir
+                .as_deref()
+                .is_some_and(|s| !s.trim().is_empty())
+            {
+                "instance_subdir"
+            } else {
+                "id"
+            };
+            if dir.is_empty() {
+                return Err(bad(
+                    &app.id,
+                    dir_field,
+                    app.instance_subdir.as_deref().unwrap_or(&app.id),
+                    "gives an empty instance directory name",
+                ));
+            }
+            if let Some(other) = dirs.insert(dir.clone(), &app.id) {
+                return Err(bad(
+                    &app.id,
+                    dir_field,
+                    app.instance_subdir.as_deref().unwrap_or(&app.id),
+                    &format!("gives instance directory `{dir}`, already used by app {other:?}"),
+                ));
+            }
             if !is_plain_name(&app.id) {
                 return Err(bad(
                     &app.id,
@@ -368,9 +426,10 @@ impl Catalog {
     }
 
     /// Resolve catalog JSON: `explicit` path (must load if present), else non-empty
-    /// `APPIMAGE_CONTROL_CATALOG` when it points to a readable file, then `data/catalog.json` on
-    /// the executable’s directory or any ancestor (how dev and test builds under `target/` find the
-    /// repo's catalog), never the current directory (the GUI starts in `$HOME`),
+    /// `APPIMAGE_CONTROL_CATALOG` when it points to a readable file, then — only for a build
+    /// running from a cargo `target/` dir — `data/catalog.json` on the executable’s directory or
+    /// any ancestor (how dev and test builds find the repo's catalog); never the current
+    /// directory, and never from an installed binary (the GUI starts in `$HOME`),
     /// then `/app/share/appimage-control/catalog.json` (Flatpak) and `/usr/share/appimage-control/catalog.json`,
     /// then the catalog JSON that was compiled into this crate (same as repo `data/catalog.json`).
     pub fn discover_load(explicit: Option<&Path>) -> crate::error::Result<Self> {
@@ -407,7 +466,7 @@ impl Catalog {
             }
         }
         if let Ok(exe) = std::env::current_exe() {
-            if let Some(dir) = exe.parent() {
+            if let Some(dir) = exe.parent().and_then(crate::paths::dev_build_dir) {
                 if let Some(c) = try_load_catalog_from_data_json_ancestors(dir) {
                     return Ok(c);
                 }
@@ -787,5 +846,57 @@ mod tests {
             .expect_err("embedded parse must validate")
             .to_string();
         assert!(err.contains("`reset_data_dirs`"), "{err}");
+    }
+
+    #[test]
+    fn validate_refuses_empty_or_colliding_instance_dirs() {
+        // An id or instance_subdir that sanitizes to "" would put instances in `apps/` itself.
+        for extra in [
+            r#""id":"evilapp","instance_subdir":"..""#,
+            r#""id":"evilapp","instance_subdir":"-""#,
+            r#""id":"...""#,
+            r#""id":"-""#,
+        ] {
+            let err = super::parse_catalog_json(&catalog_json_with(extra))
+                .expect_err(&format!("{extra} must be refused"))
+                .to_string();
+            assert!(err.contains("instance directory"), "{extra}: {err}");
+        }
+        // Two apps sharing one instance dir would delete each other's instances.
+        for (a, b) in [
+            (r#""id":"a.b""#, r#""id":"a-b""#),
+            (
+                r#""id":"x1","instance_subdir":"same""#,
+                r#""id":"x2","instance_subdir":"same""#,
+            ),
+            (r#""id":"dup""#, r#""id":"dup""#),
+        ] {
+            let json = format!(r#"{{"apps":[{{{a}}},{{{b}}}]}}"#);
+            let err = super::parse_catalog_json(&json)
+                .expect_err(&format!("{a} + {b} must be refused"))
+                .to_string();
+            assert!(err.contains("instance directory"), "{a} + {b}: {err}");
+        }
+    }
+
+    #[test]
+    fn validate_refuses_control_characters_in_written_fields() {
+        for field in [
+            "display_name",
+            "instance_exec_args_template",
+            "instance_name_template",
+            "desktop_name_template",
+            "wayland_app_id",
+        ] {
+            let json =
+                catalog_json_with(&format!(r#""id":"evilapp","{field}":"ok\nExec=/bin/sh""#));
+            let err = super::parse_catalog_json(&json)
+                .expect_err(&format!("newline in {field} must be refused"))
+                .to_string();
+            assert!(
+                err.contains("evilapp") && err.contains(&format!("`{field}`")),
+                "{field}: {err}"
+            );
+        }
     }
 }

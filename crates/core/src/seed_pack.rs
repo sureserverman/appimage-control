@@ -198,16 +198,19 @@ impl SeedPackLibrary {
             if path.extension().and_then(OsStr::to_str) != Some("json") {
                 continue;
             }
-            let stem = path
-                .file_stem()
-                .and_then(OsStr::to_str)
-                .ok_or_else(|| {
-                    Error::InvalidPath(format!("seed pack: bad filename: {}", path.display()))
-                })?
-                .to_string();
-            let raw = fs::read_to_string(&path).map_err(Error::Io)?;
-            let checked = parse_pack(&raw)
-                .map_err(|e| format!("seed pack {}: {e}", path.display()))
+            // A non-UTF-8 file name cannot be an app id: refuse it under its lossy name.
+            let Some(stem) = path.file_stem().and_then(OsStr::to_str).map(str::to_string) else {
+                let shown = path.display().to_string();
+                eprintln!("appimage-control: warning: seed pack {shown}: bad file name; skipping");
+                lib.refused
+                    .insert(shown.clone(), format!("seed pack {shown}: bad file name"));
+                continue;
+            };
+            let checked = fs::read_to_string(&path)
+                .map_err(|e| format!("seed pack {}: cannot read: {e}", path.display()))
+                .and_then(|raw| {
+                    parse_pack(&raw).map_err(|e| format!("seed pack {}: {e}", path.display()))
+                })
                 .and_then(|pack| {
                     validate_pack(&pack).map(|()| pack).map_err(|e| {
                         let msg = match e {
@@ -253,8 +256,10 @@ impl SeedPackLibrary {
     /// 3. `~/.local/share/appimage-control/seeds/` — per-user override.
     ///    This is where `--update-seed-packs` (Stage 7 of the
     ///    seed-pack-extraction plan) installs companion-repo packs.
-    /// 4. Walk `current_exe()` ancestors for `data/seeds/`. The current directory is never
-    ///    walked: the GUI starts in `$HOME`, where a planted `data/seeds/` would win.
+    /// 4. Walk `current_exe()` ancestors for `data/seeds/`, only when the binary runs from a
+    ///    cargo `target/` dir (dev and test builds). Neither the current directory nor an
+    ///    installed binary's location is walked: both can reach `$HOME`, where a planted
+    ///    `data/seeds/` would win.
     /// 5. `/app/share/appimage-control/seeds/` (Flatpak install path).
     /// 6. `/usr/share/appimage-control/seeds/`.
     /// 7. Embedded slice baked in by `build.rs`.
@@ -288,7 +293,7 @@ impl SeedPackLibrary {
             }
         }
         if let Ok(exe) = std::env::current_exe() {
-            if let Some(parent) = exe.parent() {
+            if let Some(parent) = exe.parent().and_then(crate::paths::dev_build_dir) {
                 if let Some(lib) = Self::try_ancestors(parent)? {
                     return Ok(lib);
                 }
@@ -1104,5 +1109,22 @@ mod tests {
             lib.validate()
                 .unwrap_or_else(|e| panic!("{ok:?} must load: {e}"));
         }
+    }
+
+    #[test]
+    fn unreadable_pack_is_refused_not_fatal() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("seeds");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("good.json"), r#"{"config_path":"g.json"}"#).unwrap();
+        // Not UTF-8: read_to_string fails.
+        std::fs::write(dir.join("binary.json"), [0xff, 0xfe, 0x00, 0x80]).unwrap();
+        let lib = SeedPackLibrary::load_from_dir(&dir)
+            .expect("one unreadable pack must not fail the directory")
+            .unwrap();
+        assert!(lib.get("good").is_some());
+        assert!(lib
+            .refusal_for("binary")
+            .is_some_and(|r| r.contains("binary.json")));
     }
 }

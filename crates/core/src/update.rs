@@ -221,4 +221,33 @@ mod tests {
         update_from_file(&paths, &inst.desktop_path, new_file.path()).unwrap();
         assert_eq!(fs::read(&inst.appimage_path).unwrap(), b"v2");
     }
+
+    /// A symlinked directory inside the managed dir, with a target file that does not exist
+    /// yet: the update must not follow the link and write outside.
+    #[test]
+    fn update_refuses_missing_target_under_symlinked_dir() {
+        let tmp = assert_fs::TempDir::new().unwrap();
+        let paths = AppPaths::new(tmp.path().to_path_buf()).unwrap();
+        fs::create_dir_all(paths.applications_dir()).unwrap();
+        fs::create_dir_all(paths.managed_files_dir()).unwrap();
+        let new_file = tmp.child("New.AppImage");
+        new_file.write_binary(b"v2").unwrap();
+
+        let outside = tmp.path().join("outside");
+        fs::create_dir_all(&outside).unwrap();
+        let ld = paths.managed_files_dir().join("ld");
+        std::os::unix::fs::symlink(&outside, &ld).unwrap();
+        let exec = ld.join("x.AppImage");
+        let body = crate::desktop::build_desktop_entry("evil3", "evil3", &exec, None);
+        let desktop = paths
+            .applications_dir()
+            .join(crate::desktop::desktop_filename_for_app_id("evil3"));
+        fs::write(&desktop, body).unwrap();
+
+        assert!(update_from_file(&paths, &desktop, new_file.path()).is_err());
+        assert!(
+            !outside.join("x.AppImage").exists(),
+            "update wrote through a symlinked directory"
+        );
+    }
 }

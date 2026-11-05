@@ -467,7 +467,7 @@ fn mount_empty_state(
 
     let detail_label = Label::builder()
         .label(
-            "Search order:\n  1. APPIMAGE_CONTROL_CATALOG environment variable\n  2. data/catalog.json next to the program or in its parents\n  3. /app/share/, /usr/share/appimage-control/catalog.json\n  4. catalog compiled into this build",
+            "Search order:\n  1. APPIMAGE_CONTROL_CATALOG environment variable\n  2. data/catalog.json above a dev build (cargo target/ dir only)\n  3. /app/share/, /usr/share/appimage-control/catalog.json\n  4. catalog compiled into this build",
         )
         .halign(gtk::Align::Start)
         .xalign(0.0)
