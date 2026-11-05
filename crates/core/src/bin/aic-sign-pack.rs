@@ -82,8 +82,7 @@ fn keygen(keyfile: &Path) -> Result<(), String> {
     if let Some(parent) = keyfile.parent() {
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
-    fs::write(keyfile, seed).map_err(|e| e.to_string())?;
-    set_owner_only_perms(keyfile)?;
+    write_new_key_file(keyfile, seed)?;
     let pub_b64 = STANDARD.encode(kp.public_key().as_ref());
     println!("{pub_b64}");
     eprintln!("Private key written to {} (mode 0600).", keyfile.display());
@@ -156,23 +155,29 @@ fn verify(pub_b64: &str, tarball: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// Create `keyfile` exclusively (never overwriting, even a file that appears after the
+/// existence check) with mode 0600 from the first byte — no moment when another user could
+/// read the key.
+fn write_new_key_file(keyfile: &Path, seed: &[u8]) -> Result<(), String> {
+    use std::io::Write as _;
+    let mut opts = fs::OpenOptions::new();
+    opts.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        opts.mode(0o600);
+    }
+    let mut f = opts
+        .open(keyfile)
+        .map_err(|e| format!("{}: {e}; refusing to overwrite", keyfile.display()))?;
+    f.write_all(seed).map_err(|e| e.to_string())?;
+    f.sync_all().map_err(|e| e.to_string())
+}
+
 fn sig_path_for(tarball: &Path) -> std::path::PathBuf {
     let mut s = tarball.as_os_str().to_owned();
     s.push(".sig");
     std::path::PathBuf::from(s)
-}
-
-#[cfg(unix)]
-fn set_owner_only_perms(p: &Path) -> Result<(), String> {
-    use std::os::unix::fs::PermissionsExt;
-    let mut perms = fs::metadata(p).map_err(|e| e.to_string())?.permissions();
-    perms.set_mode(0o600);
-    fs::set_permissions(p, perms).map_err(|e| e.to_string())
-}
-
-#[cfg(not(unix))]
-fn set_owner_only_perms(_p: &Path) -> Result<(), String> {
-    Ok(())
 }
 
 #[cfg(test)]
@@ -214,5 +219,42 @@ mod tests {
     fn sign_requires_a_sequence() {
         let args: Vec<String> = ["key", "tarball"].iter().map(|s| s.to_string()).collect();
         assert!(parse_sign_args(&args).unwrap_err().contains("--sequence"));
+    }
+
+    #[test]
+    fn keygen_creates_an_owner_only_key_whatever_the_umask() {
+        use std::os::unix::fs::PermissionsExt;
+        let tmp = tempfile::tempdir().unwrap();
+        let key = tmp.path().join("k");
+        // SAFETY: umask only swaps the process file-mode mask; restored right after.
+        let prev = unsafe { libc::umask(0o022) };
+        let r = keygen(&key);
+        unsafe { libc::umask(prev) };
+        r.unwrap();
+        assert_eq!(
+            fs::metadata(&key).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+        assert_eq!(fs::read(&key).unwrap().len(), 32);
+    }
+
+    #[test]
+    fn keygen_refuses_an_existing_file_and_leaves_it() {
+        let tmp = tempfile::tempdir().unwrap();
+        let key = tmp.path().join("k");
+        fs::write(&key, b"existing key bytes").unwrap();
+        assert!(keygen(&key).is_err());
+        assert_eq!(fs::read(&key).unwrap(), b"existing key bytes");
+    }
+
+    /// Created exclusively: a file that appears between the existence check and the write
+    /// is never overwritten (the old code checked, then `fs::write`).
+    #[test]
+    fn keygen_write_is_exclusive() {
+        let tmp = tempfile::tempdir().unwrap();
+        let key = tmp.path().join("k");
+        fs::write(&key, b"raced in").unwrap();
+        assert!(write_new_key_file(&key, &[0u8; 32]).is_err());
+        assert_eq!(fs::read(&key).unwrap(), b"raced in");
     }
 }

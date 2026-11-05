@@ -1,0 +1,29 @@
+{
+ "baseline": {
+  "elapsed_s": 0.2,
+  "exit": 0,
+  "tail": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.15s\n     Running unittests src/bin/aic-sign-pack.rs (target/debug/deps/aic_sign_pack-bf7c5cdbe06aa681)\n\nrunning 3 tests\ntest tests::keygen_write_is_exclusive ... ok\ntest tests::keygen_refuses_an_existing_file_and_leaves_it ... ok\ntest tests::keygen_creates_an_owner_only_key_whatever_the_umask ... ok\n\ntest result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s\n"
+ },
+ "break_patch": "--- a/crates/core/src/bin/aic-sign-pack.rs\n+++ b/crates/core/src/bin/aic-sign-pack.rs\n@@ -161,7 +161,7 @@\n fn write_new_key_file(keyfile: &Path, seed: &[u8]) -> Result<(), String> {\n     use std::io::Write as _;\n     let mut opts = fs::OpenOptions::new();\n-    opts.write(true).create_new(true);\n+    opts.write(true).create(true).truncate(true);\n     #[cfg(unix)]\n     {\n         use std::os::unix::fs::OpenOptionsExt;\n",
+ "build": null,
+ "created": "2026-11-05T20:16:01+00:00",
+ "fingerprint": "1051a4e33551f63b64e3020b3e38d863fe58a110e6b64e0291a38780c3e90656",
+ "index": 1,
+ "kind": "claim",
+ "named_break": null,
+ "no_build_reason": "cargo test compiles first",
+ "plan": "/mnt/vault/Portfolio/anon-tools/appimage-control/plans/2026-11-05-security-audit-remediation-plan.md",
+ "red": {
+  "elapsed_s": 0.6,
+  "exit": 101,
+  "tail": "   Compiling appimage_control_core v0.2.0 (/home/user/dev/anon-tools/appimage-control/crates/core)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.56s\n     Running unittests src/bin/aic-sign-pack.rs (target/debug/deps/aic_sign_pack-bf7c5cdbe06aa681)\n\nrunning 3 tests\ntest tests::keygen_refuses_an_existing_file_and_leaves_it ... ok\ntest tests::keygen_write_is_exclusive ... FAILED\ntest tests::keygen_creates_an_owner_only_key_whatever_the_umask ... ok\n\nfailures:\n\n---- tests::keygen_write_is_exclusive stdout ----\n\nthread 'tests::keygen_write_is_exclusive' (4072252) panicked at crates/core/src/bin/aic-sign-pack.rs:257:9:\nassertion failed: write_new_key_file(&key, &[0u8; 32]).is_err()\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    tests::keygen_write_is_exclusive\n\ntest result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s\n\nerror: test failed, to rerun pass `-p appimage_control_core --bin aic-sign-pack`"
+ },
+ "schema": 2,
+ "shell": "bash",
+ "task": "4.3",
+ "test": "cd /home/user/dev/anon-tools/appimage-control && cargo test -p appimage_control_core --bin aic-sign-pack keygen_",
+ "text": "keygen into a fresh path yields mode 0600 with umask 022",
+ "touched": [
+  "crates/core/src/bin/aic-sign-pack.rs"
+ ]
+}
