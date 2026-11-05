@@ -72,7 +72,7 @@ General flags:
 --list-seed-packs    Print one tab-separated row per loaded seed pack.
 --update-seed-packs  Fetch + verify + install signed seed-pack tarball from the companion repo.
 --repair-launchers   Recreate missing per-instance .desktop launchers and icons.
--update / --update   Update all installed instances (appimageupdatetool or catalog URL).
+-update / --update   Update all installed instances from the catalog URL (sha256-checked); exits non-zero if any instance fails.
 --clean-cache        Delete the download cache dir.
 --clean              Remove all installed catalog app instances and managed launchers (keeps cache).
 --purge              Remove all installs, cache, and managed launcher files.

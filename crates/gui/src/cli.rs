@@ -135,7 +135,11 @@ When --purge, --clean, or --migrate is present, only one runs: --purge first if 
                    the catalog instance limit. =APP:0 is equivalent to -APP (removes all instances).
                    =APP without :N is an error — use =APP:N with an explicit count. When --seed-new
                    is present and =APP:N increases the instance count, the added instances are seeded.
-  -update          Update installed instances (same as the GUI): skips when already up to date; otherwise tries appimageupdatetool, then downloads the catalog build or—when the catalog URL is behind GitHub releases/latest—the matching latest-release .AppImage asset.
+  -update          Update installed instances (same as the GUI): skips when already up to date; otherwise
+                   downloads the catalog build or—when the catalog URL is behind GitHub releases/latest—
+                   the matching latest-release .AppImage asset, each checked against its sha256
+                   (appimageupdatetool is used only with --allow-unverified, for an app with no
+                   published sha256). Exits non-zero when any instance fails.
   --update         Same as -update
 
 Examples:
