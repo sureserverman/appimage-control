@@ -1570,8 +1570,22 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
                 },
                 None,
             )
-            .map(|_| ())
             .map_err(|e| e.to_string())
+            .and_then(|rep| {
+                // A refused or failed instance fails the run, so a script can tell (DEC-001).
+                if rep.errors == 0 {
+                    return Ok(());
+                }
+                let mut msg = format!("{} instance update(s) failed (see above)", rep.errors);
+                if !rep.unverified_apps.is_empty() {
+                    let ids: Vec<&str> = rep.unverified_apps.iter().map(|(id, _)| id.as_str()).collect();
+                    msg.push_str(&format!(
+                        "; no published sha256 for {}: re-run with --allow-unverified to install anyway",
+                        ids.join(", ")
+                    ));
+                }
+                Err(msg)
+            })
         } else if arg.starts_with('+') && arg.len() > 1 {
             let body = &arg[1..];
             // Pre-scan validated these already; treat parse failures as internal errors.

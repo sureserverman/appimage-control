@@ -464,6 +464,26 @@ pub fn version_from_appimage_filename(filename: &str) -> Option<String> {
     version_from_download_url(&url)
 }
 
+/// True when the catalog cache dir records a version older than `pinned` (both semver after
+/// normalisation; an unparseable pair counts as older only when the two differ). Used where the
+/// cached file's name carries no version, so the name alone cannot say the blob is stale.
+pub fn catalog_cache_recorded_older_than(cache_dir: &Path, pinned: &str) -> bool {
+    let Some(rec) = read_catalog_cache_recorded_version(cache_dir) else {
+        return false;
+    };
+    if catalog_pin_matches_recorded(pinned, &rec) {
+        return false;
+    }
+    let (r, p) = (
+        normalize_github_release_tag(&rec),
+        normalize_github_release_tag(pinned),
+    );
+    match (Version::parse(&r), Version::parse(&p)) {
+        (Ok(vr), Ok(vp)) => vr < vp,
+        _ => true,
+    }
+}
+
 /// Whether an existing cache file named `filename` is acceptable for `pinned` without re-downloading.
 ///
 /// When the basename does not embed a semver (e.g. generic `session.AppImage`), returns `true` so

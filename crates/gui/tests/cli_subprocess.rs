@@ -636,3 +636,32 @@ fn allow_unverified_never_overrides_a_mismatch() {
         );
     }
 }
+
+/// `-update` must fail (non-zero) when an instance's new download does not match its sha256.
+#[test]
+fn allow_unverified_update_mismatch_fails_the_run() {
+    let tmp = tempfile::tempdir().expect("tmp");
+    // Served twice: the install, then the update's re-download.
+    let url = serve_bytes_times(b"\x7fELF installed bytes", 2);
+    let cat = tmp.path().join("catalog.json");
+    write_vapp_catalog(&cat, &url, None);
+    let (ok, err) = run_vapp(tmp.path(), &["--allow-unverified"]);
+    assert!(ok, "setup install: {err}");
+    // The catalog now pins a hash the served bytes do not have: the cached blob fails its
+    // check, the update downloads again, and the download mismatches.
+    write_vapp_catalog(&cat, &url, Some(&"cd".repeat(32)));
+    let home = tmp.path().join("home");
+    let out = Command::new(app_exe().as_os_str())
+        .env("HOME", &home)
+        .env("XDG_DATA_HOME", home.join(".local/share"))
+        .env("APPIMAGE_CONTROL_CATALOG", &cat)
+        .args(["-update"])
+        .output()
+        .expect("update");
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        !out.status.success(),
+        "-update must fail on a mismatch: {err}"
+    );
+    assert!(err.contains("does not match the expected sha256"), "{err}");
+}

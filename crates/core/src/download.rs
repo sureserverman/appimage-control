@@ -26,6 +26,19 @@ pub(crate) fn scheme_host_allowed(url: &reqwest::Url) -> bool {
     }
 }
 
+/// Whether a redirect from a request that started at `first` may go to `next`: https always;
+/// plain http to a loopback host only when the request itself started on loopback, so a remote
+/// https mirror cannot bounce the client onto a local service.
+fn redirect_allowed(first: &reqwest::Url, next: &reqwest::Url) -> bool {
+    match next.scheme() {
+        "https" => true,
+        "http" => {
+            scheme_host_allowed(next) && first.scheme() == "http" && scheme_host_allowed(first)
+        }
+        _ => false,
+    }
+}
+
 /// The one HTTP client builder for the core crate: fixed user agent, 30 s connect and
 /// overall timeouts, and a redirect policy that only follows hops to https (or loopback
 /// http), at most 10.
@@ -37,7 +50,11 @@ pub(crate) fn http_client() -> reqwest::Result<reqwest::blocking::Client> {
         .redirect(Policy::custom(|attempt| {
             if attempt.previous().len() >= MAX_REDIRECTS {
                 attempt.error("too many redirects")
-            } else if !scheme_host_allowed(attempt.url()) {
+            } else if !attempt
+                .previous()
+                .first()
+                .is_some_and(|first| redirect_allowed(first, attempt.url()))
+            {
                 let msg = format!("refusing redirect to non-https URL {}", attempt.url());
                 attempt.error(msg)
             } else {
@@ -234,5 +251,36 @@ mod tests {
     fn limit_text_for_real_cap_is_4_gib() {
         assert_eq!(limit_text(MAX_DOWNLOAD_BYTES), "4 GiB");
         assert_eq!(limit_text(1024), "1024 bytes");
+    }
+
+    /// A redirect may reach loopback http only from a loopback start: a remote https mirror
+    /// must not bounce the client onto a local service.
+    #[test]
+    fn redirect_to_loopback_only_from_loopback() {
+        let u = |s: &str| reqwest::Url::parse(s).unwrap();
+        assert!(redirect_allowed(
+            &u("https://mirror.example/a"),
+            &u("https://cdn.example/b")
+        ));
+        assert!(redirect_allowed(
+            &u("http://127.0.0.1:8/a"),
+            &u("http://127.0.0.1:8/b")
+        ));
+        assert!(redirect_allowed(
+            &u("http://localhost/a"),
+            &u("https://cdn.example/b")
+        ));
+        assert!(!redirect_allowed(
+            &u("https://mirror.example/a"),
+            &u("http://127.0.0.1:8/b")
+        ));
+        assert!(!redirect_allowed(
+            &u("https://mirror.example/a"),
+            &u("http://localhost/b")
+        ));
+        assert!(!redirect_allowed(
+            &u("https://mirror.example/a"),
+            &u("http://cdn.example/b")
+        ));
     }
 }

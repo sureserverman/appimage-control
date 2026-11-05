@@ -1246,7 +1246,7 @@ fn mount_catalog_view(
                             status_idle.set_text("Applied.");
                         }
                         let rem = remote_for_idle.borrow();
-                        for h in rows_idle.borrow_mut().iter_mut() {
+                        for h in rows_idle.borrow().iter() {
                             let app = &catalog_idle.apps[h.app_index];
                             let n = instance_count(paths_idle.as_ref(), app).unwrap_or(0);
                             let cap = app.max_instances_allowed();
@@ -1535,7 +1535,7 @@ fn mount_catalog_view(
                         status_idle.set_text(summary.as_str());
                         present_activity_log_dialog(&window_idle, &log_final);
                         let rem = remote_for_idle.borrow();
-                        for h in rows_idle.borrow_mut().iter_mut() {
+                        for h in rows_idle.borrow().iter() {
                             let app = &catalog_idle.apps[h.app_index];
                             let n = instance_count(paths_idle.as_ref(), app).unwrap_or(0);
                             let cap = app.max_instances_allowed();
@@ -1574,7 +1574,7 @@ fn mount_catalog_view(
                             let apps: Vec<unverified::UnverifiedApp> = rep
                                 .unverified_apps
                                 .iter()
-                                .filter_map(|id| {
+                                .filter_map(|(id, reason)| {
                                     let (i, a) = catalog_idle
                                         .apps
                                         .iter()
@@ -1585,7 +1585,7 @@ fn mount_catalog_view(
                                         app_id: a.id.clone(),
                                         name: a.display_name_resolved(),
                                         target: instance_count(paths_idle.as_ref(), a).unwrap_or(0),
-                                        reason: "no published sha256 for the new build".into(),
+                                        reason: reason.clone(),
                                     })
                                 })
                                 .collect();
@@ -1708,14 +1708,14 @@ fn offer_unverified_install(
                 h.spin.set_value(*target as f64);
             }
         }
-        let mut set = allow_once.borrow_mut();
-        for a in &apps {
-            set.insert(a.app_id.clone());
-        }
-        drop(set);
-        if let Some(b) = rerun.upgrade() {
-            b.emit_clicked();
-        }
+        let Some(b) = rerun.upgrade() else {
+            // Nothing to re-run: do not leave an opt-in behind for a later, unrelated click.
+            return;
+        };
+        allow_once
+            .borrow_mut()
+            .extend(apps.iter().map(|a| a.app_id.clone()));
+        b.emit_clicked();
     });
 }
 
@@ -1817,7 +1817,7 @@ fn install_window_actions_for_catalog(
         let recompute_pending = Rc::clone(&recompute_pending);
         let apply_filter = Rc::clone(&apply_filter);
         Rc::new(move || {
-            for h in rows.borrow_mut().iter_mut() {
+            for h in rows.borrow().iter() {
                 let app = &catalog.apps[h.app_index];
                 let n = instance_count(paths.as_ref(), app).unwrap_or(0);
                 h.last_applied.set(n);

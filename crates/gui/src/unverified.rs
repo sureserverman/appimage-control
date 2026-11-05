@@ -62,8 +62,9 @@ pub struct RerunRequest {
     pub allow_unverified: bool,
 }
 
-/// "Install unverified" re-runs exactly the listed apps with the opt-in set; Cancel runs
-/// nothing.
+/// "Install unverified" re-runs with the opt-in set for exactly the listed apps (Apply re-runs
+/// every card, but the others are already at their installed counts; Update is restricted to
+/// the listed apps); Cancel runs nothing.
 pub fn rerun_for_response(
     apps: &[UnverifiedApp],
     install_unverified: bool,

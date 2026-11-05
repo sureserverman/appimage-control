@@ -777,6 +777,35 @@ pub fn purge_appimage_control_state(
     Ok(())
 }
 
+/// appimageupdatetool replaces a binary from the AppImage's own update info with no sha256 this
+/// app can check, so it may run only for an app whose own download has no known hash, and only
+/// with the user's opt-in (DEC-001). An app with a catalog pin or a GitHub digest never uses it.
+fn updater_allowed(policy: VerifyPolicy, expected: &crate::integrity::ExpectedDigest) -> bool {
+    policy.allow_unverified && matches!(expected, crate::integrity::ExpectedDigest::Unavailable(_))
+}
+
+/// Remove `.*.unverified` download staging files older than an hour from `dir` (left by a run
+/// that was killed between download and verify). A concurrent run's fresh file is kept.
+fn sweep_stale_unverified(dir: &Path) {
+    let cutoff = std::time::SystemTime::now() - std::time::Duration::from_secs(3600);
+    let Ok(rd) = fs::read_dir(dir) else {
+        return;
+    };
+    for e in rd.flatten() {
+        let name = e.file_name();
+        let name = name.to_string_lossy();
+        if name.starts_with('.') && name.ends_with(".unverified") {
+            let old = e
+                .metadata()
+                .and_then(|m| m.modified())
+                .is_ok_and(|t| t < cutoff);
+            if old {
+                let _ = fs::remove_file(e.path());
+            }
+        }
+    }
+}
+
 /// Whether the cached blob at `blob` may be reused, by its sha256 (WF-APPLY-001 step 5):
 /// against the catalog pin when there is one, else against the cache sidecar when there is one.
 /// A blob cached before verification existed (no pin, no sidecar) is reused as before.
@@ -843,6 +872,7 @@ pub fn ensure_cached_appimage_with_policy(
     let filename = app.resolved_appimage_filename();
     let dir = paths.catalog_cache_dir(&app.id);
     fs::create_dir_all(&dir)?;
+    sweep_stale_unverified(&dir);
     let dest = dir.join(&filename);
     let pinned = crate::version_info::catalog_pinned_version(app);
 
@@ -851,7 +881,10 @@ pub fn ensure_cached_appimage_with_policy(
         if meta.len() > 0 {
             let fresh = match pinned.as_deref() {
                 None => true,
-                Some(p) => crate::version_info::catalog_cache_fresh_for_pinned(&filename, p),
+                Some(p) => {
+                    crate::version_info::catalog_cache_fresh_for_pinned(&filename, p)
+                        && !crate::version_info::catalog_cache_recorded_older_than(&dir, p)
+                }
             };
             if fresh {
                 if cached_blob_trusted(app, &dir, &dest, on_progress)? {
@@ -1777,7 +1810,16 @@ fn update_instance_appimage_with_shared_cache(
     // appimageupdatetool replaces the binary from the AppImage's own update info, with no
     // sha256 this app can check, so under DEC-001 it runs only when the user allowed
     // unverified installs; otherwise the verified download below is used.
-    if policy.allow_unverified && crate::update::appimageupdatetool_available() {
+    if policy.allow_unverified
+        && crate::update::appimageupdatetool_available()
+        && updater_allowed(
+            policy,
+            &match app.resolved_download_url() {
+                Ok(url) => crate::integrity::expected_digest(app, url, std::env::consts::ARCH),
+                Err(e) => crate::integrity::ExpectedDigest::Unavailable(e.to_string()),
+            },
+        )
+    {
         on_progress(&format!(
             "{} instance {}: running appimageupdatetool …",
             app.id, instance_index
@@ -1987,9 +2029,10 @@ pub struct UpdateAllReport {
     /// Instances that matched the catalog URL version before any tool or download ran.
     pub skipped_up_to_date: u32,
     pub errors: u32,
-    /// Catalog ids whose update was refused for lack of a published sha256
-    /// ([`Error::UnverifiedDownload`]), once each — what the GUI offers to install unverified.
-    pub unverified_apps: Vec<String>,
+    /// `(catalog id, reason)` for each app whose update was refused for lack of a published
+    /// sha256 ([`Error::UnverifiedDownload`]), once each — what the GUI offers to install
+    /// unverified, with the real reason (e.g. a rate-limited lookup).
+    pub unverified_apps: Vec<(String, String)>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -2070,6 +2113,20 @@ pub fn update_all_installed_instances_with_policy(
             prev_app_idx = Some(*app_idx);
         }
         let app = &catalog.apps[*app_idx];
+        // Once an app's download was refused for lack of a hash, its other instances would be
+        // refused the same way: skip them rather than spend more GitHub API calls (60/hour).
+        if report.unverified_apps.iter().any(|(id, _)| id == &app.id) {
+            report.errors += 1;
+            on_progress(&format!(
+                "{} instance {}: skipped (no published sha256; see above)",
+                app.id, i
+            ));
+            if let Some(f) = &mut on_fraction {
+                let done_u = (done + 1) as u32;
+                f(done_u as f64 / total_u32 as f64, done_u, total_u32);
+            }
+            continue;
+        }
         let remote = remote_hints
             .and_then(|s| s.get(*app_idx))
             .and_then(|o| o.as_ref());
@@ -2087,10 +2144,12 @@ pub fn update_all_installed_instances_with_policy(
             Ok(InstanceUpdateOutcome::SkippedUpToDate) => report.skipped_up_to_date += 1,
             Err(e) => {
                 report.errors += 1;
-                if matches!(e, Error::UnverifiedDownload { .. })
-                    && !report.unverified_apps.contains(&app.id)
-                {
-                    report.unverified_apps.push(app.id.clone());
+                if let Error::UnverifiedDownload { reason, .. } = &e {
+                    if !report.unverified_apps.iter().any(|(id, _)| id == &app.id) {
+                        report
+                            .unverified_apps
+                            .push((app.id.clone(), reason.clone()));
+                    }
                 }
                 on_progress(&format!("{} instance {}: {}", app.id, i, e));
             }
@@ -4865,5 +4924,60 @@ java-options=-Dcryptomator.ipcSocketPath=@{userhome}/.config/Cryptomator/ipc.soc
             .filter(|n| n.contains(".new.") || n.contains("unverified"))
             .collect();
         assert!(leftovers.is_empty(), "{leftovers:?}");
+    }
+
+    /// appimageupdatetool (no checkable sha256) may run only for an app whose own download
+    /// has no known hash, and only with the opt-in — never for an app with a pin or digest.
+    #[test]
+    fn updater_runs_only_for_unhashed_apps_with_opt_in() {
+        use crate::integrity::ExpectedDigest;
+        let allow = VerifyPolicy {
+            allow_unverified: true,
+        };
+        let strict = VerifyPolicy::default();
+        let hex = "ab".repeat(32);
+        assert!(updater_allowed(
+            allow,
+            &ExpectedDigest::Unavailable("none".into())
+        ));
+        assert!(!updater_allowed(
+            strict,
+            &ExpectedDigest::Unavailable("none".into())
+        ));
+        assert!(!updater_allowed(
+            allow,
+            &ExpectedDigest::Catalog(hex.clone())
+        ));
+        assert!(!updater_allowed(allow, &ExpectedDigest::GithubDigest(hex)));
+    }
+
+    /// A stale staging file from a killed run is swept before the next download.
+    #[test]
+    fn stale_unverified_staging_files_are_swept() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+        let stale = dir.join(".t.AppImage.0000.unverified");
+        let fresh = dir.join(".t.AppImage.1111.unverified");
+        let other = dir.join("t.AppImage");
+        for p in [&stale, &fresh, &other] {
+            fs::write(p, b"x").unwrap();
+        }
+        let old = std::time::SystemTime::now() - std::time::Duration::from_secs(7200);
+        fs::File::options()
+            .write(true)
+            .open(&stale)
+            .unwrap()
+            .set_modified(old)
+            .unwrap();
+        sweep_stale_unverified(dir);
+        assert!(
+            !stale.exists(),
+            "a staging file older than an hour is removed"
+        );
+        assert!(
+            fresh.exists(),
+            "a concurrent run's fresh staging file is kept"
+        );
+        assert!(other.exists());
     }
 }

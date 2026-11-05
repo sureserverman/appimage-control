@@ -368,3 +368,31 @@ fn verify_corrupt_sidecar_is_not_trusted() {
     let p = ensure_cached_appimage_with_policy(&paths, &app, allowed(), &mut |_| {}).unwrap();
     assert_eq!(fs::read(&p).unwrap(), body);
 }
+
+/// A cache recorded at an older version than the catalog now pins is stale even when the file
+/// name carries no version: the update must not reuse the old bytes under the new version.
+#[test]
+fn verify_cache_older_than_catalog_pin_is_redownloaded() {
+    let tmp = tempfile::tempdir().unwrap();
+    let paths = AppPaths::new(tmp.path().to_path_buf()).unwrap();
+    let dir = paths.catalog_cache_dir("vapp");
+    fs::create_dir_all(&dir).unwrap();
+    let old = b"\x7fELF version 1.0.0";
+    fs::write(dir.join("t.AppImage"), old).unwrap();
+    fs::write(
+        dir.join(CACHE_SHA256_FILENAME),
+        format!("{} unverified user-allowed\n", sha256_hex(old)),
+    )
+    .unwrap();
+    fs::write(dir.join(".appimage-control-version"), "1.0.0\n").unwrap();
+    let new = b"\x7fELF version 2.0.0";
+    let base = common::serve_bytes_once(new, "application/octet-stream");
+    let url = format!("{base}vapp-2.0.0.AppImage");
+    let app = verify_app(&url, None);
+    let p = ensure_cached_appimage_with_policy(&paths, &app, allowed(), &mut |_| {}).unwrap();
+    assert_eq!(
+        fs::read(&p).unwrap(),
+        new,
+        "the 1.0.0 cache must not stand in for 2.0.0"
+    );
+}
