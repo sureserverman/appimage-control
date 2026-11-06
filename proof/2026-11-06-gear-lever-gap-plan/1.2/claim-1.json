@@ -1,0 +1,29 @@
+{
+ "baseline": {
+  "elapsed_s": 1.1,
+  "exit": 0,
+  "tail": "\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s\n\n     Running tests/http_local_fixture.rs (target/debug/deps/http_local_fixture-aae622eeea22cc0c)\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.00s\n\n     Running tests/integration_backup.rs (target/debug/deps/integration_backup-b245a57e561667aa)\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s\n\n     Running tests/integration_install.rs (target/debug/deps/integration_install-5c00d04dd69993d3)\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s\n\n     Running tests/integration_restore.rs (target/debug/deps/integration_restore-e86c1ea945f4dc4e)\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n\n     Running tests/integration_seed_discovery.rs (target/debug/deps/integration_seed_discovery-ba7b96d3d3fb1326)\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s\n\n     Running tests/partial_catalog_states.rs (target/debug/deps/partial_catalog_states-c247a60645d4f084)\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s\n\n    Finished `dev` profile [unoptimized] target(s) in 0.11s"
+ },
+ "break_patch": "--- a/crates/core/src/update_check.rs\n+++ b/crates/core/src/update_check.rs\n@@ -113,7 +113,7 @@\n                 .map(|s| parse(s))\n                 .collect::<Option<Vec<_>>>(),\n         ) {\n-            return installed.iter().all(|v| r > *v);\n+            return installed.iter().all(|v| r >= *v);\n         }\n     }\n     label_differs(remote, label)\n",
+ "build": "cargo build -p appimage_control_core --tests",
+ "created": "2026-11-06T18:04:56+00:00",
+ "fingerprint": "03d0c4ea318a6e95b2cca7d4b79d3b3a73faeec97537db5ed7546f9af63680da",
+ "index": 1,
+ "kind": "claim",
+ "named_break": null,
+ "no_build_reason": null,
+ "plan": "/mnt/vault/Portfolio/anon-tools/appimage-control/plans/2026-11-06-gear-lever-gap-plan.md",
+ "red": {
+  "elapsed_s": 0.1,
+  "exit": 101,
+  "tail": "test update_check::tests::update_check_equal_older_or_unknown_remote_is_not_listed ... FAILED\ntest update_check::tests::update_check_mixed_fleet_compares_with_the_newest_instance ... FAILED\ntest update_check::tests::update_check_non_semver_tags_use_the_label_rule ... ok\ntest update_check::tests::update_check_newer_remote_is_listed ... ok\ntest update_check::tests::update_check_latest_known_version_per_source ... ok\ntest update_check::tests::update_check_every_catalog_app ... FAILED\n\nfailures:\n\n---- update_check::tests::update_check_equal_older_or_unknown_remote_is_not_listed stdout ----\n\nthread 'update_check::tests::update_check_equal_older_or_unknown_remote_is_not_listed' (1325245) panicked at crates/core/src/update_check.rs:203:9:\nassertion `left == right` failed\n  left: Some(AvailableUpdate { app_id: \"demo\", display_name: \"demo Display\", installed: \"2.8.1\", latest: \"2.8.1\" })\n right: None\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n---- update_check::tests::update_check_mixed_fleet_compares_with_the_newest_instance stdout ----\n\nthread 'update_check::tests::update_check_mixed_fleet_compares_with_the_newest_instance' (1325248) panicked at crates/core/src/update_check.rs:228:9:\nassertion `left == right` failed\n  left: Some(AvailableUpdate { app_id: \"demo\", display_name: \"demo Display\", installed: \"1.17.17-1.18.0\", latest: \"1.18.0\" })\n right: None\n\n---- update_check::tests::update_check_every_catalog_app stdout ----\n\nthread 'update_check::tests::update_check_every_catalog_app' (1325246) panicked at crates/core/src/update_check.rs:302:9:\nassertion `left == right` failed\n  left: [\"feather\", \"session\", \"keepassxc\", \"anythingllm\", \"jan\", \"lm-studio\", \"electrum-ltc\", \"cryptomator\", \"joplin\", \"qnote\", \"zulip\"]\n right: [\"feather\", \"keepassxc\", \"anythingllm\", \"lm-studio\", \"electrum-ltc\", \"joplin\", \"qnote\"]\n\n\nfailures:\n    update_check::tests::update_check_equal_older_or_unknown_remote_is_not_listed\n    update_check::tests::update_check_every_catalog_app\n    update_check::tests::update_check_mixed_fleet_compares_with_the_newest_instance\n\ntest result: FAILED. 4 passed; 3 failed; 0 ignored; 0 measured; 280 filtered out; finished in 0.00s\n\nerror: test failed, to rerun pass `-p appimage_control_core --lib`"
+ },
+ "schema": 2,
+ "shell": "bash",
+ "task": "1.2",
+ "test": "cargo test -p appimage_control_core update_check && sh /tmp/aic-vm.sh 'cargo build -p appimage-control' && ! grep -n 'fn version_is_newer' crates/gui/src/main.rs",
+ "text": "`updates_available(paths, catalog, remote: &[Option<String>]) -> Vec<AvailableUpdate { app_id, display_name, installed, latest }>`. Asserts: an installed app with remote `v2.9.0` over recorded `2.8.1` is listed",
+ "touched": [
+  "crates/core/src/update_check.rs"
+ ]
+}

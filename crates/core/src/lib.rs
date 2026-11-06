@@ -25,6 +25,7 @@ mod seed_pack_build;
 mod seed_pack_update;
 mod seed_record;
 mod update;
+mod update_check;
 mod version_info;
 
 pub use app_details::{
@@ -103,6 +104,10 @@ pub use seed_record::{
     save_recording, PackRecording,
 };
 pub use update::{appimageupdatetool_available, run_appimageupdatetool, update_from_file};
+pub use update_check::{
+    latest_known_version, latest_known_versions, update_available_for, updates_available,
+    AvailableUpdate,
+};
 pub use version_info::{
     catalog_cache_fresh_for_pinned, catalog_pin_matches_recorded, catalog_pinned_version,
     fetch_github_release_hints, fetch_remote_latest_versions, github_owner_repo_from_url,

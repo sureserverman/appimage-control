@@ -35,13 +35,13 @@ use appimage_control_core::{
     clean_catalog_download_cache, clean_installed_catalog_apps_keep_cache, create_backup_archive,
     diff_configs, discover_config_candidates, discover_migration_candidates,
     fetch_github_release_hints, installed_appimage_size, installed_version_fleet_display,
-    instance_count, list_managed_instance_indices, purge_appimage_control_state,
-    read_instance_config, reconcile_catalog_install_version_metadata,
+    instance_count, latest_known_version, list_managed_instance_indices,
+    purge_appimage_control_state, read_instance_config, reconcile_catalog_install_version_metadata,
     reconcile_instance_count_with_policy, repair_instance_launchers, restore_backup_archive,
     run_portable_dir_migration, save_recording, seed_instance_settings,
-    update_all_installed_instances_with_policy, write_pack_to, AppPaths, BackupOptions, Catalog,
-    CatalogApp, GithubReleaseHint, GuiConfig, PackRecording, SeedPackLibrary, SeedPreset,
-    SupportedSeedApp, UpdateAllReport,
+    update_all_installed_instances_with_policy, update_available_for, write_pack_to, AppPaths,
+    BackupOptions, Catalog, CatalogApp, GithubReleaseHint, GuiConfig, PackRecording,
+    SeedPackLibrary, SeedPreset, SupportedSeedApp, UpdateAllReport,
 };
 use cli::{has_cli_ops, print_help, run_cli_ops, want_help};
 use gtk::glib;
@@ -175,9 +175,12 @@ fn render_card(
 
     // Status pill.
     let update_available = applied > 0
-        && remote_latest
-            .map(|tag| version_is_newer(tag, inst_display.as_ref().map(|d| d.label.as_str())))
-            .unwrap_or(false);
+        && update_available_for(
+            paths,
+            app,
+            latest_known_version(app, remote_latest).as_deref(),
+        )
+        .is_some();
     update_flag.set(update_available);
     for c in ["update", "installed", "available"] {
         status_pill.remove_css_class(c);
@@ -271,18 +274,6 @@ fn render_card(
         spin_inc.set_value((v + 1).min(max_allowed) as f64);
     });
     tiles_box.append(&add);
-}
-
-/// Best-effort "remote tag is newer than any installed version" compare. Strict
-/// semver comparison would need pulling in a parser; we degrade to !equal so the
-/// pill never lies aggressively. Equal strings → no update.
-fn version_is_newer(remote_tag: &str, installed_label: Option<&str>) -> bool {
-    let Some(installed) = installed_label else {
-        return false;
-    };
-    let r = remote_tag.trim_start_matches('v');
-    let i = installed.trim();
-    !r.is_empty() && !i.is_empty() && r != i && !i.contains(r)
 }
 
 fn main() -> glib::ExitCode {
