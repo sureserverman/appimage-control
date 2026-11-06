@@ -105,8 +105,7 @@ impl Default for GuiConfig {
 impl GuiConfig {
     /// `~/.config/appimage-control/config.json`.
     pub fn path(paths: &AppPaths) -> PathBuf {
-        paths
-            .config_dir()
+        crate::paths::own_config_base(paths.home())
             .join("appimage-control")
             .join("config.json")
     }

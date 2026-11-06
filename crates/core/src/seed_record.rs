@@ -130,10 +130,11 @@ fn recording_path(dir: &Path, app_id: &str, instance_index: u32) -> Result<PathB
 /// Directory holding `<app-id>.<instance>.json` recording files for a
 /// caller-supplied home (used by tests / non-default profiles).
 pub fn recordings_dir_in(home: &Path) -> PathBuf {
-    home.join(".local/share/appimage-control/pack-recordings")
+    crate::paths::own_data_base(home).join("appimage-control/pack-recordings")
 }
 
-/// Default location: `$HOME/.local/share/appimage-control/pack-recordings/`.
+/// Default location: `$HOME/.local/share/appimage-control/pack-recordings/` (inside Flatpak
+/// `$XDG_DATA_HOME/appimage-control/pack-recordings/`; see [`crate::paths::own_data_base`]).
 pub fn default_recordings_dir() -> Option<PathBuf> {
     dirs::home_dir().map(|h| recordings_dir_in(&h))
 }

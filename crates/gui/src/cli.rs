@@ -143,9 +143,10 @@ When --purge, --clean, or --migrate is present, only one runs: --purge first if 
   --check-updates  Print each installed app that has a newer release as
                    `<app-id>: <installed> -> <latest>` and exit 0. Reads release versions
                    only; nothing is downloaded or installed. An app whose lookup failed
-                   (offline, GitHub rate limit) is left out, with one line on stderr. An
-                   unreadable catalog exits 1. Runs on its own: only --notify and --catalog
-                   may go with it.
+                   (offline, GitHub rate limit) is left out, with one line on stderr. A
+                   --catalog file that cannot be read exits 1; without --catalog the usual
+                   discovery applies and ends at the built-in catalog. Runs on its own: only
+                   --notify and --catalog may go with it.
   --notify         With --check-updates only: also show one desktop notification naming
                    the apps with updates (none when there are none). Clicking it opens the
                    window on the Updates filter. Used by the login autostart entry.
@@ -947,8 +948,9 @@ fn check_updates_companion_violation(args: &[String]) -> Option<&str> {
 
 /// `--check-updates [--notify]`: lists installed apps with a newer release. Looks up GitHub
 /// releases for installed apps only, and reads versions only: nothing is downloaded (DEC-001).
-/// A failed lookup is never counted as an update. Exit 1 only when the catalog or the home
-/// directory cannot be read, so a login run never fails for a network reason.
+/// A failed lookup is never counted as an update. Exit 1 only when a `--catalog` file cannot be
+/// read or the home directory is unknown (discovery without `--catalog` skips an unreadable
+/// source and ends at the built-in catalog), so a login run never fails for a network reason.
 fn run_check_updates(catalog_path: Option<&std::path::Path>, notify: bool) -> glib::ExitCode {
     let catalog = match Catalog::discover_load(catalog_path) {
         Ok(c) => c,

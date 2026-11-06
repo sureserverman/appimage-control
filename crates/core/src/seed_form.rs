@@ -99,10 +99,11 @@ fn validate_name(name: &str) -> Result<()> {
 /// Directory holding `<name>.json` files. Caller-supplied root must
 /// be an absolute home (used by tests / non-default profiles).
 pub fn seed_forms_dir_in(home: &Path) -> PathBuf {
-    home.join(".local/share/appimage-control/seed-forms")
+    crate::paths::own_data_base(home).join("appimage-control/seed-forms")
 }
 
-/// Resolves the default location: `$HOME/.local/share/appimage-control/seed-forms/`.
+/// Resolves the default location: `$HOME/.local/share/appimage-control/seed-forms/` (inside
+/// Flatpak `$XDG_DATA_HOME/appimage-control/seed-forms/`; see [`crate::paths::own_data_base`]).
 pub fn default_seed_forms_dir() -> Option<PathBuf> {
     dirs::home_dir().map(|h| seed_forms_dir_in(&h))
 }

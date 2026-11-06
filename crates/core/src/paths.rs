@@ -55,6 +55,45 @@ pub(crate) fn is_safe_relative_path(rel: &str) -> bool {
     has_normal
 }
 
+/// Base folder for AppImage Control's own configuration (`config.json`): `~/.config` natively.
+/// Inside Flatpak `~/.config` is not writable (the sandbox exposes only `xdg-data/appimages`,
+/// `applications` and `icons`), so it is `$XDG_CONFIG_HOME`, which Flatpak points at
+/// `~/.var/app/<app id>/config`.
+pub fn own_config_base(home: &Path) -> PathBuf {
+    own_base_from(
+        home,
+        ".config",
+        crate::host_cmd::in_flatpak(),
+        std::env::var_os("XDG_CONFIG_HOME"),
+    )
+}
+
+/// Base folder for AppImage Control's own data (saved seed forms, pack recordings):
+/// `~/.local/share` natively, `$XDG_DATA_HOME` (`~/.var/app/<app id>/data`) inside Flatpak.
+pub fn own_data_base(home: &Path) -> PathBuf {
+    own_base_from(
+        home,
+        ".local/share",
+        crate::host_cmd::in_flatpak(),
+        std::env::var_os("XDG_DATA_HOME"),
+    )
+}
+
+/// [`own_config_base`] / [`own_data_base`] with the sandbox check and variable passed in.
+pub(crate) fn own_base_from(
+    home: &Path,
+    native_rel: &str,
+    flatpak: bool,
+    xdg: Option<std::ffi::OsString>,
+) -> PathBuf {
+    if flatpak {
+        if let Some(p) = xdg.map(PathBuf::from).filter(|p| p.is_absolute()) {
+            return p;
+        }
+    }
+    home.join(native_rel)
+}
+
 /// Filesystem layout for managed AppImages (override `home` in tests).
 #[derive(Debug, Clone)]
 pub struct AppPaths {
@@ -201,6 +240,28 @@ impl AppPaths {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn own_state_bases_move_into_the_sandbox_only_inside_flatpak() {
+        let home = Path::new("/home/u");
+        let xdg = |p: &str| Some(std::ffi::OsString::from(p));
+        assert_eq!(
+            own_base_from(home, ".config", false, xdg("/elsewhere")),
+            Path::new("/home/u/.config")
+        );
+        assert_eq!(
+            own_base_from(home, ".config", true, xdg("/home/u/.var/app/x/config")),
+            Path::new("/home/u/.var/app/x/config")
+        );
+        assert_eq!(
+            own_base_from(home, ".local/share", true, None),
+            Path::new("/home/u/.local/share")
+        );
+        assert_eq!(
+            own_base_from(home, ".local/share", true, xdg("relative")),
+            Path::new("/home/u/.local/share")
+        );
+    }
 
     #[test]
     fn layout_under_fake_home() {

@@ -19,7 +19,10 @@ Entry points:
   `~/.local/share/dbus-1/services/io.github.sureserverman.AppImageControl.service`, or
   `/app/share/dbus-1/services/` in the Flatpak). GNOME Shell makes that call itself; on other
   desktops the `--check-updates` process makes it (step 3).
-- Preferences → General → ON LAUNCH → **Check for updates at login**.
+- Preferences → General → ON LAUNCH → **Check for updates at login**. The choice is saved in
+  `config.json` (`check_updates_at_login`): `~/.config/appimage-control/` natively,
+  `~/.var/app/io.github.sureserverman.AppImageControl/config/appimage-control/` in the
+  Flatpak, which cannot write `~/.config`.
 
 Steps:
 1. **Registration.** On the first start of the window, the check is registered (on by default,
@@ -39,8 +42,10 @@ Steps:
    - It prints `<app-id>: <installed> -> <latest>` for each app with a newer release.
    - If any GitHub lookup failed (offline, rate limited), it prints one line on stderr and
      leaves those apps out.
-   - Exit 0 in all of these cases. Exit 1 only when the catalog or the home folder cannot be
-     read.
+   - Exit 0 in all of these cases. Exit 1 only when a `--catalog` file cannot be read or the
+     home folder is unknown. The login entry passes no `--catalog`: discovery then skips an
+     unreadable `APPIMAGE_CONTROL_CATALOG` or installed catalog with a warning and ends at the
+     catalog built into the binary, so a login run checks against that one and exits 0.
 3. **Notify.** With `--notify` and at least one update, it sends one notification with id
    `updates` and the title "Updates available". The body names up to three apps ("Feather
    Wallet, Joplin and 2 more"). With no updates, nothing is shown. If the notification cannot
