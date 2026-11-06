@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=AppImage Control
-Comment=Install and manage AppImage applications
+Comment=Run apps as isolated copies
 Exec=appimage-control
 Icon=io.github.sureserverman.AppImageControl
 Terminal=false

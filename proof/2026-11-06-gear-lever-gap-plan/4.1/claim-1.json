@@ -1,0 +1,36 @@
+{
+ "baseline": {
+  "elapsed_s": 0.0,
+  "exit": 0,
+  "tail": "OK: metainfo meets the checked quality guidelines"
+ },
+ "break_patch": "diff --git b/data/io.github.sureserverman.AppImageControl.metainfo.xml a/data/io.github.sureserverman.AppImageControl.metainfo.xml\nindex e4b66980..aec5649a 100644\n--- b/data/io.github.sureserverman.AppImageControl.metainfo.xml\n+++ a/data/io.github.sureserverman.AppImageControl.metainfo.xml\n@@ -4,23 +4,18 @@\n   <metadata_license>CC0-1.0</metadata_license>\n   <project_license>MIT</project_license>\n   <name>AppImage Control</name>\n-  <summary>Run apps as isolated copies</summary>\n+  <summary>Manage AppImage installs, instances, backup and restore</summary>\n   <description>\n     <p>\n-      Install curated apps as separate, isolated copies, each with its own\n-      folder, settings and launcher. Every download is checked against a\n-      known SHA-256 hash before it is made executable.\n+      AppImage Control manages catalog-backed AppImage installations with multi-instance\n+      support, update checks, migration of legacy portable directories, and deterministic\n+      backup/restore of manager-owned state.\n     </p>\n     <p>\n-      New copies can start from ready-made settings, and everything the app\n-      manages can be backed up and restored.\n+      The application is designed for users who manage multiple AppImage applications and\n+      need repeatable instance orchestration, launcher repair, cache control, and safe\n+      state migration/restore flows.\n     </p>\n-    <ul>\n-      <li>A detail page per app with versions, sizes, folders and update source</li>\n-      <li>Settings packs that preset an app in every new copy</li>\n-      <li>Backup and restore with a hash check for every file</li>\n-      <li>A notice at login when an installed app has a newer release</li>\n-    </ul>\n   </description>\n   <launchable type=\"desktop-id\">io.github.sureserverman.AppImageControl.desktop</launchable>\n   <provides>\n@@ -32,17 +27,6 @@\n   <url type=\"homepage\">https://github.com/sureserverman/appimage-control</url>\n   <url type=\"bugtracker\">https://github.com/sureserverman/appimage-control/issues</url>\n   <url type=\"vcs-browser\">https://github.com/sureserverman/appimage-control</url>\n-  <keywords>\n-    <keyword>AppImage</keyword>\n-    <keyword>instances</keyword>\n-    <keyword>portable</keyword>\n-    <keyword>checksum</keyword>\n-    <keyword>backup</keyword>\n-  </keywords>\n-  <branding>\n-    <color type=\"primary\" scheme_preference=\"light\">#b9e4cf</color>\n-    <color type=\"primary\" scheme_preference=\"dark\">#20476e</color>\n-  </branding>\n   <content_rating type=\"oars-1.1\"/>\n   <screenshots>\n     <screenshot type=\"default\">\n",
+ "build": null,
+ "created": "2026-11-06T20:46:39+00:00",
+ "fingerprint": "a7a62beee4c6aa79738702654e1052a7d8663f47efc216fff2f03cb7a579f622",
+ "index": 1,
+ "kind": "claim",
+ "named_break": null,
+ "no_build_reason": "metadata and a Python script, nothing to build",
+ "plan": "/mnt/vault/Portfolio/anon-tools/appimage-control/plans/2026-11-06-gear-lever-gap-plan.md",
+ "red": {
+  "elapsed_s": 0.0,
+  "exit": 1,
+  "tail": "FAIL: summary is 55 characters, want 10 to 35: 'Manage AppImage installs, instances, backup and restore'\nFAIL: description's first paragraph does not mention checksums\nFAIL: branding needs two primary colors, scheme_preference light and dark\nFAIL: no <keyword> entries"
+ },
+ "schema": 2,
+ "shell": "bash",
+ "task": "4.1",
+ "test": "python3 scripts/check-metainfo-quality.py data/io.github.sureserverman.AppImageControl.metainfo.xml",
+ "text": "`appstreamcli validate --no-net --pedantic data/io.github.sureserverman.AppImageControl.metainfo.xml` reports no warnings or errors beyond the existing `cid-contains-uppercase-letter` pedantic note, and `python3 scripts/check-metainfo-quality.py data/io.github.sureserverman.AppImageControl.metainfo.xml` (new, written in this task) exits 0. That script asserts: summary 10 to 35 characters, no trailing period, does not contain the name; the description's first paragraph mentions instances (or copies) and checksums; at most 10 `<li>`; two `<color type=\"primary\">` entries with `scheme_preference` light and dark and different values; at least one `<keyword>`",
+ "touched": [
+  "data/io.github.sureserverman.AppImageControl.metainfo.xml"
+ ],
+ "touched_blobs": {
+  "data/io.github.sureserverman.AppImageControl.metainfo.xml": "e4b669806b201f99109ad7eb14ff9a302e6fe837"
+ },
+ "witness_blobs": {
+  "data/io.github.sureserverman.AppImageControl.metainfo.xml": "e4b669806b201f99109ad7eb14ff9a302e6fe837",
+  "scripts/check-metainfo-quality.py": "7a7e9c644cbd921caeae94bddb7aaf6e33b9abca"
+ }
+}

@@ -4,18 +4,23 @@
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT</project_license>
   <name>AppImage Control</name>
-  <summary>Manage AppImage installs, instances, backup and restore</summary>
+  <summary>Run apps as isolated copies</summary>
   <description>
     <p>
-      AppImage Control manages catalog-backed AppImage installations with multi-instance
-      support, update checks, migration of legacy portable directories, and deterministic
-      backup/restore of manager-owned state.
+      Install curated apps as separate, isolated copies, each with its own
+      folder, settings and launcher. Every download is checked against a
+      known SHA-256 hash before it is made executable.
     </p>
     <p>
-      The application is designed for users who manage multiple AppImage applications and
-      need repeatable instance orchestration, launcher repair, cache control, and safe
-      state migration/restore flows.
+      New copies can start from ready-made settings, and everything the app
+      manages can be backed up and restored.
     </p>
+    <ul>
+      <li>A detail page per app with versions, sizes, folders and update source</li>
+      <li>Settings packs that preset an app in every new copy</li>
+      <li>Backup and restore with a hash check for every file</li>
+      <li>A notice at login when an installed app has a newer release</li>
+    </ul>
   </description>
   <launchable type="desktop-id">io.github.sureserverman.AppImageControl.desktop</launchable>
   <provides>
@@ -27,6 +32,17 @@
   <url type="homepage">https://github.com/sureserverman/appimage-control</url>
   <url type="bugtracker">https://github.com/sureserverman/appimage-control/issues</url>
   <url type="vcs-browser">https://github.com/sureserverman/appimage-control</url>
+  <keywords>
+    <keyword>AppImage</keyword>
+    <keyword>instances</keyword>
+    <keyword>portable</keyword>
+    <keyword>checksum</keyword>
+    <keyword>backup</keyword>
+  </keywords>
+  <branding>
+    <color type="primary" scheme_preference="light">#b9e4cf</color>
+    <color type="primary" scheme_preference="dark">#20476e</color>
+  </branding>
   <content_rating type="oars-1.1"/>
   <screenshots>
     <screenshot type="default">
