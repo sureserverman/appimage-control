@@ -1,11 +1,11 @@
 {
- "created": "2026-11-06T19:35:55+00:00",
- "fingerprint": "fde341368e66b676d83b111acda5ff70b17f7fb54b0416228b869771f09398b9",
+ "created": "2026-11-06T19:36:33+00:00",
+ "fingerprint": "995daaa2c32bf788eab3899d3bc3c9b628de0ad7e03e66c3a979d33603c1ede7",
  "index": 1,
  "kind": "claim-deviation",
  "plan": "/mnt/vault/Portfolio/anon-tools/appimage-control/plans/2026-11-06-gear-lever-gap-plan.md",
  "schema": 2,
  "task": "3.2",
  "text": "`desktop-file-validate data/io.github.sureserverman.AppImageControl.desktop` passes, and on the VM live session `sh /tmp/aic-vm.sh 'python3 scripts/atspi-smoke.py activation'` exits 0. That mode installs the service file into the test user's `~/.local/share/dbus-1/services/` with `Exec` set to the built binary, makes sure no instance runs, calls `gdbus call --session --dest io.github.sureserverman.AppImageControl --object-path /io/github/sureserverman/AppImageControl --method org.freedesktop.Application.ActivateAction show-updates [] {}`, then asserts via AT-SPI that a window appears with the \"Updates\" toggle checked",
- "why": "VM live-session D-Bus + AT-SPI test; prove-claim must not run on the VM. Host: desktop-file-validate data/io.github.sureserverman.AppImageControl.desktop exit 0. RED before the fix: activation smoke FAIL 'ActivateAction show-updates failed: ...Spawn.ChildExited ... exited with status 1' (binary printed unknown option '--gapplication-service'). Manual mutant on the VM: win.show-updates without toggle.set_active(true) -> FAIL: the 'Updates' filter is on; restored -> PASS (window appears, Updates on, open window switches back from All, one main window, no CRITICAL)."
+ "why": "VM live-session D-Bus + AT-SPI test; prove-claim must not run on the VM. Host: desktop-file-validate data/io.github.sureserverman.AppImageControl.desktop exit 0. RED before the fix: activation smoke FAIL 'ActivateAction show-updates failed: ...Spawn.ChildExited ... exited with status 1' (binary printed unknown option '--gapplication-service'). Manual mutant on the VM: win.show-updates without toggle.set_active(true) -> FAIL: the 'Updates' filter is on; restored -> PASS (window appears, Updates on, open window switches back from All, one main window, no CRITICAL). Evidence above was produced at abbdc432; re-recorded at the Stage 3 gate on tree e90348bf, where the gate re-ran the claim green: VM suite (cli_subprocess incl. check_updates 4/4; login_check 16/16), atspi-smoke activation and login-check PASS, desktop-file-validate and verify-cli-doc-sync OK."
 }
