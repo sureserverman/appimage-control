@@ -855,18 +855,29 @@ fn mount_catalog_view(
             &[("app", &catalog_app.display_name_resolved())],
         ))]);
         {
-            let window = window.clone();
+            let window = window.downgrade();
             let paths = Rc::clone(&paths);
             let catalog = Rc::clone(&catalog);
             let remote = Rc::clone(&remote_latest_cache);
             details_btn.connect_clicked(move |_| {
+                let Some(window) = window.upgrade() else {
+                    return;
+                };
                 let app = &catalog.apps[app_index];
                 let tag = remote
                     .borrow()
                     .get(app_index)
                     .and_then(|h| h.as_ref().map(|h| h.tag.clone()));
-                let latest = latest_known_version(app, tag.as_deref());
-                details::present_details(&window, Rc::clone(&paths), app, latest.as_deref());
+                // The card's own "Latest" label, so the page never shows less than the card.
+                let latest =
+                    catalog_row_latest_version_label(paths.as_ref(), app, tag.as_deref()).ok();
+                details::present_details(
+                    &window,
+                    Rc::clone(&paths),
+                    app,
+                    latest.as_deref(),
+                    tag.is_some(),
+                );
             });
         }
 

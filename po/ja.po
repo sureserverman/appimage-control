@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: appimage-control\n"
 "Report-Msgid-Bugs-To: https://github.com/sureserverman/appimage-control/"
 "issues\n"
-"POT-Creation-Date: 2026-11-06 18:28+0000\n"
+"POT-Creation-Date: 2026-11-06 19:00+0000\n"
 "PO-Revision-Date: 2026-11-06 10:15+0000\n"
 "Last-Translator: Machine translation (Claude), not yet reviewed by a native "
 "speaker\n"
@@ -68,112 +68,132 @@ msgstr "キーボードショートカット"
 msgid "About AppImage Control"
 msgstr "AppImage Control について"
 
-#: crates/gui/src/details.rs:47
+#: crates/gui/src/details.rs:62
 msgid "Not known yet"
 msgstr "まだ不明"
 
-#: crates/gui/src/details.rs:53
+#: crates/gui/src/details.rs:66
+msgid "GitHub could not be checked, so newer releases may exist"
+msgstr "GitHub を確認できなかったため、より新しいリリースがあるかもしれません"
+
+#: crates/gui/src/details.rs:71
 msgid "GitHub releases: {repo}"
 msgstr "GitHub のリリース: {repo}"
 
-#: crates/gui/src/details.rs:58
+#: crates/gui/src/details.rs:76
 msgid "Pinned download"
 msgstr "固定のダウンロード"
 
-#: crates/gui/src/details.rs:60
+#: crates/gui/src/details.rs:78
 msgid "Download without a published checksum"
 msgstr "チェックサムが公開されていないダウンロード"
 
-#: crates/gui/src/details.rs:63
+#: crates/gui/src/details.rs:81
 msgid "No download for this system"
 msgstr "このシステム用のダウンロードはありません"
 
-#: crates/gui/src/details.rs:68
+#: crates/gui/src/details.rs:86
 msgid "Could not read the install folders: {error}"
 msgstr "インストールフォルダーを読み取れませんでした: {error}"
 
-#: crates/gui/src/details.rs:72
+#: crates/gui/src/details.rs:90
 msgid "No instances installed — add one on the card"
 msgstr "インスタンスはインストールされていません — カードから追加してください"
 
 #. TRANSLATORS: {version} is an app version, like "2.8.1".
-#: crates/gui/src/details.rs:82
+#: crates/gui/src/details.rs:100
 msgid "Version {version}"
 msgstr "バージョン {version}"
 
-#: crates/gui/src/details.rs:83
+#: crates/gui/src/details.rs:101
 msgid "Version unknown"
 msgstr "バージョン不明"
 
-#: crates/gui/src/details.rs:91
+#: crates/gui/src/details.rs:109
 msgid "The AppImage is missing — reinstall this instance"
 msgstr "AppImage がありません — このインスタンスを再インストールしてください"
 
-#: crates/gui/src/details.rs:93
+#: crates/gui/src/details.rs:111
 msgid "The launcher is missing — use Repair Launchers"
 msgstr "ランチャーがありません — 「ランチャーを修復」を使ってください"
 
 #. TRANSLATORS: an instance of an app, like "#2".
-#: crates/gui/src/details.rs:100
+#: crates/gui/src/details.rs:118
 msgid "Instance #{index}"
 msgstr "インスタンス #{index}"
 
-#: crates/gui/src/details.rs:106
+#. TRANSLATORS: accessible name of a Launch button; {index} is an instance number.
+#: crates/gui/src/details.rs:124
+msgid "Launch instance #{index}"
+msgstr "インスタンス #{index} を起動"
+
+#: crates/gui/src/details.rs:126
 msgid "The folder is missing"
 msgstr "フォルダーがありません"
 
-#: crates/gui/src/details.rs:125
+#: crates/gui/src/details.rs:129
+msgid "Open the folder of instance #{index}"
+msgstr "インスタンス #{index} のフォルダーを開く"
+
+#: crates/gui/src/details.rs:151
 msgid "Verified — matches the checksum in the catalog"
 msgstr "検証済み — カタログのチェックサムと一致"
 
-#: crates/gui/src/details.rs:126
+#: crates/gui/src/details.rs:152
 msgid "Verified — matches the checksum GitHub publishes"
 msgstr "検証済み — GitHub が公開するチェックサムと一致"
 
-#: crates/gui/src/details.rs:127
+#: crates/gui/src/details.rs:153
 msgid "Not verified — installed with your permission"
 msgstr "未検証 — あなたの許可を得てインストール"
 
-#: crates/gui/src/details.rs:128
+#: crates/gui/src/details.rs:154
 msgid "Unknown — the checksum record cannot be read"
 msgstr "不明 — チェックサムの記録を読み取れません"
 
-#: crates/gui/src/details.rs:129
+#: crates/gui/src/details.rs:155
 msgid "Not checked yet"
 msgstr "まだ確認されていません"
 
-#: crates/gui/src/details.rs:157
+#: crates/gui/src/details.rs:204
 msgid "Latest release"
 msgstr "最新リリース"
 
-#: crates/gui/src/details.rs:161
+#: crates/gui/src/details.rs:209
 msgid "Updates from"
 msgstr "更新の入手元"
 
-#: crates/gui/src/details.rs:169
+#: crates/gui/src/details.rs:210
 msgid "Download check"
 msgstr "ダウンロードの確認"
 
-#: crates/gui/src/details.rs:178
+#: crates/gui/src/details.rs:214
 msgid "Instances"
 msgstr "インスタンス"
 
-#: crates/gui/src/details.rs:191
+#: crates/gui/src/details.rs:231
 msgid "Launch"
 msgstr "起動"
 
-#. TRANSLATORS: {app} is an app name, {index} an instance number.
-#: crates/gui/src/details.rs:206
+#: crates/gui/src/details.rs:256
+msgid "Starting {app} #{index}…"
+msgstr "{app} #{index} を起動しています…"
+
+#: crates/gui/src/details.rs:273
 msgid "Could not launch {app} #{index}"
 msgstr "{app} #{index} を起動できませんでした"
 
-#: crates/gui/src/details.rs:209
+#: crates/gui/src/details.rs:278
 msgid "Show log"
 msgstr "ログを表示"
 
-#: crates/gui/src/details.rs:223
+#: crates/gui/src/details.rs:292
 msgid "Open folder"
 msgstr "フォルダーを開く"
+
+#: crates/gui/src/details.rs:320
+msgid "Could not open the folder: {error}"
+msgstr "フォルダーを開けませんでした: {error}"
 
 #: crates/gui/src/dialogs.rs:116 crates/gui/src/dialogs.rs:649
 #: crates/gui/src/record_dialog.rs:232 crates/gui/src/record_dialog.rs:335
@@ -387,7 +407,7 @@ msgstr "まだ何もインストールされていません"
 msgid "no instances"
 msgstr "インスタンスなし"
 
-#: crates/gui/src/main.rs:213 crates/gui/src/main.rs:1237
+#: crates/gui/src/main.rs:213 crates/gui/src/main.rs:1248
 msgid "{count} instance"
 msgid_plural "{count} instances"
 msgstr[0] "{count} インスタンス"
@@ -497,7 +517,7 @@ msgstr "カタログを開く…"
 msgid "Reload"
 msgstr "再読み込み"
 
-#: crates/gui/src/main.rs:545 crates/gui/src/main.rs:1854
+#: crates/gui/src/main.rs:545 crates/gui/src/main.rs:1865
 msgid "Choose catalog.json"
 msgstr "catalog.json を選択"
 
@@ -522,7 +542,7 @@ msgstr "更新あり"
 msgid "Search"
 msgstr "検索"
 
-#: crates/gui/src/main.rs:674 crates/gui/src/main.rs:961
+#: crates/gui/src/main.rs:674 crates/gui/src/main.rs:972
 msgid "Apply"
 msgstr "適用"
 
@@ -565,38 +585,38 @@ msgid "Details for {app}"
 msgstr "{app} の詳細"
 
 #. TRANSLATORS: the Apply button, with the number of apps it will change.
-#: crates/gui/src/main.rs:959
+#: crates/gui/src/main.rs:970
 msgid "Apply ({count})"
 msgstr "適用 ({count})"
 
-#: crates/gui/src/main.rs:968
+#: crates/gui/src/main.rs:979
 msgid "{count} app changing"
 msgid_plural "{count} apps changing"
 msgstr[0] "{count} 個のアプリを変更"
 
-#: crates/gui/src/main.rs:978
+#: crates/gui/src/main.rs:989
 msgid "+{count} instance"
 msgid_plural "+{count} instances"
 msgstr[0] "+{count} インスタンス"
 
-#: crates/gui/src/main.rs:986
+#: crates/gui/src/main.rs:997
 msgid "−{count} instance"
 msgid_plural "−{count} instances"
 msgstr[0] "−{count} インスタンス"
 
-#: crates/gui/src/main.rs:1228
+#: crates/gui/src/main.rs:1239
 msgid "instance {number}"
 msgstr "インスタンス {number}"
 
-#: crates/gui/src/main.rs:1232
+#: crates/gui/src/main.rs:1243
 msgid "instances {first}–{last}"
 msgstr "インスタンス {first}–{last}"
 
-#: crates/gui/src/main.rs:1258
+#: crates/gui/src/main.rs:1269
 msgid "Remove instance data?"
 msgstr "インスタンスのデータを削除しますか?"
 
-#: crates/gui/src/main.rs:1259
+#: crates/gui/src/main.rs:1270
 msgid ""
 "Lowering the instance count will permanently delete the home directory data "
 "for the removed instances. This cannot be undone."
@@ -604,45 +624,45 @@ msgstr ""
 "インスタンス数を減らすと、削除されるインスタンスのホームディレクトリのデータ"
 "が完全に削除されます。この操作は元に戻せません。"
 
-#: crates/gui/src/main.rs:1261
+#: crates/gui/src/main.rs:1272
 msgid "Remove and Apply"
 msgstr "削除して適用"
 
-#: crates/gui/src/main.rs:1294 crates/gui/src/main.rs:1295
-#: crates/gui/src/main.rs:1411
+#: crates/gui/src/main.rs:1305 crates/gui/src/main.rs:1306
+#: crates/gui/src/main.rs:1422
 msgid "Working…"
 msgstr "処理中…"
 
-#: crates/gui/src/main.rs:1385
+#: crates/gui/src/main.rs:1396
 msgid "Apply interrupted."
 msgstr "適用が中断されました。"
 
-#: crates/gui/src/main.rs:1415
+#: crates/gui/src/main.rs:1426
 msgid "Working… (0 of {total})"
 msgstr "処理中… (0/{total})"
 
-#: crates/gui/src/main.rs:1496
+#: crates/gui/src/main.rs:1507
 msgid "Working… ({done}/{total}): {app}"
 msgstr "処理中… ({done}/{total}): {app}"
 
-#: crates/gui/src/main.rs:1563 crates/gui/src/main.rs:1564
-#: crates/gui/src/main.rs:1680
+#: crates/gui/src/main.rs:1574 crates/gui/src/main.rs:1575
+#: crates/gui/src/main.rs:1691
 msgid "Updating…"
 msgstr "更新中…"
 
-#: crates/gui/src/main.rs:1659
+#: crates/gui/src/main.rs:1670
 msgid "Update interrupted."
 msgstr "更新が中断されました。"
 
-#: crates/gui/src/main.rs:1683
+#: crates/gui/src/main.rs:1694
 msgid "Updating… ({done}/{total})"
 msgstr "更新中… ({done}/{total})"
 
-#: crates/gui/src/main.rs:1752
+#: crates/gui/src/main.rs:1763
 msgid "Install without verification?"
 msgstr "検証せずにインストールしますか?"
 
-#: crates/gui/src/main.rs:1753
+#: crates/gui/src/main.rs:1764
 msgid ""
 "No published sha256 is available to check these downloads, so they were not "
 "installed. Install them anyway only if you trust where they come from."
@@ -651,139 +671,139 @@ msgstr ""
 "トールされませんでした。入手元を信頼できる場合にのみ、そのままインストールし"
 "てください。"
 
-#: crates/gui/src/main.rs:1755
+#: crates/gui/src/main.rs:1766
 msgid "Install unverified"
 msgstr "未検証のままインストール"
 
-#: crates/gui/src/main.rs:1817
+#: crates/gui/src/main.rs:1828
 msgid "{count} app"
 msgid_plural "{count} apps"
 msgstr[0] "{count} 個のアプリ"
 
-#: crates/gui/src/main.rs:1820
+#: crates/gui/src/main.rs:1831
 msgid "{count} installed"
 msgstr "{count} 個インストール済み"
 
-#: crates/gui/src/main.rs:1888 crates/gui/src/main.rs:2457
-#: crates/gui/src/main.rs:2536 crates/gui/src/main.rs:2616
-#: crates/gui/src/main.rs:2693 crates/gui/src/main.rs:2811
-#: crates/gui/src/main.rs:2841 crates/gui/src/main.rs:2850
-#: crates/gui/src/main.rs:2920
+#: crates/gui/src/main.rs:1899 crates/gui/src/main.rs:2468
+#: crates/gui/src/main.rs:2547 crates/gui/src/main.rs:2627
+#: crates/gui/src/main.rs:2704 crates/gui/src/main.rs:2822
+#: crates/gui/src/main.rs:2852 crates/gui/src/main.rs:2861
+#: crates/gui/src/main.rs:2931
 msgid "Ready"
 msgstr "準備完了"
 
-#: crates/gui/src/main.rs:1921 crates/gui/src/main.rs:2115
+#: crates/gui/src/main.rs:1932 crates/gui/src/main.rs:2126
 msgid "Seed packs not loaded"
 msgstr "シードパックが読み込まれていません"
 
-#: crates/gui/src/main.rs:1937
+#: crates/gui/src/main.rs:1948
 msgid "Some seed packs were skipped"
 msgstr "一部のシードパックがスキップされました"
 
-#: crates/gui/src/main.rs:1957
+#: crates/gui/src/main.rs:1968
 msgid "No supported installs"
 msgstr "対応するインストールがありません"
 
-#: crates/gui/src/main.rs:1958
+#: crates/gui/src/main.rs:1969
 msgid "There are no installed Feather or Electrum instances to seed."
 msgstr ""
 "シードできる Feather または Electrum のインスタンスがインストールされていませ"
 "ん。"
 
-#: crates/gui/src/main.rs:1989 crates/gui/src/main.rs:1990
-#: crates/gui/src/main.rs:2050
+#: crates/gui/src/main.rs:2000 crates/gui/src/main.rs:2001
+#: crates/gui/src/main.rs:2061
 msgid "Seeding settings…"
 msgstr "設定をシード中…"
 
-#: crates/gui/src/main.rs:2031
+#: crates/gui/src/main.rs:2042
 msgid "Seed settings interrupted."
 msgstr "設定のシードが中断されました。"
 
-#: crates/gui/src/main.rs:2081
+#: crates/gui/src/main.rs:2092
 msgid "Seeding settings… ({done}/{total})"
 msgstr "設定をシード中… ({done}/{total})"
 
-#: crates/gui/src/main.rs:2146
+#: crates/gui/src/main.rs:2157
 msgid "No installed apps"
 msgstr "インストール済みのアプリがありません"
 
-#: crates/gui/src/main.rs:2147
+#: crates/gui/src/main.rs:2158
 msgid "Install at least one app instance before recording a seed pack."
 msgstr ""
 "シードパックを記録する前に、アプリのインスタンスを 1 つ以上インストールしてく"
 "ださい。"
 
-#: crates/gui/src/main.rs:2165 crates/gui/src/main.rs:2166
+#: crates/gui/src/main.rs:2176 crates/gui/src/main.rs:2177
 msgid "Capturing baseline…"
 msgstr "ベースラインを取得中…"
 
-#: crates/gui/src/main.rs:2185
+#: crates/gui/src/main.rs:2196
 msgid "App “{app}” is not in the catalog."
 msgstr "アプリ「{app}」はカタログにありません。"
 
-#: crates/gui/src/main.rs:2249
+#: crates/gui/src/main.rs:2260
 msgid "Baseline capture interrupted."
 msgstr "ベースラインの取得が中断されました。"
 
-#: crates/gui/src/main.rs:2273
+#: crates/gui/src/main.rs:2284
 msgid "Baseline capture failed."
 msgstr "ベースラインの取得に失敗しました。"
 
-#: crates/gui/src/main.rs:2274
+#: crates/gui/src/main.rs:2285
 msgid "Baseline capture failed"
 msgstr "ベースラインの取得に失敗しました"
 
-#: crates/gui/src/main.rs:2303
+#: crates/gui/src/main.rs:2314
 msgid "Baseline captured — configure the app, then diff."
 msgstr ""
 "ベースラインを取得しました — アプリを設定してから差分を取得してください。"
 
-#: crates/gui/src/main.rs:2319
+#: crates/gui/src/main.rs:2330
 msgid "No settings changed."
 msgstr "変更された設定はありません。"
 
-#: crates/gui/src/main.rs:2322
+#: crates/gui/src/main.rs:2333
 msgid "No changes to record"
 msgstr "記録する変更はありません"
 
-#: crates/gui/src/main.rs:2323
+#: crates/gui/src/main.rs:2334
 msgid "The config is unchanged from the baseline — nothing to capture."
 msgstr "設定はベースラインから変更されていません — 取得するものはありません。"
 
-#: crates/gui/src/main.rs:2333
+#: crates/gui/src/main.rs:2344
 msgid "No keys selected."
 msgstr "キーが選択されていません。"
 
-#: crates/gui/src/main.rs:2349
+#: crates/gui/src/main.rs:2360
 msgid "Seed pack written."
 msgstr "シードパックを書き込みました。"
 
-#: crates/gui/src/main.rs:2352
+#: crates/gui/src/main.rs:2363
 msgid "Seed pack written"
 msgstr "シードパックを書き込みました"
 
-#: crates/gui/src/main.rs:2355
+#: crates/gui/src/main.rs:2366
 msgid "Wrote {count} key to {path}"
 msgid_plural "Wrote {count} keys to {path}"
 msgstr[0] "{count} 個のキーを {path} に書き込みました"
 
-#: crates/gui/src/main.rs:2364
+#: crates/gui/src/main.rs:2375
 msgid "This pack is NOT signed — review it before distributing."
 msgstr "このパックには署名がありません — 配布する前に内容を確認してください。"
 
-#: crates/gui/src/main.rs:2369
+#: crates/gui/src/main.rs:2380
 msgid "Could not write pack"
 msgstr "パックを書き込めませんでした"
 
-#: crates/gui/src/main.rs:2380
+#: crates/gui/src/main.rs:2391
 msgid "Could not read current config"
 msgstr "現在の設定を読み込めませんでした"
 
-#: crates/gui/src/main.rs:2421
+#: crates/gui/src/main.rs:2432
 msgid "Clean installs?"
 msgstr "インストールを消去しますか?"
 
-#: crates/gui/src/main.rs:2422
+#: crates/gui/src/main.rs:2433
 msgid ""
 "Remove installed catalog instances and their managed launchers and icons. "
 "The download cache is kept, so reinstalling is fast."
@@ -792,23 +812,23 @@ msgstr ""
 "ンを削除します。ダウンロードキャッシュは残るため、すぐに再インストールできま"
 "す。"
 
-#: crates/gui/src/main.rs:2427 crates/gui/src/preferences.rs:434
+#: crates/gui/src/main.rs:2438 crates/gui/src/preferences.rs:434
 msgid "Clean"
 msgstr "消去"
 
-#: crates/gui/src/main.rs:2436 crates/gui/src/main.rs:2437
+#: crates/gui/src/main.rs:2447 crates/gui/src/main.rs:2448
 msgid "Cleaning…"
 msgstr "消去中…"
 
-#: crates/gui/src/main.rs:2465
+#: crates/gui/src/main.rs:2476
 msgid "Clean interrupted."
 msgstr "消去が中断されました。"
 
-#: crates/gui/src/main.rs:2499
+#: crates/gui/src/main.rs:2510
 msgid "Purge all manager state?"
 msgstr "マネージャーの状態をすべて完全に削除しますか?"
 
-#: crates/gui/src/main.rs:2500
+#: crates/gui/src/main.rs:2511
 msgid ""
 "This removes every install, the download cache, managed launchers, and icon "
 "tiles owned by AppImage Control. App data inside instance home dirs is also "
@@ -818,51 +838,51 @@ msgstr ""
 "対象のランチャー、アイコンタイルを削除します。インスタンスのホームディレクト"
 "リ内にあるアプリのデータも削除されます。"
 
-#: crates/gui/src/main.rs:2506
+#: crates/gui/src/main.rs:2517
 msgid "Purge state"
 msgstr "状態を完全に削除"
 
-#: crates/gui/src/main.rs:2515 crates/gui/src/main.rs:2516
+#: crates/gui/src/main.rs:2526 crates/gui/src/main.rs:2527
 msgid "Purging…"
 msgstr "完全に削除中…"
 
-#: crates/gui/src/main.rs:2544
+#: crates/gui/src/main.rs:2555
 msgid "Purge interrupted."
 msgstr "完全削除が中断されました。"
 
-#: crates/gui/src/main.rs:2595 crates/gui/src/main.rs:2596
+#: crates/gui/src/main.rs:2606 crates/gui/src/main.rs:2607
 msgid "Migrating…"
 msgstr "移行中…"
 
-#: crates/gui/src/main.rs:2624
+#: crates/gui/src/main.rs:2635
 msgid "Migration interrupted."
 msgstr "移行が中断されました。"
 
-#: crates/gui/src/main.rs:2665
+#: crates/gui/src/main.rs:2676
 msgid "Choose backup archive destination"
 msgstr "バックアップアーカイブの保存先を選択"
 
-#: crates/gui/src/main.rs:2674 crates/gui/src/main.rs:2675
+#: crates/gui/src/main.rs:2685 crates/gui/src/main.rs:2686
 msgid "Backing up…"
 msgstr "バックアップ中…"
 
-#: crates/gui/src/main.rs:2701
+#: crates/gui/src/main.rs:2712
 msgid "Backup interrupted."
 msgstr "バックアップが中断されました。"
 
-#: crates/gui/src/main.rs:2738
+#: crates/gui/src/main.rs:2749
 msgid "Choose backup archive to restore"
 msgstr "復元するバックアップアーカイブを選択"
 
-#: crates/gui/src/main.rs:2747 crates/gui/src/main.rs:2748
+#: crates/gui/src/main.rs:2758 crates/gui/src/main.rs:2759
 msgid "Restoring…"
 msgstr "復元中…"
 
-#: crates/gui/src/main.rs:2787
+#: crates/gui/src/main.rs:2798
 msgid "Overwrite existing managed state?"
 msgstr "既存の管理状態を上書きしますか?"
 
-#: crates/gui/src/main.rs:2788
+#: crates/gui/src/main.rs:2799
 msgid ""
 "Managed state already exists. Force restore and overwrite manager-owned "
 "state?"
@@ -870,23 +890,23 @@ msgstr ""
 "管理状態がすでに存在します。強制的に復元して、マネージャーが所有する状態を上"
 "書きしますか?"
 
-#: crates/gui/src/main.rs:2790
+#: crates/gui/src/main.rs:2801
 msgid "Overwrite"
 msgstr "上書き"
 
-#: crates/gui/src/main.rs:2792 crates/gui/src/main.rs:2793
+#: crates/gui/src/main.rs:2803 crates/gui/src/main.rs:2804
 msgid "Restoring (forced)…"
 msgstr "復元中 (強制)…"
 
-#: crates/gui/src/main.rs:2819 crates/gui/src/main.rs:2859
+#: crates/gui/src/main.rs:2830 crates/gui/src/main.rs:2870
 msgid "Restore interrupted."
 msgstr "復元が中断されました。"
 
-#: crates/gui/src/main.rs:2901 crates/gui/src/main.rs:2902
+#: crates/gui/src/main.rs:2912 crates/gui/src/main.rs:2913
 msgid "Updating seed packs…"
 msgstr "シードパックを更新中…"
 
-#: crates/gui/src/main.rs:2928
+#: crates/gui/src/main.rs:2939
 msgid "Update seed packs interrupted."
 msgstr "シードパックの更新が中断されました。"
 

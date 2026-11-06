@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: appimage-control\n"
 "Report-Msgid-Bugs-To: https://github.com/sureserverman/appimage-control/"
 "issues\n"
-"POT-Creation-Date: 2026-11-06 18:28+0000\n"
+"POT-Creation-Date: 2026-11-06 19:00+0000\n"
 "PO-Revision-Date: 2026-11-06 10:15+0000\n"
 "Last-Translator: Machine translation (Claude), not yet reviewed by a native "
 "speaker\n"
@@ -68,112 +68,132 @@ msgstr "Klavye Kısayolları"
 msgid "About AppImage Control"
 msgstr "AppImage Control Hakkında"
 
-#: crates/gui/src/details.rs:47
+#: crates/gui/src/details.rs:62
 msgid "Not known yet"
 msgstr "Henüz bilinmiyor"
 
-#: crates/gui/src/details.rs:53
+#: crates/gui/src/details.rs:66
+msgid "GitHub could not be checked, so newer releases may exist"
+msgstr "GitHub denetlenemedi, bu yüzden daha yeni sürümler olabilir"
+
+#: crates/gui/src/details.rs:71
 msgid "GitHub releases: {repo}"
 msgstr "GitHub sürümleri: {repo}"
 
-#: crates/gui/src/details.rs:58
+#: crates/gui/src/details.rs:76
 msgid "Pinned download"
 msgstr "Sabit indirme"
 
-#: crates/gui/src/details.rs:60
+#: crates/gui/src/details.rs:78
 msgid "Download without a published checksum"
 msgstr "Yayımlanmış sağlama toplamı olmayan indirme"
 
-#: crates/gui/src/details.rs:63
+#: crates/gui/src/details.rs:81
 msgid "No download for this system"
 msgstr "Bu sistem için indirme yok"
 
-#: crates/gui/src/details.rs:68
+#: crates/gui/src/details.rs:86
 msgid "Could not read the install folders: {error}"
 msgstr "Kurulum klasörleri okunamadı: {error}"
 
-#: crates/gui/src/details.rs:72
+#: crates/gui/src/details.rs:90
 msgid "No instances installed — add one on the card"
 msgstr "Yüklü örnek yok — kart üzerinden bir tane ekleyin"
 
 #. TRANSLATORS: {version} is an app version, like "2.8.1".
-#: crates/gui/src/details.rs:82
+#: crates/gui/src/details.rs:100
 msgid "Version {version}"
 msgstr "Sürüm {version}"
 
-#: crates/gui/src/details.rs:83
+#: crates/gui/src/details.rs:101
 msgid "Version unknown"
 msgstr "Sürüm bilinmiyor"
 
-#: crates/gui/src/details.rs:91
+#: crates/gui/src/details.rs:109
 msgid "The AppImage is missing — reinstall this instance"
 msgstr "AppImage eksik — bu örneği yeniden yükleyin"
 
-#: crates/gui/src/details.rs:93
+#: crates/gui/src/details.rs:111
 msgid "The launcher is missing — use Repair Launchers"
 msgstr "Başlatıcı eksik — “Başlatıcıları Onar”ı kullanın"
 
 #. TRANSLATORS: an instance of an app, like "#2".
-#: crates/gui/src/details.rs:100
+#: crates/gui/src/details.rs:118
 msgid "Instance #{index}"
 msgstr "Örnek #{index}"
 
-#: crates/gui/src/details.rs:106
+#. TRANSLATORS: accessible name of a Launch button; {index} is an instance number.
+#: crates/gui/src/details.rs:124
+msgid "Launch instance #{index}"
+msgstr "Örnek #{index} başlat"
+
+#: crates/gui/src/details.rs:126
 msgid "The folder is missing"
 msgstr "Klasör eksik"
 
-#: crates/gui/src/details.rs:125
+#: crates/gui/src/details.rs:129
+msgid "Open the folder of instance #{index}"
+msgstr "Örnek #{index} klasörünü aç"
+
+#: crates/gui/src/details.rs:151
 msgid "Verified — matches the checksum in the catalog"
 msgstr "Doğrulandı — katalogdaki sağlama toplamıyla eşleşiyor"
 
-#: crates/gui/src/details.rs:126
+#: crates/gui/src/details.rs:152
 msgid "Verified — matches the checksum GitHub publishes"
 msgstr "Doğrulandı — GitHub'ın yayımladığı sağlama toplamıyla eşleşiyor"
 
-#: crates/gui/src/details.rs:127
+#: crates/gui/src/details.rs:153
 msgid "Not verified — installed with your permission"
 msgstr "Doğrulanmadı — izninizle yüklendi"
 
-#: crates/gui/src/details.rs:128
+#: crates/gui/src/details.rs:154
 msgid "Unknown — the checksum record cannot be read"
 msgstr "Bilinmiyor — sağlama toplamı kaydı okunamıyor"
 
-#: crates/gui/src/details.rs:129
+#: crates/gui/src/details.rs:155
 msgid "Not checked yet"
 msgstr "Henüz denetlenmedi"
 
-#: crates/gui/src/details.rs:157
+#: crates/gui/src/details.rs:204
 msgid "Latest release"
 msgstr "En son sürüm"
 
-#: crates/gui/src/details.rs:161
+#: crates/gui/src/details.rs:209
 msgid "Updates from"
 msgstr "Güncellemelerin kaynağı"
 
-#: crates/gui/src/details.rs:169
+#: crates/gui/src/details.rs:210
 msgid "Download check"
 msgstr "İndirme denetimi"
 
-#: crates/gui/src/details.rs:178
+#: crates/gui/src/details.rs:214
 msgid "Instances"
 msgstr "Örnekler"
 
-#: crates/gui/src/details.rs:191
+#: crates/gui/src/details.rs:231
 msgid "Launch"
 msgstr "Başlat"
 
-#. TRANSLATORS: {app} is an app name, {index} an instance number.
-#: crates/gui/src/details.rs:206
+#: crates/gui/src/details.rs:256
+msgid "Starting {app} #{index}…"
+msgstr "{app} #{index} başlatılıyor…"
+
+#: crates/gui/src/details.rs:273
 msgid "Could not launch {app} #{index}"
 msgstr "{app} #{index} başlatılamadı"
 
-#: crates/gui/src/details.rs:209
+#: crates/gui/src/details.rs:278
 msgid "Show log"
 msgstr "Günlüğü göster"
 
-#: crates/gui/src/details.rs:223
+#: crates/gui/src/details.rs:292
 msgid "Open folder"
 msgstr "Klasörü aç"
+
+#: crates/gui/src/details.rs:320
+msgid "Could not open the folder: {error}"
+msgstr "Klasör açılamadı: {error}"
 
 #: crates/gui/src/dialogs.rs:116 crates/gui/src/dialogs.rs:649
 #: crates/gui/src/record_dialog.rs:232 crates/gui/src/record_dialog.rs:335
@@ -393,7 +413,7 @@ msgstr "Henüz hiçbir şey kurulmadı"
 msgid "no instances"
 msgstr "örnek yok"
 
-#: crates/gui/src/main.rs:213 crates/gui/src/main.rs:1237
+#: crates/gui/src/main.rs:213 crates/gui/src/main.rs:1248
 msgid "{count} instance"
 msgid_plural "{count} instances"
 msgstr[0] "{count} örnek"
@@ -506,7 +526,7 @@ msgstr "Katalog Aç…"
 msgid "Reload"
 msgstr "Yeniden Yükle"
 
-#: crates/gui/src/main.rs:545 crates/gui/src/main.rs:1854
+#: crates/gui/src/main.rs:545 crates/gui/src/main.rs:1865
 msgid "Choose catalog.json"
 msgstr "catalog.json dosyasını seçin"
 
@@ -531,7 +551,7 @@ msgstr "Güncellemeler"
 msgid "Search"
 msgstr "Ara"
 
-#: crates/gui/src/main.rs:674 crates/gui/src/main.rs:961
+#: crates/gui/src/main.rs:674 crates/gui/src/main.rs:972
 msgid "Apply"
 msgstr "Uygula"
 
@@ -574,41 +594,41 @@ msgid "Details for {app}"
 msgstr "{app} ayrıntıları"
 
 #. TRANSLATORS: the Apply button, with the number of apps it will change.
-#: crates/gui/src/main.rs:959
+#: crates/gui/src/main.rs:970
 msgid "Apply ({count})"
 msgstr "Uygula ({count})"
 
-#: crates/gui/src/main.rs:968
+#: crates/gui/src/main.rs:979
 msgid "{count} app changing"
 msgid_plural "{count} apps changing"
 msgstr[0] "{count} uygulama değişecek"
 msgstr[1] "{count} uygulama değişecek"
 
-#: crates/gui/src/main.rs:978
+#: crates/gui/src/main.rs:989
 msgid "+{count} instance"
 msgid_plural "+{count} instances"
 msgstr[0] "+{count} örnek"
 msgstr[1] "+{count} örnek"
 
-#: crates/gui/src/main.rs:986
+#: crates/gui/src/main.rs:997
 msgid "−{count} instance"
 msgid_plural "−{count} instances"
 msgstr[0] "−{count} örnek"
 msgstr[1] "−{count} örnek"
 
-#: crates/gui/src/main.rs:1228
+#: crates/gui/src/main.rs:1239
 msgid "instance {number}"
 msgstr "örnek {number}"
 
-#: crates/gui/src/main.rs:1232
+#: crates/gui/src/main.rs:1243
 msgid "instances {first}–{last}"
 msgstr "örnek {first}–{last}"
 
-#: crates/gui/src/main.rs:1258
+#: crates/gui/src/main.rs:1269
 msgid "Remove instance data?"
 msgstr "Örnek verileri kaldırılsın mı?"
 
-#: crates/gui/src/main.rs:1259
+#: crates/gui/src/main.rs:1270
 msgid ""
 "Lowering the instance count will permanently delete the home directory data "
 "for the removed instances. This cannot be undone."
@@ -616,45 +636,45 @@ msgstr ""
 "Örnek sayısını düşürmek, kaldırılan örneklerin ev dizini verilerini kalıcı "
 "olarak siler. Bu işlem geri alınamaz."
 
-#: crates/gui/src/main.rs:1261
+#: crates/gui/src/main.rs:1272
 msgid "Remove and Apply"
 msgstr "Kaldır ve Uygula"
 
-#: crates/gui/src/main.rs:1294 crates/gui/src/main.rs:1295
-#: crates/gui/src/main.rs:1411
+#: crates/gui/src/main.rs:1305 crates/gui/src/main.rs:1306
+#: crates/gui/src/main.rs:1422
 msgid "Working…"
 msgstr "İşleniyor…"
 
-#: crates/gui/src/main.rs:1385
+#: crates/gui/src/main.rs:1396
 msgid "Apply interrupted."
 msgstr "Uygula işlemi kesildi."
 
-#: crates/gui/src/main.rs:1415
+#: crates/gui/src/main.rs:1426
 msgid "Working… (0 of {total})"
 msgstr "İşleniyor… (0/{total})"
 
-#: crates/gui/src/main.rs:1496
+#: crates/gui/src/main.rs:1507
 msgid "Working… ({done}/{total}): {app}"
 msgstr "İşleniyor… ({done}/{total}): {app}"
 
-#: crates/gui/src/main.rs:1563 crates/gui/src/main.rs:1564
-#: crates/gui/src/main.rs:1680
+#: crates/gui/src/main.rs:1574 crates/gui/src/main.rs:1575
+#: crates/gui/src/main.rs:1691
 msgid "Updating…"
 msgstr "Güncelleniyor…"
 
-#: crates/gui/src/main.rs:1659
+#: crates/gui/src/main.rs:1670
 msgid "Update interrupted."
 msgstr "Güncelleme kesildi."
 
-#: crates/gui/src/main.rs:1683
+#: crates/gui/src/main.rs:1694
 msgid "Updating… ({done}/{total})"
 msgstr "Güncelleniyor… ({done}/{total})"
 
-#: crates/gui/src/main.rs:1752
+#: crates/gui/src/main.rs:1763
 msgid "Install without verification?"
 msgstr "Doğrulama olmadan kurulsun mu?"
 
-#: crates/gui/src/main.rs:1753
+#: crates/gui/src/main.rs:1764
 msgid ""
 "No published sha256 is available to check these downloads, so they were not "
 "installed. Install them anyway only if you trust where they come from."
@@ -662,138 +682,138 @@ msgstr ""
 "Bu indirmeleri denetlemek için yayımlanmış bir sha256 yok, bu yüzden "
 "kurulmadılar. Bunları yalnızca kaynaklarına güveniyorsanız yine de kurun."
 
-#: crates/gui/src/main.rs:1755
+#: crates/gui/src/main.rs:1766
 msgid "Install unverified"
 msgstr "Doğrulamadan kur"
 
-#: crates/gui/src/main.rs:1817
+#: crates/gui/src/main.rs:1828
 msgid "{count} app"
 msgid_plural "{count} apps"
 msgstr[0] "{count} uygulama"
 msgstr[1] "{count} uygulama"
 
-#: crates/gui/src/main.rs:1820
+#: crates/gui/src/main.rs:1831
 msgid "{count} installed"
 msgstr "{count} kurulu"
 
-#: crates/gui/src/main.rs:1888 crates/gui/src/main.rs:2457
-#: crates/gui/src/main.rs:2536 crates/gui/src/main.rs:2616
-#: crates/gui/src/main.rs:2693 crates/gui/src/main.rs:2811
-#: crates/gui/src/main.rs:2841 crates/gui/src/main.rs:2850
-#: crates/gui/src/main.rs:2920
+#: crates/gui/src/main.rs:1899 crates/gui/src/main.rs:2468
+#: crates/gui/src/main.rs:2547 crates/gui/src/main.rs:2627
+#: crates/gui/src/main.rs:2704 crates/gui/src/main.rs:2822
+#: crates/gui/src/main.rs:2852 crates/gui/src/main.rs:2861
+#: crates/gui/src/main.rs:2931
 msgid "Ready"
 msgstr "Hazır"
 
-#: crates/gui/src/main.rs:1921 crates/gui/src/main.rs:2115
+#: crates/gui/src/main.rs:1932 crates/gui/src/main.rs:2126
 msgid "Seed packs not loaded"
 msgstr "Ön ayar paketleri yüklenmedi"
 
-#: crates/gui/src/main.rs:1937
+#: crates/gui/src/main.rs:1948
 msgid "Some seed packs were skipped"
 msgstr "Bazı ön ayar paketleri atlandı"
 
-#: crates/gui/src/main.rs:1957
+#: crates/gui/src/main.rs:1968
 msgid "No supported installs"
 msgstr "Desteklenen kurulum yok"
 
-#: crates/gui/src/main.rs:1958
+#: crates/gui/src/main.rs:1969
 msgid "There are no installed Feather or Electrum instances to seed."
 msgstr "Ön ayarlanacak kurulu Feather veya Electrum örneği yok."
 
-#: crates/gui/src/main.rs:1989 crates/gui/src/main.rs:1990
-#: crates/gui/src/main.rs:2050
+#: crates/gui/src/main.rs:2000 crates/gui/src/main.rs:2001
+#: crates/gui/src/main.rs:2061
 msgid "Seeding settings…"
 msgstr "Ön ayarlanıyor…"
 
-#: crates/gui/src/main.rs:2031
+#: crates/gui/src/main.rs:2042
 msgid "Seed settings interrupted."
 msgstr "Ön ayarlama kesildi."
 
-#: crates/gui/src/main.rs:2081
+#: crates/gui/src/main.rs:2092
 msgid "Seeding settings… ({done}/{total})"
 msgstr "Ön ayarlanıyor… ({done}/{total})"
 
-#: crates/gui/src/main.rs:2146
+#: crates/gui/src/main.rs:2157
 msgid "No installed apps"
 msgstr "Kurulu uygulama yok"
 
-#: crates/gui/src/main.rs:2147
+#: crates/gui/src/main.rs:2158
 msgid "Install at least one app instance before recording a seed pack."
 msgstr "Ön ayar paketi oluşturmadan önce en az bir uygulama örneği kurun."
 
-#: crates/gui/src/main.rs:2165 crates/gui/src/main.rs:2166
+#: crates/gui/src/main.rs:2176 crates/gui/src/main.rs:2177
 msgid "Capturing baseline…"
 msgstr "Temel durum alınıyor…"
 
-#: crates/gui/src/main.rs:2185
+#: crates/gui/src/main.rs:2196
 msgid "App “{app}” is not in the catalog."
 msgstr "“{app}” uygulaması katalogda yok."
 
-#: crates/gui/src/main.rs:2249
+#: crates/gui/src/main.rs:2260
 msgid "Baseline capture interrupted."
 msgstr "Temel durum alma kesildi."
 
-#: crates/gui/src/main.rs:2273
+#: crates/gui/src/main.rs:2284
 msgid "Baseline capture failed."
 msgstr "Temel durum alınamadı."
 
-#: crates/gui/src/main.rs:2274
+#: crates/gui/src/main.rs:2285
 msgid "Baseline capture failed"
 msgstr "Temel durum alınamadı"
 
-#: crates/gui/src/main.rs:2303
+#: crates/gui/src/main.rs:2314
 msgid "Baseline captured — configure the app, then diff."
 msgstr ""
 "Temel durum alındı — uygulamayı yapılandırın, ardından değişiklikleri "
 "karşılaştırın."
 
-#: crates/gui/src/main.rs:2319
+#: crates/gui/src/main.rs:2330
 msgid "No settings changed."
 msgstr "Hiçbir ayar değişmedi."
 
-#: crates/gui/src/main.rs:2322
+#: crates/gui/src/main.rs:2333
 msgid "No changes to record"
 msgstr "Kaydedilecek değişiklik yok"
 
-#: crates/gui/src/main.rs:2323
+#: crates/gui/src/main.rs:2334
 msgid "The config is unchanged from the baseline — nothing to capture."
 msgstr "Yapılandırma temel durumdan farklı değil — alınacak bir şey yok."
 
-#: crates/gui/src/main.rs:2333
+#: crates/gui/src/main.rs:2344
 msgid "No keys selected."
 msgstr "Hiçbir anahtar seçilmedi."
 
-#: crates/gui/src/main.rs:2349
+#: crates/gui/src/main.rs:2360
 msgid "Seed pack written."
 msgstr "Ön ayar paketi yazıldı."
 
-#: crates/gui/src/main.rs:2352
+#: crates/gui/src/main.rs:2363
 msgid "Seed pack written"
 msgstr "Ön ayar paketi yazıldı"
 
-#: crates/gui/src/main.rs:2355
+#: crates/gui/src/main.rs:2366
 msgid "Wrote {count} key to {path}"
 msgid_plural "Wrote {count} keys to {path}"
 msgstr[0] "{path} konumuna {count} anahtar yazıldı"
 msgstr[1] "{path} konumuna {count} anahtar yazıldı"
 
-#: crates/gui/src/main.rs:2364
+#: crates/gui/src/main.rs:2375
 msgid "This pack is NOT signed — review it before distributing."
 msgstr "Bu paket İMZALI DEĞİL — dağıtmadan önce gözden geçirin."
 
-#: crates/gui/src/main.rs:2369
+#: crates/gui/src/main.rs:2380
 msgid "Could not write pack"
 msgstr "Paket yazılamadı"
 
-#: crates/gui/src/main.rs:2380
+#: crates/gui/src/main.rs:2391
 msgid "Could not read current config"
 msgstr "Geçerli yapılandırma okunamadı"
 
-#: crates/gui/src/main.rs:2421
+#: crates/gui/src/main.rs:2432
 msgid "Clean installs?"
 msgstr "Kurulumlar temizlensin mi?"
 
-#: crates/gui/src/main.rs:2422
+#: crates/gui/src/main.rs:2433
 msgid ""
 "Remove installed catalog instances and their managed launchers and icons. "
 "The download cache is kept, so reinstalling is fast."
@@ -801,23 +821,23 @@ msgstr ""
 "Kurulu katalog örneklerini, yönetilen başlatıcılarını ve simgelerini "
 "kaldırır. İndirme önbelleği korunur, böylece yeniden kurulum hızlı olur."
 
-#: crates/gui/src/main.rs:2427 crates/gui/src/preferences.rs:434
+#: crates/gui/src/main.rs:2438 crates/gui/src/preferences.rs:434
 msgid "Clean"
 msgstr "Temizle"
 
-#: crates/gui/src/main.rs:2436 crates/gui/src/main.rs:2437
+#: crates/gui/src/main.rs:2447 crates/gui/src/main.rs:2448
 msgid "Cleaning…"
 msgstr "Temizleniyor…"
 
-#: crates/gui/src/main.rs:2465
+#: crates/gui/src/main.rs:2476
 msgid "Clean interrupted."
 msgstr "Temizleme kesildi."
 
-#: crates/gui/src/main.rs:2499
+#: crates/gui/src/main.rs:2510
 msgid "Purge all manager state?"
 msgstr "Tüm yönetici durumu tamamen silinsin mi?"
 
-#: crates/gui/src/main.rs:2500
+#: crates/gui/src/main.rs:2511
 msgid ""
 "This removes every install, the download cache, managed launchers, and icon "
 "tiles owned by AppImage Control. App data inside instance home dirs is also "
@@ -827,51 +847,51 @@ msgstr ""
 "önbelleğini, başlatıcıları ve simge döşemelerini kaldırır. Örnek ev "
 "dizinlerindeki uygulama verileri de kaldırılır."
 
-#: crates/gui/src/main.rs:2506
+#: crates/gui/src/main.rs:2517
 msgid "Purge state"
 msgstr "Durumu tamamen sil"
 
-#: crates/gui/src/main.rs:2515 crates/gui/src/main.rs:2516
+#: crates/gui/src/main.rs:2526 crates/gui/src/main.rs:2527
 msgid "Purging…"
 msgstr "Tamamen siliniyor…"
 
-#: crates/gui/src/main.rs:2544
+#: crates/gui/src/main.rs:2555
 msgid "Purge interrupted."
 msgstr "Tamamen silme kesildi."
 
-#: crates/gui/src/main.rs:2595 crates/gui/src/main.rs:2596
+#: crates/gui/src/main.rs:2606 crates/gui/src/main.rs:2607
 msgid "Migrating…"
 msgstr "Taşınıyor…"
 
-#: crates/gui/src/main.rs:2624
+#: crates/gui/src/main.rs:2635
 msgid "Migration interrupted."
 msgstr "Taşıma kesildi."
 
-#: crates/gui/src/main.rs:2665
+#: crates/gui/src/main.rs:2676
 msgid "Choose backup archive destination"
 msgstr "Yedek arşivinin hedefini seçin"
 
-#: crates/gui/src/main.rs:2674 crates/gui/src/main.rs:2675
+#: crates/gui/src/main.rs:2685 crates/gui/src/main.rs:2686
 msgid "Backing up…"
 msgstr "Yedekleniyor…"
 
-#: crates/gui/src/main.rs:2701
+#: crates/gui/src/main.rs:2712
 msgid "Backup interrupted."
 msgstr "Yedekleme kesildi."
 
-#: crates/gui/src/main.rs:2738
+#: crates/gui/src/main.rs:2749
 msgid "Choose backup archive to restore"
 msgstr "Geri yüklenecek yedek arşivini seçin"
 
-#: crates/gui/src/main.rs:2747 crates/gui/src/main.rs:2748
+#: crates/gui/src/main.rs:2758 crates/gui/src/main.rs:2759
 msgid "Restoring…"
 msgstr "Geri yükleniyor…"
 
-#: crates/gui/src/main.rs:2787
+#: crates/gui/src/main.rs:2798
 msgid "Overwrite existing managed state?"
 msgstr "Mevcut yönetilen durumun üzerine yazılsın mı?"
 
-#: crates/gui/src/main.rs:2788
+#: crates/gui/src/main.rs:2799
 msgid ""
 "Managed state already exists. Force restore and overwrite manager-owned "
 "state?"
@@ -879,23 +899,23 @@ msgstr ""
 "Yönetilen durum zaten var. Geri yükleme zorlansın ve yöneticiye ait durumun "
 "üzerine yazılsın mı?"
 
-#: crates/gui/src/main.rs:2790
+#: crates/gui/src/main.rs:2801
 msgid "Overwrite"
 msgstr "Üzerine Yaz"
 
-#: crates/gui/src/main.rs:2792 crates/gui/src/main.rs:2793
+#: crates/gui/src/main.rs:2803 crates/gui/src/main.rs:2804
 msgid "Restoring (forced)…"
 msgstr "Geri yükleniyor (zorla)…"
 
-#: crates/gui/src/main.rs:2819 crates/gui/src/main.rs:2859
+#: crates/gui/src/main.rs:2830 crates/gui/src/main.rs:2870
 msgid "Restore interrupted."
 msgstr "Geri yükleme kesildi."
 
-#: crates/gui/src/main.rs:2901 crates/gui/src/main.rs:2902
+#: crates/gui/src/main.rs:2912 crates/gui/src/main.rs:2913
 msgid "Updating seed packs…"
 msgstr "Ön ayar paketleri güncelleniyor…"
 
-#: crates/gui/src/main.rs:2928
+#: crates/gui/src/main.rs:2939
 msgid "Update seed packs interrupted."
 msgstr "Ön ayar paketi güncellemesi kesildi."
 

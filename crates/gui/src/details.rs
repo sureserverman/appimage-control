@@ -9,7 +9,7 @@ use adw::prelude::*;
 use appimage_control_core::{
     app_details, launch_instance, AppDetails, AppPaths, CatalogApp, UpdateSource, Verification,
 };
-use gtk::{gio, Align, Button};
+use gtk::{gio, glib, Align, Button};
 
 use crate::i18n::{fill, tr};
 
@@ -18,6 +18,9 @@ use crate::i18n::{fill, tr};
 pub struct DetailsView {
     pub title: String,
     pub latest_line: String,
+    /// Said under the latest release when GitHub could not be asked, so the version shown is
+    /// only the newest one the catalog or the installs know.
+    pub latest_note: Option<String>,
     pub source_line: String,
     /// The URL for a non-GitHub source, shown under the source line.
     pub source_detail: Option<String>,
@@ -35,17 +38,32 @@ pub struct InstanceRow {
     pub dir: PathBuf,
     pub launch_sensitive: bool,
     pub launch_tooltip: Option<String>,
+    /// Accessible name of the Launch button ("Launch instance #2"): rows repeat the label.
+    pub launch_name: String,
     pub open_sensitive: bool,
     pub open_tooltip: Option<String>,
+    pub open_name: String,
 }
 
-/// Build the dialog's content from `details` and the newest known release (`None` when not
-/// known yet, e.g. offline).
-pub fn details_view(details: &AppDetails, latest: Option<&str>) -> DetailsView {
-    let latest_line = match latest.map(str::trim).filter(|l| !l.is_empty()) {
-        Some(v) => v.trim_start_matches('v').to_string(),
+/// Build the dialog's content from `details`, the newest release known (the card's "Latest"
+/// label: the GitHub tag, the catalog version or an install's version, whichever is newest;
+/// `None` when none is known) and whether GitHub answered for this app.
+pub fn details_view(
+    details: &AppDetails,
+    latest: Option<&str>,
+    github_answered: bool,
+) -> DetailsView {
+    let latest_line = match latest.map(str::trim).filter(|l| !l.is_empty() && *l != "—") {
+        // A leading "v" is dropped only before a digit ("v2.8.0", not "vim-9").
+        Some(v) => match v.strip_prefix('v') {
+            Some(rest) if rest.starts_with(|c: char| c.is_ascii_digit()) => rest.to_string(),
+            _ => v.to_string(),
+        },
         None => tr("Not known yet").to_string(),
     };
+    let latest_note = (matches!(details.source, UpdateSource::GithubReleases { .. })
+        && !github_answered)
+        .then(|| tr("GitHub could not be checked, so newer releases may exist").to_string());
     let (source_line, source_detail) = match &details.source {
         UpdateSource::GithubReleases { owner, repo } => (
             // TRANSLATORS: {repo} is a GitHub project, like "keepassxreboot/keepassxc".
@@ -102,14 +120,22 @@ pub fn details_view(details: &AppDetails, latest: Option<&str>) -> DetailsView {
                 dir: i.dir.clone(),
                 launch_sensitive: launch_tooltip.is_none(),
                 launch_tooltip,
+                // TRANSLATORS: accessible name of a Launch button; {index} is an instance number.
+                launch_name: fill(tr("Launch instance #{index}"), &[("index", &i.index)]),
                 open_sensitive: i.dir_present,
                 open_tooltip: (!i.dir_present).then(|| tr("The folder is missing").to_string()),
+                // TRANSLATORS: accessible name of an Open folder button.
+                open_name: fill(
+                    tr("Open the folder of instance #{index}"),
+                    &[("index", &i.index)],
+                ),
             }
         })
         .collect();
     DetailsView {
         title: details.display_name.clone(),
         latest_line,
+        latest_note,
         source_line,
         source_detail,
         verification_line,
@@ -130,92 +156,135 @@ pub fn verification_text(v: &Verification) -> &'static str {
     }
 }
 
-/// Show the detail dialog for `app` over `parent`. Reads the app's state now; Launch and
-/// Open folder act on it. Launch failures show a toast whose button opens the full error in
-/// the activity log; the dialog stays open.
+/// Show the detail window for `app` over `parent`. Reads the app's state now; Launch and
+/// Open folder act on it. A failed action shows a toast; Launch's toast has a button that
+/// opens the full error in the activity log. The window stays open.
 pub fn present_details(
     parent: &adw::ApplicationWindow,
     paths: Rc<AppPaths>,
     app: &CatalogApp,
     latest: Option<&str>,
+    github_answered: bool,
 ) {
-    let view = details_view(&app_details(&paths, app), latest);
+    let view = details_view(&app_details(&paths, app), latest, github_answered);
     // A modal window like Preferences: AdwDialog's content is not exposed to AT-SPI in this
     // libadwaita (1.9.1), which would leave screen readers and the smoke test with nothing.
-    let dialog = adw::Window::builder()
+    let window = adw::Window::builder()
         .title(view.title.as_str())
         .modal(true)
         .transient_for(parent)
         .default_width(600)
         .default_height(520)
         .build();
+    // Escape closes it, as it would an AdwDialog.
+    let keys = gtk::ShortcutController::new();
+    keys.add_shortcut(gtk::Shortcut::new(
+        gtk::ShortcutTrigger::parse_string("Escape"),
+        Some(gtk::NamedAction::new("window.close")),
+    ));
+    window.add_controller(keys);
+
     let toasts = adw::ToastOverlay::new();
     let page = adw::PreferencesPage::new();
 
+    // Plain text everywhere: paths, versions and errors may hold `&` or `<`.
+    let row = |title: &str, subtitle: &str| {
+        adw::ActionRow::builder()
+            .title(title)
+            .subtitle(subtitle)
+            .use_markup(false)
+            .subtitle_selectable(true)
+            .build()
+    };
     let about = adw::PreferencesGroup::new();
-    let latest_row = adw::ActionRow::builder()
-        .title(tr("Latest release"))
-        .subtitle(view.latest_line.as_str())
-        .build();
-    let source_row = adw::ActionRow::builder()
-        .title(tr("Updates from"))
-        .subtitle(view.source_line.as_str())
-        .subtitle_selectable(true)
-        .build();
-    if let Some(url) = &view.source_detail {
-        source_row.set_subtitle(&format!("{}\n{url}", view.source_line));
-    }
-    let verify_row = adw::ActionRow::builder()
-        .title(tr("Download check"))
-        .subtitle(view.verification_line.as_str())
-        .build();
-    about.add(&latest_row);
-    about.add(&source_row);
-    about.add(&verify_row);
+    let latest_sub = match &view.latest_note {
+        Some(note) => format!("{}\n{note}", view.latest_line),
+        None => view.latest_line.clone(),
+    };
+    about.add(&row(tr("Latest release"), &latest_sub));
+    let source_sub = match &view.source_detail {
+        Some(url) => format!("{}\n{url}", view.source_line),
+        None => view.source_line.clone(),
+    };
+    about.add(&row(tr("Updates from"), &source_sub));
+    about.add(&row(tr("Download check"), &view.verification_line));
     page.add(&about);
 
     let instances = adw::PreferencesGroup::builder()
         .title(tr("Instances"))
         .build();
     if let Some(text) = &view.empty_text {
-        let row = adw::ActionRow::builder().title(text.as_str()).build();
-        instances.add(&row);
+        instances.add(&row(text, ""));
     }
-    for r in &view.rows {
-        let row = adw::ActionRow::builder()
-            .title(r.title.as_str())
-            .subtitle(r.subtitle.as_str())
-            .subtitle_selectable(true)
+    let toast = |toasts: &adw::ToastOverlay, title: &str| {
+        let t = adw::Toast::builder()
+            .title(title)
+            .use_markup(false)
+            .timeout(6)
             .build();
+        toasts.add_toast(t.clone());
+        t
+    };
+    for r in &view.rows {
+        let action_row = row(&r.title, &r.subtitle);
 
         let launch = Button::with_label(tr("Launch"));
         launch.set_valign(Align::Center);
         launch.set_sensitive(r.launch_sensitive);
         launch.set_tooltip_text(r.launch_tooltip.as_deref());
+        // A labelled button is named by its label child; drop that link so the
+        // per-instance name is what assistive technology reads.
+        launch.reset_relation(gtk::AccessibleRelation::LabelledBy);
+        launch.update_property(&[gtk::accessible::Property::Label(&r.launch_name)]);
         {
             let paths = Rc::clone(&paths);
             let app = app.clone();
             let index = r.index;
-            let toasts = toasts.clone();
-            let parent = parent.clone();
-            launch.connect_clicked(move |_| {
-                if let Err(e) = launch_instance(&paths, &app, index) {
-                    let toast = adw::Toast::builder()
-                        .title(fill(
-                            // TRANSLATORS: {app} is an app name, {index} an instance number.
-                            tr("Could not launch {app} #{index}"),
-                            &[("app", &app.display_name_resolved()), ("index", &index)],
-                        ))
-                        .button_label(tr("Show log"))
-                        .timeout(8)
-                        .build();
-                    let log = crate::status_text::apply_error_log_line(&app.id, &e.to_string());
-                    let parent = parent.clone();
-                    toast.connect_button_clicked(move |_| {
-                        let w: gtk::ApplicationWindow = parent.clone().upcast();
-                        crate::dialogs::present_activity_log_dialog(&w, &log);
-                    });
-                    toasts.add_toast(toast);
+            let toasts = toasts.downgrade();
+            let window = window.downgrade();
+            launch.connect_clicked(move |btn| {
+                let (Some(toasts), Some(window)) = (toasts.upgrade(), window.upgrade()) else {
+                    return;
+                };
+                let name = app.display_name_resolved();
+                match launch_instance(&paths, &app, index) {
+                    Ok(()) => {
+                        // TRANSLATORS: {app} is an app name, {index} an instance number.
+                        toast(
+                            &toasts,
+                            &fill(
+                                tr("Starting {app} #{index}…"),
+                                &[("app", &name), ("index", &index)],
+                            ),
+                        );
+                        // A slow start invites a second click; hold the button briefly.
+                        btn.set_sensitive(false);
+                        let btn = btn.downgrade();
+                        glib::timeout_add_seconds_local_once(3, move || {
+                            if let Some(b) = btn.upgrade() {
+                                b.set_sensitive(true);
+                            }
+                        });
+                    }
+                    Err(e) => {
+                        let t = toast(
+                            &toasts,
+                            &fill(
+                                tr("Could not launch {app} #{index}"),
+                                &[("app", &name), ("index", &index)],
+                            ),
+                        );
+                        t.set_timeout(10);
+                        t.set_button_label(Some(tr("Show log")));
+                        // The activity log counts lines that start with "error".
+                        let log = format!("error: {e}");
+                        let window = window.downgrade();
+                        t.connect_button_clicked(move |_| {
+                            if let Some(w) = window.upgrade() {
+                                crate::dialogs::present_activity_log_dialog(&w, &log);
+                            }
+                        });
+                    }
                 }
             });
         }
@@ -224,14 +293,36 @@ pub fn present_details(
         open.set_valign(Align::Center);
         open.set_sensitive(r.open_sensitive);
         open.set_tooltip_text(r.open_tooltip.as_deref());
+        open.reset_relation(gtk::AccessibleRelation::LabelledBy);
+        open.update_property(&[gtk::accessible::Property::Label(&r.open_name)]);
         {
             let dir = r.dir.clone();
-            let parent = parent.clone();
+            let toasts = toasts.downgrade();
+            let window = window.downgrade();
             open.connect_clicked(move |_| {
+                let Some(w) = window.upgrade() else {
+                    return;
+                };
+                let toasts = toasts.clone();
                 gtk::FileLauncher::new(Some(&gio::File::for_path(&dir))).launch(
-                    Some(&parent),
+                    Some(&w),
                     gio::Cancellable::NONE,
-                    |_| {},
+                    move |res| {
+                        let dismissed = matches!(
+                            &res,
+                            Err(e) if e.matches(gtk::DialogError::Dismissed)
+                                || e.matches(gtk::DialogError::Cancelled)
+                        );
+                        if let (Err(e), false, Some(t)) = (res, dismissed, toasts.upgrade()) {
+                            toast(
+                                &t,
+                                &fill(
+                                    tr("Could not open the folder: {error}"),
+                                    &[("error", &e.message())],
+                                ),
+                            );
+                        }
+                    },
                 );
             });
         }
@@ -239,8 +330,8 @@ pub fn present_details(
         let buttons = gtk::Box::new(gtk::Orientation::Horizontal, 6);
         buttons.append(&launch);
         buttons.append(&open);
-        row.add_suffix(&buttons);
-        instances.add(&row);
+        action_row.add_suffix(&buttons);
+        instances.add(&action_row);
     }
     page.add(&instances);
 
@@ -248,8 +339,8 @@ pub fn present_details(
     let toolbar = adw::ToolbarView::new();
     toolbar.add_top_bar(&adw::HeaderBar::new());
     toolbar.set_content(Some(&toasts));
-    dialog.set_content(Some(&toolbar));
-    dialog.present();
+    window.set_content(Some(&toolbar));
+    window.present();
 }
 
 #[cfg(test)]
@@ -287,7 +378,7 @@ mod tests {
 
     #[test]
     fn details_two_instances() {
-        let v = details_view(&details(vec![inst(1), inst(2)]), Some("v2.9.0"));
+        let v = details_view(&details(vec![inst(1), inst(2)]), Some("v2.9.0"), true);
         assert_eq!(v.title, "Demo App");
         assert_eq!(v.latest_line, "2.9.0");
         assert_eq!(v.source_line, "GitHub releases: o/r");
@@ -305,8 +396,51 @@ mod tests {
     }
 
     #[test]
+    fn details_latest_release_falls_back_and_says_when_github_was_not_asked() {
+        // The card's label (catalog or install version) is shown, never "Not known yet".
+        let v = details_view(&details(vec![inst(1)]), Some("2.7.12"), false);
+        assert_eq!(v.latest_line, "2.7.12");
+        assert_eq!(
+            v.latest_note.as_deref(),
+            Some("GitHub could not be checked, so newer releases may exist")
+        );
+        let v = details_view(&details(vec![inst(1)]), Some("2.8.0"), true);
+        assert_eq!((v.latest_line.as_str(), v.latest_note), ("2.8.0", None));
+        // The card's "no version" dash and blanks read "Not known yet".
+        for none in [None, Some("—"), Some("  ")] {
+            assert_eq!(
+                details_view(&details(vec![]), none, true).latest_line,
+                "Not known yet"
+            );
+        }
+        // A leading "v" is dropped only before a digit.
+        assert_eq!(
+            details_view(&details(vec![]), Some("vim-9"), true).latest_line,
+            "vim-9"
+        );
+        assert_eq!(
+            details_view(&details(vec![]), Some("v1.2"), true).latest_line,
+            "1.2"
+        );
+        // A non-GitHub source never claims GitHub was skipped.
+        let mut d = details(vec![]);
+        d.source = UpdateSource::PinnedUrl {
+            url: "https://e/p-2.0.0.AppImage".into(),
+        };
+        assert_eq!(details_view(&d, Some("2.0.0"), false).latest_note, None);
+    }
+
+    #[test]
+    fn details_row_buttons_have_distinct_accessible_names() {
+        let v = details_view(&details(vec![inst(1), inst(2)]), None, true);
+        assert_eq!(v.rows[1].launch_name, "Launch instance #2");
+        assert_eq!(v.rows[1].open_name, "Open the folder of instance #2");
+        assert_ne!(v.rows[0].launch_name, v.rows[1].launch_name);
+    }
+
+    #[test]
     fn details_no_instances_shows_the_empty_text() {
-        let v = details_view(&details(vec![]), None);
+        let v = details_view(&details(vec![]), None, true);
         assert!(v.rows.is_empty());
         assert_eq!(
             v.empty_text.as_deref(),
@@ -322,7 +456,7 @@ mod tests {
     fn details_listing_error_is_not_the_empty_state() {
         let mut d = details(vec![]);
         d.listing_error = Some("permission denied".into());
-        let v = details_view(&d, None);
+        let v = details_view(&d, None, true);
         assert_eq!(
             v.empty_text.as_deref(),
             Some("Could not read the install folders: permission denied")
@@ -339,7 +473,7 @@ mod tests {
         no_bin.version = None;
         let mut no_launcher = inst(3);
         no_launcher.launcher_present = false;
-        let v = details_view(&details(vec![no_dir, no_bin, no_launcher]), None);
+        let v = details_view(&details(vec![no_dir, no_bin, no_launcher]), None, true);
         assert!(!v.rows[0].open_sensitive);
         assert_eq!(
             v.rows[0].open_tooltip.as_deref(),
@@ -367,18 +501,18 @@ mod tests {
         d.source = UpdateSource::PinnedUrl {
             url: "https://e/p.AppImage".into(),
         };
-        let v = details_view(&d, None);
+        let v = details_view(&d, None, true);
         assert_eq!(v.source_line, "Pinned download");
         assert_eq!(v.source_detail.as_deref(), Some("https://e/p.AppImage"));
         d.source = UpdateSource::UnpinnedUrl {
             url: "https://e/u.AppImage".into(),
         };
-        let v = details_view(&d, None);
+        let v = details_view(&d, None, true);
         assert_eq!(v.source_line, "Download without a published checksum");
         assert_eq!(v.source_detail.as_deref(), Some("https://e/u.AppImage"));
         d.source = UpdateSource::NoDownload;
         assert_eq!(
-            details_view(&d, None).source_line,
+            details_view(&d, None, true).source_line,
             "No download for this system"
         );
     }
@@ -394,7 +528,7 @@ mod tests {
         ] {
             let mut d = details(vec![]);
             d.cache_verification = v.clone();
-            let line = details_view(&d, None).verification_line;
+            let line = details_view(&d, None, true).verification_line;
             assert_eq!(line.starts_with("Verified"), verified, "{v:?}: {line}");
         }
         assert_eq!(

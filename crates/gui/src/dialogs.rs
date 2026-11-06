@@ -156,7 +156,7 @@ pub fn ask_confirmation(
 /// Modal activity-log dialog. Heading + 1-line subtitle on top, framed log body in the
 /// middle (toolbar with status pill, line count, Wrap/Copy/Save controls; `TextView`
 /// underneath with severity-colored line tags), single Close button at the bottom.
-pub fn present_activity_log_dialog(parent: &ApplicationWindow, log_text: &str) {
+pub fn present_activity_log_dialog(parent: &impl IsA<gtk::Window>, log_text: &str) {
     let summary = LogSummary::from(log_text);
 
     let dialog = Dialog::builder()
