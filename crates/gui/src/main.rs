@@ -325,7 +325,9 @@ fn show_updates_view(app: &adw::Application) {
         build_ui(app);
     }
     if let Some(w) = main_window() {
+        // The empty/no-catalog view has no `win.show-updates`; the window is still raised.
         let _ = WidgetExt::activate_action(&w, "win.show-updates", None);
+        w.present();
     }
 }
 
@@ -690,10 +692,13 @@ fn mount_catalog_view(
     {
         let a = gtk::gio::SimpleAction::new("show-updates", None);
         let toggle = filter_updates.clone();
-        let win = window.clone();
+        // Weak: the action lives on the window, so a strong ref would keep it alive forever.
+        let win = window.downgrade();
         a.connect_activate(move |_, _| {
             toggle.set_active(true);
-            win.present();
+            if let Some(win) = win.upgrade() {
+                win.present();
+            }
         });
         window.add_action(&a);
     }
@@ -3066,4 +3071,21 @@ fn install_window_actions_for_catalog(
         },
     };
     actions::install_window_actions(&window_for_actions, hooks);
+}
+
+#[cfg(test)]
+mod dbus_service_launch_tests {
+    use super::is_dbus_service_launch;
+
+    #[test]
+    fn dbus_service_launch_only_for_the_bare_flag() {
+        let a = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert!(is_dbus_service_launch(&a(&["--gapplication-service"])));
+        assert!(!is_dbus_service_launch(&a(&[])));
+        assert!(!is_dbus_service_launch(&a(&[
+            "--gapplication-service",
+            "+feather"
+        ])));
+        assert!(!is_dbus_service_launch(&a(&["--list"])));
+    }
 }

@@ -590,6 +590,13 @@ fn write_pinned_fixture_catalog(path: &Path) {
       "download_url": "https://example.invalid/releases/fixture-2.0.0.AppImage",
       "appimage_filename": "fixture.AppImage",
       "instance_strategy": "electron_class"
+    },
+    {
+      "id": "absent",
+      "display_name": "Absent",
+      "download_url": "https://example.invalid/releases/absent-3.0.0.AppImage",
+      "appimage_filename": "absent.AppImage",
+      "instance_strategy": "electron_class"
     }
   ]
 }"#,
@@ -640,6 +647,10 @@ fn run_check_updates(home: &Path, args: &[&str]) -> std::process::Output {
     Command::new(app_exe().as_os_str())
         .env("HOME", home)
         .env_remove("APPIMAGE_CONTROL_CATALOG")
+        // Paths follow HOME, so the "writes nothing" listing covers every place.
+        .env_remove("XDG_CONFIG_HOME")
+        .env_remove("XDG_DATA_HOME")
+        .env_remove("XDG_CACHE_HOME")
         .args(args)
         .output()
         .expect("spawn --check-updates")
@@ -699,6 +710,42 @@ fn check_updates_prints_nothing_when_current() {
         tree_listing(&home),
         before,
         "the check changed files under HOME"
+    );
+}
+
+#[test]
+fn check_updates_notify_without_a_bus_still_exits_0() {
+    let tmp = tempfile::tempdir().expect("tmp");
+    let home = tmp.path().join("home");
+    let catalog = tmp.path().join("catalog.json");
+    write_pinned_fixture_catalog(&catalog);
+    install_pinned_fixture(&home, "1.0.0");
+
+    let out = Command::new(app_exe().as_os_str())
+        .env("HOME", &home)
+        .env(
+            "DBUS_SESSION_BUS_ADDRESS",
+            "unix:path=/nonexistent/aic-no-bus",
+        )
+        .env_remove("APPIMAGE_CONTROL_CATALOG")
+        .args([
+            "--check-updates",
+            "--notify",
+            "--catalog",
+            catalog.to_str().unwrap(),
+        ])
+        .output()
+        .expect("spawn --check-updates --notify");
+
+    assert!(out.status.success(), "exit {:?}", out.status.code());
+    assert_eq!(
+        String::from_utf8_lossy(&out.stdout),
+        "fixture: 1.0.0 -> 2.0.0\n"
+    );
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        err.contains("could not show the notification"),
+        "unexpected stderr: {err}"
     );
 }
 

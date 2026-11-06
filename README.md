@@ -249,7 +249,8 @@ Canonical desktop/metainfo files:
 - `data/io.github.sureserverman.AppImageControl.desktop`
 - `data/io.github.sureserverman.AppImageControl.metainfo.xml`
 - `data/io.github.sureserverman.AppImageControl.service` (D-Bus activation, for
-  the Flatpak; the desktop file sets `DBusActivatable=true`)
+  the Flatpak; a native run writes its own copy). The desktop file leaves out
+  `DBusActivatable`: with the key and no service file, GIO launches start nothing.
 
 ## Backup/Restore Contract (Stage 0)
 

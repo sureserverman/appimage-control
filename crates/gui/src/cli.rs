@@ -991,9 +991,10 @@ fn run_check_updates(catalog_path: Option<&std::path::Path>, notify: bool) -> gl
         })
         .count();
     if unanswered > 0 {
+        let apps = if unanswered == 1 { "app" } else { "apps" };
         eprintln!(
-            "check-updates: GitHub did not answer for {unanswered} installed app(s) \
-             (offline or rate-limited); they were not checked."
+            "check-updates: could not look up the latest GitHub release of {unanswered} \
+             installed {apps} (offline, rate-limited, or no release); they were not checked."
         );
     }
     let latest = latest_known_versions(&installed, &tags);
@@ -1009,31 +1010,237 @@ fn run_check_updates(catalog_path: Option<&std::path::Path>, notify: bool) -> gl
     glib::ExitCode::SUCCESS
 }
 
-/// Notification id: a newer check replaces the previous notice instead of stacking.
+/// Notification id: on the GTK and portal backends a newer check replaces the previous notice
+/// instead of stacking.
 const UPDATES_NOTIFICATION_ID: &str = "updates";
 
-/// Sends the "Updates available" notification as the app (NON_UNIQUE, so it also works while
-/// the window is open). Its default action is `app.show-updates`, which the desktop delivers
-/// by D-Bus-activating the app.
+/// The longest a freedesktop-backend run waits for the notification to be clicked or closed.
+const FDO_CLICK_WAIT_SECS: u32 = 3600;
+
+/// Sends the "Updates available" notification. Its default action opens the window on the
+/// Updates filter.
+///
+/// GNOME (`org.gtk.Notifications`) and the Flatpak portal deliver a click by D-Bus-activating
+/// the app, so the GNotification is sent as a NON_UNIQUE app (it works while the window is
+/// open) and this process exits. Other desktops (LXQt, KDE, Xfce) speak only
+/// `org.freedesktop.Notifications`, which reports a click to the sending process; see
+/// [`notify_freedesktop_and_wait`].
 fn send_updates_notification(updates: &[AvailableUpdate]) -> Result<(), String> {
     use gtk::gio;
     use gtk::prelude::*;
 
     crate::i18n::init();
     let names: Vec<&str> = updates.iter().map(|u| u.display_name.as_str()).collect();
+    let title = crate::i18n::tr("Updates available");
+    let body = updates_notification_body(&names);
+    let conn = gio::bus_get_sync(gio::BusType::Session, gio::Cancellable::NONE)
+        .map_err(|e| format!("no session bus: {e}"))?;
+    if notification_backend_is_freedesktop(&conn) {
+        return notify_freedesktop_and_wait(&conn, title, &body);
+    }
     let app = gio::Application::new(Some(crate::APP_ID), gio::ApplicationFlags::NON_UNIQUE);
     app.register(gio::Cancellable::NONE)
         .map_err(|e| e.to_string())?;
-    let notification = gio::Notification::new(crate::i18n::tr("Updates available"));
-    notification.set_body(Some(&updates_notification_body(&names)));
+    let notification = gio::Notification::new(title);
+    notification.set_body(Some(&body));
     notification.set_default_action("app.show-updates");
     app.send_notification(Some(UPDATES_NOTIFICATION_ID), &notification);
     // The backends queue the D-Bus call; flush so it leaves before the process exits.
-    if let Some(conn) = app.dbus_connection() {
-        conn.flush_sync(gio::Cancellable::NONE)
-            .map_err(|e| e.to_string())?;
-    }
+    let conn = app
+        .dbus_connection()
+        .ok_or_else(|| "no session bus".to_string())?;
+    conn.flush_sync(gio::Cancellable::NONE)
+        .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+/// Mirrors GLib's choice of GNotification backend: `GNOTIFICATION_BACKEND` when set, the
+/// portal inside Flatpak, the GTK backend when `org.gtk.Notifications` is on the bus, else
+/// freedesktop.
+fn notification_backend_is_freedesktop(conn: &gtk::gio::DBusConnection) -> bool {
+    match std::env::var("GNOTIFICATION_BACKEND") {
+        Ok(v) if !v.is_empty() => return v == "freedesktop",
+        _ => {}
+    }
+    if std::path::Path::new("/.flatpak-info").exists() {
+        return false;
+    }
+    !bus_name_has_owner(conn, "org.gtk.Notifications")
+}
+
+fn bus_name_has_owner(conn: &gtk::gio::DBusConnection, name: &str) -> bool {
+    use gtk::gio;
+    use gtk::prelude::*;
+    conn.call_sync(
+        Some("org.freedesktop.DBus"),
+        "/org/freedesktop/DBus",
+        "org.freedesktop.DBus",
+        "NameHasOwner",
+        Some(&(name,).to_variant()),
+        Some(glib::VariantTy::new("(b)").expect("type string")),
+        gio::DBusCallFlags::NONE,
+        5000,
+        gio::Cancellable::NONE,
+    )
+    .ok()
+    .and_then(|v| v.child_value(0).get::<bool>())
+    .unwrap_or(false)
+}
+
+/// Sends the notice through `org.freedesktop.Notifications` and waits for its click: such
+/// servers report `ActionInvoked` to the sender only, so the sender must still be running. A
+/// click asks the app (D-Bus-activating it when it is not running) to run `show-updates`.
+/// Returns when the notice is clicked or closed, after [`FDO_CLICK_WAIT_SECS`], or at once
+/// when the server has no actions.
+fn notify_freedesktop_and_wait(
+    conn: &gtk::gio::DBusConnection,
+    title: &str,
+    body: &str,
+) -> Result<(), String> {
+    use gtk::gio;
+    use gtk::prelude::*;
+    use std::cell::Cell;
+    use std::rc::Rc;
+
+    const DEST: &str = "org.freedesktop.Notifications";
+    const PATH: &str = "/org/freedesktop/Notifications";
+    let caps: Vec<String> = conn
+        .call_sync(
+            Some(DEST),
+            PATH,
+            DEST,
+            "GetCapabilities",
+            None,
+            Some(glib::VariantTy::new("(as)").expect("type string")),
+            gio::DBusCallFlags::NONE,
+            5000,
+            gio::Cancellable::NONE,
+        )
+        .ok()
+        .and_then(|v| v.child_value(0).get::<Vec<String>>())
+        .unwrap_or_default();
+    let clickable = caps.iter().any(|c| c == "actions");
+    let actions: Vec<&str> = if clickable {
+        vec!["default", crate::i18n::trc("filter", "Updates")]
+    } else {
+        Vec::new()
+    };
+    let hints = glib::VariantDict::new(None);
+    hints.insert_value("desktop-entry", &crate::APP_ID.to_variant());
+    let main_loop = glib::MainLoop::new(None, false);
+    let our_id: Rc<Cell<Option<u32>>> = Rc::new(Cell::new(None));
+    // Subscribe before sending, so an instant click is not missed.
+    let _invoked = conn.subscribe_to_signal(
+        Some(DEST),
+        Some(DEST),
+        Some("ActionInvoked"),
+        Some(PATH),
+        None,
+        gio::DBusSignalFlags::NONE,
+        {
+            let our_id = Rc::clone(&our_id);
+            let main_loop = main_loop.clone();
+            move |signal| {
+                let p = signal.parameters;
+                let id = p.try_child_value(0).and_then(|v| v.get::<u32>());
+                let action = p.try_child_value(1).and_then(|v| v.get::<String>());
+                if our_id.get().is_none()
+                    || id != our_id.get()
+                    || action.as_deref() != Some("default")
+                {
+                    return;
+                }
+                if let Err(e) = activate_show_updates(signal.connection) {
+                    eprintln!("check-updates: could not open the window: {e}");
+                }
+                main_loop.quit();
+            }
+        },
+    );
+    let _closed = conn.subscribe_to_signal(
+        Some(DEST),
+        Some(DEST),
+        Some("NotificationClosed"),
+        Some(PATH),
+        None,
+        gio::DBusSignalFlags::NONE,
+        {
+            let our_id = Rc::clone(&our_id);
+            let main_loop = main_loop.clone();
+            move |signal| {
+                let id = signal
+                    .parameters
+                    .try_child_value(0)
+                    .and_then(|v| v.get::<u32>());
+                if our_id.get().is_some() && id == our_id.get() {
+                    // Servers send ActionInvoked before NotificationClosed for a click;
+                    // give a late one a moment before leaving.
+                    let main_loop = main_loop.clone();
+                    glib::timeout_add_seconds_local_once(2, move || main_loop.quit());
+                }
+            }
+        },
+    );
+    // tuple_from_iter keeps the hints an `a{sv}`; a Rust tuple would box it as `v`.
+    let args = glib::Variant::tuple_from_iter([
+        "AppImage Control".to_variant(),
+        0u32.to_variant(),
+        crate::APP_ID.to_variant(),
+        title.to_variant(),
+        body.to_variant(),
+        actions.to_variant(),
+        hints.end(),
+        (-1i32).to_variant(),
+    ]);
+    let reply = conn
+        .call_sync(
+            Some(DEST),
+            PATH,
+            DEST,
+            "Notify",
+            Some(&args),
+            Some(glib::VariantTy::new("(u)").expect("type string")),
+            gio::DBusCallFlags::NONE,
+            10_000,
+            gio::Cancellable::NONE,
+        )
+        .map_err(|e| e.to_string())?;
+    if !clickable {
+        return Ok(());
+    }
+    our_id.set(reply.child_value(0).get::<u32>());
+    {
+        let main_loop = main_loop.clone();
+        glib::timeout_add_seconds_local_once(FDO_CLICK_WAIT_SECS, move || main_loop.quit());
+    }
+    main_loop.run();
+    Ok(())
+}
+
+/// What GNOME Shell does for a click: `ActivateAction("show-updates")` on the app's bus name.
+/// The bus starts the app from its D-Bus service file when it is not running.
+fn activate_show_updates(conn: &gtk::gio::DBusConnection) -> Result<(), String> {
+    use gtk::gio;
+    use gtk::prelude::*;
+    let path = format!("/{}", crate::APP_ID.replace('.', "/"));
+    let params = glib::Variant::tuple_from_iter([
+        "show-updates".to_variant(),
+        Vec::<glib::Variant>::new().to_variant(),
+        glib::VariantDict::new(None).end(),
+    ]);
+    conn.call_sync(
+        Some(crate::APP_ID),
+        &path,
+        "org.freedesktop.Application",
+        "ActivateAction",
+        Some(&params),
+        None,
+        gio::DBusCallFlags::NONE,
+        30_000,
+        gio::Cancellable::NONE,
+    )
+    .map(|_| ())
+    .map_err(|e| e.to_string())
 }
 
 /// Names up to three apps: "A", "A and B", "A, B and C", or "A, B and 2 more".

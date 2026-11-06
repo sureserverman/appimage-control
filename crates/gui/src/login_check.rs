@@ -142,24 +142,32 @@ fn write_if_changed(path: &Path, text: &str) -> io::Result<bool> {
 
 /// Brings the native files in line with `enabled`. Returns whether any file changed.
 ///
-/// The service file is written either way: the desktop file is `DBusActivatable`, and a
-/// notification already shown still needs it. Turning the check off removes only the
-/// autostart entry.
+/// The service file is kept current either way: a notification already shown still needs it.
+/// Turning the check off removes only the autostart entry, and needs no usable program path:
+/// a path refused for the service file never keeps an old entry running at login.
 pub fn reconcile_native(paths: &LoginPaths, exe: &Path, enabled: bool) -> io::Result<bool> {
+    if !enabled {
+        let mut changed = remove_autostart(paths)?;
+        if let Ok(service) = dbus_service_text(exe) {
+            changed |= write_if_changed(&paths.dbus_service, &service)?;
+        }
+        return Ok(changed);
+    }
     // Build both texts first, so a path we refuse writes nothing at all.
     let service = dbus_service_text(exe)?;
     let autostart = autostart_desktop_text(exe)?;
     let mut changed = write_if_changed(&paths.dbus_service, &service)?;
-    if enabled {
-        changed |= write_if_changed(&paths.autostart, &autostart)?;
-    } else {
-        match fs::remove_file(&paths.autostart) {
-            Ok(()) => changed = true,
-            Err(e) if e.kind() == io::ErrorKind::NotFound => {}
-            Err(e) => return Err(e),
-        }
-    }
+    changed |= write_if_changed(&paths.autostart, &autostart)?;
     Ok(changed)
+}
+
+/// Removes the autostart entry. Returns whether one was there.
+pub fn remove_autostart(paths: &LoginPaths) -> io::Result<bool> {
+    match fs::remove_file(&paths.autostart) {
+        Ok(()) => Ok(true),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(false),
+        Err(e) => Err(e),
+    }
 }
 
 /// True when the autostart entry exists and the user turned it off outside this app (GNOME
@@ -299,10 +307,15 @@ pub fn apply(enabled: bool, on_answer: impl Fn(LoginSwitch) + 'static) -> Result
         );
         return Ok(());
     }
-    let res = login_program()
-        .and_then(|exe| reconcile_native(&LoginPaths::from_env(), &exe, enabled))
-        .map(|_| ())
-        .map_err(|e| e.to_string());
+    let paths = LoginPaths::from_env();
+    let res = match login_program() {
+        Ok(exe) => reconcile_native(&paths, &exe, enabled),
+        // Turning it off needs no program path.
+        Err(_) if !enabled => remove_autostart(&paths),
+        Err(e) => Err(e),
+    }
+    .map(|_| ())
+    .map_err(|e| e.to_string());
     set_last_error(res.as_ref().err().cloned());
     res
 }
@@ -357,8 +370,13 @@ fn request_background(
             let finish = Rc::clone(&finish);
             move |signal| {
                 let params = signal.parameters;
-                let response = params.child_value(0).get::<u32>().unwrap_or(2);
-                let results = params.child_value(1);
+                let response = params
+                    .try_child_value(0)
+                    .and_then(|v| v.get::<u32>())
+                    .unwrap_or(2);
+                let results = params
+                    .try_child_value(1)
+                    .unwrap_or_else(|| glib::VariantDict::new(None).end());
                 (finish)(portal_outcome(enable, response, &results));
                 subscription.borrow_mut().take();
             }
@@ -511,6 +529,25 @@ mod tests {
     }
 
     #[test]
+    fn login_check_disable_needs_no_usable_program() {
+        let (_t, p) = tmp();
+        reconcile_native(&p, Path::new(EXE), true).unwrap();
+        for bad in ["relative/appimage-control", "/x/a;b/appimage-control"] {
+            fs::write(&p.autostart, "[Desktop Entry]\n").unwrap();
+            assert!(
+                reconcile_native(&p, Path::new(bad), false).unwrap(),
+                "{bad}"
+            );
+            assert!(!p.autostart.exists(), "{bad}");
+            // The service file written from the good path is left alone.
+            assert!(fs::read_to_string(&p.dbus_service).unwrap().contains(EXE));
+        }
+        fs::write(&p.autostart, "x").unwrap();
+        assert!(remove_autostart(&p).unwrap());
+        assert!(!remove_autostart(&p).unwrap());
+    }
+
+    #[test]
     fn login_check_rewrites_a_stale_exec() {
         let (_t, p) = tmp();
         reconcile_native(&p, Path::new("/old/appimage-control"), true).unwrap();
@@ -594,13 +631,16 @@ mod tests {
         let real = t.path().join("appimage-control");
         fs::write(&real, b"x").unwrap();
         assert!(usable_program(&real).is_ok());
-        for bad in [
-            format!("{} (deleted)", real.display()),
-            "/tmp/.mount_abc123/usr/bin/appimage-control".to_string(),
-            t.path().join("missing").display().to_string(),
-        ] {
-            assert!(usable_program(Path::new(&bad)).is_err(), "{bad}");
-        }
+        // Each refused for its own reason (the first two exist on disk, so `is_file` passes).
+        let deleted = t.path().join("appimage-control (deleted)");
+        fs::write(&deleted, b"x").unwrap();
+        let err = |p: &Path| usable_program(p).unwrap_err().to_string();
+        assert!(err(&deleted).contains("replaced or deleted"));
+        assert!(
+            err(Path::new("/tmp/.mount_abc123/usr/bin/appimage-control"))
+                .contains("temporary mount")
+        );
+        assert!(err(&t.path().join("missing")).contains("not a file"));
     }
 
     #[test]

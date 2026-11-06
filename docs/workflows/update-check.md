@@ -14,10 +14,11 @@ Entry points:
 - CLI: `appimage-control --check-updates [--notify] [--catalog PATH]` →
   `run_check_updates` in `crates/gui/src/cli.rs`. The verdict comes from `updates_available`
   in `crates/core/src/update_check.rs`, the same rule as the card's Update badge.
-- Notification click: GNOME starts the app through D-Bus activation
-  (`--gapplication-service`, the service file
-  `~/.local/share/dbus-1/services/io.github.sureserverman.AppImageControl.service` or
-  `/app/share/dbus-1/services/` in the Flatpak) and runs the app action `show-updates`.
+- Notification click: the app's `show-updates` action, called on its bus name. When the app
+  is not running, the bus starts it from its D-Bus service file (`--gapplication-service`;
+  `~/.local/share/dbus-1/services/io.github.sureserverman.AppImageControl.service`, or
+  `/app/share/dbus-1/services/` in the Flatpak). GNOME Shell makes that call itself; on other
+  desktops the `--check-updates` process makes it (step 3).
 - Preferences → General → ON LAUNCH → **Check for updates at login**.
 
 Steps:
@@ -42,9 +43,15 @@ Steps:
      read.
 3. **Notify.** With `--notify` and at least one update, it sends one notification with id
    `updates` and the title "Updates available". The body names up to three apps ("Feather
-   Wallet, Joplin and 2 more"). A newer notification replaces the older one. With no updates,
-   nothing is shown. If the notification cannot be sent, one line goes to stderr and the exit
-   code stays 0.
+   Wallet, Joplin and 2 more"). With no updates, nothing is shown. If the notification cannot
+   be sent, one line goes to stderr and the exit code stays 0. The route depends on the
+   desktop's notification server, the way GLib picks it:
+   - GNOME (`org.gtk.Notifications`) and Flatpak (the notification portal): a GNotification.
+     A newer one replaces the older one, and the process exits at once.
+   - Others (LXQt, KDE, Xfce: `org.freedesktop.Notifications` only): the server reports a
+     click to the sending process alone, so the process stays until the notice is clicked or
+     closed, at most one hour. On a click it asks the app to run `show-updates`. A server
+     without clickable actions gets a plain notice and the process exits.
 4. **Click.** The notification's default action is `app.show-updates`. If the app is not
    running, D-Bus activation starts it and builds the window. If it is running, the open window
    is used. Either way, the **Updates** filter is turned on and the window is raised.
@@ -79,5 +86,8 @@ Tests:
   activation of `show-updates`, with and without an open window) and `login-check` (the
   first launch registers both files; the login entry sends the notification; the click opens
   the Updates filter; Launch from the detail page works).
+- Other desktops: `dbus-run-session -- python3 scripts/notify-fdo-check.py` plays a
+  freedesktop-only notification server on a private bus: the notice is sent, a click runs
+  `show-updates` on the app, and a server without actions gets a plain notice.
 - The Flatpak portal path cannot be driven from the test VM; it is checked by hand on a
   Flatpak install.

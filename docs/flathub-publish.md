@@ -145,9 +145,11 @@ These are requirements, not manifest text:
   `data/catalog.json`, the SVG icon in `hicolor/scalable/apps` and the PNG
   icons in their sized `hicolor` folders, all named after the app ID.
 - The D-Bus service file `data/io.github.sureserverman.AppImageControl.service`
-  installed to `/app/share/dbus-1/services/`, named after the app ID. The
-  desktop file sets `DBusActivatable=true`, and clicking the login update
-  notification starts the app through this file. Its `Exec` names
+  installed to `/app/share/dbus-1/services/`, named after the app ID. Clicking
+  the login update notification starts the app through this file. The desktop
+  file does not set `DBusActivatable`: GNOME Shell needs only the service file
+  for the click, and the key would make a launcher without the service file
+  start nothing. Its `Exec` names
   `/app/bin/appimage-control`; Flatpak rewrites it on export.
 - `LICENSE` installed to `$FLATPAK_DEST/share/licenses/$FLATPAK_ID/`.
 - Permissions, each with a reason in the PR:
