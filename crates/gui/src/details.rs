@@ -90,7 +90,7 @@ pub fn details_view(details: &AppDetails, latest: Option<&str>) -> DetailsView {
             let launch_tooltip = if !i.appimage_present {
                 Some(tr("The AppImage is missing — reinstall this instance").to_string())
             } else if !i.launcher_present {
-                Some(tr("The launcher is missing — use Repair launchers").to_string())
+                Some(tr("The launcher is missing — use Repair Launchers").to_string())
             } else {
                 None
             };
@@ -358,7 +358,7 @@ mod tests {
             .launch_tooltip
             .as_deref()
             .unwrap()
-            .contains("Repair launchers"));
+            .contains("Repair Launchers"));
     }
 
     #[test]

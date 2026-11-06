@@ -151,6 +151,7 @@ The seeding command:
   - Choose which installed supported apps to seed (checkboxes; no host picker).
   - Optionally save or recall a named app selection via the “Saved configurations” section.
   - Review the full seeding log in the activity dialog.
+- Click the info button on a card to open the app's **detail page**: where its updates come from, whether its download was checked against a published checksum, and each instance with **Launch** and **Open folder**. It never removes anything; removal stays on the card. See [docs/workflows/details.md](docs/workflows/details.md).
 - Use **”Record Seed Pack…”** to author a new pack by diffing: pick an installed app/instance, capture a baseline, configure the app by hand, then review the changed keys and save a `static`-only pack (unsigned). See [docs/workflows/recording.md](docs/workflows/recording.md).
 
 ## Catalog schema

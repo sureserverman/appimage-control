@@ -1,4 +1,5 @@
 crates/gui/src/actions.rs
+crates/gui/src/details.rs
 crates/gui/src/dialogs.rs
 crates/gui/src/main.rs
 crates/gui/src/preferences.rs
