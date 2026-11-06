@@ -294,6 +294,8 @@ fn general_page(
     bind_switch(&check_updates, cfg, save, |c, v| c.check_for_updates = v);
     launch.add(&check_updates);
 
+    launch.add(&login_check_row(cfg, save));
+
     let repair_auto = adw::SwitchRow::builder()
         .title(tr("Repair launchers automatically"))
         .subtitle(tr("Recreate any missing .desktop files"))
@@ -510,6 +512,77 @@ fn action_row(
     });
     row.add_suffix(&btn);
     row.set_activatable_widget(Some(&btn));
+    row
+}
+
+/// "Check for updates at login": saves the choice and registers or unregisters the login
+/// check. Inside Flatpak the desktop may refuse; the switch then turns itself off and says so.
+fn login_check_row(cfg: &Rc<RefCell<GuiConfig>>, save: &Rc<dyn Fn()>) -> adw::SwitchRow {
+    let usual = tr("Notify me at login when installed apps have newer releases");
+    let refused = tr("Your desktop did not allow running at login");
+    let failed = |e: &str| {
+        crate::i18n::fill(
+            tr("Could not set up the login check: {error}"),
+            &[("error", &e)],
+        )
+    };
+    let subtitle = if let Some(e) = crate::login_check::last_error() {
+        failed(&e)
+    } else if crate::login_check::last_request_refused() {
+        refused.to_string()
+    } else {
+        usual.to_string()
+    };
+    let row = adw::SwitchRow::builder()
+        .title(tr("Check for updates at login"))
+        .subtitle(subtitle)
+        .active(cfg.borrow().check_updates_at_login)
+        .build();
+    // Set while the portal's answer moves the switch, so that move is not a new request.
+    let answering = Rc::new(std::cell::Cell::new(false));
+    // Only the newest request's answer counts; an older one arriving late is ignored.
+    let latest = Rc::new(std::cell::Cell::new(0u32));
+    let cfg = Rc::clone(cfg);
+    let save = Rc::clone(save);
+    row.connect_active_notify(move |r| {
+        if answering.get() {
+            return;
+        }
+        let enabled = r.is_active();
+        cfg.borrow_mut().check_updates_at_login = enabled;
+        (save)();
+        r.set_subtitle(usual);
+        let id = latest.get().wrapping_add(1);
+        latest.set(id);
+        let weak = r.downgrade();
+        let cfg = Rc::clone(&cfg);
+        let save = Rc::clone(&save);
+        let answering = Rc::clone(&answering);
+        let latest = Rc::clone(&latest);
+        let res = crate::login_check::apply(enabled, move |sw| {
+            if latest.get() != id {
+                return;
+            }
+            // Save first: the window may be closed by the time the desktop answers.
+            if cfg.borrow().check_updates_at_login != sw.active {
+                cfg.borrow_mut().check_updates_at_login = sw.active;
+                (save)();
+            }
+            let Some(r) = weak.upgrade() else { return };
+            if sw.refused {
+                r.set_subtitle(refused);
+            }
+            if r.is_active() != sw.active {
+                answering.set(true);
+                r.set_active(sw.active);
+                answering.set(false);
+            }
+        });
+        if let Err(e) = res {
+            eprintln!("appimage-control: could not set up the login update check: {e}");
+            r.set_subtitle(&failed(&e));
+        }
+    });
     row
 }
 

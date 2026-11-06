@@ -7,6 +7,7 @@ Rust toolchain:
     python3 scripts/atspi-smoke.py details       # one app's detail page: Launch, Open folder
     python3 scripts/atspi-smoke.py details-all   # every card has a working details button
     python3 scripts/atspi-smoke.py activation    # D-Bus activation of app.show-updates
+    python3 scripts/atspi-smoke.py login-check   # login registration, notification, click
 
 Each mode builds the binaries, makes a throwaway HOME with fixture installs, starts the GUI
 with GTK_A11Y=atspi, checks the result, and stops the GUI. Exit 0 means every check passed.
@@ -65,9 +66,9 @@ def catalog_apps():
         return json.load(f)["apps"]
 
 
-def fixture_home(home, installs):
+def fixture_home(home, installs, catalog=None, config=None):
     """Fill `home` with one instance per (app id, AppImage filename, version, script body)."""
-    env = gui_env(home)
+    env = gui_env(home, catalog)
     for app_id, filename, version, body in installs:
         d = os.path.join(home, ".local/share/appimages/apps", app_id, "1")
         os.makedirs(d)
@@ -81,20 +82,22 @@ def fixture_home(home, installs):
     cfg = os.path.join(home, ".config/appimage-control")
     os.makedirs(cfg, exist_ok=True)
     with open(os.path.join(cfg, "config.json"), "w") as f:
-        json.dump({"check_for_updates": False, "repair_launchers_auto": False}, f)
+        json.dump(config or {"check_for_updates": False, "repair_launchers_auto": False}, f)
     # The real launcher writer: launch script + .desktop for each instance.
     subprocess.run([REPAIR], env=env, check=True, capture_output=True)
 
 
-def gui_env(home):
+def gui_env(home, catalog=None):
     env = dict(os.environ)
     env.update({
         "HOME": home,
         "XDG_CONFIG_HOME": os.path.join(home, ".config"),
         "XDG_DATA_HOME": os.path.join(home, ".local/share"),
         "XDG_CACHE_HOME": os.path.join(home, ".cache"),
-        "APPIMAGE_CONTROL_CATALOG": CATALOG,
+        "APPIMAGE_CONTROL_CATALOG": catalog or CATALOG,
         "GTK_A11Y": "atspi",
+        # A debug build registers the login check only when asked (its HOME is a fixture).
+        "APPIMAGE_CONTROL_DEV_LOGIN_CHECK": "1",
         "LANGUAGE": "en",
         "LANG": "C.UTF-8",
     })
@@ -133,10 +136,10 @@ def clear_the_way():
         time.sleep(0.2)
 
 
-def start_gui(home, args=()):
+def start_gui(home, args=(), catalog=None):
     clear_the_way()
     log_path = os.path.join(home, "gui-stderr.log")
-    proc = subprocess.Popen([GUI, *args], env=gui_env(home), stdout=subprocess.DEVNULL,
+    proc = subprocess.Popen([GUI, *args], env=gui_env(home, catalog), stdout=subprocess.DEVNULL,
                             stderr=open(log_path, "w"))
     proc.log_path = log_path
     return proc
@@ -414,8 +417,9 @@ class DevService:
     """Points the app's D-Bus service file at the dev binary, run on a fixture HOME. Any file
     already there is put back afterwards."""
 
-    def __init__(self, home):
+    def __init__(self, home, catalog=None):
         self.home = home
+        self.catalog = catalog
         self.backup = None
 
     def __enter__(self):
@@ -423,9 +427,9 @@ class DevService:
         if os.path.exists(REAL_SERVICE):
             self.backup = REAL_SERVICE + ".aic-smoke-backup"
             shutil.move(REAL_SERVICE, self.backup)
-        env = gui_env(self.home)
+        env = gui_env(self.home, self.catalog)
         keep = ["HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME",
-                "APPIMAGE_CONTROL_CATALOG", "GTK_A11Y", "LANGUAGE", "LANG", "WAYLAND_DISPLAY"]
+                "APPIMAGE_CONTROL_CATALOG", "APPIMAGE_CONTROL_DEV_LOGIN_CHECK", "GTK_A11Y", "LANGUAGE", "LANG", "WAYLAND_DISPLAY"]
         assigns = " ".join(f"{k}={env[k]}" for k in keep)
         self.log_path = os.path.join(self.home, "gui-stderr.log")
         with open(REAL_SERVICE, "w") as f:
@@ -517,10 +521,122 @@ def mode_activation():
         shutil.rmtree(home, ignore_errors=True)
 
 
+FIXTURE_CATALOG = {"apps": [{
+    "id": "fixture",
+    "display_name": "Fixture App",
+    # Pinned and not on GitHub: the newer release (2.0.0) is known with no network, which the
+    # VM's firewall denies the dev binary anyway.
+    "download_url": "https://example.invalid/releases/fixture-2.0.0.AppImage",
+    "appimage_filename": "fixture.AppImage",
+    "instance_strategy": "electron_class",
+}]}
+
+
+def notification_monitor():
+    """dbus-monitor over the notification calls. `gdbus monitor` shows only signals, so it
+    cannot see AddNotification / Notify method calls."""
+    rules = ["type=method_call,interface=org.gtk.Notifications,member=AddNotification",
+             "type=method_call,interface=org.freedesktop.Notifications,member=Notify"]
+    out = tempfile.NamedTemporaryFile(prefix="aic-notify-", suffix=".log", delete=False)
+    proc = subprocess.Popen(["dbus-monitor", "--session", *rules], stdout=out,
+                            stderr=subprocess.STDOUT)
+    proc.out_path = out.name
+    time.sleep(1)  # let it register before the call it must see
+    return proc
+
+
+def mode_login_check():
+    home = tempfile.mkdtemp(prefix=HOME_PREFIX)
+    catalog = os.path.join(home, "fixture-catalog.json")
+    proc = mon = None
+    try:
+        with open(catalog, "w") as f:
+            json.dump(FIXTURE_CATALOG, f)
+        marker = os.path.join(home, "launched")
+        # No check_updates_at_login key: an older config reads as on (OD-2).
+        fixture_home(home, [("fixture", "fixture.AppImage", "1.0.0",
+                             'touch "{home}/launched"\nsleep 30')], catalog,
+                     {"check_for_updates": True, "repair_launchers_auto": False})
+        autostart = os.path.join(home, ".config/autostart", f"{APP_ID}.desktop")
+        service = os.path.join(home, ".local/share/dbus-1/services", f"{APP_ID}.service")
+        check(not os.path.exists(autostart) and not os.path.exists(service),
+              "no login files before the first launch")
+
+        # 1. The first launch registers the check.
+        proc = start_gui(home, catalog=catalog)
+        root = app_root(proc.pid)
+        wait_for(root, lambda n: role(n) == "frame" and name(n) == "AppImage Control",
+                 "the main window")
+        end = time.time() + 10
+        while time.time() < end and not (os.path.exists(autostart) and os.path.exists(service)):
+            time.sleep(0.3)
+        check(os.path.exists(autostart), "the first launch wrote the autostart entry (OD-2)")
+        check(os.path.exists(service), "the first launch wrote the D-Bus service file")
+        with open(autostart) as f:
+            exec_line = next(l[len("Exec="):].strip() for l in f if l.startswith("Exec="))
+        check(exec_line.endswith(" --check-updates --notify"),
+              f"autostart runs --check-updates --notify ({exec_line})")
+
+        # 2. Run the login entry while the window is open (the same notification is sent).
+        mon = notification_monitor()
+        import shlex
+        run = subprocess.run(shlex.split(exec_line), env=gui_env(home, catalog),
+                             capture_output=True, text=True, timeout=60)
+        check(run.returncode == 0, f"the login entry exits 0 (stderr: {run.stderr.strip()!r})")
+        check("fixture: 1.0.0 -> 2.0.0" in run.stdout, "it reports the outdated fixture app")
+        time.sleep(1.5)
+        mon.terminate()
+        mon.wait(5)
+        with open(mon.out_path) as f:
+            seen = f.read()
+        check(("member=AddNotification" in seen or "member=Notify" in seen)
+              and "Fixture App" in seen and "Updates available" in seen,
+              "a notification call names 'Updates available' and 'Fixture App'")
+        check('"updates"' in seen or "member=Notify" in seen, "its id is 'updates'")
+
+        # 3. Quit, then click the notification the way GNOME Shell does.
+        stop_gui(proc)
+        proc = None
+        clear_the_way()
+        with DevService(home, catalog):
+            activate_show_updates()
+            end = time.time() + 15
+            pid = None
+            while time.time() < end and pid is None:
+                pid = bus_owner_pid()
+                time.sleep(0.3)
+            check(pid is not None, "the click started the app")
+            root = app_root(pid)
+            check(wait_checked(updates_toggle(root)), "the window opens on the 'Updates' filter")
+            details = wait_for(root, lambda n: role(n) == "button"
+                               and name(n) == "Details for Fixture App",
+                               "the Fixture App card")
+            end = time.time() + 15
+            while time.time() < end and not details.getState().contains(pyatspi.STATE_SHOWING):
+                time.sleep(0.3)
+            check(details.getState().contains(pyatspi.STATE_SHOWING),
+                  "the outdated Fixture App card shows under 'Updates'")
+
+            # 4. Launch it from its detail page.
+            dialog = open_details(root, "Fixture App")
+            launch = wait_for(dialog, lambda n: role(n) == "button"
+                              and name(n) == "Launch instance #1", "button 'Launch instance #1'")
+            click(launch)
+            check(wait_file(marker, 5), "Launch from the detail page started the instance")
+    finally:
+        if mon is not None and mon.poll() is None:
+            mon.kill()
+        if proc is not None:
+            stop_gui(proc)
+        subprocess.run(["pkill", "-f", "--", home], check=False)
+        shutil.rmtree(home, ignore_errors=True)
+
+
 MODES = {
     "details": mode_details,
     "details-all": mode_details_all,
     "activation": mode_activation,
+    "login-check": mode_login_check,
 }
 
 

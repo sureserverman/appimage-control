@@ -65,6 +65,9 @@ pub struct GuiConfig {
     pub check_for_updates: bool,
     /// On launch, silently repair missing per-instance launchers/icons.
     pub repair_launchers_auto: bool,
+    /// Run `--check-updates --notify` at login (autostart entry, or the Flatpak Background
+    /// portal). On by default (OD-2), so a config written before the field reads as on.
+    pub check_updates_at_login: bool,
 
     // --- Network ---
     /// Human label for the download route (e.g. "System proxy (Tor)", "Direct").
@@ -87,6 +90,7 @@ impl Default for GuiConfig {
             reload_on_focus: false,
             check_for_updates: true,
             repair_launchers_auto: true,
+            check_updates_at_login: true,
             route_through: default_route(),
             verify_checksums: true,
             concurrent_downloads: default_concurrent(),

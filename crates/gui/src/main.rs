@@ -8,6 +8,7 @@ mod details;
 mod dialogs;
 mod embedded_icons;
 mod i18n;
+mod login_check;
 mod preferences;
 mod record_dialog;
 mod seed_dialog;
@@ -459,6 +460,8 @@ fn build_ui(app: &adw::Application) {
 
     (try_mount_inner)();
     window.present();
+    // OD-2: the login update check is on by default and registered on the first launch.
+    login_check::reconcile_at_startup(&paths);
 }
 
 /// Replaces the window content with the empty/no-catalog state — `AdwStatusPage`
