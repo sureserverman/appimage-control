@@ -1,0 +1,29 @@
+{
+ "baseline": {
+  "elapsed_s": 0.2,
+  "exit": 0,
+  "tail": "running 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s\n\n     Running tests/http_local_fixture.rs (target/debug/deps/http_local_fixture-aae622eeea22cc0c)\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.00s\n\n     Running tests/integration_backup.rs (target/debug/deps/integration_backup-b245a57e561667aa)\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s\n\n     Running tests/integration_install.rs (target/debug/deps/integration_install-5c00d04dd69993d3)\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s\n\n     Running tests/integration_restore.rs (target/debug/deps/integration_restore-e86c1ea945f4dc4e)\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n\n     Running tests/integration_seed_discovery.rs (target/debug/deps/integration_seed_discovery-ba7b96d3d3fb1326)\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s\n\n     Running tests/partial_catalog_states.rs (target/debug/deps/partial_catalog_states-c247a60645d4f084)\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s\n"
+ },
+ "break_patch": "--- a/crates/core/src/app_details.rs\n+++ b/crates/core/src/app_details.rs\n@@ -142,7 +142,7 @@\n         CacheSidecar::Present { label, .. } => match label.as_str() {\n             \"verified catalog\" => Verification::CatalogHash,\n             \"verified github-digest\" => Verification::GithubDigest,\n-            \"unverified user-allowed\" => Verification::UnverifiedAllowed,\n+            \"unverified user-allowed\" => Verification::CatalogHash,\n             _ => Verification::Unreadable,\n         },\n     }\n",
+ "build": "cargo build -p appimage_control_core --tests",
+ "created": "2026-11-06T18:02:56+00:00",
+ "fingerprint": "a30b263c4bf744f0f3beb7e3579e19ee81dfce751ca7a0c579eb7a19bbf0a13f",
+ "index": 2,
+ "kind": "claim",
+ "named_break": null,
+ "no_build_reason": null,
+ "plan": "/mnt/vault/Portfolio/anon-tools/appimage-control/plans/2026-11-06-gear-lever-gap-plan.md",
+ "red": {
+  "elapsed_s": 0.2,
+  "exit": 101,
+  "tail": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.11s\n     Running unittests src/lib.rs (target/debug/deps/appimage_control_core-7b781dc01bb54874)\n\nrunning 6 tests\ntest app_details::tests::app_details_update_source_per_url_kind ... ok\ntest app_details::tests::app_details_no_instances_is_an_empty_list ... ok\ntest app_details::tests::app_details_every_catalog_app ... ok\ntest app_details::tests::app_details_lists_each_instance ... ok\ntest app_details::tests::app_details_marks_a_missing_appimage ... ok\ntest app_details::tests::app_details_verification_per_sidecar ... FAILED\n\nfailures:\n\n---- app_details::tests::app_details_verification_per_sidecar stdout ----\n\nthread 'app_details::tests::app_details_verification_per_sidecar' (1304896) panicked at crates/core/src/app_details.rs:305:13:\nassertion `left == right` failed: unverified user-allowed\n  left: CatalogHash\n right: UnverifiedAllowed\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    app_details::tests::app_details_verification_per_sidecar\n\ntest result: FAILED. 5 passed; 1 failed; 0 ignored; 0 measured; 274 filtered out; finished in 0.01s\n\nerror: test failed, to rerun pass `-p appimage_control_core --lib`"
+ },
+ "schema": 2,
+ "shell": "bash",
+ "task": "1.1",
+ "test": "cargo test -p appimage_control_core app_details",
+ "text": "(b) an instance with its AppImage deleted is listed with `appimage_present == false`",
+ "touched": [
+  "crates/core/src/app_details.rs"
+ ]
+}

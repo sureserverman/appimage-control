@@ -1,5 +1,6 @@
 //! Manage AppImage installs under `~/.local/share/appimages` with `.desktop` integration.
 
+mod app_details;
 mod backup;
 mod batch;
 mod catalog;
@@ -26,6 +27,10 @@ mod seed_record;
 mod update;
 mod version_info;
 
+pub use app_details::{
+    app_details, update_source, verification_from_sidecar, AppDetails, InstanceDetails,
+    UpdateSource, Verification,
+};
 pub use backup::{
     collect_backup_inventory, create_backup_archive, restore_backup_archive, BackupCatalogSnapshot,
     BackupEntry, BackupManifest, BackupOptions, BackupReport, BACKUP_FORMAT_VERSION,
