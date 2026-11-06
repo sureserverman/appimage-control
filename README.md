@@ -202,8 +202,12 @@ Treat this as the primary UI guideline for AppImage Control surfaces.
 
 The GUI is translated into German, Spanish, French, Italian, Japanese, Polish,
 Portuguese (Brazil), Russian, Turkish, Ukrainian and Chinese (Simplified). The
-launcher entry and the app store description are translated too. The CLI and
-the activity log stay in English, so scripts can rely on their text.
+CLI and the activity log stay in English, so scripts can rely on their text.
+
+The translations are machine-made and no native speaker has reviewed them yet.
+Flathub does not accept machine translations, so the Flathub build passes
+`--no-default-features` to leave them out and is English only. Corrections are
+welcome.
 
 The language follows `LANGUAGE`, then `LC_ALL`, `LC_MESSAGES` and `LANG`.
 Portuguese from Portugal gets the Brazilian text. Chinese in Traditional script
@@ -214,8 +218,7 @@ LANGUAGE=uk appimage-control
 ```
 
 The catalogs are standard gettext files in `po/`, built into the binary, so
-nothing has to be installed next to it. The current translations are machine
-translations that no native speaker has reviewed yet. Corrections are welcome.
+nothing has to be installed next to it.
 
 To change GUI text or a translation:
 

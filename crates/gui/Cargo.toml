@@ -14,6 +14,12 @@ metainfo-file = "data/io.github.sureserverman.AppImageControl.metainfo.xml"
 name = "appimage-control"
 path = "src/main.rs"
 
+[features]
+default = ["translations"]
+# Builds the po/ catalogs into the binary. They are machine-translated, so the
+# Flathub build turns this off (`--no-default-features`) and ships English only.
+translations = []
+
 [dependencies]
 appimage_control_core = { path = "../core" }
 dirs = "6"

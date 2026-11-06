@@ -40,6 +40,8 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Test
         run: cargo test --workspace
+      - name: Test GUI without translations (Flathub build)
+        run: cargo test -p appimage-control --no-default-features --bins
       - name: Format check
         run: cargo fmt --all -- --check
       - name: CLI doc sync

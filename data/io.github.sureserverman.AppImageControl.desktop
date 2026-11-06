@@ -2,17 +2,6 @@
 Type=Application
 Name=AppImage Control
 Comment=Install and manage AppImage applications
-Comment[de]=AppImage-Anwendungen installieren und verwalten
-Comment[es]=Instale y gestione aplicaciones AppImage
-Comment[fr]=Installer et gérer des applications AppImage
-Comment[it]=Installa e gestisci applicazioni AppImage
-Comment[ja]=AppImage アプリケーションをインストール・管理します
-Comment[pl]=Instalowanie aplikacji AppImage i zarządzanie nimi
-Comment[pt_BR]=Instale e gerencie aplicativos AppImage
-Comment[ru]=Установка и управление приложениями AppImage
-Comment[tr]=AppImage uygulamalarını yükleyin ve yönetin
-Comment[uk]=Встановлення та керування застосунками AppImage
-Comment[zh_CN]=安装和管理 AppImage 应用程序
 Exec=appimage-control
 Icon=io.github.sureserverman.AppImageControl
 Terminal=false

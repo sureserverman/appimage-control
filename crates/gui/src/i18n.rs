@@ -1,8 +1,9 @@
 //! GUI translations.
 //!
 //! Catalogs are standard gettext `.po` files under `po/` at the repo root. They
-//! are built into the binary, so a plain `cargo build` binary and the Flatpak
-//! carry the same translations with nothing to install.
+//! are built into the binary by the default `translations` feature, so there is
+//! nothing to install. The Flathub build turns the feature off: Flathub does not
+//! accept machine translations, and these are not yet reviewed by native speakers.
 //!
 //! Only the GUI calls [`init`]. Until then, and so in the CLI and in unit tests,
 //! every lookup returns the English source text.
@@ -17,6 +18,7 @@ use std::sync::OnceLock;
 
 /// Every shipped catalog: (locale code, `.po` source). The code is matched
 /// against the user's language list by [`pick_language`].
+#[cfg(feature = "translations")]
 const CATALOGS: &[(&str, &str)] = &[
     ("de", include_str!("../../../po/de.po")),
     ("es", include_str!("../../../po/es.po")),
@@ -30,6 +32,10 @@ const CATALOGS: &[(&str, &str)] = &[
     ("uk", include_str!("../../../po/uk.po")),
     ("zh_CN", include_str!("../../../po/zh_CN.po")),
 ];
+
+/// Without the `translations` feature (the Flathub build) the GUI is English only.
+#[cfg(not(feature = "translations"))]
+const CATALOGS: &[(&str, &str)] = &[];
 
 /// gettext joins a context and a msgid with EOT for the lookup key.
 const CONTEXT_GLUE: char = '\u{4}';
@@ -333,6 +339,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "translations")]
     #[test]
     fn language_choice_follows_the_users_list() {
         assert_eq!(
@@ -350,6 +357,13 @@ mod tests {
         );
         assert_eq!(pick_language(&names(&["uk", "ru", "C"])), Some("uk"));
         assert_eq!(pick_language(&names(&["sr@latin", "uk", "C"])), Some("uk"));
+    }
+
+    #[cfg(not(feature = "translations"))]
+    #[test]
+    fn without_translations_every_language_gets_english() {
+        assert_eq!(pick_language(&names(&["de_DE.UTF-8", "de", "C"])), None);
+        assert_eq!(pick_language(&names(&["uk", "ru", "C"])), None);
     }
 
     #[test]

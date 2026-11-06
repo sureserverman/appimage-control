@@ -16,14 +16,14 @@ App ID: `io.github.sureserverman.AppImageControl`
 - Required runtimes/extensions installed for local builds:
   - `org.gnome.Platform//50`
   - `org.gnome.Sdk//50`
-  - `org.freedesktop.Sdk.Extension.rust-stable//24.08`
+  - `org.freedesktop.Sdk.Extension.rust-stable//25.08`
 
 Install prerequisites:
 
 ```bash
 sudo apt-get update
 sudo apt-get install -y flatpak flatpak-builder desktop-file-utils appstream
-sudo flatpak install -y flathub org.gnome.Platform//50 org.gnome.Sdk//50 org.freedesktop.Sdk.Extension.rust-stable//24.08
+sudo flatpak install -y flathub org.gnome.Platform//50 org.gnome.Sdk//50 org.freedesktop.Sdk.Extension.rust-stable//25.08
 ```
 
 ## Metadata and Manifest Validation
@@ -91,54 +91,113 @@ Expected result:
 - forced restore succeeds
 - restored files exist
 
-## Pre-submission Checklist (manual steps not handled by the validation script)
+## Flathub Rules That Shape This Submission
 
-The repo and manifest are structurally ready for Flathub. The remaining steps are
-content/process work the operator must do before opening the submission PR:
+Checked against <https://docs.flathub.org/docs/for-app-authors/requirements>
+on 2026-11-06. Re-read that page before submitting; it changes.
 
-1) **Push the source repo to GitHub.** The metainfo and Cargo workspace point at
-   `https://github.com/sureserverman/appimage-control`. That URL must resolve (200 OK)
-   for Flathub's reviewer CI to validate the metainfo. If the repo is currently local
-   or private, push it public:
+1) **AI-generated material must be disclosed.** Most of this codebase, its
+   docs and the in-repo Flatpak files were written with an AI coding assistant
+   (most commits carry a `Co-Authored-By: Claude` line). The submission must say
+   which parts and roughly how much. Reviewers may reject on the extent alone.
+
+2) **The Flathub manifest must contain no AI-generated or AI-assisted content,
+   even if disclosed.** Write the submission manifest yourself. Do not copy
+   `flatpak/io.github.sureserverman.AppImageControl.yml` or
+   `flatpak/cargo-sources.json` into the submission: both were AI-written and
+   are kept only for local and CI builds.
+
+3) **AI tools must not open the submission PR or write its description,
+   commit messages, review replies or linter exception requests.**
+
+4) **No machine translations.** The `po/` catalogs are machine-made, so the
+   Flathub build must pass `--no-default-features` to the cargo build. That
+   drops the `translations` feature and the GUI stays English. The desktop
+   file and metainfo carry English only.
+
+5) **Host-dependent apps are accepted only case by case.** The app runs
+   AppImages, `xvfb-run`, `fusermount3` and the desktop-database tools on the
+   host through `flatpak-spawn --host`. Gear Lever (`it.mijorus.gearlever`) is
+   on Flathub with the same `--talk-name=org.freedesktop.Flatpak` permission,
+   so there is precedent, but expect to justify it.
+
+## What the Hand-Written Manifest Needs
+
+These are requirements, not manifest text:
+
+- Top-level file named `io.github.sureserverman.AppImageControl.yml` (or
+  `.json`), with the latest GNOME runtime on Flathub (50 at the time of writing)
+  and the `rust-stable` SDK extension.
+- A `git` source with both `tag` and `commit` pointing at a release tag of
+  this repo. `type: dir` sources are refused by the linter.
+- An offline build: Flathub builds have no network. This repo vendors every
+  crate in `vendor/` and `.cargo/config.toml` points cargo at it, so
+  `cargo build --release --offline` works from the git source alone. Flathub
+  also asks for a dependency manifest; `flatpak-cargo-generator.py` from
+  `flatpak/flatpak-builder-tools` produces one from `Cargo.lock`. Ask the
+  reviewers which of the two they want.
+- `--no-default-features` on the cargo build (rule 4).
+- `APPIMAGE_CONTROL_CATALOG` set to the installed catalog
+  (`/app/share/appimage-control/catalog.json`), the way the local manifest's
+  wrapper script does it.
+- Installed files: the binary under `/app/bin`, the desktop file, the metainfo,
+  `data/catalog.json`, the SVG icon in `hicolor/scalable/apps` and the PNG
+  icons in their sized `hicolor` folders, all named after the app ID.
+- `LICENSE` installed to `$FLATPAK_DEST/share/licenses/$FLATPAK_ID/`.
+- Permissions, each with a reason in the PR:
+  - `--share=network`: catalog, icon and AppImage downloads.
+  - `--socket=wayland`, `--socket=fallback-x11`, `--share=ipc`, `--device=dri`:
+    the GTK 4 window.
+  - `--filesystem=xdg-data/appimages`, `xdg-data/applications`,
+    `xdg-data/icons`: the managed AppImages and their launchers and icons.
+    The linter grades `xdg-data` access as "explain".
+  - `--talk-name=org.freedesktop.Flatpak`: `flatpak-spawn --host` (rule 5).
+    The linter reports it as a warning, not an error.
+- `flathub.json` only if the app must be limited to one architecture.
+  `data/catalog.json` has `download_url_aarch64` entries, so building both
+  x86_64 and aarch64 is expected.
+
+## Pre-submission Checklist
+
+1) **Cut a release that contains the current metadata.** Flathub builds from
+   a tag. The metainfo must list that release with its date, and the
+   screenshot it names must exist on the default branch. v0.3.0 predates the
+   screenshot and the English-only switch, so the submission needs a newer tag.
+
+2) **Check the screenshot.** `docs/screenshots/catalog.png` is referenced from
+   the metainfo through its `raw.githubusercontent.com` URL on `main`. Flathub
+   mirrors it at build time. To retake it on a machine with GTK 4, render into
+   a private X server, which avoids compositor screenshot restrictions:
    ```bash
-   git push -u origin main
+   Xvfb :7 -screen 0 1000x760x24 &
+   DISPLAY=:7 GDK_BACKEND=x11 GSK_RENDERER=cairo LANGUAGE=en \
+     dbus-run-session -- appimage-control &
+   # after the icons load:
+   W=$(DISPLAY=:7 xdotool search --name "AppImage Control" | tail -1)
+   DISPLAY=:7 xdotool windowmove $W 0 0 windowsize --sync $W 1000 760
+   DISPLAY=:7 import -window root docs/screenshots/catalog.png
    ```
+   Use an isolated `HOME` with a few installed instances so the cards show
+   both states.
 
-2) **Capture and upload at least one screenshot.** The metainfo references:
-   ```
-   https://raw.githubusercontent.com/sureserverman/appimage-control/main/docs/screenshots/catalog.png
-   ```
-   Run the installed Flatpak, capture the catalog window, save it to
-   `docs/screenshots/catalog.png`, commit, and push. (Local validation passes
-   because the script uses `--no-net`; Flathub's reviewer CI does fetch the URL.)
-
-3) **Create and push the `v0.1.0` tag.** Flathub builds from a tag, not a branch:
+3) **Run the linter** on your manifest and on the built repo:
    ```bash
-   git tag -a v0.1.0 -m "AppImage Control 0.1.0 — initial Flathub release"
-   git push origin v0.1.0
+   flatpak install -y flathub org.flatpak.Builder
+   flatpak run --command=flatpak-builder-lint org.flatpak.Builder manifest io.github.sureserverman.AppImageControl.yml
+   flatpak run --command=flathub-build org.flatpak.Builder --install io.github.sureserverman.AppImageControl.yml
+   flatpak run --command=flatpak-builder-lint org.flatpak.Builder repo repo
    ```
-   Note the commit SHA the tag points to — you'll paste it into the manifest below.
 
-4) **Swap the manifest source to `type: git`.** In
-   `flatpak/io.github.sureserverman.AppImageControl.yml`, the `sources:` block
-   currently uses `type: dir, path: ..` for local builds. Replace it with the
-   commented-out `type: git` block (`url`, `tag: v0.1.0`, `commit: <sha-from-step-3>`)
-   when preparing the Flathub PR. Keep the local-dir block in your local working
-   tree if you'll continue iterating; the Flathub fork is the only place that
-   needs the `type: git` form.
+4) **Write the AI disclosure** for the PR in your own words (rule 1).
 
 ## Flathub Submission Workflow
 
-1) Fork `flathub/flathub`.
-2) Create a branch named `io.github.sureserverman.AppImageControl`.
-3) Add the manifest at the repo root: `io.github.sureserverman.AppImageControl.yml`
-   (using the `type: git` source from the pre-submission step).
-4) Open PR with:
-   - summary of finish-args and why each permission is needed
-     (network for catalog downloads; xdg-data/{appimages,applications,icons} for
-     managed AppImage installs and launcher integration)
-   - local build + smoke command outputs
-   - known limitations (if any)
+1) Fork `flathub/flathub` with "Copy the master branch only" unchecked, and
+   branch from `new-pr`.
+2) Add your manifest at the repo root.
+3) Open the PR yourself against `new-pr` (not `master`), titled
+   "Add io.github.sureserverman.AppImageControl". Include the permission
+   reasons, the AI disclosure, and the local build and smoke-test results.
 
 ## Review Iteration Loop
 
