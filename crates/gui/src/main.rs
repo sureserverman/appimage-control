@@ -4,6 +4,7 @@
 mod actions;
 mod catalog_icons;
 mod cli;
+mod details;
 mod dialogs;
 mod embedded_icons;
 mod i18n;
