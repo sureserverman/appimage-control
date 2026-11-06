@@ -1,6 +1,8 @@
 crates/gui/src/actions.rs
+crates/gui/src/cli.rs
 crates/gui/src/details.rs
 crates/gui/src/dialogs.rs
+crates/gui/src/login_check.rs
 crates/gui/src/main.rs
 crates/gui/src/preferences.rs
 crates/gui/src/record_dialog.rs
