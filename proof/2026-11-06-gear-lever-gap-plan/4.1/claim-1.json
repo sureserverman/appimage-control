@@ -4,14 +4,14 @@
   "exit": 0,
   "tail": "OK: metainfo meets the checked quality guidelines"
  },
- "break_patch": "--- a/data/io.github.sureserverman.AppImageControl.metainfo.xml\n+++ b/data/io.github.sureserverman.AppImageControl.metainfo.xml\n@@ -4,7 +4,7 @@\n   <metadata_license>CC0-1.0</metadata_license>\n   <project_license>MIT</project_license>\n   <name>AppImage Control</name>\n-  <summary>Run apps as isolated copies</summary>\n+  <summary>Manage AppImage installs, instances, backup and restore</summary>\n   <description>\n     <p>\n       Install curated apps as separate, isolated copies, each with its own\n@@ -32,17 +32,6 @@\n   <url type=\"homepage\">https://github.com/sureserverman/appimage-control</url>\n   <url type=\"bugtracker\">https://github.com/sureserverman/appimage-control/issues</url>\n   <url type=\"vcs-browser\">https://github.com/sureserverman/appimage-control</url>\n-  <keywords>\n-    <keyword>AppImage</keyword>\n-    <keyword>instances</keyword>\n-    <keyword>portable</keyword>\n-    <keyword>checksum</keyword>\n-    <keyword>backup</keyword>\n-  </keywords>\n-  <branding>\n-    <color type=\"primary\" scheme_preference=\"light\">#b9e4cf</color>\n-    <color type=\"primary\" scheme_preference=\"dark\">#20476e</color>\n-  </branding>\n   <content_rating type=\"oars-1.1\"/>\n   <screenshots>\n     <screenshot type=\"default\">\n",
+ "break_patch": "--- a/data/io.github.sureserverman.AppImageControl.metainfo.xml\n+++ b/data/io.github.sureserverman.AppImageControl.metainfo.xml\n@@ -4,7 +4,7 @@\n   <metadata_license>CC0-1.0</metadata_license>\n   <project_license>MIT</project_license>\n   <name>AppImage Control</name>\n-  <summary>Run apps as isolated copies</summary>\n+  <summary>Manage AppImage installs, instances, backup and restore</summary>\n   <description>\n     <p>\n       Install curated apps as separate, isolated copies, each with its own\n@@ -34,17 +34,6 @@\n   <url type=\"homepage\">https://github.com/sureserverman/appimage-control</url>\n   <url type=\"bugtracker\">https://github.com/sureserverman/appimage-control/issues</url>\n   <url type=\"vcs-browser\">https://github.com/sureserverman/appimage-control</url>\n-  <keywords>\n-    <keyword>AppImage</keyword>\n-    <keyword>instances</keyword>\n-    <keyword>portable</keyword>\n-    <keyword>checksum</keyword>\n-    <keyword>backup</keyword>\n-  </keywords>\n-  <branding>\n-    <color type=\"primary\" scheme_preference=\"light\">#b9e4cf</color>\n-    <color type=\"primary\" scheme_preference=\"dark\">#1e7a57</color>\n-  </branding>\n   <content_rating type=\"oars-1.1\"/>\n   <screenshots>\n     <screenshot type=\"default\">\n",
  "build": null,
- "created": "2026-11-06T20:53:24+00:00",
- "fingerprint": "d5e05094c498cd8fd0b3f16cc1d59ec76577f40f6b23e61bda82abcb7b91bb0c",
+ "created": "2026-11-06T20:57:36+00:00",
+ "fingerprint": "29f45f55297b50d90a6e2afc287467dca5b4c79521ce935701c8f153bb76d31a",
  "index": 1,
  "kind": "claim",
  "named_break": null,
- "no_build_reason": "metadata and a Python script, nothing to build",
+ "no_build_reason": "metadata and a Python script",
  "plan": "/mnt/vault/Portfolio/anon-tools/appimage-control/plans/2026-11-06-gear-lever-gap-plan.md",
  "red": {
   "elapsed_s": 0.0,
@@ -27,10 +27,10 @@
   "data/io.github.sureserverman.AppImageControl.metainfo.xml"
  ],
  "touched_blobs": {
-  "data/io.github.sureserverman.AppImageControl.metainfo.xml": "09d4ed69a8864241a605e5271b66dde6b5eec6a6"
+  "data/io.github.sureserverman.AppImageControl.metainfo.xml": "5fe365ceb2679100d74f7b1d98b8a97344b3776f"
  },
  "witness_blobs": {
-  "data/io.github.sureserverman.AppImageControl.metainfo.xml": "09d4ed69a8864241a605e5271b66dde6b5eec6a6",
-  "scripts/check-metainfo-quality.py": "c0aa3c35d1cba1d8d96df6b82f1fe860b04bf661"
+  "data/io.github.sureserverman.AppImageControl.metainfo.xml": "5fe365ceb2679100d74f7b1d98b8a97344b3776f",
+  "scripts/check-metainfo-quality.py": "e1707cbcc2a00333255440792071ea7d6f1cc92f"
  }
 }

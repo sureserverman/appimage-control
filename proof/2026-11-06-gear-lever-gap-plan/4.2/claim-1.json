@@ -4,14 +4,14 @@
   "exit": 0,
   "tail": "OK: metainfo meets the checked quality guidelines"
  },
- "break_patch": "diff --git b/data/io.github.sureserverman.AppImageControl.metainfo.xml a/data/io.github.sureserverman.AppImageControl.metainfo.xml\nindex 09d4ed69..e4b66980 100644\n--- b/data/io.github.sureserverman.AppImageControl.metainfo.xml\n+++ a/data/io.github.sureserverman.AppImageControl.metainfo.xml\n@@ -46,17 +46,9 @@\n   <content_rating type=\"oars-1.1\"/>\n   <screenshots>\n     <screenshot type=\"default\">\n-      <caption>Catalog of apps with their installed copies</caption>\n+      <caption>AppImage Control catalog window with installed apps</caption>\n       <image>https://raw.githubusercontent.com/sureserverman/appimage-control/main/docs/screenshots/catalog.png</image>\n     </screenshot>\n-    <screenshot>\n-      <caption>Detail page with each copy's version, size and folder</caption>\n-      <image>https://raw.githubusercontent.com/sureserverman/appimage-control/main/docs/screenshots/details.png</image>\n-    </screenshot>\n-    <screenshot>\n-      <caption>Preferences with the update check at login</caption>\n-      <image>https://raw.githubusercontent.com/sureserverman/appimage-control/main/docs/screenshots/preferences.png</image>\n-    </screenshot>\n   </screenshots>\n   <releases>\n     <release version=\"0.3.0\" date=\"2026-11-05\">\n",
+ "break_patch": "--- a/data/io.github.sureserverman.AppImageControl.metainfo.xml\n+++ b/data/io.github.sureserverman.AppImageControl.metainfo.xml\n@@ -51,14 +51,6 @@\n       <caption>Catalog of apps with their installed copies</caption>\n       <image>https://raw.githubusercontent.com/sureserverman/appimage-control/main/docs/screenshots/catalog.png</image>\n     </screenshot>\n-    <screenshot>\n-      <caption>Detail page with each copy's version, size and folder</caption>\n-      <image>https://raw.githubusercontent.com/sureserverman/appimage-control/main/docs/screenshots/details.png</image>\n-    </screenshot>\n-    <screenshot>\n-      <caption>Preferences with the update check at login</caption>\n-      <image>https://raw.githubusercontent.com/sureserverman/appimage-control/main/docs/screenshots/preferences.png</image>\n-    </screenshot>\n   </screenshots>\n   <releases>\n     <release version=\"0.3.0\" date=\"2026-11-05\">\n",
  "build": null,
- "created": "2026-11-06T20:51:28+00:00",
- "fingerprint": "d5e05094c498cd8fd0b3f16cc1d59ec76577f40f6b23e61bda82abcb7b91bb0c",
+ "created": "2026-11-06T20:57:37+00:00",
+ "fingerprint": "29f45f55297b50d90a6e2afc287467dca5b4c79521ce935701c8f153bb76d31a",
  "index": 1,
  "kind": "claim",
  "named_break": null,
- "no_build_reason": "images, metadata and a Python script, nothing to build",
+ "no_build_reason": "images, metadata and a Python script",
  "plan": "/mnt/vault/Portfolio/anon-tools/appimage-control/plans/2026-11-06-gear-lever-gap-plan.md",
  "red": {
   "elapsed_s": 0.0,
@@ -27,10 +27,10 @@
   "data/io.github.sureserverman.AppImageControl.metainfo.xml"
  ],
  "touched_blobs": {
-  "data/io.github.sureserverman.AppImageControl.metainfo.xml": "09d4ed69a8864241a605e5271b66dde6b5eec6a6"
+  "data/io.github.sureserverman.AppImageControl.metainfo.xml": "5fe365ceb2679100d74f7b1d98b8a97344b3776f"
  },
  "witness_blobs": {
-  "data/io.github.sureserverman.AppImageControl.metainfo.xml": "09d4ed69a8864241a605e5271b66dde6b5eec6a6",
-  "scripts/check-metainfo-quality.py": "c0aa3c35d1cba1d8d96df6b82f1fe860b04bf661"
+  "data/io.github.sureserverman.AppImageControl.metainfo.xml": "5fe365ceb2679100d74f7b1d98b8a97344b3776f",
+  "scripts/check-metainfo-quality.py": "e1707cbcc2a00333255440792071ea7d6f1cc92f"
  }
 }
