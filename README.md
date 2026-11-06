@@ -1,6 +1,6 @@
 # AppImage Control
 
-Run apps as isolated copies. AppImage Control installs curated apps as separate copies, each with its own folder, settings and launcher, and checks every download against a known SHA-256 hash before it is made executable. New copies can start from ready-made settings, and everything it manages can be backed up and restored.
+Run apps as isolated copies. AppImage Control installs curated apps as separate copies, each with its own folder, settings and launcher, and checks downloads against a known SHA-256 hash before they are made executable; one without a published hash is installed only if you confirm. New copies of supported apps, such as Feather and Electrum, can start from ready-made settings, and everything it manages can be backed up and restored.
 
 Rust + GTK 4 utility that shows a **catalog of apps** from JSON: for each entry you set how many **isolated instances** you want (separate directories, like `~/feather1` / `~/feather2`). **Apply** downloads the AppImage once (cached under `~/.local/share/appimages/cache/<id>/`), copies or hardlinks it into each instance dir, and writes a `.desktop` launcher per instance.
 

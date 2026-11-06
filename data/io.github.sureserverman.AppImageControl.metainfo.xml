@@ -8,16 +8,18 @@
   <description>
     <p>
       Install curated apps as separate, isolated copies, each with its own
-      folder, settings and launcher. Every download is checked against a
-      known SHA-256 hash before it is made executable.
+      folder, settings and launcher. Downloads are checked against a known
+      SHA-256 hash before they are made executable, and one without a
+      published hash is installed only if you confirm.
     </p>
     <p>
-      New copies can start from ready-made settings, and everything the app
-      manages can be backed up and restored.
+      New copies of supported apps, such as Feather and Electrum, can start
+      from ready-made settings, and everything the app manages can be backed
+      up and restored.
     </p>
     <ul>
       <li>A detail page per app with versions, sizes, folders and update source</li>
-      <li>Settings packs that preset an app in every new copy</li>
+      <li>Seed packs that preset supported apps in new copies</li>
       <li>Backup and restore with a hash check for every file</li>
       <li>A notice at login when an installed app has a newer release</li>
     </ul>
@@ -41,7 +43,7 @@
   </keywords>
   <branding>
     <color type="primary" scheme_preference="light">#b9e4cf</color>
-    <color type="primary" scheme_preference="dark">#20476e</color>
+    <color type="primary" scheme_preference="dark">#1e7a57</color>
   </branding>
   <content_rating type="oars-1.1"/>
   <screenshots>
