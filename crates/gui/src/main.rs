@@ -6,6 +6,7 @@ mod catalog_icons;
 mod cli;
 mod dialogs;
 mod embedded_icons;
+mod i18n;
 mod preferences;
 mod record_dialog;
 mod seed_dialog;
@@ -23,6 +24,7 @@ use crate::dialogs::{
     ask_confirmation, ask_migration_strategy, choose_open_path, choose_save_path,
     present_activity_log_dialog, present_message_window, ConfirmKind,
 };
+use crate::i18n::{fill, ntr, tr, trc};
 use crate::record_dialog::{
     choose_pack_save_path, choose_record_target, confirm_manual_step, review_and_select, RecordApp,
 };
@@ -100,15 +102,32 @@ struct RowHandles {
     last_applied: Rc<Cell<u32>>,
 }
 
+/// A catalog category's section heading. The shipped categories are translated;
+/// any other name comes from a custom catalog and is shown as written.
+fn category_label(cat: &str) -> String {
+    // TRANSLATORS: section headings that group the apps in the window. They are
+    // shown in upper case.
+    let known = match cat {
+        "AI Tools" => trc("category", "AI Tools"),
+        "Messengers" => trc("category", "Messengers"),
+        "Notes" => trc("category", "Notes"),
+        "Security" => trc("category", "Security"),
+        "Wallets" => trc("category", "Wallets"),
+        "Other" => trc("category", "Other"),
+        other => return other.to_string(),
+    };
+    known.to_string()
+}
+
 /// Format a byte count the way the design card subtitle shows it ("38 MB", "1.2 GB").
 fn format_size(bytes: u64) -> String {
     let mb = bytes as f64 / 1_000_000.0;
     if mb >= 1000.0 {
-        format!("{:.1} GB", mb / 1000.0)
+        fill(tr("{size} GB"), &[("size", &format!("{:.1}", mb / 1000.0))])
     } else if mb >= 10.0 {
-        format!("{} MB", mb.round() as u64)
+        fill(tr("{size} MB"), &[("size", &(mb.round() as u64))])
     } else {
-        format!("{:.1} MB", mb)
+        fill(tr("{size} MB"), &[("size", &format!("{:.1}", mb))])
     }
 }
 
@@ -150,7 +169,7 @@ fn render_card(
         }
     }
     if max_allowed == 1 {
-        sub.push_str("  ·  single instance");
+        sub.push_str(&format!("  ·  {}", tr("single instance")));
     }
     subtitle_label.set_text(&sub);
 
@@ -164,30 +183,32 @@ fn render_card(
         status_pill.remove_css_class(c);
     }
     if update_available {
-        status_pill.set_text("Update");
+        // TRANSLATORS: a status badge on an app card: an update is available.
+        status_pill.set_text(trc("status badge", "Update"));
         status_pill.add_css_class("update");
-        status_pill.set_tooltip_text(Some("An upstream update is available"));
+        status_pill.set_tooltip_text(Some(tr("An upstream update is available")));
     } else if applied > 0 {
-        status_pill.set_text("Installed");
+        status_pill.set_text(tr("Installed"));
         status_pill.add_css_class("installed");
-        status_pill.set_tooltip_text(Some(&format!(
-            "{} installed",
-            inst_display
-                .as_ref()
-                .map(|d| d.label.as_str())
-                .unwrap_or("instance(s)")
-        )));
+        let tip = match inst_display.as_ref() {
+            // TRANSLATORS: {version} is an app version, like "v2.8.1".
+            Some(d) => fill(tr("{version} installed"), &[("version", &d.label)]),
+            None => tr("Instances installed").to_string(),
+        };
+        status_pill.set_tooltip_text(Some(&tip));
     } else {
-        status_pill.set_text("Available");
+        status_pill.set_text(tr("Available"));
         status_pill.add_css_class("available");
-        status_pill.set_tooltip_text(Some("Nothing installed yet"));
+        status_pill.set_tooltip_text(Some(tr("Nothing installed yet")));
     }
 
     // Count phrase (tracks the target, like the design mock).
     count_label.set_text(&match target {
-        0 => "no instances".to_string(),
-        1 => "1 instance".to_string(),
-        n => format!("{n} instances"),
+        0 => tr("no instances").to_string(),
+        n => fill(
+            ntr("{count} instance", "{count} instances", n.into()),
+            &[("count", &n)],
+        ),
     });
 
     // Rebuild tiles.
@@ -208,7 +229,7 @@ fn render_card(
         tile.add_css_class("ac-tile");
         tile.add_css_class(cls);
         tile.set_valign(gtk::Align::Center);
-        tile.set_tooltip_text(Some("Remove an instance"));
+        tile.set_tooltip_text(Some(tr("Remove an instance")));
         let spin_dec = spin.clone();
         tile.connect_clicked(move |_| {
             let v = spin_dec.value();
@@ -224,10 +245,24 @@ fn render_card(
     let at_max = target >= max_allowed;
     add.set_sensitive(!at_max);
     let add_tip = if at_max {
-        app.instance_limit_tooltip_message()
-            .unwrap_or_else(|| "Maximum instances reached".to_string())
+        match app.instance_limit_tooltip_message() {
+            // The catalog's own wording is data, shown as written.
+            Some(custom) if app.max_instances_tooltip.is_some() => custom,
+            Some(_) => fill(
+                ntr(
+                    "You can't use more than one instance of {app}.",
+                    "You can't use more than {count} instances of {app}.",
+                    max_allowed.into(),
+                ),
+                &[
+                    ("count", &max_allowed),
+                    ("app", &app.display_name_resolved()),
+                ],
+            ),
+            None => tr("Maximum instances reached").to_string(),
+        }
     } else {
-        "Add an instance".to_string()
+        tr("Add an instance").to_string()
     };
     add.set_tooltip_text(Some(&add_tip));
     let spin_inc = spin.clone();
@@ -261,6 +296,8 @@ fn main() -> glib::ExitCode {
             return code;
         }
     }
+    // Translations are for the GUI only; the CLI above stays English.
+    i18n::init();
     adw::init().expect("adw init");
     install_theme_css();
     let app = adw::Application::builder().application_id(APP_ID).build();
@@ -286,13 +323,17 @@ fn install_theme_css() {
 
 /// Primary-menu "Keyboard Shortcuts" item — a compact reference dialog.
 fn present_shortcuts(parent: &gtk::ApplicationWindow) {
-    let body = "Ctrl+U\tUpdate all installed\n\
-                Ctrl+,\tPreferences\n\
-                Ctrl+?\tKeyboard shortcuts\n\
-                Ctrl+R\tReload catalog\n\
-                Ctrl+W\tClose window";
-    let dialog = adw::MessageDialog::new(Some(parent), Some("Keyboard Shortcuts"), Some(body));
-    dialog.add_response("close", "Close");
+    let body = [
+        ("Ctrl+U", tr("Update all installed")),
+        ("Ctrl+,", tr("Preferences")),
+        ("Ctrl+?", tr("Keyboard shortcuts")),
+        ("Ctrl+R", tr("Reload catalog")),
+        ("Ctrl+W", tr("Close window")),
+    ]
+    .map(|(keys, what)| format!("{keys}\t{what}"))
+    .join("\n");
+    let dialog = adw::MessageDialog::new(Some(parent), Some(tr("Keyboard Shortcuts")), Some(&body));
+    dialog.add_response("close", tr("Close"));
     dialog.set_default_response(Some("close"));
     dialog.present();
 }
@@ -308,7 +349,11 @@ fn present_about(parent: &gtk::ApplicationWindow) {
         .developer_name("Sure Serverman")
         .website("https://github.com/sureserverman/appimage-control")
         .license_type(gtk::License::MitX11)
-        .comments("Manage a catalog of apps and the number of isolated AppImage instances to keep for each.")
+        .comments(tr(
+            "Manage a catalog of apps and the number of isolated AppImage instances to keep for each.",
+        ))
+        // TRANSLATORS: put your name here, one per line, to be credited in the About window.
+        .translator_credits(tr("translator-credits"))
         .build();
     about.present();
 }
@@ -321,7 +366,7 @@ fn build_ui(app: &adw::Application) {
             present_message_window(
                 app,
                 "AppImage Control",
-                "The app could not determine your home directory, so managed installs cannot be used.",
+                tr("The app could not determine your home directory, so managed installs cannot be used."),
                 Some(&e.to_string()),
             );
             return;
@@ -406,7 +451,7 @@ fn mount_empty_state(
     let header = adw::HeaderBar::builder().show_title(true).build();
     header.set_title_widget(Some(&adw::WindowTitle::new("AppImage Control", "")));
     let menu_btn = actions::build_actions_menu_button();
-    menu_btn.set_tooltip_text(Some("Main Menu"));
+    menu_btn.set_tooltip_text(Some(tr("Main Menu")));
     header.pack_end(&menu_btn);
 
     // No-catalog disables most window actions; install a minimal hook set so the
@@ -419,7 +464,7 @@ fn mount_empty_state(
         Rc::new(move || {
             present_activity_log_dialog(
                 &win,
-                "No catalog loaded — load one first.\nUse the empty-state Reload button or Open Catalog… to recover.\n",
+                tr("No catalog loaded — load one first.\nUse the Reload button or Open Catalog… to recover.\n"),
             );
         })
     };
@@ -457,10 +502,10 @@ fn mount_empty_state(
 
     let status = adw::StatusPage::new();
     status.set_icon_name(Some("package-x-generic-symbolic"));
-    status.set_title("No catalog loaded");
-    status.set_description(Some(
+    status.set_title(tr("No catalog loaded"));
+    status.set_description(Some(tr(
         "AppImage Control couldn’t find an application catalog. Open one, or set APPIMAGE_CONTROL_CATALOG to a catalog file.",
-    ));
+    )));
 
     let body = GtkBox::new(Orientation::Vertical, 18);
     body.set_halign(gtk::Align::Center);
@@ -471,9 +516,9 @@ fn mount_empty_state(
     detail_card.set_margin_top(0);
 
     let detail_label = Label::builder()
-        .label(
+        .label(tr(
             "Search order:\n  1. APPIMAGE_CONTROL_CATALOG environment variable\n  2. data/catalog.json above a dev build (cargo target/ dir only)\n  3. /app/share/, /usr/share/appimage-control/catalog.json\n  4. catalog compiled into this build",
-        )
+        ))
         .halign(gtk::Align::Start)
         .xalign(0.0)
         .wrap(false)
@@ -489,9 +534,9 @@ fn mount_empty_state(
     let actions_box = GtkBox::new(Orientation::Horizontal, 8);
     actions_box.set_halign(gtk::Align::Center);
 
-    let open_btn = Button::with_label("Open Catalog…");
+    let open_btn = Button::with_label(tr("Open Catalog…"));
     open_btn.add_css_class("suggested-action");
-    let reload_btn = Button::with_label("Reload");
+    let reload_btn = Button::with_label(tr("Reload"));
 
     {
         let try_mount = Rc::clone(&try_mount);
@@ -505,7 +550,7 @@ fn mount_empty_state(
         let try_mount_outer = Rc::clone(&try_mount);
         open_btn.connect_clicked(move |_| {
             let win_for_chooser: gtk::ApplicationWindow = window.clone().upcast();
-            let Some(path) = choose_open_path(&win_for_chooser, "Choose catalog.json") else {
+            let Some(path) = choose_open_path(&win_for_chooser, tr("Choose catalog.json")) else {
                 return;
             };
             match Catalog::discover_load(Some(&path)) {
@@ -600,9 +645,11 @@ fn mount_catalog_view(
     filter_box.add_css_class("ac-segment");
     filter_box.add_css_class("ac-filter");
     filter_box.set_valign(gtk::Align::Center);
-    let filter_all = ToggleButton::with_label("All");
-    let filter_installed = ToggleButton::with_label("Installed");
-    let filter_updates = ToggleButton::with_label("Updates");
+    // TRANSLATORS: filter buttons above the app grid: show all apps, installed apps,
+    // or apps with an update.
+    let filter_all = ToggleButton::with_label(trc("filter", "All"));
+    let filter_installed = ToggleButton::with_label(trc("filter", "Installed"));
+    let filter_updates = ToggleButton::with_label(trc("filter", "Updates"));
     for b in [&filter_all, &filter_installed, &filter_updates] {
         b.add_css_class("flat");
     }
@@ -619,32 +666,32 @@ fn mount_catalog_view(
     header.pack_start(&header_start);
 
     let search = SearchEntry::new();
-    search.set_placeholder_text(Some("Search"));
+    search.set_placeholder_text(Some(tr("Search")));
     search.add_css_class("ac-search-inset");
     search.set_max_width_chars(14);
     search.set_valign(gtk::Align::Center);
 
     let menu_btn = actions::build_actions_menu_button();
-    menu_btn.set_tooltip_text(Some("Main Menu"));
+    menu_btn.set_tooltip_text(Some(tr("Main Menu")));
     header.pack_end(&menu_btn);
     header.pack_end(&search);
 
     // Apply + Update all now live in the bottom action bar (built below). The button
     // objects are unchanged so the existing Apply/Update wiring keeps working.
     let apply = Button::builder()
-        .label("Apply")
-        .tooltip_text("Apply pending instance count changes")
+        .label(tr("Apply"))
+        .tooltip_text(tr("Apply pending instance count changes"))
         .valign(gtk::Align::Center)
         .build();
     apply.add_css_class("suggested-action");
     apply.set_sensitive(false);
 
     let update_installed = Button::builder()
-        .label("Update all")
+        .label(tr("Update all"))
         .valign(gtk::Align::Center)
-        .tooltip_text(
+        .tooltip_text(tr(
             "Update installed instances: skips when already at the newest known version (catalog and GitHub releases/latest). Otherwise runs appimageupdatetool, then downloads the catalog AppImage or—if GitHub’s latest tag is newer than the catalog URL—a matching .AppImage from that release.",
-        )
+        ))
         .build();
     update_installed.add_css_class("flat");
 
@@ -677,14 +724,14 @@ fn mount_catalog_view(
     progress.set_margin_end(12);
 
     // ---- Bottom action bar: 2-line pending summary · Update all · Apply ----
-    let summary_line1 = Label::new(Some("All changes applied"));
+    let summary_line1 = Label::new(Some(tr("All changes applied")));
     summary_line1.add_css_class("caption");
     summary_line1.set_halign(gtk::Align::Start);
     summary_line1.set_xalign(0.0);
 
     // `statusbar` doubles as the summary's second line AND the background-work
     // status line ("Working…", "Applied.") that the Apply/Update/Seed handlers set.
-    let statusbar = Label::new(Some("Nothing pending — you're up to date"));
+    let statusbar = Label::new(Some(tr("Nothing pending — you're up to date")));
     statusbar.add_css_class("ac-summary-faint");
     statusbar.set_halign(gtk::Align::Start);
     statusbar.set_xalign(0.0);
@@ -742,7 +789,7 @@ fn mount_catalog_view(
         let flow = match sections.iter().find(|(n, _, _)| *n == cat) {
             Some((_, _, f)) => f.clone(),
             None => {
-                let head_lbl = Label::new(Some(&cat.to_uppercase()));
+                let head_lbl = Label::new(Some(&category_label(&cat).to_uppercase()));
                 head_lbl.add_css_class("ac-section-head");
                 head_lbl.set_halign(gtk::Align::Start);
                 head_lbl.set_xalign(0.0);
@@ -794,7 +841,7 @@ fn mount_catalog_view(
         subtitle_label.set_xalign(0.0);
         subtitle_label.set_ellipsize(gtk::pango::EllipsizeMode::End);
 
-        let status_pill = Label::new(Some("Available"));
+        let status_pill = Label::new(Some(tr("Available")));
         status_pill.add_css_class("ac-status");
         status_pill.set_valign(gtk::Align::Center);
 
@@ -888,28 +935,36 @@ fn mount_catalog_view(
             let has_pending = changed > 0;
             if let Some(a) = apply_weak.upgrade() {
                 a.set_label(&if has_pending {
-                    format!("Apply ({changed})")
+                    // TRANSLATORS: the Apply button, with the number of apps it will change.
+                    fill(tr("Apply ({count})"), &[("count", &changed)])
                 } else {
-                    "Apply".to_string()
+                    tr("Apply").to_string()
                 });
                 a.set_sensitive(has_pending);
             }
             if has_pending {
-                summary_line1.set_text(&format!(
-                    "{changed} app{} changing",
-                    if changed == 1 { "" } else { "s" }
+                summary_line1.set_text(&fill(
+                    ntr(
+                        "{count} app changing",
+                        "{count} apps changing",
+                        changed.into(),
+                    ),
+                    &[("count", &changed)],
                 ));
                 let mut parts: Vec<String> = Vec::new();
                 if add > 0 {
-                    parts.push(format!(
-                        "+{add} instance{}",
-                        if add == 1 { "" } else { "s" }
+                    // TRANSLATORS: pending change: this many instances will be added.
+                    parts.push(fill(
+                        ntr("+{count} instance", "+{count} instances", add.into()),
+                        &[("count", &add)],
                     ));
                 }
                 if rem > 0 {
-                    parts.push(format!(
-                        "\u{2212}{rem} instance{}",
-                        if rem == 1 { "" } else { "s" }
+                    // TRANSLATORS: pending change: this many instances will be removed.
+                    // The sign is a minus (U+2212).
+                    parts.push(fill(
+                        ntr("−{count} instance", "−{count} instances", rem.into()),
+                        &[("count", &rem)],
                     ));
                 }
                 statusbar.set_text(&parts.join("  \u{b7}  "));
@@ -1150,16 +1205,21 @@ fn mount_catalog_view(
                         let app = &catalog.apps[h.app_index];
                         let name = app.display_name_resolved();
                         let range_label = if count == 1 {
-                            format!("instance {highest}")
+                            fill(tr("instance {number}"), &[("number", &highest)])
                         } else {
-                            format!("instances {lowest}–{highest}")
+                            // TRANSLATORS: a range of instance numbers, like "instances 2–4".
+                            fill(
+                                tr("instances {first}–{last}"),
+                                &[("first", &lowest), ("last", &highest)],
+                            )
                         };
+                        let count_label = fill(
+                            ntr("{count} instance", "{count} instances", count as u64),
+                            &[("count", &count)],
+                        );
                         removal_lines.push(format!(
-                            "<b>{}</b>: {} ({} instance{})",
+                            "<b>{}</b>: {range_label} ({count_label})",
                             glib::markup_escape_text(&name),
-                            range_label,
-                            count,
-                            if count == 1 { "" } else { "s" },
                         ));
                     }
                 }
@@ -1175,11 +1235,10 @@ fn mount_catalog_view(
                     let confirmed = ask_confirmation(
                         &window_for_apply,
                         ConfirmKind::Warn,
-                        "Remove instance data?",
-                        "Lowering the instance count will permanently delete the home directory \
-                         data for the removed instances. This cannot be undone.",
+                        tr("Remove instance data?"),
+                        tr("Lowering the instance count will permanently delete the home directory data for the removed instances. This cannot be undone."),
                         Some(&format!("<small>{detail}</small>")),
-                        "Remove and Apply",
+                        tr("Remove and Apply"),
                     );
                     if !confirmed {
                         if let Some(a) = apply_weak.upgrade() {
@@ -1212,8 +1271,8 @@ fn mount_catalog_view(
 
             progress.set_visible(true);
             progress.set_fraction(0.0);
-            progress.set_text(Some("Working…"));
-            statusbar.set_text("Working…");
+            progress.set_text(Some(tr("Working…")));
+            statusbar.set_text(tr("Working…"));
 
             let (tx_prog, rx_prog) = mpsc::channel::<(f64, String)>();
             // (log, seed_failed, apply_failed, unverified): seed_failed = seeding
@@ -1303,7 +1362,7 @@ fn mount_catalog_view(
                         progress_done.set_visible(false);
                         progress_done.set_fraction(0.0);
                         progress_done.set_text(None);
-                        status_idle.set_text("Apply interrupted.");
+                        status_idle.set_text(tr("Apply interrupted."));
                         if let Some(a) = apply_done.upgrade() {
                             a.set_sensitive(true);
                         }
@@ -1329,9 +1388,12 @@ fn mount_catalog_view(
                 let mut apply_failed: u32 = 0;
                 let n = specs.len();
                 if n == 0 {
-                    let _ = tx_prog.send((1.0, "Working…".to_string()));
+                    let _ = tx_prog.send((1.0, tr("Working…").to_string()));
                 } else {
-                    let _ = tx_prog.send((0.0, format!("Working… (0 of {})", n)));
+                    let _ = tx_prog.send((
+                        0.0,
+                        fill(tr("Working… (0 of {total})"), &[("total", &n)]),
+                    ));
                     for (step, (app_index, target, can_install)) in specs.into_iter().enumerate() {
                         let app = &catalog_t.apps[app_index];
                         if target > 0 && !can_install {
@@ -1407,7 +1469,14 @@ fn mount_catalog_view(
                         let done = step + 1;
                         let frac = done as f64 / n as f64;
                         let _ = tx_prog
-                            .send((frac, format!("Working… ({}/{}): {}", done, n, app.id)));
+                            .send((
+                            frac,
+                            // TRANSLATORS: progress: {done} of {total} apps, then the app's id.
+                            fill(
+                                tr("Working… ({done}/{total}): {app}"),
+                                &[("done", &done), ("total", &n), ("app", &app.id)],
+                            ),
+                        ));
                     }
                 }
                 if log.is_empty() {
@@ -1471,8 +1540,8 @@ fn mount_catalog_view(
 
             progress.set_visible(true);
             progress.set_fraction(0.0);
-            progress.set_text(Some("Updating…"));
-            statusbar.set_text("Updating…");
+            progress.set_text(Some(tr("Updating…")));
+            statusbar.set_text(tr("Updating…"));
 
             let (tx_prog, rx_prog) = mpsc::channel::<(f64, String)>();
             let (tx, rx) = mpsc::channel::<(String, UpdateAllReport)>();
@@ -1567,7 +1636,7 @@ fn mount_catalog_view(
                         progress_done.set_visible(false);
                         progress_done.set_fraction(0.0);
                         progress_done.set_text(None);
-                        status_idle.set_text("Update interrupted.");
+                        status_idle.set_text(tr("Update interrupted."));
                         if let Some(a) = apply_done.upgrade() {
                             a.set_sensitive(true);
                         }
@@ -1588,9 +1657,12 @@ fn mount_catalog_view(
                 let remotes = fetch_github_release_hints(&catalog_t);
                 let mut send_frac = move |f: f64, done: u32, total: u32| {
                     let label = if total == 0 {
-                        "Updating…".to_string()
+                        tr("Updating…").to_string()
                     } else {
-                        format!("Updating… ({done}/{total})")
+                        fill(
+                            tr("Updating… ({done}/{total})"),
+                            &[("done", &done), ("total", &total)],
+                        )
                     };
                     let _ = tx_prog.send((f, label));
                 };
@@ -1657,11 +1729,10 @@ fn offer_unverified_install(
         let confirmed = ask_confirmation(
             &window,
             ConfirmKind::Warn,
-            "Install without verification?",
-            "No published sha256 is available to check these downloads, so they were not \
-             installed. Install them anyway only if you trust where they come from.",
+            tr("Install without verification?"),
+            tr("No published sha256 is available to check these downloads, so they were not installed. Install them anyway only if you trust where they come from."),
             Some(&format!("<small>{detail}</small>")),
-            "Install unverified",
+            tr("Install unverified"),
         );
         let Some(req) = unverified::rerun_for_response(&apps, confirmed) else {
             return;
@@ -1721,7 +1792,13 @@ fn update_total_label(label: &Label, paths: &Rc<AppPaths>, catalog: &Rc<Catalog>
                 .unwrap_or(false)
         })
         .count();
-    label.set_text(&format!("{total} apps · {installed} installed"));
+    // TRANSLATORS: window footer, like "12 apps · 3 installed".
+    let apps = fill(
+        ntr("{count} app", "{count} apps", total as u64),
+        &[("count", &total)],
+    );
+    let inst = fill(tr("{count} installed"), &[("count", &installed)]);
+    label.set_text(&format!("{apps} · {inst}"));
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1754,7 +1831,7 @@ fn install_window_actions_for_catalog(
                 return;
             };
             let chooser_parent: gtk::ApplicationWindow = win_c.clone().upcast();
-            if let Some(path) = choose_open_path(&chooser_parent, "Choose catalog.json") {
+            if let Some(path) = choose_open_path(&chooser_parent, tr("Choose catalog.json")) {
                 if let Ok(c) = Catalog::discover_load(Some(&path)) {
                     mount_catalog_view(
                         &app,
@@ -1788,7 +1865,7 @@ fn install_window_actions_for_catalog(
             }
             refresh_all_rows(&paths, &catalog, &remote, &rows);
             update_total_label(&total_label, &paths, &catalog);
-            statusbar.set_text("Ready");
+            statusbar.set_text(tr("Ready"));
             (recompute_pending)();
             (apply_filter)();
         })
@@ -1821,7 +1898,7 @@ fn install_window_actions_for_catalog(
                     Err(e) => {
                         present_message_window(
                             window.application().as_ref().expect("app"),
-                            "Seed packs not loaded",
+                            tr("Seed packs not loaded"),
                             &e.to_string(),
                             None,
                         );
@@ -1837,7 +1914,7 @@ fn install_window_actions_for_catalog(
                         if !refused.is_empty() {
                             present_message_window(
                                 window.application().as_ref().expect("app"),
-                                "Some seed packs were skipped",
+                                tr("Some seed packs were skipped"),
                                 &refused.join("\n\n"),
                                 None,
                             );
@@ -1857,8 +1934,8 @@ fn install_window_actions_for_catalog(
                 if installed_supported.is_empty() {
                     present_message_window(
                         window.application().as_ref().expect("app"),
-                        "No supported installs",
-                        "There are no installed Feather or Electrum instances to seed.",
+                        tr("No supported installs"),
+                        tr("There are no installed Feather or Electrum instances to seed."),
                         None,
                     );
                     return;
@@ -1889,8 +1966,8 @@ fn install_window_actions_for_catalog(
                 }
                 progress.set_visible(true);
                 progress.set_fraction(0.0);
-                progress.set_text(Some("Seeding settings…"));
-                statusbar.set_text("Seeding settings…");
+                progress.set_text(Some(tr("Seeding settings…")));
+                statusbar.set_text(tr("Seeding settings…"));
 
                 let total: u32 = public_apps
                     .iter()
@@ -1931,7 +2008,7 @@ fn install_window_actions_for_catalog(
                             progress_done.set_visible(false);
                             progress_done.set_fraction(0.0);
                             progress_done.set_text(None);
-                            status_idle.set_text("Seed settings interrupted.");
+                            status_idle.set_text(tr("Seed settings interrupted."));
                             apply_idle.set_sensitive(true);
                             update_idle.set_sensitive(true);
                             for h in rows_idle.borrow().iter() {
@@ -1950,7 +2027,7 @@ fn install_window_actions_for_catalog(
                     let mut failed = 0u32;
                     let mut done = 0u32;
                     if total == 0 {
-                        let _ = tx_prog.send((1.0, "Seeding settings…".to_string()));
+                        let _ = tx_prog.send((1.0, tr("Seeding settings…").to_string()));
                     }
                     for app in &catalog_t.apps {
                         if !selected_ids.iter().any(|id| id == &app.id) {
@@ -1980,7 +2057,10 @@ fn install_window_actions_for_catalog(
                             if total > 0 {
                                 let _ = tx_prog.send((
                                     done as f64 / total as f64,
-                                    format!("Seeding settings… ({done}/{total})"),
+                                    fill(
+                                        tr("Seeding settings… ({done}/{total})"),
+                                        &[("done", &done), ("total", &total)],
+                                    ),
                                 ));
                             }
                         }
@@ -2012,7 +2092,7 @@ fn install_window_actions_for_catalog(
                     Err(e) => {
                         present_message_window(
                             window.application().as_ref().expect("app"),
-                            "Seed packs not loaded",
+                            tr("Seed packs not loaded"),
                             &e.to_string(),
                             None,
                         );
@@ -2043,8 +2123,8 @@ fn install_window_actions_for_catalog(
                 if apps.is_empty() {
                     present_message_window(
                         window.application().as_ref().expect("app"),
-                        "No installed apps",
-                        "Install at least one app instance before recording a seed pack.",
+                        tr("No installed apps"),
+                        tr("Install at least one app instance before recording a seed pack."),
                         None,
                     );
                     return;
@@ -2062,8 +2142,8 @@ fn install_window_actions_for_catalog(
                 }
                 progress.set_visible(true);
                 progress.set_fraction(0.0);
-                progress.set_text(Some("Capturing baseline…"));
-                statusbar.set_text("Capturing baseline…");
+                progress.set_text(Some(tr("Capturing baseline…")));
+                statusbar.set_text(tr("Capturing baseline…"));
 
                 // Worker returns (baseline config object, resolved config_path).
                 // When the target's config_path is blank, the path is
@@ -2081,7 +2161,10 @@ fn install_window_actions_for_catalog(
                             .iter()
                             .find(|a| a.id == target_t.app_id)
                             .ok_or_else(|| {
-                                format!("app '{}' not found in catalog", target_t.app_id)
+                                fill(
+                                    tr("App “{app}” is not in the catalog."),
+                                    &[("app", &target_t.app_id)],
+                                )
                             })?;
                         if target_t.config_path.trim().is_empty() {
                             // Auto-detect: one headless launch produces the
@@ -2143,7 +2226,7 @@ fn install_window_actions_for_catalog(
                         Err(mpsc::TryRecvError::Disconnected) => {
                             progress_idle.set_visible(false);
                             progress_idle.set_fraction(0.0);
-                            status_idle.set_text("Baseline capture interrupted.");
+                            status_idle.set_text(tr("Baseline capture interrupted."));
                             apply_idle.set_sensitive(true);
                             update_idle.set_sensitive(true);
                             for h in rows_idle.borrow().iter() {
@@ -2167,8 +2250,8 @@ fn install_window_actions_for_catalog(
                     let gapp = app_handle.as_ref().expect("app");
                     match msg {
                         Err(e) => {
-                            status_idle.set_text("Baseline capture failed.");
-                            present_message_window(gapp, "Baseline capture failed", &e, None);
+                            status_idle.set_text(tr("Baseline capture failed."));
+                            present_message_window(gapp, tr("Baseline capture failed"), &e, None);
                         }
                         Ok((baseline, resolved_path)) => {
                             let target = &target_idle;
@@ -2197,7 +2280,7 @@ fn install_window_actions_for_catalog(
                                 .instance_dir_for(app, target.instance_index)
                                 .join(app.resolved_appimage_filename());
                             status_idle
-                                .set_text("Baseline captured — configure the app, then diff.");
+                                .set_text(tr("Baseline captured — configure the app, then diff."));
                             if confirm_manual_step(
                                 &window_idle,
                                 &target.app_id,
@@ -2213,11 +2296,11 @@ fn install_window_actions_for_catalog(
                                     Ok(current) => {
                                         let diff = diff_configs(&baseline, &current);
                                         if diff.is_empty_capture() {
-                                            status_idle.set_text("No settings changed.");
+                                            status_idle.set_text(tr("No settings changed."));
                                             present_message_window(
                                                 gapp,
-                                                "No changes to record",
-                                                "The config is unchanged from the baseline — nothing to capture.",
+                                                tr("No changes to record"),
+                                                tr("The config is unchanged from the baseline — nothing to capture."),
                                                 None,
                                             );
                                         } else if let Some(keys) = review_and_select(
@@ -2227,7 +2310,7 @@ fn install_window_actions_for_catalog(
                                             &diff,
                                         ) {
                                             if keys.is_empty() {
-                                                status_idle.set_text("No keys selected.");
+                                                status_idle.set_text(tr("No keys selected."));
                                             } else {
                                                 let pack = build_static_pack(
                                                     &resolved_path,
@@ -2243,21 +2326,27 @@ fn install_window_actions_for_catalog(
                                                     {
                                                         Ok(()) => {
                                                             status_idle
-                                                                .set_text("Seed pack written.");
+                                                                .set_text(tr("Seed pack written."));
                                                             present_message_window(
                                                                 gapp,
-                                                                "Seed pack written",
-                                                                &format!(
-                                                                    "Wrote {} key(s) to {}",
-                                                                    keys.len(),
-                                                                    out.display()
+                                                                tr("Seed pack written"),
+                                                                &fill(
+                                                                    ntr(
+                                                                        "Wrote {count} key to {path}",
+                                                                        "Wrote {count} keys to {path}",
+                                                                        keys.len() as u64,
+                                                                    ),
+                                                                    &[
+                                                                        ("count", &keys.len()),
+                                                                        ("path", &out.display()),
+                                                                    ],
                                                                 ),
-                                                                Some("This pack is NOT signed — review it before distributing."),
+                                                                Some(tr("This pack is NOT signed — review it before distributing.")),
                                                             );
                                                         }
                                                         Err(e) => present_message_window(
                                                             gapp,
-                                                            "Could not write pack",
+                                                            tr("Could not write pack"),
                                                             &e.to_string(),
                                                             None,
                                                         ),
@@ -2268,7 +2357,7 @@ fn install_window_actions_for_catalog(
                                     }
                                     Err(e) => present_message_window(
                                         gapp,
-                                        "Could not read current config",
+                                        tr("Could not read current config"),
                                         &e.to_string(),
                                         None,
                                     ),
@@ -2309,13 +2398,13 @@ fn install_window_actions_for_catalog(
                 if !ask_confirmation(
                     &window,
                     ConfirmKind::Warn,
-                    "Clean installs?",
-                    "Remove installed catalog instances and their managed launchers and icons. The download cache is kept, so reinstalling is fast.",
+                    tr("Clean installs?"),
+                    tr("Remove installed catalog instances and their managed launchers and icons. The download cache is kept, so reinstalling is fast."),
                     Some(
                         "<small>• <tt>~/.local/share/appimages/apps/*</tt>\n\
                          • <tt>~/.local/share/applications/appimage-control-*.desktop</tt></small>",
                     ),
-                    "Clean",
+                    tr("Clean"),
                 ) {
                     return;
                 }
@@ -2324,8 +2413,8 @@ fn install_window_actions_for_catalog(
                 update_btn.set_sensitive(false);
                 progress.set_visible(true);
                 progress.set_fraction(0.0);
-                progress.set_text(Some("Cleaning…"));
-                statusbar.set_text("Cleaning…");
+                progress.set_text(Some(tr("Cleaning…")));
+                statusbar.set_text(tr("Cleaning…"));
 
                 let (tx, rx) = mpsc::channel::<String>();
                 let paths_t = (*paths).clone();
@@ -2345,7 +2434,7 @@ fn install_window_actions_for_catalog(
                         refresh_idle();
                         apply_done.set_sensitive(true);
                         update_done.set_sensitive(true);
-                        status_idle.set_text("Ready");
+                        status_idle.set_text(tr("Ready"));
                         glib::ControlFlow::Break
                     }
                     Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
@@ -2353,7 +2442,7 @@ fn install_window_actions_for_catalog(
                         progress_done.set_visible(false);
                         progress_done.set_fraction(0.0);
                         progress_done.set_text(None);
-                        status_idle.set_text("Clean interrupted.");
+                        status_idle.set_text(tr("Clean interrupted."));
                         apply_done.set_sensitive(true);
                         update_done.set_sensitive(true);
                         glib::ControlFlow::Break
@@ -2387,14 +2476,14 @@ fn install_window_actions_for_catalog(
                 if !ask_confirmation(
                     &window,
                     ConfirmKind::Danger,
-                    "Purge all manager state?",
-                    "This removes every install, the download cache, managed launchers, and icon tiles owned by AppImage Control. App data inside instance home dirs is also removed.",
+                    tr("Purge all manager state?"),
+                    tr("This removes every install, the download cache, managed launchers, and icon tiles owned by AppImage Control. App data inside instance home dirs is also removed."),
                     Some(
                         "<small>• <tt>~/.local/share/appimages/</tt> (apps, cache, files, icons)\n\
                          • <tt>~/.local/share/applications/appimage-control-*.desktop</tt>\n\
                          • <tt>~/.local/share/icons/hicolor/*/apps/appimage-control-*.png</tt></small>",
                     ),
-                    "Purge state",
+                    tr("Purge state"),
                 ) {
                     return;
                 }
@@ -2403,8 +2492,8 @@ fn install_window_actions_for_catalog(
                 update_btn.set_sensitive(false);
                 progress.set_visible(true);
                 progress.set_fraction(0.0);
-                progress.set_text(Some("Purging…"));
-                statusbar.set_text("Purging…");
+                progress.set_text(Some(tr("Purging…")));
+                statusbar.set_text(tr("Purging…"));
 
                 let (tx, rx) = mpsc::channel::<String>();
                 let paths_t = (*paths).clone();
@@ -2424,7 +2513,7 @@ fn install_window_actions_for_catalog(
                         refresh_idle();
                         apply_done.set_sensitive(true);
                         update_done.set_sensitive(true);
-                        status_idle.set_text("Ready");
+                        status_idle.set_text(tr("Ready"));
                         glib::ControlFlow::Break
                     }
                     Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
@@ -2432,7 +2521,7 @@ fn install_window_actions_for_catalog(
                         progress_done.set_visible(false);
                         progress_done.set_fraction(0.0);
                         progress_done.set_text(None);
-                        status_idle.set_text("Purge interrupted.");
+                        status_idle.set_text(tr("Purge interrupted."));
                         apply_done.set_sensitive(true);
                         update_done.set_sensitive(true);
                         glib::ControlFlow::Break
@@ -2483,8 +2572,8 @@ fn install_window_actions_for_catalog(
                 update_btn.set_sensitive(false);
                 progress.set_visible(true);
                 progress.set_fraction(0.0);
-                progress.set_text(Some("Migrating…"));
-                statusbar.set_text("Migrating…");
+                progress.set_text(Some(tr("Migrating…")));
+                statusbar.set_text(tr("Migrating…"));
 
                 let (tx, rx) = mpsc::channel::<String>();
                 let paths_t = (*paths).clone();
@@ -2504,7 +2593,7 @@ fn install_window_actions_for_catalog(
                         refresh_idle();
                         apply_done.set_sensitive(true);
                         update_done.set_sensitive(true);
-                        status_idle.set_text("Ready");
+                        status_idle.set_text(tr("Ready"));
                         glib::ControlFlow::Break
                     }
                     Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
@@ -2512,7 +2601,7 @@ fn install_window_actions_for_catalog(
                         progress_done.set_visible(false);
                         progress_done.set_fraction(0.0);
                         progress_done.set_text(None);
-                        status_idle.set_text("Migration interrupted.");
+                        status_idle.set_text(tr("Migration interrupted."));
                         apply_done.set_sensitive(true);
                         update_done.set_sensitive(true);
                         glib::ControlFlow::Break
@@ -2553,7 +2642,7 @@ fn install_window_actions_for_catalog(
             let statusbar = statusbar.clone();
             Rc::new(move || {
                 let Some(dest_path) =
-                    choose_save_path(&window, "Choose backup archive destination")
+                    choose_save_path(&window, tr("Choose backup archive destination"))
                 else {
                     return;
                 };
@@ -2562,8 +2651,8 @@ fn install_window_actions_for_catalog(
                 update_btn.set_sensitive(false);
                 progress.set_visible(true);
                 progress.set_fraction(0.0);
-                progress.set_text(Some("Backing up…"));
-                statusbar.set_text("Backing up…");
+                progress.set_text(Some(tr("Backing up…")));
+                statusbar.set_text(tr("Backing up…"));
 
                 let (tx, rx) = mpsc::channel::<String>();
                 let paths_t = (*paths).clone();
@@ -2581,7 +2670,7 @@ fn install_window_actions_for_catalog(
                         present_activity_log_dialog(&window_idle, &log);
                         apply_done.set_sensitive(true);
                         update_done.set_sensitive(true);
-                        status_idle.set_text("Ready");
+                        status_idle.set_text(tr("Ready"));
                         glib::ControlFlow::Break
                     }
                     Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
@@ -2589,7 +2678,7 @@ fn install_window_actions_for_catalog(
                         progress_done.set_visible(false);
                         progress_done.set_fraction(0.0);
                         progress_done.set_text(None);
-                        status_idle.set_text("Backup interrupted.");
+                        status_idle.set_text(tr("Backup interrupted."));
                         apply_done.set_sensitive(true);
                         update_done.set_sensitive(true);
                         glib::ControlFlow::Break
@@ -2625,7 +2714,8 @@ fn install_window_actions_for_catalog(
             let progress = progress.clone();
             let statusbar = statusbar.clone();
             Rc::new(move || {
-                let Some(src_path) = choose_open_path(&window, "Choose backup archive to restore")
+                let Some(src_path) =
+                    choose_open_path(&window, tr("Choose backup archive to restore"))
                 else {
                     return;
                 };
@@ -2634,8 +2724,8 @@ fn install_window_actions_for_catalog(
                 update_btn.set_sensitive(false);
                 progress.set_visible(true);
                 progress.set_fraction(0.0);
-                progress.set_text(Some("Restoring…"));
-                statusbar.set_text("Restoring…");
+                progress.set_text(Some(tr("Restoring…")));
+                statusbar.set_text(tr("Restoring…"));
 
                 // Channel carries: (log_so_far, needs_force_confirm).
                 // `needs_force_confirm = true` means the first attempt hit
@@ -2674,13 +2764,13 @@ fn install_window_actions_for_catalog(
                             if ask_confirmation(
                                 &window_idle,
                                 ConfirmKind::Danger,
-                                "Overwrite existing managed state?",
-                                "Managed state already exists. Force restore and overwrite manager-owned state?",
+                                tr("Overwrite existing managed state?"),
+                                tr("Managed state already exists. Force restore and overwrite manager-owned state?"),
                                 None,
-                                "Overwrite",
+                                tr("Overwrite"),
                             ) {
-                                progress_done.set_text(Some("Restoring (forced)…"));
-                                status_idle.set_text("Restoring (forced)…");
+                                progress_done.set_text(Some(tr("Restoring (forced)…")));
+                                status_idle.set_text(tr("Restoring (forced)…"));
                                 let (tx2, rx2) = mpsc::channel::<String>();
                                 let paths_f = paths_idle.clone();
                                 let src_f = src_path_t.clone();
@@ -2698,7 +2788,7 @@ fn install_window_actions_for_catalog(
                                         refresh_f();
                                         apply_f.set_sensitive(true);
                                         update_f.set_sensitive(true);
-                                        status_f.set_text("Ready");
+                                        status_f.set_text(tr("Ready"));
                                         glib::ControlFlow::Break
                                     }
                                     Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
@@ -2706,7 +2796,7 @@ fn install_window_actions_for_catalog(
                                         progress_f.set_visible(false);
                                         progress_f.set_fraction(0.0);
                                         progress_f.set_text(None);
-                                        status_f.set_text("Restore interrupted.");
+                                        status_f.set_text(tr("Restore interrupted."));
                                         apply_f.set_sensitive(true);
                                         update_f.set_sensitive(true);
                                         glib::ControlFlow::Break
@@ -2728,7 +2818,7 @@ fn install_window_actions_for_catalog(
                                 present_activity_log_dialog(&window_idle, &log);
                                 apply_done.set_sensitive(true);
                                 update_done.set_sensitive(true);
-                                status_idle.set_text("Ready");
+                                status_idle.set_text(tr("Ready"));
                             }
                         } else {
                             progress_done.set_visible(false);
@@ -2737,7 +2827,7 @@ fn install_window_actions_for_catalog(
                             refresh_idle();
                             apply_done.set_sensitive(true);
                             update_done.set_sensitive(true);
-                            status_idle.set_text("Ready");
+                            status_idle.set_text(tr("Ready"));
                         }
                         glib::ControlFlow::Break
                     }
@@ -2746,7 +2836,7 @@ fn install_window_actions_for_catalog(
                         progress_done.set_visible(false);
                         progress_done.set_fraction(0.0);
                         progress_done.set_text(None);
-                        status_idle.set_text("Restore interrupted.");
+                        status_idle.set_text(tr("Restore interrupted."));
                         apply_done.set_sensitive(true);
                         update_done.set_sensitive(true);
                         glib::ControlFlow::Break
@@ -2788,8 +2878,8 @@ fn install_window_actions_for_catalog(
                 update_btn.set_sensitive(false);
                 progress.set_visible(true);
                 progress.set_fraction(0.0);
-                progress.set_text(Some("Updating seed packs…"));
-                statusbar.set_text("Updating seed packs…");
+                progress.set_text(Some(tr("Updating seed packs…")));
+                statusbar.set_text(tr("Updating seed packs…"));
 
                 let (tx, rx) = mpsc::channel::<String>();
 
@@ -2807,7 +2897,7 @@ fn install_window_actions_for_catalog(
                         refresh_idle();
                         apply_done.set_sensitive(true);
                         update_done.set_sensitive(true);
-                        status_idle.set_text("Ready");
+                        status_idle.set_text(tr("Ready"));
                         glib::ControlFlow::Break
                     }
                     Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
@@ -2815,7 +2905,7 @@ fn install_window_actions_for_catalog(
                         progress_done.set_visible(false);
                         progress_done.set_fraction(0.0);
                         progress_done.set_text(None);
-                        status_idle.set_text("Update seed packs interrupted.");
+                        status_idle.set_text(tr("Update seed packs interrupted."));
                         apply_done.set_sensitive(true);
                         update_done.set_sensitive(true);
                         glib::ControlFlow::Break

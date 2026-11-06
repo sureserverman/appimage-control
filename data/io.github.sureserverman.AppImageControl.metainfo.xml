@@ -5,17 +5,50 @@
   <project_license>MIT</project_license>
   <name>AppImage Control</name>
   <summary>Manage AppImage installs, instances, backup and restore</summary>
+  <summary xml:lang="de">AppImage-Installationen, Instanzen sowie Sicherung und Wiederherstellung verwalten</summary>
+  <summary xml:lang="es">Gestione instalaciones de AppImage, instancias, copias de seguridad y restauración</summary>
+  <summary xml:lang="fr">Gérer les installations AppImage, les instances, la sauvegarde et la restauration</summary>
+  <summary xml:lang="it">Gestisci installazioni AppImage, istanze, backup e ripristino</summary>
+  <summary xml:lang="ja">AppImage のインストール、インスタンス、バックアップと復元を管理します</summary>
+  <summary xml:lang="pl">Zarządzanie instalacjami AppImage, instancjami, kopią zapasową i przywracaniem</summary>
+  <summary xml:lang="pt_BR">Gerencie instalações de AppImage, instâncias, backup e restauração</summary>
+  <summary xml:lang="ru">Управление установками AppImage, экземплярами, резервным копированием и восстановлением</summary>
+  <summary xml:lang="tr">AppImage kurulumlarını, örnekleri, yedeklemeyi ve geri yüklemeyi yönetin</summary>
+  <summary xml:lang="uk">Керування встановленнями AppImage, екземплярами, резервним копіюванням і відновленням</summary>
+  <summary xml:lang="zh_CN">管理 AppImage 的安装、实例、备份和恢复</summary>
   <description>
     <p>
       AppImage Control manages catalog-backed AppImage installations with multi-instance
       support, update checks, migration of legacy portable directories, and deterministic
       backup/restore of manager-owned state.
     </p>
+    <p xml:lang="de">AppImage Control verwaltet katalogbasierte AppImage-Installationen mit Unterstützung für mehrere Instanzen, Update-Prüfungen, die Übernahme alter portabler Verzeichnisse sowie eine reproduzierbare Sicherung und Wiederherstellung des vom Programm verwalteten Zustands.</p>
+    <p xml:lang="es">AppImage Control gestiona instalaciones de AppImage basadas en un catálogo, con soporte para varias instancias, comprobación de actualizaciones, migración de directorios portátiles antiguos y copia de seguridad y restauración deterministas del estado que administra.</p>
+    <p xml:lang="fr">AppImage Control gère des installations AppImage basées sur un catalogue, avec la prise en charge de plusieurs instances, la vérification des mises à jour, la migration d’anciens répertoires portables et une sauvegarde et restauration déterministes de l’état qu’il gère.</p>
+    <p xml:lang="it">AppImage Control gestisce installazioni AppImage basate su un catalogo, con supporto per più istanze, controllo degli aggiornamenti, migrazione delle vecchie cartelle portabili e backup e ripristino deterministici dello stato che amministra.</p>
+    <p xml:lang="ja">AppImage Control は、カタログに基づく AppImage のインストールを管理します。複数インスタンスへの対応、更新の確認、古いポータブルディレクトリーの移行、管理対象の状態の確実なバックアップと復元に対応しています。</p>
+    <p xml:lang="pl">AppImage Control zarządza instalacjami AppImage opartymi na katalogu. Obsługuje wiele instancji, sprawdzanie aktualizacji, migrację starych katalogów przenośnych oraz powtarzalne tworzenie kopii zapasowej i przywracanie zarządzanego stanu.</p>
+    <p xml:lang="pt_BR">O AppImage Control gerencia instalações de AppImage baseadas em um catálogo, com suporte a várias instâncias, verificação de atualizações, migração de diretórios portáteis antigos e backup e restauração determinísticos do estado que ele administra.</p>
+    <p xml:lang="ru">AppImage Control управляет установками AppImage на основе каталога: поддерживает несколько экземпляров, проверку обновлений, перенос старых переносных каталогов, а также воспроизводимое резервное копирование и восстановление своего состояния.</p>
+    <p xml:lang="tr">AppImage Control, kataloğa dayalı AppImage kurulumlarını yönetir. Birden çok örnek desteği, güncelleme denetimi, eski taşınabilir dizinlerin taşınması ve yönettiği durumun tutarlı biçimde yedeklenip geri yüklenmesini sağlar.</p>
+    <p xml:lang="uk">AppImage Control керує встановленнями AppImage на основі каталогу: підтримує кілька екземплярів, перевірку оновлень, перенесення старих портативних тек, а також відтворюване резервне копіювання й відновлення свого стану.</p>
+    <p xml:lang="zh_CN">AppImage Control 管理基于目录的 AppImage 安装，支持多实例、更新检查、旧便携目录迁移，以及对其所管理状态的确定性备份和恢复。</p>
     <p>
       The application is designed for users who manage multiple AppImage applications and
       need repeatable instance orchestration, launcher repair, cache control, and safe
       state migration/restore flows.
     </p>
+    <p xml:lang="de">Die Anwendung richtet sich an Benutzer, die mehrere AppImage-Anwendungen verwalten und eine wiederholbare Instanzverwaltung, Reparatur von Starterdateien, Kontrolle über den Zwischenspeicher sowie sichere Abläufe für Übernahme und Wiederherstellung benötigen.</p>
+    <p xml:lang="es">La aplicación está pensada para quienes gestionan varias aplicaciones AppImage y necesitan una orquestación de instancias repetible, reparación de lanzadores, control de la caché y flujos seguros de migración y restauración del estado.</p>
+    <p xml:lang="fr">L’application s’adresse aux personnes qui gèrent plusieurs applications AppImage et ont besoin d’une orchestration reproductible des instances, de la réparation des lanceurs, du contrôle du cache et de procédures sûres de migration et de restauration de l’état.</p>
+    <p xml:lang="it">L’applicazione è pensata per chi gestisce più applicazioni AppImage e ha bisogno di un’orchestrazione ripetibile delle istanze, della riparazione dei lanciatori, del controllo della cache e di procedure sicure di migrazione e ripristino dello stato.</p>
+    <p xml:lang="ja">複数の AppImage アプリケーションを管理し、再現可能なインスタンス管理、ランチャーの修復、キャッシュの制御、安全な移行と復元を必要とするユーザー向けのアプリケーションです。</p>
+    <p xml:lang="pl">Program jest przeznaczony dla osób, które zarządzają wieloma aplikacjami AppImage i potrzebują powtarzalnego zarządzania instancjami, naprawy aktywatorów, kontroli pamięci podręcznej oraz bezpiecznej migracji i przywracania stanu.</p>
+    <p xml:lang="pt_BR">O aplicativo foi feito para quem gerencia vários aplicativos AppImage e precisa de orquestração de instâncias repetível, reparo de lançadores, controle de cache e fluxos seguros de migração e restauração do estado.</p>
+    <p xml:lang="ru">Приложение предназначено для тех, кто управляет несколькими приложениями AppImage и нуждается в воспроизводимом управлении экземплярами, восстановлении ярлыков запуска, управлении кэшем и безопасном переносе и восстановлении состояния.</p>
+    <p xml:lang="tr">Uygulama, birden çok AppImage uygulamasını yöneten ve tekrarlanabilir örnek yönetimi, başlatıcı onarımı, önbellek denetimi ile güvenli taşıma ve geri yükleme akışlarına ihtiyaç duyan kullanıcılar için tasarlanmıştır.</p>
+    <p xml:lang="uk">Застосунок призначений для тих, хто керує кількома застосунками AppImage і потребує відтворюваного керування екземплярами, відновлення засобів запуску, керування кешем і безпечного перенесення та відновлення стану.</p>
+    <p xml:lang="zh_CN">本应用面向需要管理多个 AppImage 应用程序的用户，提供可重复的实例编排、启动器修复、缓存控制，以及安全的状态迁移和恢复流程。</p>
   </description>
   <launchable type="desktop-id">io.github.sureserverman.AppImageControl.desktop</launchable>
   <provides>
@@ -31,6 +64,17 @@
   <screenshots>
     <screenshot type="default">
       <caption>AppImage Control catalog window with installed apps</caption>
+      <caption xml:lang="de">AppImage Control: Katalogfenster mit installierten Anwendungen</caption>
+      <caption xml:lang="es">Ventana del catálogo de AppImage Control con aplicaciones instaladas</caption>
+      <caption xml:lang="fr">Fenêtre du catalogue d’AppImage Control avec des applications installées</caption>
+      <caption xml:lang="it">Finestra del catalogo di AppImage Control con applicazioni installate</caption>
+      <caption xml:lang="ja">インストール済みアプリが並ぶ AppImage Control のカタログウィンドウ</caption>
+      <caption xml:lang="pl">Okno katalogu AppImage Control z zainstalowanymi aplikacjami</caption>
+      <caption xml:lang="pt_BR">Janela do catálogo do AppImage Control com aplicativos instalados</caption>
+      <caption xml:lang="ru">Окно каталога AppImage Control с установленными приложениями</caption>
+      <caption xml:lang="tr">Kurulu uygulamalarla AppImage Control katalog penceresi</caption>
+      <caption xml:lang="uk">Вікно каталогу AppImage Control зі встановленими застосунками</caption>
+      <caption xml:lang="zh_CN">AppImage Control 目录窗口，显示已安装的应用</caption>
       <image>https://raw.githubusercontent.com/sureserverman/appimage-control/main/docs/screenshots/catalog.png</image>
     </screenshot>
   </screenshots>

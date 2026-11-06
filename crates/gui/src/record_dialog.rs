@@ -9,6 +9,7 @@
 //! `glib::MainLoop`, and returns a plain value — the same pattern as
 //! `seed_dialog::choose_seed_settings` and the dialogs in `dialogs.rs`.
 
+use crate::i18n::{fill, tr, trc};
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -28,7 +29,7 @@ use appimage_control_core::ConfigDiff;
 fn record_titlebar() -> adw::HeaderBar {
     let hb = adw::HeaderBar::new();
     hb.set_decoration_layout(Some(":close"));
-    let title = Label::new(Some("Record Seed Pack"));
+    let title = Label::new(Some(tr("Record Seed Pack")));
     title.add_css_class("title-4");
     hb.set_title_widget(Some(&title));
     hb
@@ -79,7 +80,12 @@ fn step_indicator(current: u32) -> GtkBox {
     row.set_halign(gtk::Align::Center);
     row.set_margin_bottom(8);
 
-    let steps = ["Baseline", "Configure", "Review"];
+    // TRANSLATORS: the three steps of the Record Seed Pack wizard.
+    let steps = [
+        trc("wizard step", "Baseline"),
+        trc("wizard step", "Configure"),
+        trc("wizard step", "Review"),
+    ];
     let total = steps.len() as u32;
     for (i, label) in steps.iter().enumerate() {
         let step_no = (i as u32) + 1;
@@ -144,7 +150,7 @@ pub fn choose_record_target(
     let dialog = Dialog::builder()
         .transient_for(parent)
         .modal(true)
-        .title("Record Seed Pack")
+        .title(tr("Record Seed Pack"))
         .default_width(560)
         .default_height(360)
         .use_header_bar(0)
@@ -162,7 +168,7 @@ pub fn choose_record_target(
     area.append(&step_indicator(1));
 
     let heading = Label::builder()
-        .label("Record a seed pack")
+        .label(tr("Record a seed pack"))
         .halign(gtk::Align::Start)
         .xalign(0.0)
         .build();
@@ -187,26 +193,26 @@ pub fn choose_record_target(
     let names: Vec<&str> = snapshot.iter().map(|a| a.display_name.as_str()).collect();
     let model = StringList::new(&names);
     let dropdown = DropDown::builder().model(&model).build();
-    area.append(&row_with_label("App", &dropdown));
+    area.append(&row_with_label(tr("App"), &dropdown));
 
     // Instance index.
     let first = &snapshot[0];
     let instance_spin = SpinButton::with_range(1.0, first.instances.max(1) as f64, 1.0);
     instance_spin.set_value(1.0);
-    area.append(&row_with_label("Instance", &instance_spin));
+    area.append(&row_with_label(tr("Instance"), &instance_spin));
 
     // Config path — OPTIONAL. Blank means "auto-detect at capture time":
     // the headless baseline launch also scans for the app's config file, so
     // the common case needs no input. Pre-filled only when an existing pack
     // already declares the path; otherwise left blank for auto-detection.
     let config_entry = Entry::builder()
-        .placeholder_text("auto-detected — leave blank to detect at capture time")
+        .placeholder_text(tr("auto-detected — leave blank to detect at capture time"))
         .hexpand(true)
         .build();
     if let Some(cfg) = &first.known_config_path {
         config_entry.set_text(cfg);
     }
-    area.append(&row_with_label("Config path", &config_entry));
+    area.append(&row_with_label(tr("Config path"), &config_entry));
 
     let config_hint = Label::builder()
         .label(
@@ -223,9 +229,9 @@ pub fn choose_record_target(
     config_hint.add_css_class("caption");
     area.append(&config_hint);
 
-    let cancel_btn = dialog.add_button("_Cancel", ResponseType::Cancel);
+    let cancel_btn = dialog.add_button(tr("_Cancel"), ResponseType::Cancel);
     let _ = cancel_btn;
-    let ok_btn = dialog.add_button("_Capture baseline", ResponseType::Ok);
+    let ok_btn = dialog.add_button(tr("_Capture baseline"), ResponseType::Ok);
     ok_btn.add_css_class("suggested-action");
     dialog.set_default_response(ResponseType::Ok);
 
@@ -291,7 +297,7 @@ pub fn confirm_manual_step(
     let dialog = Dialog::builder()
         .transient_for(parent)
         .modal(true)
-        .title("Record Seed Pack")
+        .title(tr("Record Seed Pack"))
         .default_width(520)
         .use_header_bar(0)
         .build();
@@ -308,7 +314,7 @@ pub fn confirm_manual_step(
     area.append(&step_indicator(2));
 
     let heading = Label::builder()
-        .label("Baseline captured")
+        .label(tr("Baseline captured"))
         .halign(gtk::Align::Start)
         .xalign(0.0)
         .build();
@@ -316,10 +322,9 @@ pub fn confirm_manual_step(
     area.append(&heading);
 
     let body = Label::builder()
-        .label(format!(
-            "Now launch {app_id} (instance {instance_index}), change the settings you want \
-             the pack to carry, then quit the app. When it has fully exited, click \
-             “Diff changes”.\n\nLaunch it with the button below, or from your normal launcher.",
+        .label(fill(
+            tr("Now launch {app} (instance {number}), change the settings you want the pack to carry, then quit the app. When it has fully exited, click “Diff changes”.\n\nLaunch it with the button below, or from your normal launcher."),
+            &[("app", &app_id), ("number", &instance_index)],
         ))
         .halign(gtk::Align::Start)
         .xalign(0.0)
@@ -327,11 +332,11 @@ pub fn confirm_manual_step(
         .build();
     area.append(&body);
 
-    dialog.add_button("_Cancel", ResponseType::Cancel);
+    dialog.add_button(tr("_Cancel"), ResponseType::Cancel);
     // Custom non-closing response for "Launch app".
     let launch_response = ResponseType::Other(7);
-    dialog.add_button("_Launch app", launch_response);
-    let diff_btn = dialog.add_button("_Diff changes", ResponseType::Ok);
+    dialog.add_button(tr("_Launch app"), launch_response);
+    let diff_btn = dialog.add_button(tr("_Diff changes"), ResponseType::Ok);
     diff_btn.add_css_class("suggested-action");
     dialog.set_default_response(ResponseType::Ok);
 
@@ -384,7 +389,7 @@ pub fn review_and_select(
     let dialog = Dialog::builder()
         .transient_for(parent)
         .modal(true)
-        .title("Record Seed Pack")
+        .title(tr("Record Seed Pack"))
         .default_width(620)
         .default_height(460)
         .use_header_bar(0)
@@ -403,26 +408,28 @@ pub fn review_and_select(
 
     let heading_row = GtkBox::new(Orientation::Horizontal, 8);
     let heading = Label::builder()
-        .label("Choose which changes to record")
+        .label(tr("Choose which changes to record"))
         .halign(gtk::Align::Start)
         .xalign(0.0)
         .build();
     heading.add_css_class("title-2");
     heading_row.append(&heading);
     // "diffed" pill — this step's phase marker (maps to --record-pack-capture).
-    let diffed_pill = Label::new(Some("diffed"));
+    let diffed_pill = Label::new(Some(tr("diffed")));
     diffed_pill.add_css_class("row-pill");
     diffed_pill.add_css_class("pending");
     heading_row.append(&diffed_pill);
     area.append(&heading_row);
 
     let summary = Label::builder()
-        .label(format!(
-            "{} added · {} changed · {} removed · {} unchanged",
-            diff.added.len(),
-            diff.changed.len(),
-            diff.removed.len(),
-            diff.unchanged
+        .label(fill(
+            tr("{added} added · {changed} changed · {removed} removed · {unchanged} unchanged"),
+            &[
+                ("added", &diff.added.len()),
+                ("changed", &diff.changed.len()),
+                ("removed", &diff.removed.len()),
+                ("unchanged", &diff.unchanged),
+            ],
         ))
         .halign(gtk::Align::Start)
         .xalign(0.0)
@@ -435,7 +442,7 @@ pub fn review_and_select(
     let diff_heading_row = GtkBox::new(Orientation::Horizontal, 8);
     diff_heading_row.set_margin_top(6);
     let diff_heading = Label::builder()
-        .label("Changed keys")
+        .label(tr("Changed keys"))
         .halign(gtk::Align::Start)
         .xalign(0.0)
         .build();
@@ -456,7 +463,14 @@ pub fn review_and_select(
 
     for key in &diff.added {
         let preview = current.get(key).map(render_value).unwrap_or_default();
-        let row = diff_check_row(key, "+", "added", &format!("new: {preview}"), true, true);
+        let row = diff_check_row(
+            key,
+            "+",
+            "added",
+            &fill(tr("new: {value}"), &[("value", &preview)]),
+            true,
+            true,
+        );
         list.append(&row.0);
         checks.borrow_mut().push((key.clone(), row.1));
     }
@@ -473,7 +487,7 @@ pub fn review_and_select(
             key,
             "−",
             "removed",
-            "removed — a static pack cannot delete keys (not recorded)",
+            tr("removed — a static pack cannot delete keys (not recorded)"),
             false,
             false,
         );
@@ -493,12 +507,14 @@ pub fn review_and_select(
     // up front here per the wizard spec).
     let note_row = GtkBox::new(Orientation::Horizontal, 8);
     note_row.set_margin_top(6);
-    let unsigned_pill = Label::new(Some("unsigned"));
+    let unsigned_pill = Label::new(Some(tr("unsigned")));
     unsigned_pill.add_css_class("row-pill");
     unsigned_pill.add_css_class("update");
     note_row.append(&unsigned_pill);
     let note_text = Label::builder()
-        .label("Saved as a static-only pack to your per-user seeds dir.")
+        .label(tr(
+            "Saved as a static-only pack to your per-user seeds dir.",
+        ))
         .halign(gtk::Align::Start)
         .xalign(0.0)
         .wrap(true)
@@ -508,8 +524,8 @@ pub fn review_and_select(
     note_row.append(&note_text);
     area.append(&note_row);
 
-    dialog.add_button("_Back", ResponseType::Cancel);
-    let save_btn = dialog.add_button("_Save pack", ResponseType::Ok);
+    dialog.add_button(tr("_Back"), ResponseType::Cancel);
+    let save_btn = dialog.add_button(tr("_Save pack"), ResponseType::Ok);
     save_btn.add_css_class("suggested-action");
     dialog.set_default_response(ResponseType::Ok);
 
@@ -615,11 +631,11 @@ fn diff_check_row(
 /// dir (the recommended drop location). Returns the chosen path or `None`.
 pub fn choose_pack_save_path(parent: &ApplicationWindow, app_id: &str) -> Option<PathBuf> {
     let chooser = FileChooserNative::builder()
-        .title("Save seed pack")
+        .title(tr("Save seed pack"))
         .transient_for(parent)
         .action(FileChooserAction::Save)
-        .accept_label("Save")
-        .cancel_label("Cancel")
+        .accept_label(tr("Save"))
+        .cancel_label(tr("Cancel"))
         .modal(true)
         .build();
     chooser.set_current_name(&format!("{app_id}.json"));

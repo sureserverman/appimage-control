@@ -1,0 +1,7 @@
+crates/gui/src/actions.rs
+crates/gui/src/dialogs.rs
+crates/gui/src/main.rs
+crates/gui/src/preferences.rs
+crates/gui/src/record_dialog.rs
+crates/gui/src/seed_dialog.rs
+crates/gui/src/status_text.rs

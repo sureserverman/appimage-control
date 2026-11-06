@@ -1,0 +1,1331 @@
+# Italian translations for appimage-control package.
+# Copyright (C) 2026 THE appimage-control'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the appimage-control package.
+# Machine translation (Claude), 2026. Not yet reviewed by a native speaker.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: appimage-control\n"
+"Report-Msgid-Bugs-To: https://github.com/sureserverman/appimage-control/"
+"issues\n"
+"POT-Creation-Date: 2026-11-06 10:27+0000\n"
+"PO-Revision-Date: 2026-11-06 10:15+0000\n"
+"Last-Translator: Machine translation (Claude), not yet reviewed by a native "
+"speaker\n"
+"Language-Team: none\n"
+"Language: it\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: crates/gui/src/actions.rs:73
+msgid "Update All Installed"
+msgstr "Aggiorna tutte le app installate"
+
+#: crates/gui/src/actions.rs:74
+msgid "Seed Settings…"
+msgstr "Preconfigura impostazioni…"
+
+#: crates/gui/src/actions.rs:75
+msgid "Record Seed Pack…"
+msgstr "Registra pacchetto di preconfigurazione…"
+
+#: crates/gui/src/actions.rs:79
+msgid "Repair Launchers"
+msgstr "Ripara lanciatori"
+
+#: crates/gui/src/actions.rs:80
+msgid "Back Up…"
+msgstr "Esegui backup…"
+
+#: crates/gui/src/actions.rs:81 crates/gui/src/preferences.rs:479
+msgid "Restore…"
+msgstr "Ripristina…"
+
+#: crates/gui/src/actions.rs:85
+msgid "Clean Download Cache"
+msgstr "Pulisci cache dei download"
+
+#: crates/gui/src/actions.rs:86
+msgid "Remove All Instances…"
+msgstr "Rimuovi tutte le istanze…"
+
+#: crates/gui/src/actions.rs:87
+msgid "Purge Everything…"
+msgstr "Elimina tutto…"
+
+#: crates/gui/src/actions.rs:91 crates/gui/src/main.rs:328
+#: crates/gui/src/preferences.rs:53 crates/gui/src/preferences.rs:139
+msgid "Preferences"
+msgstr "Preferenze"
+
+#: crates/gui/src/actions.rs:92 crates/gui/src/main.rs:335
+msgid "Keyboard Shortcuts"
+msgstr "Scorciatoie da tastiera"
+
+#: crates/gui/src/actions.rs:93
+msgid "About AppImage Control"
+msgstr "Informazioni su AppImage Control"
+
+#: crates/gui/src/dialogs.rs:116 crates/gui/src/dialogs.rs:649
+#: crates/gui/src/record_dialog.rs:232 crates/gui/src/record_dialog.rs:335
+#: crates/gui/src/seed_dialog.rs:458 crates/gui/src/seed_dialog.rs:520
+msgid "_Cancel"
+msgstr "_Annulla"
+
+#: crates/gui/src/dialogs.rs:165 crates/gui/src/dialogs.rs:513
+#: crates/gui/src/dialogs.rs:514 crates/gui/src/dialogs.rs:515
+#: crates/gui/src/dialogs.rs:516
+msgid "Activity log"
+msgstr "Registro attività"
+
+#: crates/gui/src/dialogs.rs:236
+msgid "{count} line"
+msgid_plural "{count} lines"
+msgstr[0] "{count} riga"
+msgstr[1] "{count} righe"
+
+#: crates/gui/src/dialogs.rs:240 crates/gui/src/dialogs.rs:522
+msgid "{count} error"
+msgid_plural "{count} errors"
+msgstr[0] "{count} errore"
+msgstr[1] "{count} errori"
+
+#: crates/gui/src/dialogs.rs:254
+msgid "Wrap"
+msgstr "A capo"
+
+#: crates/gui/src/dialogs.rs:255
+msgid "Wrap long lines"
+msgstr "Manda a capo le righe lunghe"
+
+#: crates/gui/src/dialogs.rs:259
+msgid "Copy"
+msgstr "Copia"
+
+#: crates/gui/src/dialogs.rs:260
+msgid "Copy log to clipboard"
+msgstr "Copia il registro negli appunti"
+
+#: crates/gui/src/dialogs.rs:264
+msgid "Save…"
+msgstr "Salva…"
+
+#: crates/gui/src/dialogs.rs:265
+msgid "Save log to a file"
+msgstr "Salva il registro in un file"
+
+#: crates/gui/src/dialogs.rs:342
+msgid "Save activity log"
+msgstr "Salva registro attività"
+
+#: crates/gui/src/dialogs.rs:344 crates/gui/src/record_dialog.rs:637
+msgid "Save"
+msgstr "Salva"
+
+#: crates/gui/src/dialogs.rs:345 crates/gui/src/dialogs.rs:580
+#: crates/gui/src/record_dialog.rs:638
+msgid "Cancel"
+msgstr "Annulla"
+
+#: crates/gui/src/dialogs.rs:378
+msgid "_Close"
+msgstr "_Chiudi"
+
+#: crates/gui/src/dialogs.rs:442
+msgid "Success"
+msgstr "Successo"
+
+#: crates/gui/src/dialogs.rs:443
+msgid "Warnings"
+msgstr "Avvisi"
+
+#: crates/gui/src/dialogs.rs:444
+msgid "Errors"
+msgstr "Errori"
+
+#: crates/gui/src/dialogs.rs:445
+msgid "Info"
+msgstr "Info"
+
+#: crates/gui/src/dialogs.rs:529
+msgid "{count} warning"
+msgid_plural "{count} warnings"
+msgstr[0] "{count} avviso"
+msgstr[1] "{count} avvisi"
+
+#: crates/gui/src/dialogs.rs:537
+msgid "{count} success"
+msgid_plural "{count} successes"
+msgstr[0] "{count} successo"
+msgstr[1] "{count} successi"
+
+#: crates/gui/src/dialogs.rs:556
+msgid "{count} successful step"
+msgid_plural "{count} successful steps"
+msgstr[0] "{count} passaggio riuscito"
+msgstr[1] "{count} passaggi riusciti"
+
+#: crates/gui/src/dialogs.rs:563
+msgid "{count} log line"
+msgid_plural "{count} log lines"
+msgstr[0] "{count} riga di registro"
+msgstr[1] "{count} righe di registro"
+
+#: crates/gui/src/dialogs.rs:579
+msgid "Select"
+msgstr "Seleziona"
+
+#: crates/gui/src/dialogs.rs:627 crates/gui/src/preferences.rs:455
+msgid "Migrate legacy directories"
+msgstr "Migra vecchie cartelle"
+
+#: crates/gui/src/dialogs.rs:629
+msgid ""
+"Choose how to handle destination conflicts when a managed slot is already "
+"occupied."
+msgstr ""
+"Scegliere come gestire i conflitti di destinazione quando uno slot gestito è "
+"già occupato."
+
+#: crates/gui/src/dialogs.rs:637
+msgid ""
+"This strategy is applied uniformly to every conflict in the run. The "
+"migration can be cancelled after this dialog."
+msgstr ""
+"Questa strategia viene applicata allo stesso modo a ogni conflitto "
+"dell'esecuzione. La migrazione può essere annullata dopo questa finestra."
+
+#: crates/gui/src/dialogs.rs:650
+msgid "Replace existing"
+msgstr "Sostituisci esistenti"
+
+#: crates/gui/src/dialogs.rs:651
+msgid "Add as new instance"
+msgstr "Aggiungi come nuova istanza"
+
+#: crates/gui/src/dialogs.rs:652
+msgid "Skip conflicting"
+msgstr "Salta i conflitti"
+
+#: crates/gui/src/main.rs:111
+msgctxt "category"
+msgid "AI Tools"
+msgstr "Strumenti IA"
+
+#: crates/gui/src/main.rs:112
+msgctxt "category"
+msgid "Messengers"
+msgstr "Messaggistica"
+
+#: crates/gui/src/main.rs:113
+msgctxt "category"
+msgid "Notes"
+msgstr "Note"
+
+#: crates/gui/src/main.rs:114
+msgctxt "category"
+msgid "Security"
+msgstr "Sicurezza"
+
+#: crates/gui/src/main.rs:115
+msgctxt "category"
+msgid "Wallets"
+msgstr "Portafogli"
+
+#: crates/gui/src/main.rs:116
+msgctxt "category"
+msgid "Other"
+msgstr "Altro"
+
+#: crates/gui/src/main.rs:126
+msgid "{size} GB"
+msgstr "{size} GB"
+
+#: crates/gui/src/main.rs:128 crates/gui/src/main.rs:130
+msgid "{size} MB"
+msgstr "{size} MB"
+
+#: crates/gui/src/main.rs:172
+msgid "single instance"
+msgstr "istanza singola"
+
+#. TRANSLATORS: a status badge on an app card: an update is available.
+#: crates/gui/src/main.rs:187
+msgctxt "status badge"
+msgid "Update"
+msgstr "Aggiornamento"
+
+#: crates/gui/src/main.rs:189
+msgid "An upstream update is available"
+msgstr "È disponibile un aggiornamento del progetto originale"
+
+#: crates/gui/src/main.rs:191
+msgid "Installed"
+msgstr "Installata"
+
+#. TRANSLATORS: {version} is an app version, like "v2.8.1".
+#: crates/gui/src/main.rs:195
+msgid "{version} installed"
+msgstr "{version} installata"
+
+#: crates/gui/src/main.rs:196
+msgid "Instances installed"
+msgstr "Istanze installate"
+
+#: crates/gui/src/main.rs:200 crates/gui/src/main.rs:844
+msgid "Available"
+msgstr "Disponibile"
+
+#: crates/gui/src/main.rs:202
+msgid "Nothing installed yet"
+msgstr "Ancora nulla di installato"
+
+#: crates/gui/src/main.rs:207
+msgid "no instances"
+msgstr "nessuna istanza"
+
+#: crates/gui/src/main.rs:209 crates/gui/src/main.rs:1217
+msgid "{count} instance"
+msgid_plural "{count} instances"
+msgstr[0] "{count} istanza"
+msgstr[1] "{count} istanze"
+
+#: crates/gui/src/main.rs:232
+msgid "Remove an instance"
+msgstr "Rimuovi un'istanza"
+
+#: crates/gui/src/main.rs:253
+msgid "You can't use more than one instance of {app}."
+msgid_plural "You can't use more than {count} instances of {app}."
+msgstr[0] "Non è possibile usare più di {count} istanza di {app}."
+msgstr[1] "Non è possibile usare più di {count} istanze di {app}."
+
+#: crates/gui/src/main.rs:262
+msgid "Maximum instances reached"
+msgstr "Numero massimo di istanze raggiunto"
+
+#: crates/gui/src/main.rs:265
+msgid "Add an instance"
+msgstr "Aggiungi un'istanza"
+
+#: crates/gui/src/main.rs:327
+msgid "Update all installed"
+msgstr "Aggiorna tutte le app installate"
+
+#: crates/gui/src/main.rs:329
+msgid "Keyboard shortcuts"
+msgstr "Scorciatoie da tastiera"
+
+#: crates/gui/src/main.rs:330
+msgid "Reload catalog"
+msgstr "Ricarica catalogo"
+
+#: crates/gui/src/main.rs:331
+msgid "Close window"
+msgstr "Chiudi finestra"
+
+#: crates/gui/src/main.rs:336
+msgid "Close"
+msgstr "Chiudi"
+
+#: crates/gui/src/main.rs:353
+msgid ""
+"Manage a catalog of apps and the number of isolated AppImage instances to "
+"keep for each."
+msgstr ""
+"Gestisce un catalogo di app e il numero di istanze AppImage isolate da "
+"mantenere per ciascuna."
+
+#. TRANSLATORS: put your name here, one per line, to be credited in the About window.
+#: crates/gui/src/main.rs:356
+msgid "translator-credits"
+msgstr "Traduzione automatica, non ancora revisionata"
+
+#: crates/gui/src/main.rs:369
+msgid ""
+"The app could not determine your home directory, so managed installs cannot "
+"be used."
+msgstr ""
+"Impossibile determinare la cartella home, quindi non è possibile usare le "
+"installazioni gestite."
+
+#: crates/gui/src/main.rs:454 crates/gui/src/main.rs:675
+msgid "Main Menu"
+msgstr "Menu principale"
+
+#: crates/gui/src/main.rs:467
+msgid ""
+"No catalog loaded — load one first.\n"
+"Use the Reload button or Open Catalog… to recover.\n"
+msgstr ""
+"Nessun catalogo caricato — caricarne prima uno.\n"
+"Usare il pulsante Ricarica o Apri catalogo… per risolvere.\n"
+
+#: crates/gui/src/main.rs:505
+msgid "No catalog loaded"
+msgstr "Nessun catalogo caricato"
+
+#: crates/gui/src/main.rs:507
+msgid ""
+"AppImage Control couldn’t find an application catalog. Open one, or set "
+"APPIMAGE_CONTROL_CATALOG to a catalog file."
+msgstr ""
+"AppImage Control non ha trovato un catalogo di applicazioni. Aprirne uno o "
+"impostare APPIMAGE_CONTROL_CATALOG su un file di catalogo."
+
+#: crates/gui/src/main.rs:520
+msgid ""
+"Search order:\n"
+"  1. APPIMAGE_CONTROL_CATALOG environment variable\n"
+"  2. data/catalog.json above a dev build (cargo target/ dir only)\n"
+"  3. /app/share/, /usr/share/appimage-control/catalog.json\n"
+"  4. catalog compiled into this build"
+msgstr ""
+"Ordine di ricerca:\n"
+"  1. variabile d'ambiente APPIMAGE_CONTROL_CATALOG\n"
+"  2. data/catalog.json sopra una build di sviluppo (solo cartella target/ di "
+"cargo)\n"
+"  3. /app/share/, /usr/share/appimage-control/catalog.json\n"
+"  4. catalogo compilato in questa build"
+
+#: crates/gui/src/main.rs:537
+msgid "Open Catalog…"
+msgstr "Apri catalogo…"
+
+#: crates/gui/src/main.rs:539 crates/gui/src/preferences.rs:426
+msgid "Reload"
+msgstr "Ricarica"
+
+#: crates/gui/src/main.rs:553 crates/gui/src/main.rs:1834
+msgid "Choose catalog.json"
+msgstr "Scegli catalog.json"
+
+#. TRANSLATORS: filter buttons above the app grid: show all apps, installed apps,
+#. or apps with an update.
+#: crates/gui/src/main.rs:650
+msgctxt "filter"
+msgid "All"
+msgstr "Tutte"
+
+#: crates/gui/src/main.rs:651
+msgctxt "filter"
+msgid "Installed"
+msgstr "Installate"
+
+#: crates/gui/src/main.rs:652
+msgctxt "filter"
+msgid "Updates"
+msgstr "Aggiornamenti"
+
+#: crates/gui/src/main.rs:669
+msgid "Search"
+msgstr "Cerca"
+
+#: crates/gui/src/main.rs:682 crates/gui/src/main.rs:941
+msgid "Apply"
+msgstr "Applica"
+
+#: crates/gui/src/main.rs:683
+msgid "Apply pending instance count changes"
+msgstr "Applica le modifiche in sospeso al numero di istanze"
+
+#: crates/gui/src/main.rs:690
+msgid "Update all"
+msgstr "Aggiorna tutto"
+
+#: crates/gui/src/main.rs:693
+msgid ""
+"Update installed instances: skips when already at the newest known version "
+"(catalog and GitHub releases/latest). Otherwise runs appimageupdatetool, "
+"then downloads the catalog AppImage or—if GitHub’s latest tag is newer than "
+"the catalog URL—a matching .AppImage from that release."
+msgstr ""
+"Aggiorna le istanze installate: le salta se sono già alla versione più "
+"recente nota (catalogo e GitHub releases/latest). Altrimenti esegue "
+"appimageupdatetool, poi scarica l'AppImage del catalogo o, se l'ultimo tag "
+"su GitHub è più recente dell'URL del catalogo, un file .AppImage "
+"corrispondente da quella release."
+
+#: crates/gui/src/main.rs:727 crates/gui/src/status_text.rs:148
+msgid "All changes applied"
+msgstr "Tutte le modifiche sono state applicate"
+
+#: crates/gui/src/main.rs:734 crates/gui/src/status_text.rs:149
+msgid "Nothing pending — you're up to date"
+msgstr "Niente in sospeso — tutto aggiornato"
+
+#. TRANSLATORS: the Apply button, with the number of apps it will change.
+#: crates/gui/src/main.rs:939
+msgid "Apply ({count})"
+msgstr "Applica ({count})"
+
+#: crates/gui/src/main.rs:948
+msgid "{count} app changing"
+msgid_plural "{count} apps changing"
+msgstr[0] "{count} app da modificare"
+msgstr[1] "{count} app da modificare"
+
+#: crates/gui/src/main.rs:958
+msgid "+{count} instance"
+msgid_plural "+{count} instances"
+msgstr[0] "+{count} istanza"
+msgstr[1] "+{count} istanze"
+
+#: crates/gui/src/main.rs:966
+msgid "−{count} instance"
+msgid_plural "−{count} instances"
+msgstr[0] "−{count} istanza"
+msgstr[1] "−{count} istanze"
+
+#: crates/gui/src/main.rs:1208
+msgid "instance {number}"
+msgstr "istanza {number}"
+
+#: crates/gui/src/main.rs:1212
+msgid "instances {first}–{last}"
+msgstr "istanze {first}–{last}"
+
+#: crates/gui/src/main.rs:1238
+msgid "Remove instance data?"
+msgstr "Rimuovere i dati delle istanze?"
+
+#: crates/gui/src/main.rs:1239
+msgid ""
+"Lowering the instance count will permanently delete the home directory data "
+"for the removed instances. This cannot be undone."
+msgstr ""
+"Riducendo il numero di istanze, i dati nella cartella home delle istanze "
+"rimosse verranno eliminati definitivamente. L'operazione non può essere "
+"annullata."
+
+#: crates/gui/src/main.rs:1241
+msgid "Remove and Apply"
+msgstr "Rimuovi e applica"
+
+#: crates/gui/src/main.rs:1274 crates/gui/src/main.rs:1275
+#: crates/gui/src/main.rs:1391
+msgid "Working…"
+msgstr "Elaborazione…"
+
+#: crates/gui/src/main.rs:1365
+msgid "Apply interrupted."
+msgstr "Applicazione delle modifiche interrotta."
+
+#: crates/gui/src/main.rs:1395
+msgid "Working… (0 of {total})"
+msgstr "Elaborazione… (0 di {total})"
+
+#: crates/gui/src/main.rs:1476
+msgid "Working… ({done}/{total}): {app}"
+msgstr "Elaborazione… ({done}/{total}): {app}"
+
+#: crates/gui/src/main.rs:1543 crates/gui/src/main.rs:1544
+#: crates/gui/src/main.rs:1660
+msgid "Updating…"
+msgstr "Aggiornamento…"
+
+#: crates/gui/src/main.rs:1639
+msgid "Update interrupted."
+msgstr "Aggiornamento interrotto."
+
+#: crates/gui/src/main.rs:1663
+msgid "Updating… ({done}/{total})"
+msgstr "Aggiornamento… ({done}/{total})"
+
+#: crates/gui/src/main.rs:1732
+msgid "Install without verification?"
+msgstr "Installare senza verifica?"
+
+#: crates/gui/src/main.rs:1733
+msgid ""
+"No published sha256 is available to check these downloads, so they were not "
+"installed. Install them anyway only if you trust where they come from."
+msgstr ""
+"Non è disponibile alcun sha256 pubblicato per verificare questi download, "
+"quindi non sono stati installati. Installarli comunque solo se la loro "
+"provenienza è affidabile."
+
+#: crates/gui/src/main.rs:1735
+msgid "Install unverified"
+msgstr "Installa senza verifica"
+
+#: crates/gui/src/main.rs:1797
+msgid "{count} app"
+msgid_plural "{count} apps"
+msgstr[0] "{count} app"
+msgstr[1] "{count} app"
+
+#: crates/gui/src/main.rs:1800
+msgid "{count} installed"
+msgstr "installate: {count}"
+
+#: crates/gui/src/main.rs:1868 crates/gui/src/main.rs:2437
+#: crates/gui/src/main.rs:2516 crates/gui/src/main.rs:2596
+#: crates/gui/src/main.rs:2673 crates/gui/src/main.rs:2791
+#: crates/gui/src/main.rs:2821 crates/gui/src/main.rs:2830
+#: crates/gui/src/main.rs:2900
+msgid "Ready"
+msgstr "Pronto"
+
+#: crates/gui/src/main.rs:1901 crates/gui/src/main.rs:2095
+msgid "Seed packs not loaded"
+msgstr "Pacchetti di preconfigurazione non caricati"
+
+#: crates/gui/src/main.rs:1917
+msgid "Some seed packs were skipped"
+msgstr "Alcuni pacchetti di preconfigurazione sono stati saltati"
+
+#: crates/gui/src/main.rs:1937
+msgid "No supported installs"
+msgstr "Nessuna installazione supportata"
+
+#: crates/gui/src/main.rs:1938
+msgid "There are no installed Feather or Electrum instances to seed."
+msgstr ""
+"Non ci sono istanze installate di Feather o Electrum da preconfigurare."
+
+#: crates/gui/src/main.rs:1969 crates/gui/src/main.rs:1970
+#: crates/gui/src/main.rs:2030
+msgid "Seeding settings…"
+msgstr "Preconfigurazione delle impostazioni…"
+
+#: crates/gui/src/main.rs:2011
+msgid "Seed settings interrupted."
+msgstr "Preconfigurazione delle impostazioni interrotta."
+
+#: crates/gui/src/main.rs:2061
+msgid "Seeding settings… ({done}/{total})"
+msgstr "Preconfigurazione delle impostazioni… ({done}/{total})"
+
+#: crates/gui/src/main.rs:2126
+msgid "No installed apps"
+msgstr "Nessuna app installata"
+
+#: crates/gui/src/main.rs:2127
+msgid "Install at least one app instance before recording a seed pack."
+msgstr ""
+"Installare almeno un'istanza di un'app prima di registrare un pacchetto di "
+"preconfigurazione."
+
+#: crates/gui/src/main.rs:2145 crates/gui/src/main.rs:2146
+msgid "Capturing baseline…"
+msgstr "Acquisizione del riferimento…"
+
+#: crates/gui/src/main.rs:2165
+msgid "App “{app}” is not in the catalog."
+msgstr "L'app “{app}” non è nel catalogo."
+
+#: crates/gui/src/main.rs:2229
+msgid "Baseline capture interrupted."
+msgstr "Acquisizione del riferimento interrotta."
+
+#: crates/gui/src/main.rs:2253
+msgid "Baseline capture failed."
+msgstr "Acquisizione del riferimento non riuscita."
+
+#: crates/gui/src/main.rs:2254
+msgid "Baseline capture failed"
+msgstr "Acquisizione del riferimento non riuscita"
+
+#: crates/gui/src/main.rs:2283
+msgid "Baseline captured — configure the app, then diff."
+msgstr "Riferimento acquisito — configurare l'app, poi confrontare."
+
+#: crates/gui/src/main.rs:2299
+msgid "No settings changed."
+msgstr "Nessuna impostazione modificata."
+
+#: crates/gui/src/main.rs:2302
+msgid "No changes to record"
+msgstr "Nessuna modifica da registrare"
+
+#: crates/gui/src/main.rs:2303
+msgid "The config is unchanged from the baseline — nothing to capture."
+msgstr ""
+"La configurazione è invariata rispetto al riferimento — niente da acquisire."
+
+#: crates/gui/src/main.rs:2313
+msgid "No keys selected."
+msgstr "Nessuna chiave selezionata."
+
+#: crates/gui/src/main.rs:2329
+msgid "Seed pack written."
+msgstr "Pacchetto di preconfigurazione scritto."
+
+#: crates/gui/src/main.rs:2332
+msgid "Seed pack written"
+msgstr "Pacchetto di preconfigurazione scritto"
+
+#: crates/gui/src/main.rs:2335
+msgid "Wrote {count} key to {path}"
+msgid_plural "Wrote {count} keys to {path}"
+msgstr[0] "Scritta {count} chiave in {path}"
+msgstr[1] "Scritte {count} chiavi in {path}"
+
+#: crates/gui/src/main.rs:2344
+msgid "This pack is NOT signed — review it before distributing."
+msgstr "Questo pacchetto NON è firmato — controllarlo prima di distribuirlo."
+
+#: crates/gui/src/main.rs:2349
+msgid "Could not write pack"
+msgstr "Impossibile scrivere il pacchetto"
+
+#: crates/gui/src/main.rs:2360
+msgid "Could not read current config"
+msgstr "Impossibile leggere la configurazione attuale"
+
+#: crates/gui/src/main.rs:2401
+msgid "Clean installs?"
+msgstr "Pulire le installazioni?"
+
+#: crates/gui/src/main.rs:2402
+msgid ""
+"Remove installed catalog instances and their managed launchers and icons. "
+"The download cache is kept, so reinstalling is fast."
+msgstr ""
+"Rimuove le istanze del catalogo installate, con i relativi lanciatori e "
+"icone gestiti. La cache dei download viene mantenuta, quindi la "
+"reinstallazione è rapida."
+
+#: crates/gui/src/main.rs:2407 crates/gui/src/preferences.rs:434
+msgid "Clean"
+msgstr "Pulisci"
+
+#: crates/gui/src/main.rs:2416 crates/gui/src/main.rs:2417
+msgid "Cleaning…"
+msgstr "Pulizia…"
+
+#: crates/gui/src/main.rs:2445
+msgid "Clean interrupted."
+msgstr "Pulizia interrotta."
+
+#: crates/gui/src/main.rs:2479
+msgid "Purge all manager state?"
+msgstr "Eliminare tutto lo stato del gestore?"
+
+#: crates/gui/src/main.rs:2480
+msgid ""
+"This removes every install, the download cache, managed launchers, and icon "
+"tiles owned by AppImage Control. App data inside instance home dirs is also "
+"removed."
+msgstr ""
+"Rimuove ogni installazione, la cache dei download, i lanciatori gestiti e le "
+"icone di proprietà di AppImage Control. Vengono rimossi anche i dati delle "
+"app nelle cartelle home delle istanze."
+
+#: crates/gui/src/main.rs:2486
+msgid "Purge state"
+msgstr "Elimina stato"
+
+#: crates/gui/src/main.rs:2495 crates/gui/src/main.rs:2496
+msgid "Purging…"
+msgstr "Eliminazione…"
+
+#: crates/gui/src/main.rs:2524
+msgid "Purge interrupted."
+msgstr "Eliminazione interrotta."
+
+#: crates/gui/src/main.rs:2575 crates/gui/src/main.rs:2576
+msgid "Migrating…"
+msgstr "Migrazione…"
+
+#: crates/gui/src/main.rs:2604
+msgid "Migration interrupted."
+msgstr "Migrazione interrotta."
+
+#: crates/gui/src/main.rs:2645
+msgid "Choose backup archive destination"
+msgstr "Scegli la destinazione dell'archivio di backup"
+
+#: crates/gui/src/main.rs:2654 crates/gui/src/main.rs:2655
+msgid "Backing up…"
+msgstr "Backup in corso…"
+
+#: crates/gui/src/main.rs:2681
+msgid "Backup interrupted."
+msgstr "Backup interrotto."
+
+#: crates/gui/src/main.rs:2718
+msgid "Choose backup archive to restore"
+msgstr "Scegli l'archivio di backup da ripristinare"
+
+#: crates/gui/src/main.rs:2727 crates/gui/src/main.rs:2728
+msgid "Restoring…"
+msgstr "Ripristino…"
+
+#: crates/gui/src/main.rs:2767
+msgid "Overwrite existing managed state?"
+msgstr "Sovrascrivere lo stato gestito esistente?"
+
+#: crates/gui/src/main.rs:2768
+msgid ""
+"Managed state already exists. Force restore and overwrite manager-owned "
+"state?"
+msgstr ""
+"Lo stato gestito esiste già. Forzare il ripristino e sovrascrivere lo stato "
+"del gestore?"
+
+#: crates/gui/src/main.rs:2770
+msgid "Overwrite"
+msgstr "Sovrascrivi"
+
+#: crates/gui/src/main.rs:2772 crates/gui/src/main.rs:2773
+msgid "Restoring (forced)…"
+msgstr "Ripristino (forzato)…"
+
+#: crates/gui/src/main.rs:2799 crates/gui/src/main.rs:2839
+msgid "Restore interrupted."
+msgstr "Ripristino interrotto."
+
+#: crates/gui/src/main.rs:2881 crates/gui/src/main.rs:2882
+msgid "Updating seed packs…"
+msgstr "Aggiornamento dei pacchetti di preconfigurazione…"
+
+#: crates/gui/src/main.rs:2908
+msgid "Update seed packs interrupted."
+msgstr "Aggiornamento dei pacchetti di preconfigurazione interrotto."
+
+#: crates/gui/src/preferences.rs:31
+msgid "data/catalog.json (auto-detected) · built-in fallback"
+msgstr "data/catalog.json (rilevato automaticamente) · alternativa integrata"
+
+#: crates/gui/src/preferences.rs:70 crates/gui/src/preferences.rs:113
+msgid "General"
+msgstr "Generale"
+
+#: crates/gui/src/preferences.rs:76
+msgid "Storage"
+msgstr "Archiviazione"
+
+#: crates/gui/src/preferences.rs:82
+msgid "Network"
+msgstr "Rete"
+
+#: crates/gui/src/preferences.rs:88
+msgid "Backup"
+msgstr "Backup"
+
+#: crates/gui/src/preferences.rs:205
+msgid "APPEARANCE"
+msgstr "ASPETTO"
+
+#: crates/gui/src/preferences.rs:210
+msgid "Theme"
+msgstr "Tema"
+
+#: crates/gui/src/preferences.rs:211
+msgid "Follow the system, or force a mode"
+msgstr "Segue il sistema o forza una modalità"
+
+#: crates/gui/src/preferences.rs:216
+msgid "System"
+msgstr "Sistema"
+
+#: crates/gui/src/preferences.rs:217
+msgid "Light"
+msgstr "Chiaro"
+
+#: crates/gui/src/preferences.rs:218
+msgid "Dark"
+msgstr "Scuro"
+
+#: crates/gui/src/preferences.rs:252
+msgid "Compact rows"
+msgstr "Righe compatte"
+
+#: crates/gui/src/preferences.rs:253
+msgid "Tighter launcher grid (applies on reload)"
+msgstr "Griglia dei lanciatori più compatta (si applica al ricaricamento)"
+
+#: crates/gui/src/preferences.rs:260
+msgid "CATALOG"
+msgstr "CATALOGO"
+
+#: crates/gui/src/preferences.rs:263
+msgid "Catalog file"
+msgstr "File del catalogo"
+
+#: crates/gui/src/preferences.rs:267
+msgid "Open…"
+msgstr "Apri…"
+
+#: crates/gui/src/preferences.rs:279
+msgid "Reload on focus"
+msgstr "Ricarica al ritorno del focus"
+
+#: crates/gui/src/preferences.rs:280
+msgid "Re-scan the catalog when the window regains focus"
+msgstr "Rianalizza il catalogo quando la finestra riprende il focus"
+
+#: crates/gui/src/preferences.rs:287
+msgid "ON LAUNCH"
+msgstr "ALL'AVVIO"
+
+#: crates/gui/src/preferences.rs:290
+msgid "Check for updates"
+msgstr "Controlla aggiornamenti"
+
+#: crates/gui/src/preferences.rs:291
+msgid "Flag apps with a newer upstream release"
+msgstr "Segnala le app con una nuova versione del progetto originale"
+
+#: crates/gui/src/preferences.rs:298
+msgid "Repair launchers automatically"
+msgstr "Ripara automaticamente i lanciatori"
+
+#: crates/gui/src/preferences.rs:299
+msgid "Recreate any missing .desktop files"
+msgstr "Ricrea gli eventuali file .desktop mancanti"
+
+#: crates/gui/src/preferences.rs:311
+msgid "DOWNLOADS"
+msgstr "DOWNLOAD"
+
+#: crates/gui/src/preferences.rs:316
+msgid "Direct (no proxy)"
+msgstr "Diretto (nessun proxy)"
+
+#: crates/gui/src/preferences.rs:316
+msgid "System proxy (Tor)"
+msgstr "Proxy di sistema (Tor)"
+
+#: crates/gui/src/preferences.rs:318
+msgid "Route through"
+msgstr "Instrada tramite"
+
+#: crates/gui/src/preferences.rs:319
+msgid "Where AppImage downloads are sent"
+msgstr "Dove vengono inviati i download AppImage"
+
+#: crates/gui/src/preferences.rs:342
+msgid "Verify checksums &amp; signatures"
+msgstr "Verifica checksum e firme"
+
+#: crates/gui/src/preferences.rs:343
+msgid "Refuse a download that fails verification"
+msgstr "Rifiuta un download che non supera la verifica"
+
+#: crates/gui/src/preferences.rs:358
+msgid "Concurrent downloads"
+msgstr "Download simultanei"
+
+#: crates/gui/src/preferences.rs:359
+msgid "Lower is gentler over Tor"
+msgstr "Un valore basso pesa meno sulla rete Tor"
+
+#: crates/gui/src/preferences.rs:373
+msgid "SEEDING"
+msgstr "PRECONFIGURAZIONE"
+
+#: crates/gui/src/preferences.rs:377
+msgid "Auto-seed new instances"
+msgstr "Preconfigura automaticamente le nuove istanze"
+
+#: crates/gui/src/preferences.rs:378
+msgid "Seed settings right after creating an instance"
+msgstr "Preconfigura le impostazioni subito dopo la creazione di un'istanza"
+
+#: crates/gui/src/preferences.rs:387
+msgctxt "headless runner"
+msgid "Auto"
+msgstr "Automatico"
+
+#: crates/gui/src/preferences.rs:392
+msgid "Headless runner"
+msgstr "Esecutore headless"
+
+#: crates/gui/src/preferences.rs:419
+msgid "MAINTENANCE"
+msgstr "MANUTENZIONE"
+
+#: crates/gui/src/preferences.rs:423
+msgid "Reload catalog now"
+msgstr "Ricarica ora il catalogo"
+
+#: crates/gui/src/preferences.rs:424
+msgid "Re-scan and rebuild the list"
+msgstr "Rianalizza e ricostruisce l'elenco"
+
+#: crates/gui/src/preferences.rs:431
+msgid "Clean download cache"
+msgstr "Pulisci cache dei download"
+
+#: crates/gui/src/preferences.rs:432
+msgid "Delete cached AppImage downloads"
+msgstr "Elimina i download AppImage in cache"
+
+#: crates/gui/src/preferences.rs:439
+msgid "Update seed packs"
+msgstr "Aggiorna pacchetti di preconfigurazione"
+
+#: crates/gui/src/preferences.rs:440
+msgid "Fetch the latest signed seed-pack tarball"
+msgstr ""
+"Scarica l'ultimo archivio tar firmato dei pacchetti di preconfigurazione"
+
+#: crates/gui/src/preferences.rs:442
+msgid "Update"
+msgstr "Aggiorna"
+
+#: crates/gui/src/preferences.rs:447
+msgid "Show seed packs"
+msgstr "Mostra pacchetti di preconfigurazione"
+
+#: crates/gui/src/preferences.rs:448
+msgid "List loaded seed packs and their sources"
+msgstr "Elenca i pacchetti di preconfigurazione caricati e le loro origini"
+
+#: crates/gui/src/preferences.rs:450
+msgid "Show"
+msgstr "Mostra"
+
+#: crates/gui/src/preferences.rs:456
+msgid "Import old portable dirs into managed instances"
+msgstr "Importa le vecchie cartelle portable nelle istanze gestite"
+
+#: crates/gui/src/preferences.rs:458
+msgid "Migrate"
+msgstr "Migra"
+
+#: crates/gui/src/preferences.rs:467
+msgid "MANAGER STATE"
+msgstr "STATO DEL GESTORE"
+
+#: crates/gui/src/preferences.rs:471
+msgid "Back up…"
+msgstr "Esegui backup…"
+
+#: crates/gui/src/preferences.rs:472
+msgid "Archive manager state to a file"
+msgstr "Archivia lo stato del gestore in un file"
+
+#: crates/gui/src/preferences.rs:474
+msgid "Back Up"
+msgstr "Backup"
+
+#: crates/gui/src/preferences.rs:480
+msgid "Restore manager state from an archive"
+msgstr "Ripristina lo stato del gestore da un archivio"
+
+#: crates/gui/src/preferences.rs:482
+msgid "Restore"
+msgstr "Ripristina"
+
+#: crates/gui/src/record_dialog.rs:32 crates/gui/src/record_dialog.rs:153
+#: crates/gui/src/record_dialog.rs:300 crates/gui/src/record_dialog.rs:392
+msgid "Record Seed Pack"
+msgstr "Registra pacchetto di preconfigurazione"
+
+#: crates/gui/src/record_dialog.rs:85
+msgctxt "wizard step"
+msgid "Baseline"
+msgstr "Riferimento"
+
+#: crates/gui/src/record_dialog.rs:86
+msgctxt "wizard step"
+msgid "Configure"
+msgstr "Configura"
+
+#: crates/gui/src/record_dialog.rs:87
+msgctxt "wizard step"
+msgid "Review"
+msgstr "Revisione"
+
+#: crates/gui/src/record_dialog.rs:171
+msgid "Record a seed pack"
+msgstr "Registra un pacchetto di preconfigurazione"
+
+#: crates/gui/src/record_dialog.rs:196
+msgid "App"
+msgstr "App"
+
+#: crates/gui/src/record_dialog.rs:202
+msgid "Instance"
+msgstr "Istanza"
+
+#: crates/gui/src/record_dialog.rs:209
+msgid "auto-detected — leave blank to detect at capture time"
+msgstr ""
+"rilevato automaticamente — lasciare vuoto per rilevarlo al momento "
+"dell'acquisizione"
+
+#: crates/gui/src/record_dialog.rs:215
+msgid "Config path"
+msgstr "Percorso configurazione"
+
+#: crates/gui/src/record_dialog.rs:234
+msgid "_Capture baseline"
+msgstr "Acquisisci _riferimento"
+
+#: crates/gui/src/record_dialog.rs:317
+msgid "Baseline captured"
+msgstr "Riferimento acquisito"
+
+#: crates/gui/src/record_dialog.rs:326
+msgid ""
+"Now launch {app} (instance {number}), change the settings you want the pack "
+"to carry, then quit the app. When it has fully exited, click “Diff "
+"changes”.\n"
+"\n"
+"Launch it with the button below, or from your normal launcher."
+msgstr ""
+"Ora avviare {app} (istanza {number}), modificare le impostazioni che il "
+"pacchetto deve contenere, poi chiudere l'app. Quando è stata chiusa del "
+"tutto, fare clic su “Confronta modifiche”.\n"
+"\n"
+"Avviarla con il pulsante qui sotto o dal solito lanciatore."
+
+#: crates/gui/src/record_dialog.rs:338
+msgid "_Launch app"
+msgstr "A_vvia app"
+
+#: crates/gui/src/record_dialog.rs:339
+msgid "_Diff changes"
+msgstr "_Confronta modifiche"
+
+#: crates/gui/src/record_dialog.rs:411
+msgid "Choose which changes to record"
+msgstr "Scegli quali modifiche registrare"
+
+#: crates/gui/src/record_dialog.rs:418
+msgid "diffed"
+msgstr "confrontato"
+
+#: crates/gui/src/record_dialog.rs:426
+msgid ""
+"{added} added · {changed} changed · {removed} removed · {unchanged} unchanged"
+msgstr ""
+"aggiunte: {added} · modificate: {changed} · rimosse: {removed} · invariate: "
+"{unchanged}"
+
+#: crates/gui/src/record_dialog.rs:445
+msgid "Changed keys"
+msgstr "Chiavi modificate"
+
+#: crates/gui/src/record_dialog.rs:470
+msgid "new: {value}"
+msgstr "nuovo: {value}"
+
+#: crates/gui/src/record_dialog.rs:490
+msgid "removed — a static pack cannot delete keys (not recorded)"
+msgstr ""
+"rimossa — un pacchetto statico non può eliminare chiavi (non registrata)"
+
+#: crates/gui/src/record_dialog.rs:510
+msgid "unsigned"
+msgstr "non firmato"
+
+#: crates/gui/src/record_dialog.rs:516
+msgid "Saved as a static-only pack to your per-user seeds dir."
+msgstr ""
+"Salvato come pacchetto solo statico nella cartella utente dei pacchetti di "
+"preconfigurazione."
+
+#: crates/gui/src/record_dialog.rs:527
+msgid "_Back"
+msgstr "_Indietro"
+
+#: crates/gui/src/record_dialog.rs:528
+msgid "_Save pack"
+msgstr "_Salva pacchetto"
+
+#: crates/gui/src/record_dialog.rs:634
+msgid "Save seed pack"
+msgstr "Salva pacchetto di preconfigurazione"
+
+#: crates/gui/src/seed_dialog.rs:46
+msgid "Writes each app's first-run settings"
+msgstr "Scrive le impostazioni di primo avvio di ogni app"
+
+#: crates/gui/src/seed_dialog.rs:73
+msgid "APPS TO SEED"
+msgstr "APP DA PRECONFIGURARE"
+
+#: crates/gui/src/seed_dialog.rs:76
+msgid "SAVED CONFIGURATIONS"
+msgstr "CONFIGURAZIONI SALVATE"
+
+#: crates/gui/src/seed_dialog.rs:129 crates/gui/src/seed_dialog.rs:137
+msgid "Seed Settings"
+msgstr "Preconfigura impostazioni"
+
+#: crates/gui/src/seed_dialog.rs:200
+msgid "{count} installed instance"
+msgid_plural "{count} installed instances"
+msgstr[0] "{count} istanza installata"
+msgstr[1] "{count} istanze installate"
+
+#: crates/gui/src/seed_dialog.rs:241
+msgid "Supported"
+msgstr "Supportata"
+
+#: crates/gui/src/seed_dialog.rs:244
+msgid "No instances"
+msgstr "Nessuna istanza"
+
+#: crates/gui/src/seed_dialog.rs:305
+msgid "+ Save current…"
+msgstr "+ Salva attuale…"
+
+#: crates/gui/src/seed_dialog.rs:346
+msgid "Could not save form"
+msgstr "Impossibile salvare il modulo"
+
+#: crates/gui/src/seed_dialog.rs:348
+msgid "Invalid name"
+msgstr "Nome non valido"
+
+#: crates/gui/src/seed_dialog.rs:390
+msgid "Delete this saved configuration"
+msgstr "Elimina questa configurazione salvata"
+
+#: crates/gui/src/seed_dialog.rs:415
+msgid "Could not load saved form"
+msgstr "Impossibile caricare il modulo salvato"
+
+#: crates/gui/src/seed_dialog.rs:430
+msgid "Could not delete form"
+msgstr "Impossibile eliminare il modulo"
+
+#: crates/gui/src/seed_dialog.rs:464 crates/gui/src/seed_dialog.rs:487
+msgid "Seed {count} app"
+msgid_plural "Seed {count} apps"
+msgstr[0] "Preconfigura {count} app"
+msgstr[1] "Preconfigura {count} app"
+
+#: crates/gui/src/seed_dialog.rs:492
+msgid "{count} app selected"
+msgid_plural "{count} apps selected"
+msgstr[0] "{count} app selezionata"
+msgstr[1] "{count} app selezionate"
+
+#: crates/gui/src/seed_dialog.rs:510
+msgid "Save configuration"
+msgstr "Salva configurazione"
+
+#: crates/gui/src/seed_dialog.rs:511
+msgid "Name this configuration for later recall."
+msgstr "Assegnare un nome a questa configurazione per richiamarla in seguito."
+
+#: crates/gui/src/seed_dialog.rs:516
+msgid "e.g. weekday-feather"
+msgstr "es. feather-feriale"
+
+#: crates/gui/src/seed_dialog.rs:521
+msgid "_Save"
+msgstr "_Salva"
+
+#: crates/gui/src/seed_dialog.rs:555
+msgid "_OK"
+msgstr "_OK"
+
+#: crates/gui/src/status_text.rs:10
+msgid "No installed instances to update."
+msgstr "Nessuna istanza installata da aggiornare."
+
+#: crates/gui/src/status_text.rs:16
+msgid ""
+"{failed} failed, {updated} updated, {unchanged} unchanged, {skipped} skipped "
+"as already catalog (see log)."
+msgstr ""
+"non riuscite: {failed}, aggiornate: {updated}, invariate: {unchanged}, "
+"saltate perché già al catalogo: {skipped} (vedere il registro)."
+
+#: crates/gui/src/status_text.rs:28
+msgid "Updated {count} instance"
+msgid_plural "Updated {count} instances"
+msgstr[0] "Aggiornata {count} istanza"
+msgstr[1] "Aggiornate {count} istanze"
+
+#: crates/gui/src/status_text.rs:36
+msgid "{count} unchanged after update"
+msgstr "invariate dopo l'aggiornamento: {count}"
+
+#: crates/gui/src/status_text.rs:42
+msgid "{count} skipped (already catalog)"
+msgstr "saltate: {count} (già al catalogo)"
+
+#: crates/gui/src/status_text.rs:50
+msgid ""
+"{skipped} skipped (already catalog); {checked} checked with no binary change."
+msgstr ""
+"saltate: {skipped} (già al catalogo); controllate senza modifiche al "
+"binario: {checked}."
+
+#: crates/gui/src/status_text.rs:60
+msgid "The {count} instance already matched the catalog (nothing to fetch)."
+msgid_plural ""
+"All {count} instances already matched the catalog (nothing to fetch)."
+msgstr[0] ""
+"{count} istanza corrispondeva già al catalogo (niente da scaricare)."
+msgstr[1] ""
+"Tutte le {count} istanze corrispondevano già al catalogo (niente da "
+"scaricare)."
+
+#: crates/gui/src/status_text.rs:69
+msgid "Checked {count} instance; no AppImage replacement was needed."
+msgid_plural "Checked {count} instances; no AppImage replacement was needed."
+msgstr[0] ""
+"Controllata {count} istanza; nessuna sostituzione dell'AppImage necessaria."
+msgstr[1] ""
+"Controllate {count} istanze; nessuna sostituzione dell'AppImage necessaria."
+
+#: crates/gui/src/status_text.rs:80
+msgid "{failed} failed, {seeded} completed."
+msgstr "non riuscite: {failed}, completate: {seeded}."
+
+#: crates/gui/src/status_text.rs:86
+msgid "Seeded {count} instance."
+msgid_plural "Seeded {count} instances."
+msgstr[0] "Preconfigurata {count} istanza."
+msgstr[1] "Preconfigurate {count} istanze."
+
+#: crates/gui/src/status_text.rs:93
+msgid "No supported installed instances to seed."
+msgstr "Nessuna istanza installata supportata da preconfigurare."
+
+#: crates/gui/src/status_text.rs:112
+msgid "{count} app failed"
+msgid_plural "{count} apps failed"
+msgstr[0] "{count} app non riuscita"
+msgstr[1] "{count} app non riuscite"
+
+#: crates/gui/src/status_text.rs:119
+msgid "{count} instance NOT seeded"
+msgid_plural "{count} instances NOT seeded"
+msgstr[0] "{count} istanza NON preconfigurata"
+msgstr[1] "{count} istanze NON preconfigurate"
+
+#: crates/gui/src/status_text.rs:127
+msgid "Applied."
+msgstr "Modifiche applicate."
+
+#: crates/gui/src/status_text.rs:129 crates/gui/src/status_text.rs:133
+#: crates/gui/src/status_text.rs:137
+msgid "Applied — {problems} (see the activity log)"
+msgstr "Modifiche applicate — {problems} (vedere il registro attività)"
+
+#: crates/gui/src/status_text.rs:155
+msgid "Last Apply: {count} app not installed"
+msgid_plural "Last Apply: {count} apps not installed"
+msgstr[0] "Ultima applicazione delle modifiche: {count} app non installata"
+msgstr[1] "Ultima applicazione delle modifiche: {count} app non installate"
+
+#: crates/gui/src/status_text.rs:161
+msgid "See the activity log for why"
+msgstr "Vedere il registro attività per i motivi"
+
+#: crates/gui/src/status_text.rs:170
+msgid "Add a download_url in the catalog to enable installs."
+msgstr ""
+"Aggiungere un download_url nel catalogo per abilitare le installazioni."
+
+#: crates/gui/src/status_text.rs:173
+msgid ""
+"No AppImage URL for this system ({arch}) — installs are disabled for this "
+"app."
+msgstr ""
+"Nessun URL AppImage per questo sistema ({arch}) — le installazioni sono "
+"disabilitate per questa app."

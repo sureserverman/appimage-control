@@ -16,6 +16,7 @@
 //! preset is informational only and is ignored on load — the
 //! resolved preset always comes from the runtime environment.
 
+use crate::i18n::{fill, ntr, tr};
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -42,7 +43,7 @@ pub fn choose_seed_settings(
 ) -> Option<(SeedPreset, Vec<String>)> {
     let forms_dir = default_seed_forms_dir();
 
-    let dialog = build_dialog_shell(parent, "Writes each app's first-run settings");
+    let dialog = build_dialog_shell(parent, tr("Writes each app's first-run settings"));
     let area = dialog.content_area();
     area.set_orientation(Orientation::Vertical);
     area.set_spacing(0);
@@ -69,10 +70,10 @@ pub fn choose_seed_settings(
     );
 
     // Design order: apps-to-seed first, then saved configurations.
-    body.append(&seed_section_header("APPS TO SEED"));
+    body.append(&seed_section_header(tr("APPS TO SEED")));
     body.append(&apps_widgets.group);
     if let Some(group) = saved_forms_widgets {
-        body.append(&seed_section_header("SAVED CONFIGURATIONS"));
+        body.append(&seed_section_header(tr("SAVED CONFIGURATIONS")));
         body.append(&group);
     }
 
@@ -125,7 +126,7 @@ fn build_dialog_shell(parent: &ApplicationWindow, subtitle: &str) -> Dialog {
     let dialog = Dialog::builder()
         .transient_for(parent)
         .modal(true)
-        .title("Seed Settings")
+        .title(tr("Seed Settings"))
         .default_width(480)
         .default_height(540)
         .resizable(true)
@@ -133,7 +134,7 @@ fn build_dialog_shell(parent: &ApplicationWindow, subtitle: &str) -> Dialog {
         .build();
     // Single header: a custom titlebar (left-aligned title + subtitle, close-only)
     // replaces both the stock CSD titlebar and the old in-body header.
-    dialog.set_titlebar(Some(&dialog_titlebar("Seed Settings", Some(subtitle))));
+    dialog.set_titlebar(Some(&dialog_titlebar(tr("Seed Settings"), Some(subtitle))));
     dialog
 }
 
@@ -194,9 +195,13 @@ fn build_apps_group(
     for (i, (app_id, display_name, count)) in installed_apps.iter().enumerate() {
         let row = adw::ActionRow::new();
         row.set_title(display_name);
-        row.set_subtitle(&format!(
-            "{count} installed instance{}",
-            if *count == 1 { "" } else { "s" }
+        row.set_subtitle(&fill(
+            ntr(
+                "{count} installed instance",
+                "{count} installed instances",
+                (*count).into(),
+            ),
+            &[("count", count)],
         ));
 
         let icon = Image::new();
@@ -233,10 +238,10 @@ fn build_apps_group(
         pill.add_css_class("ac-status");
         pill.set_valign(gtk::Align::Center);
         if *count > 0 {
-            pill.set_label("Supported");
+            pill.set_label(tr("Supported"));
             pill.add_css_class("installed");
         } else {
-            pill.set_label("No instances");
+            pill.set_label(tr("No instances"));
             pill.add_css_class("available");
             row.add_css_class("dim-label");
             cb.set_active(false);
@@ -297,7 +302,7 @@ fn build_saved_forms_group(
     flow.set_homogeneous(false);
     flow.set_halign(gtk::Align::Fill);
 
-    let save_chip = Button::builder().label("+ Save current…").build();
+    let save_chip = Button::builder().label(tr("+ Save current…")).build();
     save_chip.add_css_class("flat");
     save_chip.add_css_class("ac-chip-add");
 
@@ -338,9 +343,9 @@ fn build_saved_forms_group(
                         *ctx.names_state.borrow_mut() = names.clone();
                         rebuild_chips(&ctx, &names);
                     }
-                    Err(e) => warn(&ctx.parent, "Could not save form", &format!("{e}")),
+                    Err(e) => warn(&ctx.parent, tr("Could not save form"), &format!("{e}")),
                 },
-                Err(e) => warn(&ctx.parent, "Invalid name", &format!("{e}")),
+                Err(e) => warn(&ctx.parent, tr("Invalid name"), &format!("{e}")),
             }
         });
     }
@@ -382,7 +387,7 @@ fn build_chip(ctx: &ChipCtx, name: String) -> GtkBox {
     delete_btn.add_css_class("flat");
     delete_btn.add_css_class("circular");
     delete_btn.add_css_class("ac-chip-delete");
-    delete_btn.set_tooltip_text(Some("Delete this saved configuration"));
+    delete_btn.set_tooltip_text(Some(tr("Delete this saved configuration")));
     chip.append(&delete_btn);
 
     {
@@ -405,7 +410,11 @@ fn build_chip(ctx: &ChipCtx, name: String) -> GtkBox {
                 chip_for_select.add_css_class("selected");
                 *ctx.last_selected.borrow_mut() = Some(chip_for_select.clone());
             }
-            Err(e) => warn(&ctx.parent, "Could not load saved form", &format!("{e}")),
+            Err(e) => warn(
+                &ctx.parent,
+                tr("Could not load saved form"),
+                &format!("{e}"),
+            ),
         });
     }
 
@@ -418,7 +427,7 @@ fn build_chip(ctx: &ChipCtx, name: String) -> GtkBox {
                 *ctx.names_state.borrow_mut() = names.clone();
                 rebuild_chips(&ctx, &names);
             }
-            Err(e) => warn(&ctx.parent, "Could not delete form", &format!("{e}")),
+            Err(e) => warn(&ctx.parent, tr("Could not delete form"), &format!("{e}")),
         });
     }
 
@@ -446,11 +455,16 @@ fn build_footer(dialog: &Dialog, checks: &[(String, CheckButton)]) -> GtkBox {
     count_label.set_hexpand(true);
     footer.append(&count_label);
 
-    let cancel_btn = Button::builder().label("_Cancel").build();
+    let cancel_btn = Button::builder().label(tr("_Cancel")).build();
     cancel_btn.set_use_underline(true);
     footer.append(&cancel_btn);
 
-    let seed_btn = Button::builder().label("Seed 0 apps").build();
+    let seed_btn = Button::builder()
+        .label(fill(
+            ntr("Seed {count} app", "Seed {count} apps", 0),
+            &[("count", &0)],
+        ))
+        .build();
     seed_btn.add_css_class("suggested-action");
     seed_btn.set_sensitive(false);
     footer.append(&seed_btn);
@@ -469,11 +483,14 @@ fn build_footer(dialog: &Dialog, checks: &[(String, CheckButton)]) -> GtkBox {
             .iter()
             .filter(|(_, cb)| cb.is_active())
             .count();
-        seed_btn_clone.set_label(&format!("Seed {n} app{}", if n == 1 { "" } else { "s" }));
+        seed_btn_clone.set_label(&fill(
+            ntr("Seed {count} app", "Seed {count} apps", n as u64),
+            &[("count", &n)],
+        ));
         seed_btn_clone.set_sensitive(n > 0);
-        count_label_clone.set_label(&format!(
-            "{n} app{} selected",
-            if n == 1 { "" } else { "s" }
+        count_label_clone.set_label(&fill(
+            ntr("{count} app selected", "{count} apps selected", n as u64),
+            &[("count", &n)],
         ));
     });
     for (_, cb) in checks {
@@ -490,18 +507,18 @@ fn build_footer(dialog: &Dialog, checks: &[(String, CheckButton)]) -> GtkBox {
 fn prompt_form_name(parent: &ApplicationWindow) -> Option<String> {
     let dialog = adw::MessageDialog::new(
         Some(parent),
-        Some("Save configuration"),
-        Some("Name this configuration for later recall."),
+        Some(tr("Save configuration")),
+        Some(tr("Name this configuration for later recall.")),
     );
     dialog.set_modal(true);
     dialog.set_default_width(380);
     let entry = Entry::builder()
-        .placeholder_text("e.g. weekday-feather")
+        .placeholder_text(tr("e.g. weekday-feather"))
         .activates_default(true)
         .build();
     dialog.set_extra_child(Some(&entry));
-    dialog.add_response("cancel", "_Cancel");
-    dialog.add_response("save", "_Save");
+    dialog.add_response("cancel", tr("_Cancel"));
+    dialog.add_response("save", tr("_Save"));
     dialog.set_response_appearance("save", adw::ResponseAppearance::Suggested);
     dialog.set_default_response(Some("save"));
     dialog.set_close_response("cancel");
@@ -535,7 +552,7 @@ fn prompt_form_name(parent: &ApplicationWindow) -> Option<String> {
 fn warn(parent: &ApplicationWindow, title: &str, body: &str) {
     let d = adw::MessageDialog::new(Some(parent), Some(title), Some(body));
     d.set_modal(true);
-    d.add_response("ok", "_OK");
+    d.add_response("ok", tr("_OK"));
     d.set_default_response(Some("ok"));
     d.set_close_response("ok");
     d.connect_response(None, |dialog, _| dialog.close());

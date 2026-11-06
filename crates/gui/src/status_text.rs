@@ -2,55 +2,95 @@
 
 use appimage_control_core::{CatalogApp, UpdateAllReport};
 
+use crate::i18n::{fill, ntr, tr};
+
 pub fn format_update_status_summary(rep: &UpdateAllReport) -> String {
     let total = rep.updated + rep.unchanged + rep.skipped_up_to_date + rep.errors;
     if total == 0 {
-        return "No installed instances to update.".to_string();
+        return tr("No installed instances to update.").to_string();
     }
+    let n = |v: u32| u64::from(v);
     if rep.errors > 0 {
-        return format!(
-            "{} failed, {} updated, {} unchanged, {} skipped as already catalog (see log).",
-            rep.errors, rep.updated, rep.unchanged, rep.skipped_up_to_date
+        // TRANSLATORS: "already catalog" means the instance already runs the catalog's version.
+        return fill(
+            tr("{failed} failed, {updated} updated, {unchanged} unchanged, {skipped} skipped as already catalog (see log)."),
+            &[
+                ("failed", &rep.errors),
+                ("updated", &rep.updated),
+                ("unchanged", &rep.unchanged),
+                ("skipped", &rep.skipped_up_to_date),
+            ],
         );
     }
     if rep.updated > 0 {
-        let mut parts = vec![format!("Updated {} instance(s)", rep.updated)];
+        let mut parts = vec![fill(
+            ntr(
+                "Updated {count} instance",
+                "Updated {count} instances",
+                n(rep.updated),
+            ),
+            &[("count", &rep.updated)],
+        )];
         if rep.unchanged > 0 {
-            parts.push(format!("{} unchanged after update", rep.unchanged));
+            parts.push(fill(
+                tr("{count} unchanged after update"),
+                &[("count", &rep.unchanged)],
+            ));
         }
         if rep.skipped_up_to_date > 0 {
-            parts.push(format!(
-                "{} skipped (already catalog)",
-                rep.skipped_up_to_date
+            parts.push(fill(
+                tr("{count} skipped (already catalog)"),
+                &[("count", &rep.skipped_up_to_date)],
             ));
         }
         return format!("{}.", parts.join("; "));
     }
     if rep.skipped_up_to_date > 0 && rep.unchanged > 0 {
-        return format!(
-            "{} skipped (already catalog); {} checked with no binary change.",
-            rep.skipped_up_to_date, rep.unchanged
+        return fill(
+            tr("{skipped} skipped (already catalog); {checked} checked with no binary change."),
+            &[
+                ("skipped", &rep.skipped_up_to_date),
+                ("checked", &rep.unchanged),
+            ],
         );
     }
     if rep.skipped_up_to_date > 0 {
-        return format!(
-            "All {} instance(s) already matched the catalog (nothing to fetch).",
-            rep.skipped_up_to_date
+        return fill(
+            ntr(
+                "The {count} instance already matched the catalog (nothing to fetch).",
+                "All {count} instances already matched the catalog (nothing to fetch).",
+                n(rep.skipped_up_to_date),
+            ),
+            &[("count", &rep.skipped_up_to_date)],
         );
     }
-    format!(
-        "Checked {} instance(s); no AppImage replacement was needed.",
-        rep.unchanged
+    fill(
+        ntr(
+            "Checked {count} instance; no AppImage replacement was needed.",
+            "Checked {count} instances; no AppImage replacement was needed.",
+            n(rep.unchanged),
+        ),
+        &[("count", &rep.unchanged)],
     )
 }
 
 pub fn format_seed_status_summary(seeded: u32, failed: u32) -> String {
     if failed > 0 {
-        format!("{failed} seed(s) failed, {seeded} completed.")
+        fill(
+            tr("{failed} failed, {seeded} completed."),
+            &[("failed", &failed), ("seeded", &seeded)],
+        )
     } else if seeded > 0 {
-        format!("Seeded {seeded} instance(s).")
+        fill(
+            ntr(
+                "Seeded {count} instance.",
+                "Seeded {count} instances.",
+                seeded.into(),
+            ),
+            &[("count", &seeded)],
+        )
     } else {
-        "No supported installed instances to seed.".to_string()
+        tr("No supported installed instances to seed.").to_string()
     }
 }
 
@@ -67,14 +107,35 @@ pub fn apply_error_log_line(app_id: &str, err: &str) -> String {
 /// Status-bar text after an Apply run: `failed` apps whose reconcile returned an error (a refused
 /// download included), `not_seeded` instances installed but not seeded.
 pub fn format_apply_status(failed: u32, not_seeded: u32) -> String {
-    let apps = |n: u32| format!("{n} app{} failed", if n == 1 { "" } else { "s" });
+    let apps = |n: u32| {
+        fill(
+            ntr("{count} app failed", "{count} apps failed", n.into()),
+            &[("count", &n)],
+        )
+    };
+    let unseeded = |n: u32| {
+        fill(
+            ntr(
+                "{count} instance NOT seeded",
+                "{count} instances NOT seeded",
+                n.into(),
+            ),
+            &[("count", &n)],
+        )
+    };
     match (failed, not_seeded) {
-        (0, 0) => "Applied.".to_string(),
-        (0, n) => format!("Applied — {n} instance(s) NOT seeded (see activity log)"),
-        (f, 0) => format!("Applied — {} (see the activity log)", apps(f)),
-        (f, n) => format!(
-            "Applied — {}, {n} instance(s) NOT seeded (see the activity log)",
-            apps(f)
+        (0, 0) => tr("Applied.").to_string(),
+        (0, n) => fill(
+            tr("Applied — {problems} (see the activity log)"),
+            &[("problems", &unseeded(n))],
+        ),
+        (f, 0) => fill(
+            tr("Applied — {problems} (see the activity log)"),
+            &[("problems", &apps(f))],
+        ),
+        (f, n) => fill(
+            tr("Applied — {problems} (see the activity log)"),
+            &[("problems", &format!("{}, {}", apps(f), unseeded(n)))],
         ),
     }
 }
@@ -84,16 +145,20 @@ pub fn format_apply_status(failed: u32, not_seeded: u32) -> String {
 pub fn nothing_pending_summary(last_apply_failed: u32) -> (String, String) {
     if last_apply_failed == 0 {
         (
-            "All changes applied".to_string(),
-            "Nothing pending — you're up to date".to_string(),
+            tr("All changes applied").to_string(),
+            tr("Nothing pending — you're up to date").to_string(),
         )
     } else {
         (
-            format!(
-                "Last Apply: {last_apply_failed} app{} not installed",
-                if last_apply_failed == 1 { "" } else { "s" }
+            fill(
+                ntr(
+                    "Last Apply: {count} app not installed",
+                    "Last Apply: {count} apps not installed",
+                    last_apply_failed.into(),
+                ),
+                &[("count", &last_apply_failed)],
             ),
-            "See the activity log for why".to_string(),
+            tr("See the activity log for why").to_string(),
         )
     }
 }
@@ -102,11 +167,11 @@ pub fn catalog_row_hint(app: &CatalogApp) -> Option<String> {
     let has_any_url = app.has_any_download_url();
     let can_install = app.resolved_download_url().is_ok();
     if !has_any_url {
-        Some("Add a download_url in the catalog to enable installs.".to_string())
+        Some(tr("Add a download_url in the catalog to enable installs.").to_string())
     } else if !can_install {
-        Some(format!(
-            "No AppImage URL for this system ({}) — installs are disabled for this app.",
-            std::env::consts::ARCH
+        Some(fill(
+            tr("No AppImage URL for this system ({arch}) — installs are disabled for this app."),
+            &[("arch", &std::env::consts::ARCH)],
         ))
     } else {
         None
@@ -140,7 +205,7 @@ mod tests {
     fn seed_summary_happy_path() {
         assert_eq!(
             format_seed_status_summary(3, 0).as_str(),
-            "Seeded 3 instance(s)."
+            "Seeded 3 instances."
         );
     }
 
@@ -196,11 +261,11 @@ mod tests {
         );
         assert_eq!(
             super::format_apply_status(1, 3),
-            "Applied — 1 app failed, 3 instance(s) NOT seeded (see the activity log)"
+            "Applied — 1 app failed, 3 instances NOT seeded (see the activity log)"
         );
         assert_eq!(
             super::format_apply_status(0, 3),
-            "Applied — 3 instance(s) NOT seeded (see activity log)"
+            "Applied — 3 instances NOT seeded (see the activity log)"
         );
     }
 

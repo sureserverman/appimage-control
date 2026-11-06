@@ -6,6 +6,7 @@
 //! expose the maintenance actions that the redesigned primary menu doesn't list, so
 //! no behavior is lost — they activate the existing `win.*` window actions.
 
+use crate::i18n::{tr, trc};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -27,7 +28,7 @@ fn detected_catalog_path() -> String {
     std::env::var("APPIMAGE_CONTROL_CATALOG")
         .ok()
         .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| "data/catalog.json (auto-detected) · built-in fallback".to_string())
+        .unwrap_or_else(|| tr("data/catalog.json (auto-detected) · built-in fallback").to_string())
 }
 
 /// Build and present the Preferences window, transient for `parent`.
@@ -49,7 +50,7 @@ pub fn present_preferences(parent: &gtk::ApplicationWindow, paths: Rc<AppPaths>)
     // Custom window with a left icon sidebar + content stack, matching the
     // handoff design (rather than the stock AdwPreferencesWindow top-switcher).
     let win = adw::Window::builder()
-        .title("Preferences")
+        .title(tr("Preferences"))
         .modal(true)
         .transient_for(parent)
         .default_width(780)
@@ -66,25 +67,25 @@ pub fn present_preferences(parent: &gtk::ApplicationWindow, paths: Rc<AppPaths>)
     let pages: [(&str, &str, &str, gtk::Widget); 4] = [
         (
             "general",
-            "General",
+            tr("General"),
             "preferences-system-symbolic",
             general_page(parent, &cfg, &save),
         ),
         (
             "storage",
-            "Storage",
+            tr("Storage"),
             "drive-harddisk-symbolic",
             storage_page(parent),
         ),
         (
             "network",
-            "Network",
+            tr("Network"),
             "network-transmit-receive-symbolic",
             network_page(&cfg, &save),
         ),
         (
             "backup",
-            "Backup",
+            tr("Backup"),
             "document-save-symbolic",
             backup_page(parent),
         ),
@@ -109,7 +110,7 @@ pub fn present_preferences(parent: &gtk::ApplicationWindow, paths: Rc<AppPaths>)
     }
     // Header: "Preferences" faint at the start (over the sidebar) + the active
     // page name centered (design 3a).
-    let win_title = adw::WindowTitle::new("General", "");
+    let win_title = adw::WindowTitle::new(tr("General"), "");
     {
         let stack = stack.clone();
         let win_title = win_title.clone();
@@ -117,7 +118,7 @@ pub fn present_preferences(parent: &gtk::ApplicationWindow, paths: Rc<AppPaths>)
             if let Some(row) = row {
                 if let Some((name, label)) = PAGE_ORDER.get(row.index() as usize) {
                     stack.set_visible_child_name(name);
-                    win_title.set_title(label);
+                    win_title.set_title(tr(label));
                 }
             }
         });
@@ -135,7 +136,7 @@ pub fn present_preferences(parent: &gtk::ApplicationWindow, paths: Rc<AppPaths>)
 
     let header = adw::HeaderBar::new();
     header.set_title_widget(Some(&win_title));
-    let corner = gtk::Label::new(Some("Preferences"));
+    let corner = gtk::Label::new(Some(tr("Preferences")));
     corner.add_css_class("dim-label");
     corner.add_css_class("caption");
     corner.set_size_request(150, -1);
@@ -201,20 +202,20 @@ fn general_page(
     save: &Rc<dyn Fn()>,
 ) -> gtk::Widget {
     let content = page_content();
-    content.append(&section_header("APPEARANCE"));
+    content.append(&section_header(tr("APPEARANCE")));
     let appearance = adw::PreferencesGroup::new();
 
     // Theme: segmented System/Light/Dark (matches the design, not a dropdown).
     let theme_row = adw::ActionRow::builder()
-        .title("Theme")
-        .subtitle("Follow the system, or force a mode")
+        .title(tr("Theme"))
+        .subtitle(tr("Follow the system, or force a mode"))
         .build();
     let seg = gtk::Box::new(gtk::Orientation::Horizontal, 0);
     seg.add_css_class("ac-segment");
     seg.set_valign(gtk::Align::Center);
-    let t_sys = gtk::ToggleButton::with_label("System");
-    let t_light = gtk::ToggleButton::with_label("Light");
-    let t_dark = gtk::ToggleButton::with_label("Dark");
+    let t_sys = gtk::ToggleButton::with_label(tr("System"));
+    let t_light = gtk::ToggleButton::with_label(tr("Light"));
+    let t_dark = gtk::ToggleButton::with_label(tr("Dark"));
     for b in [&t_sys, &t_light, &t_dark] {
         b.add_css_class("flat");
     }
@@ -248,22 +249,22 @@ fn general_page(
     appearance.add(&theme_row);
 
     let compact = adw::SwitchRow::builder()
-        .title("Compact rows")
-        .subtitle("Tighter launcher grid (applies on reload)")
+        .title(tr("Compact rows"))
+        .subtitle(tr("Tighter launcher grid (applies on reload)"))
         .active(cfg.borrow().compact_rows)
         .build();
     bind_switch(&compact, cfg, save, |c, v| c.compact_rows = v);
     appearance.add(&compact);
     content.append(&appearance);
 
-    content.append(&section_header("CATALOG"));
+    content.append(&section_header(tr("CATALOG")));
     let catalog = adw::PreferencesGroup::new();
     let catalog_row = adw::ActionRow::builder()
-        .title("Catalog file")
+        .title(tr("Catalog file"))
         .subtitle(detected_catalog_path())
         .build();
     catalog_row.add_css_class("property");
-    let open_btn = gtk::Button::with_label("Open…");
+    let open_btn = gtk::Button::with_label(tr("Open…"));
     open_btn.set_valign(gtk::Align::Center);
     {
         let parent = parent.clone();
@@ -275,27 +276,27 @@ fn general_page(
     catalog.add(&catalog_row);
 
     let reload_focus = adw::SwitchRow::builder()
-        .title("Reload on focus")
-        .subtitle("Re-scan the catalog when the window regains focus")
+        .title(tr("Reload on focus"))
+        .subtitle(tr("Re-scan the catalog when the window regains focus"))
         .active(cfg.borrow().reload_on_focus)
         .build();
     bind_switch(&reload_focus, cfg, save, |c, v| c.reload_on_focus = v);
     catalog.add(&reload_focus);
     content.append(&catalog);
 
-    content.append(&section_header("ON LAUNCH"));
+    content.append(&section_header(tr("ON LAUNCH")));
     let launch = adw::PreferencesGroup::new();
     let check_updates = adw::SwitchRow::builder()
-        .title("Check for updates")
-        .subtitle("Flag apps with a newer upstream release")
+        .title(tr("Check for updates"))
+        .subtitle(tr("Flag apps with a newer upstream release"))
         .active(cfg.borrow().check_for_updates)
         .build();
     bind_switch(&check_updates, cfg, save, |c, v| c.check_for_updates = v);
     launch.add(&check_updates);
 
     let repair_auto = adw::SwitchRow::builder()
-        .title("Repair launchers automatically")
-        .subtitle("Recreate any missing .desktop files")
+        .title(tr("Repair launchers automatically"))
+        .subtitle(tr("Recreate any missing .desktop files"))
         .active(cfg.borrow().repair_launchers_auto)
         .build();
     bind_switch(&repair_auto, cfg, save, |c, v| c.repair_launchers_auto = v);
@@ -307,14 +308,15 @@ fn general_page(
 
 fn network_page(cfg: &Rc<RefCell<GuiConfig>>, save: &Rc<dyn Fn()>) -> gtk::Widget {
     let content = page_content();
-    content.append(&section_header("DOWNLOADS"));
+    content.append(&section_header(tr("DOWNLOADS")));
     let downloads = adw::PreferencesGroup::new();
 
+    // The English option is what config.json stores; the list shows its translation.
     let route_opts = ["System proxy (Tor)", "Direct (no proxy)"];
-    let route_model = gtk::StringList::new(&route_opts);
+    let route_model = gtk::StringList::new(&[tr("System proxy (Tor)"), tr("Direct (no proxy)")]);
     let route_row = adw::ComboRow::builder()
-        .title("Route through")
-        .subtitle("Where AppImage downloads are sent")
+        .title(tr("Route through"))
+        .subtitle(tr("Where AppImage downloads are sent"))
         .model(&route_model)
         .build();
     let cur = cfg.borrow().route_through.clone();
@@ -337,8 +339,8 @@ fn network_page(cfg: &Rc<RefCell<GuiConfig>>, save: &Rc<dyn Fn()>) -> gtk::Widge
     let verify = adw::SwitchRow::builder()
         // The `&` must be escaped: AdwPreferencesRow renders the title as Pango
         // markup, and a raw ampersand makes the whole label render empty.
-        .title("Verify checksums &amp; signatures")
-        .subtitle("Refuse a download that fails verification")
+        .title(tr("Verify checksums &amp; signatures"))
+        .subtitle(tr("Refuse a download that fails verification"))
         .active(cfg.borrow().verify_checksums)
         .build();
     bind_switch(&verify, cfg, save, |c, v| c.verify_checksums = v);
@@ -353,8 +355,8 @@ fn network_page(cfg: &Rc<RefCell<GuiConfig>>, save: &Rc<dyn Fn()>) -> gtk::Widge
         0.0,
     );
     let conc = adw::SpinRow::builder()
-        .title("Concurrent downloads")
-        .subtitle("Lower is gentler over Tor")
+        .title(tr("Concurrent downloads"))
+        .subtitle(tr("Lower is gentler over Tor"))
         .adjustment(&conc_adj)
         .build();
     {
@@ -368,21 +370,26 @@ fn network_page(cfg: &Rc<RefCell<GuiConfig>>, save: &Rc<dyn Fn()>) -> gtk::Widge
     downloads.add(&conc);
     content.append(&downloads);
 
-    content.append(&section_header("SEEDING"));
+    content.append(&section_header(tr("SEEDING")));
     let seeding = adw::PreferencesGroup::new();
 
     let auto_seed = adw::SwitchRow::builder()
-        .title("Auto-seed new instances")
-        .subtitle("Seed settings right after creating an instance")
+        .title(tr("Auto-seed new instances"))
+        .subtitle(tr("Seed settings right after creating an instance"))
         .active(cfg.borrow().auto_seed)
         .build();
     bind_switch(&auto_seed, cfg, save, |c, v| c.auto_seed = v);
     seeding.add(&auto_seed);
 
+    // The English option is what config.json stores; only "Auto" is a word to translate.
     let runner_opts = ["Auto", "flatpak-spawn --host xvfb-run", "xvfb-run"];
-    let runner_model = gtk::StringList::new(&runner_opts);
+    let runner_model = gtk::StringList::new(&[
+        trc("headless runner", "Auto"),
+        runner_opts[1],
+        runner_opts[2],
+    ]);
     let runner_row = adw::ComboRow::builder()
-        .title("Headless runner")
+        .title(tr("Headless runner"))
         .model(&runner_model)
         .build();
     let curr = cfg.borrow().headless_runner.clone();
@@ -409,46 +416,46 @@ fn network_page(cfg: &Rc<RefCell<GuiConfig>>, save: &Rc<dyn Fn()>) -> gtk::Widge
 /// Maintenance actions that aren't in the primary menu, kept reachable here.
 fn storage_page(parent: &gtk::ApplicationWindow) -> gtk::Widget {
     let content = page_content();
-    content.append(&section_header("MAINTENANCE"));
+    content.append(&section_header(tr("MAINTENANCE")));
     let group = adw::PreferencesGroup::new();
     group.add(&action_row(
         parent,
-        "Reload catalog now",
-        "Re-scan and rebuild the list",
+        tr("Reload catalog now"),
+        tr("Re-scan and rebuild the list"),
         "win.refresh",
-        "Reload",
+        tr("Reload"),
         false,
     ));
     group.add(&action_row(
         parent,
-        "Clean download cache",
-        "Delete cached AppImage downloads",
+        tr("Clean download cache"),
+        tr("Delete cached AppImage downloads"),
         "win.clean_cache",
-        "Clean",
+        tr("Clean"),
         false,
     ));
     group.add(&action_row(
         parent,
-        "Update seed packs",
-        "Fetch the latest signed seed-pack tarball",
+        tr("Update seed packs"),
+        tr("Fetch the latest signed seed-pack tarball"),
         "win.update_seed_packs",
-        "Update",
+        tr("Update"),
         false,
     ));
     group.add(&action_row(
         parent,
-        "Show seed packs",
-        "List loaded seed packs and their sources",
+        tr("Show seed packs"),
+        tr("List loaded seed packs and their sources"),
         "win.list_seed_packs",
-        "Show",
+        tr("Show"),
         false,
     ));
     group.add(&action_row(
         parent,
-        "Migrate legacy directories",
-        "Import old portable dirs into managed instances",
+        tr("Migrate legacy directories"),
+        tr("Import old portable dirs into managed instances"),
         "win.migrate",
-        "Migrate",
+        tr("Migrate"),
         false,
     ));
     content.append(&group);
@@ -457,22 +464,22 @@ fn storage_page(parent: &gtk::ApplicationWindow) -> gtk::Widget {
 
 fn backup_page(parent: &gtk::ApplicationWindow) -> gtk::Widget {
     let content = page_content();
-    content.append(&section_header("MANAGER STATE"));
+    content.append(&section_header(tr("MANAGER STATE")));
     let group = adw::PreferencesGroup::new();
     group.add(&action_row(
         parent,
-        "Back up…",
-        "Archive manager state to a file",
+        tr("Back up…"),
+        tr("Archive manager state to a file"),
         "win.backup",
-        "Back Up",
+        tr("Back Up"),
         false,
     ));
     group.add(&action_row(
         parent,
-        "Restore…",
-        "Restore manager state from an archive",
+        tr("Restore…"),
+        tr("Restore manager state from an archive"),
         "win.restore_backup",
-        "Restore",
+        tr("Restore"),
         false,
     ));
     content.append(&group);

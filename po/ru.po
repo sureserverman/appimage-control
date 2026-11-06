@@ -1,0 +1,1346 @@
+# Russian translations for appimage-control package.
+# Copyright (C) 2026 THE appimage-control'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the appimage-control package.
+# Machine translation (Claude), 2026. Not yet reviewed by a native speaker.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: appimage-control\n"
+"Report-Msgid-Bugs-To: https://github.com/sureserverman/appimage-control/"
+"issues\n"
+"POT-Creation-Date: 2026-11-06 10:27+0000\n"
+"PO-Revision-Date: 2026-11-06 10:15+0000\n"
+"Last-Translator: Machine translation (Claude), not yet reviewed by a native "
+"speaker\n"
+"Language-Team: none\n"
+"Language: ru\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
+"n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+
+#: crates/gui/src/actions.rs:73
+msgid "Update All Installed"
+msgstr "Обновить все установленные"
+
+#: crates/gui/src/actions.rs:74
+msgid "Seed Settings…"
+msgstr "Предустановить настройки…"
+
+#: crates/gui/src/actions.rs:75
+msgid "Record Seed Pack…"
+msgstr "Записать набор предустановок…"
+
+#: crates/gui/src/actions.rs:79
+msgid "Repair Launchers"
+msgstr "Восстановить ярлыки"
+
+#: crates/gui/src/actions.rs:80
+msgid "Back Up…"
+msgstr "Создать резервную копию…"
+
+#: crates/gui/src/actions.rs:81 crates/gui/src/preferences.rs:479
+msgid "Restore…"
+msgstr "Восстановить…"
+
+#: crates/gui/src/actions.rs:85
+msgid "Clean Download Cache"
+msgstr "Очистить кэш загрузок"
+
+#: crates/gui/src/actions.rs:86
+msgid "Remove All Instances…"
+msgstr "Удалить все экземпляры…"
+
+#: crates/gui/src/actions.rs:87
+msgid "Purge Everything…"
+msgstr "Стереть всё…"
+
+#: crates/gui/src/actions.rs:91 crates/gui/src/main.rs:328
+#: crates/gui/src/preferences.rs:53 crates/gui/src/preferences.rs:139
+msgid "Preferences"
+msgstr "Параметры"
+
+#: crates/gui/src/actions.rs:92 crates/gui/src/main.rs:335
+msgid "Keyboard Shortcuts"
+msgstr "Комбинации клавиш"
+
+#: crates/gui/src/actions.rs:93
+msgid "About AppImage Control"
+msgstr "О приложении AppImage Control"
+
+#: crates/gui/src/dialogs.rs:116 crates/gui/src/dialogs.rs:649
+#: crates/gui/src/record_dialog.rs:232 crates/gui/src/record_dialog.rs:335
+#: crates/gui/src/seed_dialog.rs:458 crates/gui/src/seed_dialog.rs:520
+msgid "_Cancel"
+msgstr "_Отменить"
+
+#: crates/gui/src/dialogs.rs:165 crates/gui/src/dialogs.rs:513
+#: crates/gui/src/dialogs.rs:514 crates/gui/src/dialogs.rs:515
+#: crates/gui/src/dialogs.rs:516
+msgid "Activity log"
+msgstr "Журнал действий"
+
+#: crates/gui/src/dialogs.rs:236
+msgid "{count} line"
+msgid_plural "{count} lines"
+msgstr[0] "{count} строка"
+msgstr[1] "{count} строки"
+msgstr[2] "{count} строк"
+
+#: crates/gui/src/dialogs.rs:240 crates/gui/src/dialogs.rs:522
+msgid "{count} error"
+msgid_plural "{count} errors"
+msgstr[0] "{count} ошибка"
+msgstr[1] "{count} ошибки"
+msgstr[2] "{count} ошибок"
+
+#: crates/gui/src/dialogs.rs:254
+msgid "Wrap"
+msgstr "Перенос"
+
+#: crates/gui/src/dialogs.rs:255
+msgid "Wrap long lines"
+msgstr "Переносить длинные строки"
+
+#: crates/gui/src/dialogs.rs:259
+msgid "Copy"
+msgstr "Копировать"
+
+#: crates/gui/src/dialogs.rs:260
+msgid "Copy log to clipboard"
+msgstr "Скопировать журнал в буфер обмена"
+
+#: crates/gui/src/dialogs.rs:264
+msgid "Save…"
+msgstr "Сохранить…"
+
+#: crates/gui/src/dialogs.rs:265
+msgid "Save log to a file"
+msgstr "Сохранить журнал в файл"
+
+#: crates/gui/src/dialogs.rs:342
+msgid "Save activity log"
+msgstr "Сохранение журнала действий"
+
+#: crates/gui/src/dialogs.rs:344 crates/gui/src/record_dialog.rs:637
+msgid "Save"
+msgstr "Сохранить"
+
+#: crates/gui/src/dialogs.rs:345 crates/gui/src/dialogs.rs:580
+#: crates/gui/src/record_dialog.rs:638
+msgid "Cancel"
+msgstr "Отменить"
+
+#: crates/gui/src/dialogs.rs:378
+msgid "_Close"
+msgstr "_Закрыть"
+
+#: crates/gui/src/dialogs.rs:442
+msgid "Success"
+msgstr "Успешно"
+
+#: crates/gui/src/dialogs.rs:443
+msgid "Warnings"
+msgstr "Предупреждения"
+
+#: crates/gui/src/dialogs.rs:444
+msgid "Errors"
+msgstr "Ошибки"
+
+#: crates/gui/src/dialogs.rs:445
+msgid "Info"
+msgstr "Сведения"
+
+#: crates/gui/src/dialogs.rs:529
+msgid "{count} warning"
+msgid_plural "{count} warnings"
+msgstr[0] "{count} предупреждение"
+msgstr[1] "{count} предупреждения"
+msgstr[2] "{count} предупреждений"
+
+#: crates/gui/src/dialogs.rs:537
+msgid "{count} success"
+msgid_plural "{count} successes"
+msgstr[0] "{count} успех"
+msgstr[1] "{count} успеха"
+msgstr[2] "{count} успехов"
+
+#: crates/gui/src/dialogs.rs:556
+msgid "{count} successful step"
+msgid_plural "{count} successful steps"
+msgstr[0] "{count} успешный шаг"
+msgstr[1] "{count} успешных шага"
+msgstr[2] "{count} успешных шагов"
+
+#: crates/gui/src/dialogs.rs:563
+msgid "{count} log line"
+msgid_plural "{count} log lines"
+msgstr[0] "{count} строка журнала"
+msgstr[1] "{count} строки журнала"
+msgstr[2] "{count} строк журнала"
+
+#: crates/gui/src/dialogs.rs:579
+msgid "Select"
+msgstr "Выбрать"
+
+#: crates/gui/src/dialogs.rs:627 crates/gui/src/preferences.rs:455
+msgid "Migrate legacy directories"
+msgstr "Перенос устаревших папок"
+
+#: crates/gui/src/dialogs.rs:629
+msgid ""
+"Choose how to handle destination conflicts when a managed slot is already "
+"occupied."
+msgstr ""
+"Выберите, как поступать с конфликтами, если управляемое место назначения уже "
+"занято."
+
+#: crates/gui/src/dialogs.rs:637
+msgid ""
+"This strategy is applied uniformly to every conflict in the run. The "
+"migration can be cancelled after this dialog."
+msgstr ""
+"Эта стратегия одинаково применяется ко всем конфликтам при переносе. Перенос "
+"можно будет отменить после этого диалога."
+
+#: crates/gui/src/dialogs.rs:650
+msgid "Replace existing"
+msgstr "Заменить существующее"
+
+#: crates/gui/src/dialogs.rs:651
+msgid "Add as new instance"
+msgstr "Добавить как новый экземпляр"
+
+#: crates/gui/src/dialogs.rs:652
+msgid "Skip conflicting"
+msgstr "Пропустить конфликтующие"
+
+#: crates/gui/src/main.rs:111
+msgctxt "category"
+msgid "AI Tools"
+msgstr "ИИ-инструменты"
+
+#: crates/gui/src/main.rs:112
+msgctxt "category"
+msgid "Messengers"
+msgstr "Мессенджеры"
+
+#: crates/gui/src/main.rs:113
+msgctxt "category"
+msgid "Notes"
+msgstr "Заметки"
+
+#: crates/gui/src/main.rs:114
+msgctxt "category"
+msgid "Security"
+msgstr "Безопасность"
+
+#: crates/gui/src/main.rs:115
+msgctxt "category"
+msgid "Wallets"
+msgstr "Кошельки"
+
+#: crates/gui/src/main.rs:116
+msgctxt "category"
+msgid "Other"
+msgstr "Другое"
+
+#: crates/gui/src/main.rs:126
+msgid "{size} GB"
+msgstr "{size} ГБ"
+
+#: crates/gui/src/main.rs:128 crates/gui/src/main.rs:130
+msgid "{size} MB"
+msgstr "{size} МБ"
+
+#: crates/gui/src/main.rs:172
+msgid "single instance"
+msgstr "только один экземпляр"
+
+#. TRANSLATORS: a status badge on an app card: an update is available.
+#: crates/gui/src/main.rs:187
+msgctxt "status badge"
+msgid "Update"
+msgstr "Обновление"
+
+#: crates/gui/src/main.rs:189
+msgid "An upstream update is available"
+msgstr "Доступна новая версия от разработчиков"
+
+#: crates/gui/src/main.rs:191
+msgid "Installed"
+msgstr "Установлено"
+
+#. TRANSLATORS: {version} is an app version, like "v2.8.1".
+#: crates/gui/src/main.rs:195
+msgid "{version} installed"
+msgstr "Установлена версия {version}"
+
+#: crates/gui/src/main.rs:196
+msgid "Instances installed"
+msgstr "Экземпляры установлены"
+
+#: crates/gui/src/main.rs:200 crates/gui/src/main.rs:844
+msgid "Available"
+msgstr "Доступно"
+
+#: crates/gui/src/main.rs:202
+msgid "Nothing installed yet"
+msgstr "Пока ничего не установлено"
+
+#: crates/gui/src/main.rs:207
+msgid "no instances"
+msgstr "нет экземпляров"
+
+#: crates/gui/src/main.rs:209 crates/gui/src/main.rs:1217
+msgid "{count} instance"
+msgid_plural "{count} instances"
+msgstr[0] "{count} экземпляр"
+msgstr[1] "{count} экземпляра"
+msgstr[2] "{count} экземпляров"
+
+#: crates/gui/src/main.rs:232
+msgid "Remove an instance"
+msgstr "Удалить экземпляр"
+
+#: crates/gui/src/main.rs:253
+msgid "You can't use more than one instance of {app}."
+msgid_plural "You can't use more than {count} instances of {app}."
+msgstr[0] "Нельзя использовать больше {count} экземпляра {app}."
+msgstr[1] "Нельзя использовать больше {count} экземпляров {app}."
+msgstr[2] "Нельзя использовать больше {count} экземпляров {app}."
+
+#: crates/gui/src/main.rs:262
+msgid "Maximum instances reached"
+msgstr "Достигнуто максимальное число экземпляров"
+
+#: crates/gui/src/main.rs:265
+msgid "Add an instance"
+msgstr "Добавить экземпляр"
+
+#: crates/gui/src/main.rs:327
+msgid "Update all installed"
+msgstr "Обновить все установленные"
+
+#: crates/gui/src/main.rs:329
+msgid "Keyboard shortcuts"
+msgstr "Комбинации клавиш"
+
+#: crates/gui/src/main.rs:330
+msgid "Reload catalog"
+msgstr "Перезагрузить каталог"
+
+#: crates/gui/src/main.rs:331
+msgid "Close window"
+msgstr "Закрыть окно"
+
+#: crates/gui/src/main.rs:336
+msgid "Close"
+msgstr "Закрыть"
+
+#: crates/gui/src/main.rs:353
+msgid ""
+"Manage a catalog of apps and the number of isolated AppImage instances to "
+"keep for each."
+msgstr ""
+"Управление каталогом приложений и числом изолированных экземпляров AppImage "
+"для каждого из них."
+
+#. TRANSLATORS: put your name here, one per line, to be credited in the About window.
+#: crates/gui/src/main.rs:356
+msgid "translator-credits"
+msgstr "Машинный перевод, ещё не проверен"
+
+#: crates/gui/src/main.rs:369
+msgid ""
+"The app could not determine your home directory, so managed installs cannot "
+"be used."
+msgstr ""
+"Не удалось определить вашу домашнюю папку, поэтому управляемые установки "
+"недоступны."
+
+#: crates/gui/src/main.rs:454 crates/gui/src/main.rs:675
+msgid "Main Menu"
+msgstr "Главное меню"
+
+#: crates/gui/src/main.rs:467
+msgid ""
+"No catalog loaded — load one first.\n"
+"Use the Reload button or Open Catalog… to recover.\n"
+msgstr ""
+"Каталог не загружен — сначала загрузите его.\n"
+"Чтобы исправить это, нажмите «Перезагрузить» или «Открыть каталог…».\n"
+
+#: crates/gui/src/main.rs:505
+msgid "No catalog loaded"
+msgstr "Каталог не загружен"
+
+#: crates/gui/src/main.rs:507
+msgid ""
+"AppImage Control couldn’t find an application catalog. Open one, or set "
+"APPIMAGE_CONTROL_CATALOG to a catalog file."
+msgstr ""
+"AppImage Control не удалось найти каталог приложений. Откройте каталог или "
+"укажите в APPIMAGE_CONTROL_CATALOG путь к файлу каталога."
+
+#: crates/gui/src/main.rs:520
+msgid ""
+"Search order:\n"
+"  1. APPIMAGE_CONTROL_CATALOG environment variable\n"
+"  2. data/catalog.json above a dev build (cargo target/ dir only)\n"
+"  3. /app/share/, /usr/share/appimage-control/catalog.json\n"
+"  4. catalog compiled into this build"
+msgstr ""
+"Порядок поиска:\n"
+"  1. Переменная окружения APPIMAGE_CONTROL_CATALOG\n"
+"  2. data/catalog.json над отладочной сборкой (только папка cargo target/)\n"
+"  3. /app/share/, /usr/share/appimage-control/catalog.json\n"
+"  4. каталог, встроенный в эту сборку"
+
+#: crates/gui/src/main.rs:537
+msgid "Open Catalog…"
+msgstr "Открыть каталог…"
+
+#: crates/gui/src/main.rs:539 crates/gui/src/preferences.rs:426
+msgid "Reload"
+msgstr "Перезагрузить"
+
+#: crates/gui/src/main.rs:553 crates/gui/src/main.rs:1834
+msgid "Choose catalog.json"
+msgstr "Выберите catalog.json"
+
+#. TRANSLATORS: filter buttons above the app grid: show all apps, installed apps,
+#. or apps with an update.
+#: crates/gui/src/main.rs:650
+msgctxt "filter"
+msgid "All"
+msgstr "Все"
+
+#: crates/gui/src/main.rs:651
+msgctxt "filter"
+msgid "Installed"
+msgstr "Установленные"
+
+#: crates/gui/src/main.rs:652
+msgctxt "filter"
+msgid "Updates"
+msgstr "Обновления"
+
+#: crates/gui/src/main.rs:669
+msgid "Search"
+msgstr "Поиск"
+
+#: crates/gui/src/main.rs:682 crates/gui/src/main.rs:941
+msgid "Apply"
+msgstr "Применить"
+
+#: crates/gui/src/main.rs:683
+msgid "Apply pending instance count changes"
+msgstr "Применить ожидающие изменения числа экземпляров"
+
+#: crates/gui/src/main.rs:690
+msgid "Update all"
+msgstr "Обновить все"
+
+#: crates/gui/src/main.rs:693
+msgid ""
+"Update installed instances: skips when already at the newest known version "
+"(catalog and GitHub releases/latest). Otherwise runs appimageupdatetool, "
+"then downloads the catalog AppImage or—if GitHub’s latest tag is newer than "
+"the catalog URL—a matching .AppImage from that release."
+msgstr ""
+"Обновить установленные экземпляры: пропускаются, если уже установлена "
+"новейшая известная версия (каталог и GitHub releases/latest). Иначе "
+"запускается appimageupdatetool, затем загружается AppImage из каталога или — "
+"если последний тег на GitHub новее URL из каталога — подходящий .AppImage из "
+"этого выпуска."
+
+#: crates/gui/src/main.rs:727 crates/gui/src/status_text.rs:148
+msgid "All changes applied"
+msgstr "Все изменения применены"
+
+#: crates/gui/src/main.rs:734 crates/gui/src/status_text.rs:149
+msgid "Nothing pending — you're up to date"
+msgstr "Нет ожидающих изменений — всё актуально"
+
+#. TRANSLATORS: the Apply button, with the number of apps it will change.
+#: crates/gui/src/main.rs:939
+msgid "Apply ({count})"
+msgstr "Применить ({count})"
+
+#: crates/gui/src/main.rs:948
+msgid "{count} app changing"
+msgid_plural "{count} apps changing"
+msgstr[0] "{count} приложение изменится"
+msgstr[1] "{count} приложения изменятся"
+msgstr[2] "{count} приложений изменится"
+
+#: crates/gui/src/main.rs:958
+msgid "+{count} instance"
+msgid_plural "+{count} instances"
+msgstr[0] "+{count} экземпляр"
+msgstr[1] "+{count} экземпляра"
+msgstr[2] "+{count} экземпляров"
+
+#: crates/gui/src/main.rs:966
+msgid "−{count} instance"
+msgid_plural "−{count} instances"
+msgstr[0] "−{count} экземпляр"
+msgstr[1] "−{count} экземпляра"
+msgstr[2] "−{count} экземпляров"
+
+#: crates/gui/src/main.rs:1208
+msgid "instance {number}"
+msgstr "экземпляр {number}"
+
+#: crates/gui/src/main.rs:1212
+msgid "instances {first}–{last}"
+msgstr "экземпляры {first}–{last}"
+
+#: crates/gui/src/main.rs:1238
+msgid "Remove instance data?"
+msgstr "Удалить данные экземпляров?"
+
+#: crates/gui/src/main.rs:1239
+msgid ""
+"Lowering the instance count will permanently delete the home directory data "
+"for the removed instances. This cannot be undone."
+msgstr ""
+"При уменьшении числа экземпляров данные в домашних папках удаляемых "
+"экземпляров будут удалены безвозвратно. Это действие нельзя отменить."
+
+#: crates/gui/src/main.rs:1241
+msgid "Remove and Apply"
+msgstr "Удалить и применить"
+
+#: crates/gui/src/main.rs:1274 crates/gui/src/main.rs:1275
+#: crates/gui/src/main.rs:1391
+msgid "Working…"
+msgstr "Выполнение…"
+
+#: crates/gui/src/main.rs:1365
+msgid "Apply interrupted."
+msgstr "Применение прервано."
+
+#: crates/gui/src/main.rs:1395
+msgid "Working… (0 of {total})"
+msgstr "Выполнение… (0 из {total})"
+
+#: crates/gui/src/main.rs:1476
+msgid "Working… ({done}/{total}): {app}"
+msgstr "Выполнение… ({done}/{total}): {app}"
+
+#: crates/gui/src/main.rs:1543 crates/gui/src/main.rs:1544
+#: crates/gui/src/main.rs:1660
+msgid "Updating…"
+msgstr "Обновление…"
+
+#: crates/gui/src/main.rs:1639
+msgid "Update interrupted."
+msgstr "Обновление прервано."
+
+#: crates/gui/src/main.rs:1663
+msgid "Updating… ({done}/{total})"
+msgstr "Обновление… ({done}/{total})"
+
+#: crates/gui/src/main.rs:1732
+msgid "Install without verification?"
+msgstr "Установить без проверки?"
+
+#: crates/gui/src/main.rs:1733
+msgid ""
+"No published sha256 is available to check these downloads, so they were not "
+"installed. Install them anyway only if you trust where they come from."
+msgstr ""
+"Для проверки этих загрузок нет опубликованной суммы sha256, поэтому они не "
+"были установлены. Устанавливайте их, только если доверяете источнику."
+
+#: crates/gui/src/main.rs:1735
+msgid "Install unverified"
+msgstr "Установить без проверки"
+
+#: crates/gui/src/main.rs:1797
+msgid "{count} app"
+msgid_plural "{count} apps"
+msgstr[0] "{count} приложение"
+msgstr[1] "{count} приложения"
+msgstr[2] "{count} приложений"
+
+#: crates/gui/src/main.rs:1800
+msgid "{count} installed"
+msgstr "установлено: {count}"
+
+#: crates/gui/src/main.rs:1868 crates/gui/src/main.rs:2437
+#: crates/gui/src/main.rs:2516 crates/gui/src/main.rs:2596
+#: crates/gui/src/main.rs:2673 crates/gui/src/main.rs:2791
+#: crates/gui/src/main.rs:2821 crates/gui/src/main.rs:2830
+#: crates/gui/src/main.rs:2900
+msgid "Ready"
+msgstr "Готово"
+
+#: crates/gui/src/main.rs:1901 crates/gui/src/main.rs:2095
+msgid "Seed packs not loaded"
+msgstr "Наборы предустановок не загружены"
+
+#: crates/gui/src/main.rs:1917
+msgid "Some seed packs were skipped"
+msgstr "Некоторые наборы предустановок пропущены"
+
+#: crates/gui/src/main.rs:1937
+msgid "No supported installs"
+msgstr "Нет поддерживаемых установок"
+
+#: crates/gui/src/main.rs:1938
+msgid "There are no installed Feather or Electrum instances to seed."
+msgstr ""
+"Нет установленных экземпляров Feather или Electrum для предустановки "
+"настроек."
+
+#: crates/gui/src/main.rs:1969 crates/gui/src/main.rs:1970
+#: crates/gui/src/main.rs:2030
+msgid "Seeding settings…"
+msgstr "Предустановка настроек…"
+
+#: crates/gui/src/main.rs:2011
+msgid "Seed settings interrupted."
+msgstr "Предустановка настроек прервана."
+
+#: crates/gui/src/main.rs:2061
+msgid "Seeding settings… ({done}/{total})"
+msgstr "Предустановка настроек… ({done}/{total})"
+
+#: crates/gui/src/main.rs:2126
+msgid "No installed apps"
+msgstr "Нет установленных приложений"
+
+#: crates/gui/src/main.rs:2127
+msgid "Install at least one app instance before recording a seed pack."
+msgstr ""
+"Перед записью набора предустановок установите хотя бы один экземпляр "
+"приложения."
+
+#: crates/gui/src/main.rs:2145 crates/gui/src/main.rs:2146
+msgid "Capturing baseline…"
+msgstr "Создание исходного снимка…"
+
+#: crates/gui/src/main.rs:2165
+msgid "App “{app}” is not in the catalog."
+msgstr "Приложения «{app}» нет в каталоге."
+
+#: crates/gui/src/main.rs:2229
+msgid "Baseline capture interrupted."
+msgstr "Создание исходного снимка прервано."
+
+#: crates/gui/src/main.rs:2253
+msgid "Baseline capture failed."
+msgstr "Не удалось создать исходный снимок."
+
+#: crates/gui/src/main.rs:2254
+msgid "Baseline capture failed"
+msgstr "Не удалось создать исходный снимок"
+
+#: crates/gui/src/main.rs:2283
+msgid "Baseline captured — configure the app, then diff."
+msgstr ""
+"Исходный снимок создан — настройте приложение, затем сравните изменения."
+
+#: crates/gui/src/main.rs:2299
+msgid "No settings changed."
+msgstr "Настройки не изменились."
+
+#: crates/gui/src/main.rs:2302
+msgid "No changes to record"
+msgstr "Нет изменений для записи"
+
+#: crates/gui/src/main.rs:2303
+msgid "The config is unchanged from the baseline — nothing to capture."
+msgstr "Конфигурация не отличается от исходного снимка — записывать нечего."
+
+#: crates/gui/src/main.rs:2313
+msgid "No keys selected."
+msgstr "Ключи не выбраны."
+
+#: crates/gui/src/main.rs:2329
+msgid "Seed pack written."
+msgstr "Набор предустановок записан."
+
+#: crates/gui/src/main.rs:2332
+msgid "Seed pack written"
+msgstr "Набор предустановок записан"
+
+#: crates/gui/src/main.rs:2335
+msgid "Wrote {count} key to {path}"
+msgid_plural "Wrote {count} keys to {path}"
+msgstr[0] "Записан {count} ключ в {path}"
+msgstr[1] "Записано {count} ключа в {path}"
+msgstr[2] "Записано {count} ключей в {path}"
+
+#: crates/gui/src/main.rs:2344
+msgid "This pack is NOT signed — review it before distributing."
+msgstr "Этот набор НЕ подписан — проверьте его перед распространением."
+
+#: crates/gui/src/main.rs:2349
+msgid "Could not write pack"
+msgstr "Не удалось записать набор"
+
+#: crates/gui/src/main.rs:2360
+msgid "Could not read current config"
+msgstr "Не удалось прочитать текущую конфигурацию"
+
+#: crates/gui/src/main.rs:2401
+msgid "Clean installs?"
+msgstr "Очистить установки?"
+
+#: crates/gui/src/main.rs:2402
+msgid ""
+"Remove installed catalog instances and their managed launchers and icons. "
+"The download cache is kept, so reinstalling is fast."
+msgstr ""
+"Будут удалены установленные экземпляры из каталога вместе с их управляемыми "
+"ярлыками и значками. Кэш загрузок сохранится, поэтому переустановка будет "
+"быстрой."
+
+#: crates/gui/src/main.rs:2407 crates/gui/src/preferences.rs:434
+msgid "Clean"
+msgstr "Очистить"
+
+#: crates/gui/src/main.rs:2416 crates/gui/src/main.rs:2417
+msgid "Cleaning…"
+msgstr "Очистка…"
+
+#: crates/gui/src/main.rs:2445
+msgid "Clean interrupted."
+msgstr "Очистка прервана."
+
+#: crates/gui/src/main.rs:2479
+msgid "Purge all manager state?"
+msgstr "Стереть все служебные данные?"
+
+#: crates/gui/src/main.rs:2480
+msgid ""
+"This removes every install, the download cache, managed launchers, and icon "
+"tiles owned by AppImage Control. App data inside instance home dirs is also "
+"removed."
+msgstr ""
+"Будут удалены все установки, кэш загрузок, управляемые ярлыки и значки, "
+"принадлежащие AppImage Control. Данные приложений в домашних папках "
+"экземпляров также будут удалены."
+
+#: crates/gui/src/main.rs:2486
+msgid "Purge state"
+msgstr "Стереть данные"
+
+#: crates/gui/src/main.rs:2495 crates/gui/src/main.rs:2496
+msgid "Purging…"
+msgstr "Стирание…"
+
+#: crates/gui/src/main.rs:2524
+msgid "Purge interrupted."
+msgstr "Стирание прервано."
+
+#: crates/gui/src/main.rs:2575 crates/gui/src/main.rs:2576
+msgid "Migrating…"
+msgstr "Перенос…"
+
+#: crates/gui/src/main.rs:2604
+msgid "Migration interrupted."
+msgstr "Перенос прерван."
+
+#: crates/gui/src/main.rs:2645
+msgid "Choose backup archive destination"
+msgstr "Выберите, куда сохранить архив резервной копии"
+
+#: crates/gui/src/main.rs:2654 crates/gui/src/main.rs:2655
+msgid "Backing up…"
+msgstr "Резервное копирование…"
+
+#: crates/gui/src/main.rs:2681
+msgid "Backup interrupted."
+msgstr "Резервное копирование прервано."
+
+#: crates/gui/src/main.rs:2718
+msgid "Choose backup archive to restore"
+msgstr "Выберите архив резервной копии для восстановления"
+
+#: crates/gui/src/main.rs:2727 crates/gui/src/main.rs:2728
+msgid "Restoring…"
+msgstr "Восстановление…"
+
+#: crates/gui/src/main.rs:2767
+msgid "Overwrite existing managed state?"
+msgstr "Перезаписать существующие служебные данные?"
+
+#: crates/gui/src/main.rs:2768
+msgid ""
+"Managed state already exists. Force restore and overwrite manager-owned "
+"state?"
+msgstr ""
+"Служебные данные уже существуют. Принудительно восстановить и перезаписать "
+"их?"
+
+#: crates/gui/src/main.rs:2770
+msgid "Overwrite"
+msgstr "Перезаписать"
+
+#: crates/gui/src/main.rs:2772 crates/gui/src/main.rs:2773
+msgid "Restoring (forced)…"
+msgstr "Восстановление (принудительное)…"
+
+#: crates/gui/src/main.rs:2799 crates/gui/src/main.rs:2839
+msgid "Restore interrupted."
+msgstr "Восстановление прервано."
+
+#: crates/gui/src/main.rs:2881 crates/gui/src/main.rs:2882
+msgid "Updating seed packs…"
+msgstr "Обновление наборов предустановок…"
+
+#: crates/gui/src/main.rs:2908
+msgid "Update seed packs interrupted."
+msgstr "Обновление наборов предустановок прервано."
+
+#: crates/gui/src/preferences.rs:31
+msgid "data/catalog.json (auto-detected) · built-in fallback"
+msgstr "data/catalog.json (найден автоматически) · встроенный запасной вариант"
+
+#: crates/gui/src/preferences.rs:70 crates/gui/src/preferences.rs:113
+msgid "General"
+msgstr "Основные"
+
+#: crates/gui/src/preferences.rs:76
+msgid "Storage"
+msgstr "Хранилище"
+
+#: crates/gui/src/preferences.rs:82
+msgid "Network"
+msgstr "Сеть"
+
+#: crates/gui/src/preferences.rs:88
+msgid "Backup"
+msgstr "Резервное копирование"
+
+#: crates/gui/src/preferences.rs:205
+msgid "APPEARANCE"
+msgstr "ОФОРМЛЕНИЕ"
+
+#: crates/gui/src/preferences.rs:210
+msgid "Theme"
+msgstr "Тема"
+
+#: crates/gui/src/preferences.rs:211
+msgid "Follow the system, or force a mode"
+msgstr "Как в системе или выбранный режим"
+
+#: crates/gui/src/preferences.rs:216
+msgid "System"
+msgstr "Системная"
+
+#: crates/gui/src/preferences.rs:217
+msgid "Light"
+msgstr "Светлая"
+
+#: crates/gui/src/preferences.rs:218
+msgid "Dark"
+msgstr "Тёмная"
+
+#: crates/gui/src/preferences.rs:252
+msgid "Compact rows"
+msgstr "Компактные строки"
+
+#: crates/gui/src/preferences.rs:253
+msgid "Tighter launcher grid (applies on reload)"
+msgstr "Более плотная сетка ярлыков (применяется после перезагрузки)"
+
+#: crates/gui/src/preferences.rs:260
+msgid "CATALOG"
+msgstr "КАТАЛОГ"
+
+#: crates/gui/src/preferences.rs:263
+msgid "Catalog file"
+msgstr "Файл каталога"
+
+#: crates/gui/src/preferences.rs:267
+msgid "Open…"
+msgstr "Открыть…"
+
+#: crates/gui/src/preferences.rs:279
+msgid "Reload on focus"
+msgstr "Перезагружать при фокусе"
+
+#: crates/gui/src/preferences.rs:280
+msgid "Re-scan the catalog when the window regains focus"
+msgstr "Перечитывать каталог, когда окно снова получает фокус"
+
+#: crates/gui/src/preferences.rs:287
+msgid "ON LAUNCH"
+msgstr "ПРИ ЗАПУСКЕ"
+
+#: crates/gui/src/preferences.rs:290
+msgid "Check for updates"
+msgstr "Проверять обновления"
+
+#: crates/gui/src/preferences.rs:291
+msgid "Flag apps with a newer upstream release"
+msgstr "Отмечать приложения, у которых вышла новая версия"
+
+#: crates/gui/src/preferences.rs:298
+msgid "Repair launchers automatically"
+msgstr "Автоматически восстанавливать ярлыки"
+
+#: crates/gui/src/preferences.rs:299
+msgid "Recreate any missing .desktop files"
+msgstr "Заново создавать отсутствующие файлы .desktop"
+
+#: crates/gui/src/preferences.rs:311
+msgid "DOWNLOADS"
+msgstr "ЗАГРУЗКИ"
+
+#: crates/gui/src/preferences.rs:316
+msgid "Direct (no proxy)"
+msgstr "Напрямую (без прокси)"
+
+#: crates/gui/src/preferences.rs:316
+msgid "System proxy (Tor)"
+msgstr "Системный прокси (Tor)"
+
+#: crates/gui/src/preferences.rs:318
+msgid "Route through"
+msgstr "Направлять через"
+
+#: crates/gui/src/preferences.rs:319
+msgid "Where AppImage downloads are sent"
+msgstr "Как отправлять загрузки AppImage"
+
+#: crates/gui/src/preferences.rs:342
+msgid "Verify checksums &amp; signatures"
+msgstr "Проверять контрольные суммы и подписи"
+
+#: crates/gui/src/preferences.rs:343
+msgid "Refuse a download that fails verification"
+msgstr "Отклонять загрузки, не прошедшие проверку"
+
+#: crates/gui/src/preferences.rs:358
+msgid "Concurrent downloads"
+msgstr "Одновременные загрузки"
+
+#: crates/gui/src/preferences.rs:359
+msgid "Lower is gentler over Tor"
+msgstr "Меньшее значение бережнее к сети Tor"
+
+#: crates/gui/src/preferences.rs:373
+msgid "SEEDING"
+msgstr "ПРЕДУСТАНОВКА НАСТРОЕК"
+
+#: crates/gui/src/preferences.rs:377
+msgid "Auto-seed new instances"
+msgstr "Автопредустановка для новых экземпляров"
+
+#: crates/gui/src/preferences.rs:378
+msgid "Seed settings right after creating an instance"
+msgstr "Предустанавливать настройки сразу после создания экземпляра"
+
+#: crates/gui/src/preferences.rs:387
+msgctxt "headless runner"
+msgid "Auto"
+msgstr "Авто"
+
+#: crates/gui/src/preferences.rs:392
+msgid "Headless runner"
+msgstr "Запуск без дисплея"
+
+#: crates/gui/src/preferences.rs:419
+msgid "MAINTENANCE"
+msgstr "ОБСЛУЖИВАНИЕ"
+
+#: crates/gui/src/preferences.rs:423
+msgid "Reload catalog now"
+msgstr "Перезагрузить каталог сейчас"
+
+#: crates/gui/src/preferences.rs:424
+msgid "Re-scan and rebuild the list"
+msgstr "Перечитать каталог и перестроить список"
+
+#: crates/gui/src/preferences.rs:431
+msgid "Clean download cache"
+msgstr "Очистить кэш загрузок"
+
+#: crates/gui/src/preferences.rs:432
+msgid "Delete cached AppImage downloads"
+msgstr "Удалить загруженные AppImage из кэша"
+
+#: crates/gui/src/preferences.rs:439
+msgid "Update seed packs"
+msgstr "Обновить наборы предустановок"
+
+#: crates/gui/src/preferences.rs:440
+msgid "Fetch the latest signed seed-pack tarball"
+msgstr "Загрузить последний подписанный архив наборов предустановок"
+
+#: crates/gui/src/preferences.rs:442
+msgid "Update"
+msgstr "Обновить"
+
+#: crates/gui/src/preferences.rs:447
+msgid "Show seed packs"
+msgstr "Показать наборы предустановок"
+
+#: crates/gui/src/preferences.rs:448
+msgid "List loaded seed packs and their sources"
+msgstr "Список загруженных наборов предустановок и их источников"
+
+#: crates/gui/src/preferences.rs:450
+msgid "Show"
+msgstr "Показать"
+
+#: crates/gui/src/preferences.rs:456
+msgid "Import old portable dirs into managed instances"
+msgstr "Импортировать старые переносные папки в управляемые экземпляры"
+
+#: crates/gui/src/preferences.rs:458
+msgid "Migrate"
+msgstr "Перенести"
+
+#: crates/gui/src/preferences.rs:467
+msgid "MANAGER STATE"
+msgstr "СЛУЖЕБНЫЕ ДАННЫЕ"
+
+#: crates/gui/src/preferences.rs:471
+msgid "Back up…"
+msgstr "Создать резервную копию…"
+
+#: crates/gui/src/preferences.rs:472
+msgid "Archive manager state to a file"
+msgstr "Сохранить служебные данные в архив"
+
+#: crates/gui/src/preferences.rs:474
+msgid "Back Up"
+msgstr "Создать копию"
+
+#: crates/gui/src/preferences.rs:480
+msgid "Restore manager state from an archive"
+msgstr "Восстановить служебные данные из архива"
+
+#: crates/gui/src/preferences.rs:482
+msgid "Restore"
+msgstr "Восстановить"
+
+#: crates/gui/src/record_dialog.rs:32 crates/gui/src/record_dialog.rs:153
+#: crates/gui/src/record_dialog.rs:300 crates/gui/src/record_dialog.rs:392
+msgid "Record Seed Pack"
+msgstr "Запись набора предустановок"
+
+#: crates/gui/src/record_dialog.rs:85
+msgctxt "wizard step"
+msgid "Baseline"
+msgstr "Исходный снимок"
+
+#: crates/gui/src/record_dialog.rs:86
+msgctxt "wizard step"
+msgid "Configure"
+msgstr "Настройка"
+
+#: crates/gui/src/record_dialog.rs:87
+msgctxt "wizard step"
+msgid "Review"
+msgstr "Проверка"
+
+#: crates/gui/src/record_dialog.rs:171
+msgid "Record a seed pack"
+msgstr "Запись набора предустановок"
+
+#: crates/gui/src/record_dialog.rs:196
+msgid "App"
+msgstr "Приложение"
+
+#: crates/gui/src/record_dialog.rs:202
+msgid "Instance"
+msgstr "Экземпляр"
+
+#: crates/gui/src/record_dialog.rs:209
+msgid "auto-detected — leave blank to detect at capture time"
+msgstr ""
+"определяется автоматически — оставьте пустым, чтобы определить при создании "
+"снимка"
+
+#: crates/gui/src/record_dialog.rs:215
+msgid "Config path"
+msgstr "Путь к конфигурации"
+
+#: crates/gui/src/record_dialog.rs:234
+msgid "_Capture baseline"
+msgstr "_Создать исходный снимок"
+
+#: crates/gui/src/record_dialog.rs:317
+msgid "Baseline captured"
+msgstr "Исходный снимок создан"
+
+#: crates/gui/src/record_dialog.rs:326
+msgid ""
+"Now launch {app} (instance {number}), change the settings you want the pack "
+"to carry, then quit the app. When it has fully exited, click “Diff "
+"changes”.\n"
+"\n"
+"Launch it with the button below, or from your normal launcher."
+msgstr ""
+"Теперь запустите {app} (экземпляр {number}), измените настройки, которые "
+"должен содержать набор, и закройте приложение. Когда оно полностью завершит "
+"работу, нажмите «Сравнить изменения».\n"
+"\n"
+"Запустите его кнопкой ниже или обычным ярлыком."
+
+#: crates/gui/src/record_dialog.rs:338
+msgid "_Launch app"
+msgstr "_Запустить приложение"
+
+#: crates/gui/src/record_dialog.rs:339
+msgid "_Diff changes"
+msgstr "_Сравнить изменения"
+
+#: crates/gui/src/record_dialog.rs:411
+msgid "Choose which changes to record"
+msgstr "Выберите изменения для записи"
+
+#: crates/gui/src/record_dialog.rs:418
+msgid "diffed"
+msgstr "сравнено"
+
+#: crates/gui/src/record_dialog.rs:426
+msgid ""
+"{added} added · {changed} changed · {removed} removed · {unchanged} unchanged"
+msgstr ""
+"добавлено: {added} · изменено: {changed} · удалено: {removed} · без "
+"изменений: {unchanged}"
+
+#: crates/gui/src/record_dialog.rs:445
+msgid "Changed keys"
+msgstr "Изменённые ключи"
+
+#: crates/gui/src/record_dialog.rs:470
+msgid "new: {value}"
+msgstr "новое: {value}"
+
+#: crates/gui/src/record_dialog.rs:490
+msgid "removed — a static pack cannot delete keys (not recorded)"
+msgstr "удалён — статический набор не может удалять ключи (не записан)"
+
+#: crates/gui/src/record_dialog.rs:510
+msgid "unsigned"
+msgstr "без подписи"
+
+#: crates/gui/src/record_dialog.rs:516
+msgid "Saved as a static-only pack to your per-user seeds dir."
+msgstr "Сохраняется как статический набор в вашу личную папку предустановок."
+
+#: crates/gui/src/record_dialog.rs:527
+msgid "_Back"
+msgstr "_Назад"
+
+#: crates/gui/src/record_dialog.rs:528
+msgid "_Save pack"
+msgstr "_Сохранить набор"
+
+#: crates/gui/src/record_dialog.rs:634
+msgid "Save seed pack"
+msgstr "Сохранение набора предустановок"
+
+#: crates/gui/src/seed_dialog.rs:46
+msgid "Writes each app's first-run settings"
+msgstr "Записывает настройки первого запуска для каждого приложения"
+
+#: crates/gui/src/seed_dialog.rs:73
+msgid "APPS TO SEED"
+msgstr "ПРИЛОЖЕНИЯ ДЛЯ ПРЕДУСТАНОВКИ"
+
+#: crates/gui/src/seed_dialog.rs:76
+msgid "SAVED CONFIGURATIONS"
+msgstr "СОХРАНЁННЫЕ КОНФИГУРАЦИИ"
+
+#: crates/gui/src/seed_dialog.rs:129 crates/gui/src/seed_dialog.rs:137
+msgid "Seed Settings"
+msgstr "Предустановка настроек"
+
+#: crates/gui/src/seed_dialog.rs:200
+msgid "{count} installed instance"
+msgid_plural "{count} installed instances"
+msgstr[0] "{count} установленный экземпляр"
+msgstr[1] "{count} установленных экземпляра"
+msgstr[2] "{count} установленных экземпляров"
+
+#: crates/gui/src/seed_dialog.rs:241
+msgid "Supported"
+msgstr "Поддерживается"
+
+#: crates/gui/src/seed_dialog.rs:244
+msgid "No instances"
+msgstr "Нет экземпляров"
+
+#: crates/gui/src/seed_dialog.rs:305
+msgid "+ Save current…"
+msgstr "+ Сохранить текущую…"
+
+#: crates/gui/src/seed_dialog.rs:346
+msgid "Could not save form"
+msgstr "Не удалось сохранить форму"
+
+#: crates/gui/src/seed_dialog.rs:348
+msgid "Invalid name"
+msgstr "Недопустимое имя"
+
+#: crates/gui/src/seed_dialog.rs:390
+msgid "Delete this saved configuration"
+msgstr "Удалить эту сохранённую конфигурацию"
+
+#: crates/gui/src/seed_dialog.rs:415
+msgid "Could not load saved form"
+msgstr "Не удалось загрузить сохранённую форму"
+
+#: crates/gui/src/seed_dialog.rs:430
+msgid "Could not delete form"
+msgstr "Не удалось удалить форму"
+
+#: crates/gui/src/seed_dialog.rs:464 crates/gui/src/seed_dialog.rs:487
+msgid "Seed {count} app"
+msgid_plural "Seed {count} apps"
+msgstr[0] "Предустановить: {count} приложение"
+msgstr[1] "Предустановить: {count} приложения"
+msgstr[2] "Предустановить: {count} приложений"
+
+#: crates/gui/src/seed_dialog.rs:492
+msgid "{count} app selected"
+msgid_plural "{count} apps selected"
+msgstr[0] "Выбрано {count} приложение"
+msgstr[1] "Выбрано {count} приложения"
+msgstr[2] "Выбрано {count} приложений"
+
+#: crates/gui/src/seed_dialog.rs:510
+msgid "Save configuration"
+msgstr "Сохранение конфигурации"
+
+#: crates/gui/src/seed_dialog.rs:511
+msgid "Name this configuration for later recall."
+msgstr "Дайте конфигурации имя, чтобы использовать её позже."
+
+#: crates/gui/src/seed_dialog.rs:516
+msgid "e.g. weekday-feather"
+msgstr "например, weekday-feather"
+
+#: crates/gui/src/seed_dialog.rs:521
+msgid "_Save"
+msgstr "_Сохранить"
+
+#: crates/gui/src/seed_dialog.rs:555
+msgid "_OK"
+msgstr "_ОК"
+
+#: crates/gui/src/status_text.rs:10
+msgid "No installed instances to update."
+msgstr "Нет установленных экземпляров для обновления."
+
+#: crates/gui/src/status_text.rs:16
+msgid ""
+"{failed} failed, {updated} updated, {unchanged} unchanged, {skipped} skipped "
+"as already catalog (see log)."
+msgstr ""
+"Ошибок: {failed}, обновлено: {updated}, без изменений: {unchanged}, "
+"пропущено как уже соответствующие каталогу: {skipped} (см. журнал)."
+
+#: crates/gui/src/status_text.rs:28
+msgid "Updated {count} instance"
+msgid_plural "Updated {count} instances"
+msgstr[0] "Обновлён {count} экземпляр"
+msgstr[1] "Обновлено {count} экземпляра"
+msgstr[2] "Обновлено {count} экземпляров"
+
+#: crates/gui/src/status_text.rs:36
+msgid "{count} unchanged after update"
+msgstr "без изменений после обновления: {count}"
+
+#: crates/gui/src/status_text.rs:42
+msgid "{count} skipped (already catalog)"
+msgstr "пропущено (уже версия из каталога): {count}"
+
+#: crates/gui/src/status_text.rs:50
+msgid ""
+"{skipped} skipped (already catalog); {checked} checked with no binary change."
+msgstr ""
+"Пропущено (уже версия из каталога): {skipped}; проверено без замены "
+"исполняемого файла: {checked}."
+
+#: crates/gui/src/status_text.rs:60
+msgid "The {count} instance already matched the catalog (nothing to fetch)."
+msgid_plural ""
+"All {count} instances already matched the catalog (nothing to fetch)."
+msgstr[0] "{count} экземпляр уже соответствует каталогу (загружать нечего)."
+msgstr[1] ""
+"Все {count} экземпляра уже соответствуют каталогу (загружать нечего)."
+msgstr[2] ""
+"Все {count} экземпляров уже соответствуют каталогу (загружать нечего)."
+
+#: crates/gui/src/status_text.rs:69
+msgid "Checked {count} instance; no AppImage replacement was needed."
+msgid_plural "Checked {count} instances; no AppImage replacement was needed."
+msgstr[0] "Проверен {count} экземпляр; замена AppImage не потребовалась."
+msgstr[1] "Проверено {count} экземпляра; замена AppImage не потребовалась."
+msgstr[2] "Проверено {count} экземпляров; замена AppImage не потребовалась."
+
+#: crates/gui/src/status_text.rs:80
+msgid "{failed} failed, {seeded} completed."
+msgstr "Ошибок: {failed}, выполнено: {seeded}."
+
+#: crates/gui/src/status_text.rs:86
+msgid "Seeded {count} instance."
+msgid_plural "Seeded {count} instances."
+msgstr[0] "Настройки предустановлены для {count} экземпляра."
+msgstr[1] "Настройки предустановлены для {count} экземпляров."
+msgstr[2] "Настройки предустановлены для {count} экземпляров."
+
+#: crates/gui/src/status_text.rs:93
+msgid "No supported installed instances to seed."
+msgstr ""
+"Нет поддерживаемых установленных экземпляров для предустановки настроек."
+
+#: crates/gui/src/status_text.rs:112
+msgid "{count} app failed"
+msgid_plural "{count} apps failed"
+msgstr[0] "{count} приложение с ошибкой"
+msgstr[1] "{count} приложения с ошибкой"
+msgstr[2] "{count} приложений с ошибкой"
+
+#: crates/gui/src/status_text.rs:119
+msgid "{count} instance NOT seeded"
+msgid_plural "{count} instances NOT seeded"
+msgstr[0] "Для {count} экземпляра настройки НЕ предустановлены"
+msgstr[1] "Для {count} экземпляров настройки НЕ предустановлены"
+msgstr[2] "Для {count} экземпляров настройки НЕ предустановлены"
+
+#: crates/gui/src/status_text.rs:127
+msgid "Applied."
+msgstr "Применено."
+
+#: crates/gui/src/status_text.rs:129 crates/gui/src/status_text.rs:133
+#: crates/gui/src/status_text.rs:137
+msgid "Applied — {problems} (see the activity log)"
+msgstr "Применено — {problems} (см. журнал действий)"
+
+#: crates/gui/src/status_text.rs:155
+msgid "Last Apply: {count} app not installed"
+msgid_plural "Last Apply: {count} apps not installed"
+msgstr[0] "Последнее применение: {count} приложение не установлено"
+msgstr[1] "Последнее применение: {count} приложения не установлены"
+msgstr[2] "Последнее применение: {count} приложений не установлено"
+
+#: crates/gui/src/status_text.rs:161
+msgid "See the activity log for why"
+msgstr "Причины — в журнале действий"
+
+#: crates/gui/src/status_text.rs:170
+msgid "Add a download_url in the catalog to enable installs."
+msgstr "Чтобы включить установку, добавьте download_url в каталог."
+
+#: crates/gui/src/status_text.rs:173
+msgid ""
+"No AppImage URL for this system ({arch}) — installs are disabled for this "
+"app."
+msgstr ""
+"Нет URL AppImage для этой системы ({arch}) — установка этого приложения "
+"отключена."

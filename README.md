@@ -198,6 +198,38 @@ GTK interface work in this repository follows:
 
 Treat this as the primary UI guideline for AppImage Control surfaces.
 
+## Translations
+
+The GUI is translated into German, Spanish, French, Italian, Japanese, Polish,
+Portuguese (Brazil), Russian, Turkish, Ukrainian and Chinese (Simplified). The
+launcher entry and the app store description are translated too. The CLI and
+the activity log stay in English, so scripts can rely on their text.
+
+The language follows `LANGUAGE`, then `LC_ALL`, `LC_MESSAGES` and `LANG`.
+Portuguese from Portugal gets the Brazilian text. Chinese in Traditional script
+(`zh_TW`, `zh_HK`) stays English. To try one:
+
+```bash
+LANGUAGE=uk appimage-control
+```
+
+The catalogs are standard gettext files in `po/`, built into the binary, so
+nothing has to be installed next to it. The current translations are machine
+translations that no native speaker has reviewed yet. Corrections are welcome.
+
+To change GUI text or a translation:
+
+1. Wrap user-visible GUI text in `tr`, `trc` (with a context) or `ntr` (with a
+   count), from `crates/gui/src/i18n.rs`. Pass plain one-line string literals.
+2. Run `scripts/update-po.sh`. It refreshes `po/appimage-control.pot` and
+   merges it into every `po/<lang>.po`.
+3. Translate the new or changed entries in each `po/<lang>.po`.
+4. Run `cargo test -p appimage-control`. A test fails if any catalog misses an
+   entry, loses a `{placeholder}`, or has the wrong number of plural forms.
+
+To add a language, add its code to `po/LINGUAS` and to `CATALOGS` and
+`plural_index` in `crates/gui/src/i18n.rs`, then run `scripts/update-po.sh`.
+
 ## App ID and Desktop Metadata
 
 Canonical application ID:

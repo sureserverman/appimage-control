@@ -1,0 +1,1319 @@
+# Turkish translations for appimage-control package.
+# Copyright (C) 2026 THE appimage-control'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the appimage-control package.
+# Machine translation (Claude), 2026. Not yet reviewed by a native speaker.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: appimage-control\n"
+"Report-Msgid-Bugs-To: https://github.com/sureserverman/appimage-control/"
+"issues\n"
+"POT-Creation-Date: 2026-11-06 10:27+0000\n"
+"PO-Revision-Date: 2026-11-06 10:15+0000\n"
+"Last-Translator: Machine translation (Claude), not yet reviewed by a native "
+"speaker\n"
+"Language-Team: none\n"
+"Language: tr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: crates/gui/src/actions.rs:73
+msgid "Update All Installed"
+msgstr "Kurulu Olanların Tümünü Güncelle"
+
+#: crates/gui/src/actions.rs:74
+msgid "Seed Settings…"
+msgstr "Ön Ayarlama…"
+
+#: crates/gui/src/actions.rs:75
+msgid "Record Seed Pack…"
+msgstr "Ön Ayar Paketi Oluştur…"
+
+#: crates/gui/src/actions.rs:79
+msgid "Repair Launchers"
+msgstr "Başlatıcıları Onar"
+
+#: crates/gui/src/actions.rs:80
+msgid "Back Up…"
+msgstr "Yedekle…"
+
+#: crates/gui/src/actions.rs:81 crates/gui/src/preferences.rs:479
+msgid "Restore…"
+msgstr "Geri Yükle…"
+
+#: crates/gui/src/actions.rs:85
+msgid "Clean Download Cache"
+msgstr "İndirme Önbelleğini Temizle"
+
+#: crates/gui/src/actions.rs:86
+msgid "Remove All Instances…"
+msgstr "Tüm Örnekleri Kaldır…"
+
+#: crates/gui/src/actions.rs:87
+msgid "Purge Everything…"
+msgstr "Her Şeyi Tamamen Sil…"
+
+#: crates/gui/src/actions.rs:91 crates/gui/src/main.rs:328
+#: crates/gui/src/preferences.rs:53 crates/gui/src/preferences.rs:139
+msgid "Preferences"
+msgstr "Tercihler"
+
+#: crates/gui/src/actions.rs:92 crates/gui/src/main.rs:335
+msgid "Keyboard Shortcuts"
+msgstr "Klavye Kısayolları"
+
+#: crates/gui/src/actions.rs:93
+msgid "About AppImage Control"
+msgstr "AppImage Control Hakkında"
+
+#: crates/gui/src/dialogs.rs:116 crates/gui/src/dialogs.rs:649
+#: crates/gui/src/record_dialog.rs:232 crates/gui/src/record_dialog.rs:335
+#: crates/gui/src/seed_dialog.rs:458 crates/gui/src/seed_dialog.rs:520
+msgid "_Cancel"
+msgstr "_İptal"
+
+#: crates/gui/src/dialogs.rs:165 crates/gui/src/dialogs.rs:513
+#: crates/gui/src/dialogs.rs:514 crates/gui/src/dialogs.rs:515
+#: crates/gui/src/dialogs.rs:516
+msgid "Activity log"
+msgstr "Etkinlik günlüğü"
+
+#: crates/gui/src/dialogs.rs:236
+msgid "{count} line"
+msgid_plural "{count} lines"
+msgstr[0] "{count} satır"
+msgstr[1] "{count} satır"
+
+#: crates/gui/src/dialogs.rs:240 crates/gui/src/dialogs.rs:522
+msgid "{count} error"
+msgid_plural "{count} errors"
+msgstr[0] "{count} hata"
+msgstr[1] "{count} hata"
+
+#: crates/gui/src/dialogs.rs:254
+msgid "Wrap"
+msgstr "Kaydır"
+
+#: crates/gui/src/dialogs.rs:255
+msgid "Wrap long lines"
+msgstr "Uzun satırları kaydır"
+
+#: crates/gui/src/dialogs.rs:259
+msgid "Copy"
+msgstr "Kopyala"
+
+#: crates/gui/src/dialogs.rs:260
+msgid "Copy log to clipboard"
+msgstr "Günlüğü panoya kopyala"
+
+#: crates/gui/src/dialogs.rs:264
+msgid "Save…"
+msgstr "Kaydet…"
+
+#: crates/gui/src/dialogs.rs:265
+msgid "Save log to a file"
+msgstr "Günlüğü bir dosyaya kaydet"
+
+#: crates/gui/src/dialogs.rs:342
+msgid "Save activity log"
+msgstr "Etkinlik günlüğünü kaydet"
+
+#: crates/gui/src/dialogs.rs:344 crates/gui/src/record_dialog.rs:637
+msgid "Save"
+msgstr "Kaydet"
+
+#: crates/gui/src/dialogs.rs:345 crates/gui/src/dialogs.rs:580
+#: crates/gui/src/record_dialog.rs:638
+msgid "Cancel"
+msgstr "İptal"
+
+#: crates/gui/src/dialogs.rs:378
+msgid "_Close"
+msgstr "_Kapat"
+
+#: crates/gui/src/dialogs.rs:442
+msgid "Success"
+msgstr "Başarılı"
+
+#: crates/gui/src/dialogs.rs:443
+msgid "Warnings"
+msgstr "Uyarılar"
+
+#: crates/gui/src/dialogs.rs:444
+msgid "Errors"
+msgstr "Hatalar"
+
+#: crates/gui/src/dialogs.rs:445
+msgid "Info"
+msgstr "Bilgi"
+
+#: crates/gui/src/dialogs.rs:529
+msgid "{count} warning"
+msgid_plural "{count} warnings"
+msgstr[0] "{count} uyarı"
+msgstr[1] "{count} uyarı"
+
+#: crates/gui/src/dialogs.rs:537
+msgid "{count} success"
+msgid_plural "{count} successes"
+msgstr[0] "{count} başarılı"
+msgstr[1] "{count} başarılı"
+
+#: crates/gui/src/dialogs.rs:556
+msgid "{count} successful step"
+msgid_plural "{count} successful steps"
+msgstr[0] "{count} başarılı adım"
+msgstr[1] "{count} başarılı adım"
+
+#: crates/gui/src/dialogs.rs:563
+msgid "{count} log line"
+msgid_plural "{count} log lines"
+msgstr[0] "{count} günlük satırı"
+msgstr[1] "{count} günlük satırı"
+
+#: crates/gui/src/dialogs.rs:579
+msgid "Select"
+msgstr "Seç"
+
+#: crates/gui/src/dialogs.rs:627 crates/gui/src/preferences.rs:455
+msgid "Migrate legacy directories"
+msgstr "Eski dizinleri taşı"
+
+#: crates/gui/src/dialogs.rs:629
+msgid ""
+"Choose how to handle destination conflicts when a managed slot is already "
+"occupied."
+msgstr ""
+"Yönetilen bir yuva zaten doluysa hedef çakışmalarının nasıl çözüleceğini "
+"seçin."
+
+#: crates/gui/src/dialogs.rs:637
+msgid ""
+"This strategy is applied uniformly to every conflict in the run. The "
+"migration can be cancelled after this dialog."
+msgstr ""
+"Bu strateji, bu çalıştırmadaki her çakışmaya aynı şekilde uygulanır. Taşıma, "
+"bu iletişim kutusundan sonra iptal edilebilir."
+
+#: crates/gui/src/dialogs.rs:650
+msgid "Replace existing"
+msgstr "Mevcut olanı değiştir"
+
+#: crates/gui/src/dialogs.rs:651
+msgid "Add as new instance"
+msgstr "Yeni örnek olarak ekle"
+
+#: crates/gui/src/dialogs.rs:652
+msgid "Skip conflicting"
+msgstr "Çakışanları atla"
+
+#: crates/gui/src/main.rs:111
+msgctxt "category"
+msgid "AI Tools"
+msgstr "Yapay Zekâ Araçları"
+
+#: crates/gui/src/main.rs:112
+msgctxt "category"
+msgid "Messengers"
+msgstr "Mesajlaşma"
+
+#: crates/gui/src/main.rs:113
+msgctxt "category"
+msgid "Notes"
+msgstr "Notlar"
+
+#: crates/gui/src/main.rs:114
+msgctxt "category"
+msgid "Security"
+msgstr "Güvenlik"
+
+#: crates/gui/src/main.rs:115
+msgctxt "category"
+msgid "Wallets"
+msgstr "Cüzdanlar"
+
+#: crates/gui/src/main.rs:116
+msgctxt "category"
+msgid "Other"
+msgstr "Diğer"
+
+#: crates/gui/src/main.rs:126
+msgid "{size} GB"
+msgstr "{size} GB"
+
+#: crates/gui/src/main.rs:128 crates/gui/src/main.rs:130
+msgid "{size} MB"
+msgstr "{size} MB"
+
+#: crates/gui/src/main.rs:172
+msgid "single instance"
+msgstr "tek örnek"
+
+#. TRANSLATORS: a status badge on an app card: an update is available.
+#: crates/gui/src/main.rs:187
+msgctxt "status badge"
+msgid "Update"
+msgstr "Güncelleme"
+
+#: crates/gui/src/main.rs:189
+msgid "An upstream update is available"
+msgstr "Üst kaynakta bir güncelleme var"
+
+#: crates/gui/src/main.rs:191
+msgid "Installed"
+msgstr "Kurulu"
+
+#. TRANSLATORS: {version} is an app version, like "v2.8.1".
+#: crates/gui/src/main.rs:195
+msgid "{version} installed"
+msgstr "{version} kurulu"
+
+#: crates/gui/src/main.rs:196
+msgid "Instances installed"
+msgstr "Örnekler kurulu"
+
+#: crates/gui/src/main.rs:200 crates/gui/src/main.rs:844
+msgid "Available"
+msgstr "Kullanılabilir"
+
+#: crates/gui/src/main.rs:202
+msgid "Nothing installed yet"
+msgstr "Henüz hiçbir şey kurulmadı"
+
+#: crates/gui/src/main.rs:207
+msgid "no instances"
+msgstr "örnek yok"
+
+#: crates/gui/src/main.rs:209 crates/gui/src/main.rs:1217
+msgid "{count} instance"
+msgid_plural "{count} instances"
+msgstr[0] "{count} örnek"
+msgstr[1] "{count} örnek"
+
+#: crates/gui/src/main.rs:232
+msgid "Remove an instance"
+msgstr "Bir örnek kaldır"
+
+#: crates/gui/src/main.rs:253
+msgid "You can't use more than one instance of {app}."
+msgid_plural "You can't use more than {count} instances of {app}."
+msgstr[0] "{app} uygulamasının birden fazla örneğini kullanamazsınız."
+msgstr[1] "{app} uygulamasının {count} örnekten fazlasını kullanamazsınız."
+
+#: crates/gui/src/main.rs:262
+msgid "Maximum instances reached"
+msgstr "En fazla örnek sayısına ulaşıldı"
+
+#: crates/gui/src/main.rs:265
+msgid "Add an instance"
+msgstr "Bir örnek ekle"
+
+#: crates/gui/src/main.rs:327
+msgid "Update all installed"
+msgstr "Kurulu olanların tümünü güncelle"
+
+#: crates/gui/src/main.rs:329
+msgid "Keyboard shortcuts"
+msgstr "Klavye kısayolları"
+
+#: crates/gui/src/main.rs:330
+msgid "Reload catalog"
+msgstr "Kataloğu yeniden yükle"
+
+#: crates/gui/src/main.rs:331
+msgid "Close window"
+msgstr "Pencereyi kapat"
+
+#: crates/gui/src/main.rs:336
+msgid "Close"
+msgstr "Kapat"
+
+#: crates/gui/src/main.rs:353
+msgid ""
+"Manage a catalog of apps and the number of isolated AppImage instances to "
+"keep for each."
+msgstr ""
+"Bir uygulama kataloğunu ve her uygulama için tutulacak yalıtılmış AppImage "
+"örneklerinin sayısını yönetin."
+
+#. TRANSLATORS: put your name here, one per line, to be credited in the About window.
+#: crates/gui/src/main.rs:356
+msgid "translator-credits"
+msgstr "Makine çevirisi, henüz gözden geçirilmedi"
+
+#: crates/gui/src/main.rs:369
+msgid ""
+"The app could not determine your home directory, so managed installs cannot "
+"be used."
+msgstr ""
+"Uygulama ev dizininizi belirleyemedi, bu nedenle yönetilen kurulumlar "
+"kullanılamıyor."
+
+#: crates/gui/src/main.rs:454 crates/gui/src/main.rs:675
+msgid "Main Menu"
+msgstr "Ana Menü"
+
+#: crates/gui/src/main.rs:467
+msgid ""
+"No catalog loaded — load one first.\n"
+"Use the Reload button or Open Catalog… to recover.\n"
+msgstr ""
+"Katalog yüklenmedi — önce bir katalog yükleyin.\n"
+"Düzeltmek için Yeniden Yükle düğmesini ya da Katalog Aç… seçeneğini "
+"kullanın.\n"
+
+#: crates/gui/src/main.rs:505
+msgid "No catalog loaded"
+msgstr "Katalog yüklenmedi"
+
+#: crates/gui/src/main.rs:507
+msgid ""
+"AppImage Control couldn’t find an application catalog. Open one, or set "
+"APPIMAGE_CONTROL_CATALOG to a catalog file."
+msgstr ""
+"AppImage Control bir uygulama kataloğu bulamadı. Bir katalog açın ya da "
+"APPIMAGE_CONTROL_CATALOG değişkenini bir katalog dosyasına ayarlayın."
+
+#: crates/gui/src/main.rs:520
+msgid ""
+"Search order:\n"
+"  1. APPIMAGE_CONTROL_CATALOG environment variable\n"
+"  2. data/catalog.json above a dev build (cargo target/ dir only)\n"
+"  3. /app/share/, /usr/share/appimage-control/catalog.json\n"
+"  4. catalog compiled into this build"
+msgstr ""
+"Arama sırası:\n"
+"  1. APPIMAGE_CONTROL_CATALOG ortam değişkeni\n"
+"  2. Geliştirme derlemesinin üstündeki data/catalog.json (yalnızca cargo "
+"target/ dizini)\n"
+"  3. /app/share/, /usr/share/appimage-control/catalog.json\n"
+"  4. Bu derlemeye gömülü katalog"
+
+#: crates/gui/src/main.rs:537
+msgid "Open Catalog…"
+msgstr "Katalog Aç…"
+
+#: crates/gui/src/main.rs:539 crates/gui/src/preferences.rs:426
+msgid "Reload"
+msgstr "Yeniden Yükle"
+
+#: crates/gui/src/main.rs:553 crates/gui/src/main.rs:1834
+msgid "Choose catalog.json"
+msgstr "catalog.json dosyasını seçin"
+
+#. TRANSLATORS: filter buttons above the app grid: show all apps, installed apps,
+#. or apps with an update.
+#: crates/gui/src/main.rs:650
+msgctxt "filter"
+msgid "All"
+msgstr "Tümü"
+
+#: crates/gui/src/main.rs:651
+msgctxt "filter"
+msgid "Installed"
+msgstr "Kurulu"
+
+#: crates/gui/src/main.rs:652
+msgctxt "filter"
+msgid "Updates"
+msgstr "Güncellemeler"
+
+#: crates/gui/src/main.rs:669
+msgid "Search"
+msgstr "Ara"
+
+#: crates/gui/src/main.rs:682 crates/gui/src/main.rs:941
+msgid "Apply"
+msgstr "Uygula"
+
+#: crates/gui/src/main.rs:683
+msgid "Apply pending instance count changes"
+msgstr "Bekleyen örnek sayısı değişikliklerini uygula"
+
+#: crates/gui/src/main.rs:690
+msgid "Update all"
+msgstr "Tümünü güncelle"
+
+#: crates/gui/src/main.rs:693
+msgid ""
+"Update installed instances: skips when already at the newest known version "
+"(catalog and GitHub releases/latest). Otherwise runs appimageupdatetool, "
+"then downloads the catalog AppImage or—if GitHub’s latest tag is newer than "
+"the catalog URL—a matching .AppImage from that release."
+msgstr ""
+"Kurulu örnekleri günceller: zaten bilinen en yeni sürümdeyse (katalog ve "
+"GitHub releases/latest) atlar. Aksi hâlde appimageupdatetool çalıştırır, "
+"ardından katalogdaki AppImage dosyasını ya da—GitHub’daki en son etiket "
+"katalog URL’sinden daha yeniyse—o sürümden eşleşen bir .AppImage dosyasını "
+"indirir."
+
+#: crates/gui/src/main.rs:727 crates/gui/src/status_text.rs:148
+msgid "All changes applied"
+msgstr "Tüm değişiklikler uygulandı"
+
+#: crates/gui/src/main.rs:734 crates/gui/src/status_text.rs:149
+msgid "Nothing pending — you're up to date"
+msgstr "Bekleyen bir şey yok — her şey güncel"
+
+#. TRANSLATORS: the Apply button, with the number of apps it will change.
+#: crates/gui/src/main.rs:939
+msgid "Apply ({count})"
+msgstr "Uygula ({count})"
+
+#: crates/gui/src/main.rs:948
+msgid "{count} app changing"
+msgid_plural "{count} apps changing"
+msgstr[0] "{count} uygulama değişecek"
+msgstr[1] "{count} uygulama değişecek"
+
+#: crates/gui/src/main.rs:958
+msgid "+{count} instance"
+msgid_plural "+{count} instances"
+msgstr[0] "+{count} örnek"
+msgstr[1] "+{count} örnek"
+
+#: crates/gui/src/main.rs:966
+msgid "−{count} instance"
+msgid_plural "−{count} instances"
+msgstr[0] "−{count} örnek"
+msgstr[1] "−{count} örnek"
+
+#: crates/gui/src/main.rs:1208
+msgid "instance {number}"
+msgstr "örnek {number}"
+
+#: crates/gui/src/main.rs:1212
+msgid "instances {first}–{last}"
+msgstr "örnek {first}–{last}"
+
+#: crates/gui/src/main.rs:1238
+msgid "Remove instance data?"
+msgstr "Örnek verileri kaldırılsın mı?"
+
+#: crates/gui/src/main.rs:1239
+msgid ""
+"Lowering the instance count will permanently delete the home directory data "
+"for the removed instances. This cannot be undone."
+msgstr ""
+"Örnek sayısını düşürmek, kaldırılan örneklerin ev dizini verilerini kalıcı "
+"olarak siler. Bu işlem geri alınamaz."
+
+#: crates/gui/src/main.rs:1241
+msgid "Remove and Apply"
+msgstr "Kaldır ve Uygula"
+
+#: crates/gui/src/main.rs:1274 crates/gui/src/main.rs:1275
+#: crates/gui/src/main.rs:1391
+msgid "Working…"
+msgstr "İşleniyor…"
+
+#: crates/gui/src/main.rs:1365
+msgid "Apply interrupted."
+msgstr "Uygula işlemi kesildi."
+
+#: crates/gui/src/main.rs:1395
+msgid "Working… (0 of {total})"
+msgstr "İşleniyor… (0/{total})"
+
+#: crates/gui/src/main.rs:1476
+msgid "Working… ({done}/{total}): {app}"
+msgstr "İşleniyor… ({done}/{total}): {app}"
+
+#: crates/gui/src/main.rs:1543 crates/gui/src/main.rs:1544
+#: crates/gui/src/main.rs:1660
+msgid "Updating…"
+msgstr "Güncelleniyor…"
+
+#: crates/gui/src/main.rs:1639
+msgid "Update interrupted."
+msgstr "Güncelleme kesildi."
+
+#: crates/gui/src/main.rs:1663
+msgid "Updating… ({done}/{total})"
+msgstr "Güncelleniyor… ({done}/{total})"
+
+#: crates/gui/src/main.rs:1732
+msgid "Install without verification?"
+msgstr "Doğrulama olmadan kurulsun mu?"
+
+#: crates/gui/src/main.rs:1733
+msgid ""
+"No published sha256 is available to check these downloads, so they were not "
+"installed. Install them anyway only if you trust where they come from."
+msgstr ""
+"Bu indirmeleri denetlemek için yayımlanmış bir sha256 yok, bu yüzden "
+"kurulmadılar. Bunları yalnızca kaynaklarına güveniyorsanız yine de kurun."
+
+#: crates/gui/src/main.rs:1735
+msgid "Install unverified"
+msgstr "Doğrulamadan kur"
+
+#: crates/gui/src/main.rs:1797
+msgid "{count} app"
+msgid_plural "{count} apps"
+msgstr[0] "{count} uygulama"
+msgstr[1] "{count} uygulama"
+
+#: crates/gui/src/main.rs:1800
+msgid "{count} installed"
+msgstr "{count} kurulu"
+
+#: crates/gui/src/main.rs:1868 crates/gui/src/main.rs:2437
+#: crates/gui/src/main.rs:2516 crates/gui/src/main.rs:2596
+#: crates/gui/src/main.rs:2673 crates/gui/src/main.rs:2791
+#: crates/gui/src/main.rs:2821 crates/gui/src/main.rs:2830
+#: crates/gui/src/main.rs:2900
+msgid "Ready"
+msgstr "Hazır"
+
+#: crates/gui/src/main.rs:1901 crates/gui/src/main.rs:2095
+msgid "Seed packs not loaded"
+msgstr "Ön ayar paketleri yüklenmedi"
+
+#: crates/gui/src/main.rs:1917
+msgid "Some seed packs were skipped"
+msgstr "Bazı ön ayar paketleri atlandı"
+
+#: crates/gui/src/main.rs:1937
+msgid "No supported installs"
+msgstr "Desteklenen kurulum yok"
+
+#: crates/gui/src/main.rs:1938
+msgid "There are no installed Feather or Electrum instances to seed."
+msgstr "Ön ayarlanacak kurulu Feather veya Electrum örneği yok."
+
+#: crates/gui/src/main.rs:1969 crates/gui/src/main.rs:1970
+#: crates/gui/src/main.rs:2030
+msgid "Seeding settings…"
+msgstr "Ön ayarlanıyor…"
+
+#: crates/gui/src/main.rs:2011
+msgid "Seed settings interrupted."
+msgstr "Ön ayarlama kesildi."
+
+#: crates/gui/src/main.rs:2061
+msgid "Seeding settings… ({done}/{total})"
+msgstr "Ön ayarlanıyor… ({done}/{total})"
+
+#: crates/gui/src/main.rs:2126
+msgid "No installed apps"
+msgstr "Kurulu uygulama yok"
+
+#: crates/gui/src/main.rs:2127
+msgid "Install at least one app instance before recording a seed pack."
+msgstr "Ön ayar paketi oluşturmadan önce en az bir uygulama örneği kurun."
+
+#: crates/gui/src/main.rs:2145 crates/gui/src/main.rs:2146
+msgid "Capturing baseline…"
+msgstr "Temel durum alınıyor…"
+
+#: crates/gui/src/main.rs:2165
+msgid "App “{app}” is not in the catalog."
+msgstr "“{app}” uygulaması katalogda yok."
+
+#: crates/gui/src/main.rs:2229
+msgid "Baseline capture interrupted."
+msgstr "Temel durum alma kesildi."
+
+#: crates/gui/src/main.rs:2253
+msgid "Baseline capture failed."
+msgstr "Temel durum alınamadı."
+
+#: crates/gui/src/main.rs:2254
+msgid "Baseline capture failed"
+msgstr "Temel durum alınamadı"
+
+#: crates/gui/src/main.rs:2283
+msgid "Baseline captured — configure the app, then diff."
+msgstr ""
+"Temel durum alındı — uygulamayı yapılandırın, ardından değişiklikleri "
+"karşılaştırın."
+
+#: crates/gui/src/main.rs:2299
+msgid "No settings changed."
+msgstr "Hiçbir ayar değişmedi."
+
+#: crates/gui/src/main.rs:2302
+msgid "No changes to record"
+msgstr "Kaydedilecek değişiklik yok"
+
+#: crates/gui/src/main.rs:2303
+msgid "The config is unchanged from the baseline — nothing to capture."
+msgstr "Yapılandırma temel durumdan farklı değil — alınacak bir şey yok."
+
+#: crates/gui/src/main.rs:2313
+msgid "No keys selected."
+msgstr "Hiçbir anahtar seçilmedi."
+
+#: crates/gui/src/main.rs:2329
+msgid "Seed pack written."
+msgstr "Ön ayar paketi yazıldı."
+
+#: crates/gui/src/main.rs:2332
+msgid "Seed pack written"
+msgstr "Ön ayar paketi yazıldı"
+
+#: crates/gui/src/main.rs:2335
+msgid "Wrote {count} key to {path}"
+msgid_plural "Wrote {count} keys to {path}"
+msgstr[0] "{path} konumuna {count} anahtar yazıldı"
+msgstr[1] "{path} konumuna {count} anahtar yazıldı"
+
+#: crates/gui/src/main.rs:2344
+msgid "This pack is NOT signed — review it before distributing."
+msgstr "Bu paket İMZALI DEĞİL — dağıtmadan önce gözden geçirin."
+
+#: crates/gui/src/main.rs:2349
+msgid "Could not write pack"
+msgstr "Paket yazılamadı"
+
+#: crates/gui/src/main.rs:2360
+msgid "Could not read current config"
+msgstr "Geçerli yapılandırma okunamadı"
+
+#: crates/gui/src/main.rs:2401
+msgid "Clean installs?"
+msgstr "Kurulumlar temizlensin mi?"
+
+#: crates/gui/src/main.rs:2402
+msgid ""
+"Remove installed catalog instances and their managed launchers and icons. "
+"The download cache is kept, so reinstalling is fast."
+msgstr ""
+"Kurulu katalog örneklerini, yönetilen başlatıcılarını ve simgelerini "
+"kaldırır. İndirme önbelleği korunur, böylece yeniden kurulum hızlı olur."
+
+#: crates/gui/src/main.rs:2407 crates/gui/src/preferences.rs:434
+msgid "Clean"
+msgstr "Temizle"
+
+#: crates/gui/src/main.rs:2416 crates/gui/src/main.rs:2417
+msgid "Cleaning…"
+msgstr "Temizleniyor…"
+
+#: crates/gui/src/main.rs:2445
+msgid "Clean interrupted."
+msgstr "Temizleme kesildi."
+
+#: crates/gui/src/main.rs:2479
+msgid "Purge all manager state?"
+msgstr "Tüm yönetici durumu tamamen silinsin mi?"
+
+#: crates/gui/src/main.rs:2480
+msgid ""
+"This removes every install, the download cache, managed launchers, and icon "
+"tiles owned by AppImage Control. App data inside instance home dirs is also "
+"removed."
+msgstr ""
+"Bu işlem, AppImage Control tarafından yönetilen tüm kurulumları, indirme "
+"önbelleğini, başlatıcıları ve simge döşemelerini kaldırır. Örnek ev "
+"dizinlerindeki uygulama verileri de kaldırılır."
+
+#: crates/gui/src/main.rs:2486
+msgid "Purge state"
+msgstr "Durumu tamamen sil"
+
+#: crates/gui/src/main.rs:2495 crates/gui/src/main.rs:2496
+msgid "Purging…"
+msgstr "Tamamen siliniyor…"
+
+#: crates/gui/src/main.rs:2524
+msgid "Purge interrupted."
+msgstr "Tamamen silme kesildi."
+
+#: crates/gui/src/main.rs:2575 crates/gui/src/main.rs:2576
+msgid "Migrating…"
+msgstr "Taşınıyor…"
+
+#: crates/gui/src/main.rs:2604
+msgid "Migration interrupted."
+msgstr "Taşıma kesildi."
+
+#: crates/gui/src/main.rs:2645
+msgid "Choose backup archive destination"
+msgstr "Yedek arşivinin hedefini seçin"
+
+#: crates/gui/src/main.rs:2654 crates/gui/src/main.rs:2655
+msgid "Backing up…"
+msgstr "Yedekleniyor…"
+
+#: crates/gui/src/main.rs:2681
+msgid "Backup interrupted."
+msgstr "Yedekleme kesildi."
+
+#: crates/gui/src/main.rs:2718
+msgid "Choose backup archive to restore"
+msgstr "Geri yüklenecek yedek arşivini seçin"
+
+#: crates/gui/src/main.rs:2727 crates/gui/src/main.rs:2728
+msgid "Restoring…"
+msgstr "Geri yükleniyor…"
+
+#: crates/gui/src/main.rs:2767
+msgid "Overwrite existing managed state?"
+msgstr "Mevcut yönetilen durumun üzerine yazılsın mı?"
+
+#: crates/gui/src/main.rs:2768
+msgid ""
+"Managed state already exists. Force restore and overwrite manager-owned "
+"state?"
+msgstr ""
+"Yönetilen durum zaten var. Geri yükleme zorlansın ve yöneticiye ait durumun "
+"üzerine yazılsın mı?"
+
+#: crates/gui/src/main.rs:2770
+msgid "Overwrite"
+msgstr "Üzerine Yaz"
+
+#: crates/gui/src/main.rs:2772 crates/gui/src/main.rs:2773
+msgid "Restoring (forced)…"
+msgstr "Geri yükleniyor (zorla)…"
+
+#: crates/gui/src/main.rs:2799 crates/gui/src/main.rs:2839
+msgid "Restore interrupted."
+msgstr "Geri yükleme kesildi."
+
+#: crates/gui/src/main.rs:2881 crates/gui/src/main.rs:2882
+msgid "Updating seed packs…"
+msgstr "Ön ayar paketleri güncelleniyor…"
+
+#: crates/gui/src/main.rs:2908
+msgid "Update seed packs interrupted."
+msgstr "Ön ayar paketi güncellemesi kesildi."
+
+#: crates/gui/src/preferences.rs:31
+msgid "data/catalog.json (auto-detected) · built-in fallback"
+msgstr "data/catalog.json (otomatik algılandı) · yerleşik yedek"
+
+#: crates/gui/src/preferences.rs:70 crates/gui/src/preferences.rs:113
+msgid "General"
+msgstr "Genel"
+
+#: crates/gui/src/preferences.rs:76
+msgid "Storage"
+msgstr "Depolama"
+
+#: crates/gui/src/preferences.rs:82
+msgid "Network"
+msgstr "Ağ"
+
+#: crates/gui/src/preferences.rs:88
+msgid "Backup"
+msgstr "Yedekleme"
+
+#: crates/gui/src/preferences.rs:205
+msgid "APPEARANCE"
+msgstr "GÖRÜNÜM"
+
+#: crates/gui/src/preferences.rs:210
+msgid "Theme"
+msgstr "Tema"
+
+#: crates/gui/src/preferences.rs:211
+msgid "Follow the system, or force a mode"
+msgstr "Sistemi izle ya da bir kipi zorla"
+
+#: crates/gui/src/preferences.rs:216
+msgid "System"
+msgstr "Sistem"
+
+#: crates/gui/src/preferences.rs:217
+msgid "Light"
+msgstr "Açık"
+
+#: crates/gui/src/preferences.rs:218
+msgid "Dark"
+msgstr "Koyu"
+
+#: crates/gui/src/preferences.rs:252
+msgid "Compact rows"
+msgstr "Sıkı satırlar"
+
+#: crates/gui/src/preferences.rs:253
+msgid "Tighter launcher grid (applies on reload)"
+msgstr "Daha sıkı başlatıcı ızgarası (yeniden yüklemede uygulanır)"
+
+#: crates/gui/src/preferences.rs:260
+msgid "CATALOG"
+msgstr "KATALOG"
+
+#: crates/gui/src/preferences.rs:263
+msgid "Catalog file"
+msgstr "Katalog dosyası"
+
+#: crates/gui/src/preferences.rs:267
+msgid "Open…"
+msgstr "Aç…"
+
+#: crates/gui/src/preferences.rs:279
+msgid "Reload on focus"
+msgstr "Odaklanınca yeniden yükle"
+
+#: crates/gui/src/preferences.rs:280
+msgid "Re-scan the catalog when the window regains focus"
+msgstr "Pencere yeniden odaklandığında kataloğu yeniden tara"
+
+#: crates/gui/src/preferences.rs:287
+msgid "ON LAUNCH"
+msgstr "AÇILIŞTA"
+
+#: crates/gui/src/preferences.rs:290
+msgid "Check for updates"
+msgstr "Güncellemeleri denetle"
+
+#: crates/gui/src/preferences.rs:291
+msgid "Flag apps with a newer upstream release"
+msgstr "Üst kaynakta daha yeni sürümü olan uygulamaları işaretle"
+
+#: crates/gui/src/preferences.rs:298
+msgid "Repair launchers automatically"
+msgstr "Başlatıcıları otomatik onar"
+
+#: crates/gui/src/preferences.rs:299
+msgid "Recreate any missing .desktop files"
+msgstr "Eksik .desktop dosyalarını yeniden oluştur"
+
+#: crates/gui/src/preferences.rs:311
+msgid "DOWNLOADS"
+msgstr "İNDİRMELER"
+
+#: crates/gui/src/preferences.rs:316
+msgid "Direct (no proxy)"
+msgstr "Doğrudan (vekil sunucu yok)"
+
+#: crates/gui/src/preferences.rs:316
+msgid "System proxy (Tor)"
+msgstr "Sistem vekil sunucusu (Tor)"
+
+#: crates/gui/src/preferences.rs:318
+msgid "Route through"
+msgstr "Yönlendirme"
+
+#: crates/gui/src/preferences.rs:319
+msgid "Where AppImage downloads are sent"
+msgstr "AppImage indirmelerinin geçeceği yol"
+
+#: crates/gui/src/preferences.rs:342
+msgid "Verify checksums &amp; signatures"
+msgstr "Sağlama toplamlarını ve imzaları doğrula"
+
+#: crates/gui/src/preferences.rs:343
+msgid "Refuse a download that fails verification"
+msgstr "Doğrulamayı geçemeyen indirmeyi reddet"
+
+#: crates/gui/src/preferences.rs:358
+msgid "Concurrent downloads"
+msgstr "Eşzamanlı indirmeler"
+
+#: crates/gui/src/preferences.rs:359
+msgid "Lower is gentler over Tor"
+msgstr "Düşük değer Tor ağını daha az yorar"
+
+#: crates/gui/src/preferences.rs:373
+msgid "SEEDING"
+msgstr "ÖN AYARLAMA"
+
+#: crates/gui/src/preferences.rs:377
+msgid "Auto-seed new instances"
+msgstr "Yeni örnekleri otomatik ön ayarla"
+
+#: crates/gui/src/preferences.rs:378
+msgid "Seed settings right after creating an instance"
+msgstr "Bir örnek oluşturulduktan hemen sonra ön ayarla"
+
+#: crates/gui/src/preferences.rs:387
+msgctxt "headless runner"
+msgid "Auto"
+msgstr "Otomatik"
+
+#: crates/gui/src/preferences.rs:392
+msgid "Headless runner"
+msgstr "Ekransız çalıştırıcı"
+
+#: crates/gui/src/preferences.rs:419
+msgid "MAINTENANCE"
+msgstr "BAKIM"
+
+#: crates/gui/src/preferences.rs:423
+msgid "Reload catalog now"
+msgstr "Kataloğu şimdi yeniden yükle"
+
+#: crates/gui/src/preferences.rs:424
+msgid "Re-scan and rebuild the list"
+msgstr "Yeniden tara ve listeyi yeniden oluştur"
+
+#: crates/gui/src/preferences.rs:431
+msgid "Clean download cache"
+msgstr "İndirme önbelleğini temizle"
+
+#: crates/gui/src/preferences.rs:432
+msgid "Delete cached AppImage downloads"
+msgstr "Önbellekteki AppImage indirmelerini sil"
+
+#: crates/gui/src/preferences.rs:439
+msgid "Update seed packs"
+msgstr "Ön ayar paketlerini güncelle"
+
+#: crates/gui/src/preferences.rs:440
+msgid "Fetch the latest signed seed-pack tarball"
+msgstr "En son imzalı ön ayar paketi tar arşivini getir"
+
+#: crates/gui/src/preferences.rs:442
+msgid "Update"
+msgstr "Güncelle"
+
+#: crates/gui/src/preferences.rs:447
+msgid "Show seed packs"
+msgstr "Ön ayar paketlerini göster"
+
+#: crates/gui/src/preferences.rs:448
+msgid "List loaded seed packs and their sources"
+msgstr "Yüklenen ön ayar paketlerini ve kaynaklarını listele"
+
+#: crates/gui/src/preferences.rs:450
+msgid "Show"
+msgstr "Göster"
+
+#: crates/gui/src/preferences.rs:456
+msgid "Import old portable dirs into managed instances"
+msgstr "Eski taşınabilir dizinleri yönetilen örneklere aktar"
+
+#: crates/gui/src/preferences.rs:458
+msgid "Migrate"
+msgstr "Taşı"
+
+#: crates/gui/src/preferences.rs:467
+msgid "MANAGER STATE"
+msgstr "YÖNETİCİ DURUMU"
+
+#: crates/gui/src/preferences.rs:471
+msgid "Back up…"
+msgstr "Yedekle…"
+
+#: crates/gui/src/preferences.rs:472
+msgid "Archive manager state to a file"
+msgstr "Yönetici durumunu bir dosyaya arşivle"
+
+#: crates/gui/src/preferences.rs:474
+msgid "Back Up"
+msgstr "Yedekle"
+
+#: crates/gui/src/preferences.rs:480
+msgid "Restore manager state from an archive"
+msgstr "Yönetici durumunu bir arşivden geri yükle"
+
+#: crates/gui/src/preferences.rs:482
+msgid "Restore"
+msgstr "Geri Yükle"
+
+#: crates/gui/src/record_dialog.rs:32 crates/gui/src/record_dialog.rs:153
+#: crates/gui/src/record_dialog.rs:300 crates/gui/src/record_dialog.rs:392
+msgid "Record Seed Pack"
+msgstr "Ön Ayar Paketi Oluştur"
+
+#: crates/gui/src/record_dialog.rs:85
+msgctxt "wizard step"
+msgid "Baseline"
+msgstr "Temel Durum"
+
+#: crates/gui/src/record_dialog.rs:86
+msgctxt "wizard step"
+msgid "Configure"
+msgstr "Yapılandır"
+
+#: crates/gui/src/record_dialog.rs:87
+msgctxt "wizard step"
+msgid "Review"
+msgstr "Gözden Geçir"
+
+#: crates/gui/src/record_dialog.rs:171
+msgid "Record a seed pack"
+msgstr "Bir ön ayar paketi oluştur"
+
+#: crates/gui/src/record_dialog.rs:196
+msgid "App"
+msgstr "Uygulama"
+
+#: crates/gui/src/record_dialog.rs:202
+msgid "Instance"
+msgstr "Örnek"
+
+#: crates/gui/src/record_dialog.rs:209
+msgid "auto-detected — leave blank to detect at capture time"
+msgstr "otomatik algılanır — alma sırasında algılanması için boş bırakın"
+
+#: crates/gui/src/record_dialog.rs:215
+msgid "Config path"
+msgstr "Yapılandırma yolu"
+
+#: crates/gui/src/record_dialog.rs:234
+msgid "_Capture baseline"
+msgstr "_Temel durumu al"
+
+#: crates/gui/src/record_dialog.rs:317
+msgid "Baseline captured"
+msgstr "Temel durum alındı"
+
+#: crates/gui/src/record_dialog.rs:326
+msgid ""
+"Now launch {app} (instance {number}), change the settings you want the pack "
+"to carry, then quit the app. When it has fully exited, click “Diff "
+"changes”.\n"
+"\n"
+"Launch it with the button below, or from your normal launcher."
+msgstr ""
+"Şimdi {app} uygulamasını (örnek {number}) başlatın, paketin taşımasını "
+"istediğiniz ayarları değiştirin, ardından uygulamadan çıkın. Uygulama "
+"tamamen kapandığında “Değişiklikleri Karşılaştır” düğmesine tıklayın.\n"
+"\n"
+"Uygulamayı aşağıdaki düğmeyle ya da her zamanki başlatıcınızdan başlatın."
+
+#: crates/gui/src/record_dialog.rs:338
+msgid "_Launch app"
+msgstr "Uygulamayı _Başlat"
+
+#: crates/gui/src/record_dialog.rs:339
+msgid "_Diff changes"
+msgstr "Değişiklikleri _Karşılaştır"
+
+#: crates/gui/src/record_dialog.rs:411
+msgid "Choose which changes to record"
+msgstr "Kaydedilecek değişiklikleri seçin"
+
+#: crates/gui/src/record_dialog.rs:418
+msgid "diffed"
+msgstr "karşılaştırıldı"
+
+#: crates/gui/src/record_dialog.rs:426
+msgid ""
+"{added} added · {changed} changed · {removed} removed · {unchanged} unchanged"
+msgstr ""
+"{added} eklendi · {changed} değişti · {removed} kaldırıldı · {unchanged} "
+"değişmedi"
+
+#: crates/gui/src/record_dialog.rs:445
+msgid "Changed keys"
+msgstr "Değişen anahtarlar"
+
+#: crates/gui/src/record_dialog.rs:470
+msgid "new: {value}"
+msgstr "yeni: {value}"
+
+#: crates/gui/src/record_dialog.rs:490
+msgid "removed — a static pack cannot delete keys (not recorded)"
+msgstr "kaldırıldı — statik bir paket anahtar silemez (kaydedilmedi)"
+
+#: crates/gui/src/record_dialog.rs:510
+msgid "unsigned"
+msgstr "imzasız"
+
+#: crates/gui/src/record_dialog.rs:516
+msgid "Saved as a static-only pack to your per-user seeds dir."
+msgstr ""
+"Kullanıcıya özel ön ayar dizininize yalnızca statik bir paket olarak "
+"kaydedildi."
+
+#: crates/gui/src/record_dialog.rs:527
+msgid "_Back"
+msgstr "_Geri"
+
+#: crates/gui/src/record_dialog.rs:528
+msgid "_Save pack"
+msgstr "Paketi _Kaydet"
+
+#: crates/gui/src/record_dialog.rs:634
+msgid "Save seed pack"
+msgstr "Ön ayar paketini kaydet"
+
+#: crates/gui/src/seed_dialog.rs:46
+msgid "Writes each app's first-run settings"
+msgstr "Her uygulamanın ilk çalıştırma ayarlarını yazar"
+
+#: crates/gui/src/seed_dialog.rs:73
+msgid "APPS TO SEED"
+msgstr "ÖN AYARLANACAK UYGULAMALAR"
+
+#: crates/gui/src/seed_dialog.rs:76
+msgid "SAVED CONFIGURATIONS"
+msgstr "KAYITLI YAPILANDIRMALAR"
+
+#: crates/gui/src/seed_dialog.rs:129 crates/gui/src/seed_dialog.rs:137
+msgid "Seed Settings"
+msgstr "Ön Ayarlama"
+
+#: crates/gui/src/seed_dialog.rs:200
+msgid "{count} installed instance"
+msgid_plural "{count} installed instances"
+msgstr[0] "{count} kurulu örnek"
+msgstr[1] "{count} kurulu örnek"
+
+#: crates/gui/src/seed_dialog.rs:241
+msgid "Supported"
+msgstr "Destekleniyor"
+
+#: crates/gui/src/seed_dialog.rs:244
+msgid "No instances"
+msgstr "Örnek yok"
+
+#: crates/gui/src/seed_dialog.rs:305
+msgid "+ Save current…"
+msgstr "+ Mevcut olanı kaydet…"
+
+#: crates/gui/src/seed_dialog.rs:346
+msgid "Could not save form"
+msgstr "Form kaydedilemedi"
+
+#: crates/gui/src/seed_dialog.rs:348
+msgid "Invalid name"
+msgstr "Geçersiz ad"
+
+#: crates/gui/src/seed_dialog.rs:390
+msgid "Delete this saved configuration"
+msgstr "Bu kayıtlı yapılandırmayı sil"
+
+#: crates/gui/src/seed_dialog.rs:415
+msgid "Could not load saved form"
+msgstr "Kayıtlı form yüklenemedi"
+
+#: crates/gui/src/seed_dialog.rs:430
+msgid "Could not delete form"
+msgstr "Form silinemedi"
+
+#: crates/gui/src/seed_dialog.rs:464 crates/gui/src/seed_dialog.rs:487
+msgid "Seed {count} app"
+msgid_plural "Seed {count} apps"
+msgstr[0] "{count} uygulamayı ön ayarla"
+msgstr[1] "{count} uygulamayı ön ayarla"
+
+#: crates/gui/src/seed_dialog.rs:492
+msgid "{count} app selected"
+msgid_plural "{count} apps selected"
+msgstr[0] "{count} uygulama seçildi"
+msgstr[1] "{count} uygulama seçildi"
+
+#: crates/gui/src/seed_dialog.rs:510
+msgid "Save configuration"
+msgstr "Yapılandırmayı kaydet"
+
+#: crates/gui/src/seed_dialog.rs:511
+msgid "Name this configuration for later recall."
+msgstr "Daha sonra geri çağırmak için bu yapılandırmaya bir ad verin."
+
+#: crates/gui/src/seed_dialog.rs:516
+msgid "e.g. weekday-feather"
+msgstr "ör. hafta-ici-feather"
+
+#: crates/gui/src/seed_dialog.rs:521
+msgid "_Save"
+msgstr "_Kaydet"
+
+#: crates/gui/src/seed_dialog.rs:555
+msgid "_OK"
+msgstr "_Tamam"
+
+#: crates/gui/src/status_text.rs:10
+msgid "No installed instances to update."
+msgstr "Güncellenecek kurulu örnek yok."
+
+#: crates/gui/src/status_text.rs:16
+msgid ""
+"{failed} failed, {updated} updated, {unchanged} unchanged, {skipped} skipped "
+"as already catalog (see log)."
+msgstr ""
+"{failed} başarısız, {updated} güncellendi, {unchanged} değişmedi, {skipped} "
+"zaten katalog sürümünde olduğu için atlandı (günlüğe bakın)."
+
+#: crates/gui/src/status_text.rs:28
+msgid "Updated {count} instance"
+msgid_plural "Updated {count} instances"
+msgstr[0] "{count} örnek güncellendi"
+msgstr[1] "{count} örnek güncellendi"
+
+#: crates/gui/src/status_text.rs:36
+msgid "{count} unchanged after update"
+msgstr "{count} örnek güncellemeden sonra değişmedi"
+
+#: crates/gui/src/status_text.rs:42
+msgid "{count} skipped (already catalog)"
+msgstr "{count} atlandı (zaten katalog sürümünde)"
+
+#: crates/gui/src/status_text.rs:50
+msgid ""
+"{skipped} skipped (already catalog); {checked} checked with no binary change."
+msgstr ""
+"{skipped} atlandı (zaten katalog sürümünde); {checked} denetlendi, ikili "
+"dosyada değişiklik yok."
+
+#: crates/gui/src/status_text.rs:60
+msgid "The {count} instance already matched the catalog (nothing to fetch)."
+msgid_plural ""
+"All {count} instances already matched the catalog (nothing to fetch)."
+msgstr[0] ""
+"{count} örnek zaten katalogla eşleşiyordu (getirilecek bir şey yok)."
+msgstr[1] ""
+"{count} örneğin tümü zaten katalogla eşleşiyordu (getirilecek bir şey yok)."
+
+#: crates/gui/src/status_text.rs:69
+msgid "Checked {count} instance; no AppImage replacement was needed."
+msgid_plural "Checked {count} instances; no AppImage replacement was needed."
+msgstr[0] "{count} örnek denetlendi; AppImage değiştirmeye gerek kalmadı."
+msgstr[1] "{count} örnek denetlendi; AppImage değiştirmeye gerek kalmadı."
+
+#: crates/gui/src/status_text.rs:80
+msgid "{failed} failed, {seeded} completed."
+msgstr "{failed} başarısız, {seeded} tamamlandı."
+
+#: crates/gui/src/status_text.rs:86
+msgid "Seeded {count} instance."
+msgid_plural "Seeded {count} instances."
+msgstr[0] "{count} örnek ön ayarlandı."
+msgstr[1] "{count} örnek ön ayarlandı."
+
+#: crates/gui/src/status_text.rs:93
+msgid "No supported installed instances to seed."
+msgstr "Ön ayarlanacak desteklenen kurulu örnek yok."
+
+#: crates/gui/src/status_text.rs:112
+msgid "{count} app failed"
+msgid_plural "{count} apps failed"
+msgstr[0] "{count} uygulama başarısız oldu"
+msgstr[1] "{count} uygulama başarısız oldu"
+
+#: crates/gui/src/status_text.rs:119
+msgid "{count} instance NOT seeded"
+msgid_plural "{count} instances NOT seeded"
+msgstr[0] "{count} örnek ÖN AYARLANMADI"
+msgstr[1] "{count} örnek ÖN AYARLANMADI"
+
+#: crates/gui/src/status_text.rs:127
+msgid "Applied."
+msgstr "Uygulandı."
+
+#: crates/gui/src/status_text.rs:129 crates/gui/src/status_text.rs:133
+#: crates/gui/src/status_text.rs:137
+msgid "Applied — {problems} (see the activity log)"
+msgstr "Uygulandı — {problems} (etkinlik günlüğüne bakın)"
+
+#: crates/gui/src/status_text.rs:155
+msgid "Last Apply: {count} app not installed"
+msgid_plural "Last Apply: {count} apps not installed"
+msgstr[0] "Son Uygula işlemi: {count} uygulama kurulmadı"
+msgstr[1] "Son Uygula işlemi: {count} uygulama kurulmadı"
+
+#: crates/gui/src/status_text.rs:161
+msgid "See the activity log for why"
+msgstr "Nedenini görmek için etkinlik günlüğüne bakın"
+
+#: crates/gui/src/status_text.rs:170
+msgid "Add a download_url in the catalog to enable installs."
+msgstr "Kurulumları etkinleştirmek için kataloğa bir download_url ekleyin."
+
+#: crates/gui/src/status_text.rs:173
+msgid ""
+"No AppImage URL for this system ({arch}) — installs are disabled for this "
+"app."
+msgstr ""
+"Bu sistem ({arch}) için AppImage URL’si yok — bu uygulama için kurulumlar "
+"devre dışı."

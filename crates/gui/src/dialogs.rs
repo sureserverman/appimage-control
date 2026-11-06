@@ -1,3 +1,4 @@
+use crate::i18n::{fill, ntr, tr};
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -112,7 +113,7 @@ pub fn ask_confirmation(
         dialog.set_extra_child(Some(&detail));
     }
 
-    dialog.add_response("cancel", "_Cancel");
+    dialog.add_response("cancel", tr("_Cancel"));
     let primary_id = match kind {
         ConfirmKind::Danger => "destructive",
         ConfirmKind::Warn => "destructive",
@@ -161,7 +162,7 @@ pub fn present_activity_log_dialog(parent: &ApplicationWindow, log_text: &str) {
     let dialog = Dialog::builder()
         .transient_for(parent)
         .modal(true)
-        .title("Activity log")
+        .title(tr("Activity log"))
         .default_width(680)
         .default_height(460)
         .resizable(true)
@@ -230,11 +231,15 @@ pub fn present_activity_log_dialog(parent: &ApplicationWindow, log_text: &str) {
     pill.add_css_class(summary.severity.pill_class());
 
     let counts = Label::new(Some(&format!(
-        "{} line{} · {} error{}",
-        summary.lines,
-        if summary.lines == 1 { "" } else { "s" },
-        summary.errors,
-        if summary.errors == 1 { "" } else { "s" }
+        "{} · {}",
+        fill(
+            ntr("{count} line", "{count} lines", summary.lines as u64),
+            &[("count", &summary.lines)]
+        ),
+        fill(
+            ntr("{count} error", "{count} errors", summary.errors as u64),
+            &[("count", &summary.errors)]
+        ),
     )));
     counts.add_css_class("dim-label");
     counts.add_css_class("caption");
@@ -246,18 +251,18 @@ pub fn present_activity_log_dialog(parent: &ApplicationWindow, log_text: &str) {
     toolbar_left.append(&counts);
 
     let wrap_btn = ToggleButton::builder()
-        .label("Wrap")
-        .tooltip_text("Wrap long lines")
+        .label(tr("Wrap"))
+        .tooltip_text(tr("Wrap long lines"))
         .build();
     wrap_btn.add_css_class("flat");
     let copy_btn = Button::builder()
-        .label("Copy")
-        .tooltip_text("Copy log to clipboard")
+        .label(tr("Copy"))
+        .tooltip_text(tr("Copy log to clipboard"))
         .build();
     copy_btn.add_css_class("flat");
     let save_btn = Button::builder()
-        .label("Save…")
-        .tooltip_text("Save log to a file")
+        .label(tr("Save…"))
+        .tooltip_text(tr("Save log to a file"))
         .build();
     save_btn.add_css_class("flat");
 
@@ -334,10 +339,10 @@ pub fn present_activity_log_dialog(parent: &ApplicationWindow, log_text: &str) {
                 .downcast::<gtk::Window>()
                 .ok();
             let chooser = FileChooserNative::builder()
-                .title("Save activity log")
+                .title(tr("Save activity log"))
                 .action(FileChooserAction::Save)
-                .accept_label("Save")
-                .cancel_label("Cancel")
+                .accept_label(tr("Save"))
+                .cancel_label(tr("Cancel"))
                 .modal(true)
                 .build();
             if let Some(parent_win) = dialog_owner.as_ref() {
@@ -370,7 +375,7 @@ pub fn present_activity_log_dialog(parent: &ApplicationWindow, log_text: &str) {
     frame_outer.append(&scroll);
     area.append(&frame_outer);
 
-    let close_btn = dialog.add_button("_Close", ResponseType::Close);
+    let close_btn = dialog.add_button(tr("_Close"), ResponseType::Close);
     close_btn.add_css_class("suggested-action");
     close_btn.set_halign(gtk::Align::End);
     close_btn.set_margin_end(20);
@@ -434,10 +439,10 @@ impl LogSeverity {
     }
     fn pill_label(self) -> &'static str {
         match self {
-            LogSeverity::Success => "Success",
-            LogSeverity::Warning => "Warnings",
-            LogSeverity::Error => "Errors",
-            LogSeverity::Info => "Info",
+            LogSeverity::Success => tr("Success"),
+            LogSeverity::Warning => tr("Warnings"),
+            LogSeverity::Error => tr("Errors"),
+            LogSeverity::Info => tr("Info"),
         }
     }
     fn pill_class(self) -> &'static str {
@@ -505,40 +510,58 @@ impl LogSummary {
 
     fn heading(&self) -> &'static str {
         match self.severity {
-            LogSeverity::Error => "Activity log",
-            LogSeverity::Warning => "Activity log",
-            LogSeverity::Success => "Activity log",
-            LogSeverity::Info => "Activity log",
+            LogSeverity::Error => tr("Activity log"),
+            LogSeverity::Warning => tr("Activity log"),
+            LogSeverity::Success => tr("Activity log"),
+            LogSeverity::Info => tr("Activity log"),
         }
+    }
+
+    fn errors_label(&self) -> String {
+        fill(
+            ntr("{count} error", "{count} errors", self.errors as u64),
+            &[("count", &self.errors)],
+        )
+    }
+
+    fn warnings_label(&self) -> String {
+        fill(
+            ntr("{count} warning", "{count} warnings", self.warnings as u64),
+            &[("count", &self.warnings)],
+        )
+    }
+
+    fn successes_label(&self) -> String {
+        fill(
+            ntr(
+                "{count} success",
+                "{count} successes",
+                self.successes as u64,
+            ),
+            &[("count", &self.successes)],
+        )
     }
 
     fn subtitle(&self) -> String {
         match self.severity {
-            LogSeverity::Error => format!(
-                "{} error{} · {} warning{} · {} success{}",
-                self.errors,
-                if self.errors == 1 { "" } else { "s" },
-                self.warnings,
-                if self.warnings == 1 { "" } else { "s" },
-                self.successes,
-                if self.successes == 1 { "" } else { "es" },
+            LogSeverity::Error => [
+                self.errors_label(),
+                self.warnings_label(),
+                self.successes_label(),
+            ]
+            .join(" · "),
+            LogSeverity::Warning => [self.warnings_label(), self.successes_label()].join(" · "),
+            LogSeverity::Success => fill(
+                ntr(
+                    "{count} successful step",
+                    "{count} successful steps",
+                    self.successes as u64,
+                ),
+                &[("count", &self.successes)],
             ),
-            LogSeverity::Warning => format!(
-                "{} warning{} · {} success{}",
-                self.warnings,
-                if self.warnings == 1 { "" } else { "s" },
-                self.successes,
-                if self.successes == 1 { "" } else { "es" },
-            ),
-            LogSeverity::Success => format!(
-                "{} successful step{}",
-                self.successes,
-                if self.successes == 1 { "" } else { "s" },
-            ),
-            LogSeverity::Info => format!(
-                "{} log line{}",
-                self.lines,
-                if self.lines == 1 { "" } else { "s" },
+            LogSeverity::Info => fill(
+                ntr("{count} log line", "{count} log lines", self.lines as u64),
+                &[("count", &self.lines)],
             ),
         }
     }
@@ -553,8 +576,8 @@ fn choose_file(
         .title(title)
         .transient_for(parent)
         .action(action)
-        .accept_label("Select")
-        .cancel_label("Cancel")
+        .accept_label(tr("Select"))
+        .cancel_label(tr("Cancel"))
         .modal(true)
         .build();
     let result: Rc<RefCell<Option<PathBuf>>> = Rc::new(RefCell::new(None));
@@ -601,16 +624,17 @@ pub fn ask_migration_strategy(
 
     let dialog = adw::MessageDialog::new(
         Some(parent),
-        Some("Migrate legacy directories"),
-        Some("Choose how to handle destination conflicts when a managed slot is already occupied."),
+        Some(tr("Migrate legacy directories")),
+        Some(tr(
+            "Choose how to handle destination conflicts when a managed slot is already occupied.",
+        )),
     );
     dialog.set_modal(true);
     dialog.set_default_width(440);
 
     let detail = Label::builder()
         .label(
-            "This strategy is applied uniformly to every conflict in the run. \
-             The migration can be cancelled after this dialog.",
+            tr("This strategy is applied uniformly to every conflict in the run. The migration can be cancelled after this dialog."),
         )
         .halign(gtk::Align::Start)
         .xalign(0.0)
@@ -622,10 +646,10 @@ pub fn ask_migration_strategy(
     detail.set_margin_top(6);
     dialog.set_extra_child(Some(&detail));
 
-    dialog.add_response("cancel", "_Cancel");
-    dialog.add_response("replace", "Replace existing");
-    dialog.add_response("renumber", "Add as new instance");
-    dialog.add_response("skip", "Skip conflicting");
+    dialog.add_response("cancel", tr("_Cancel"));
+    dialog.add_response("replace", tr("Replace existing"));
+    dialog.add_response("renumber", tr("Add as new instance"));
+    dialog.add_response("skip", tr("Skip conflicting"));
 
     dialog.set_response_appearance("replace", adw::ResponseAppearance::Destructive);
     dialog.set_response_appearance("renumber", adw::ResponseAppearance::Suggested);

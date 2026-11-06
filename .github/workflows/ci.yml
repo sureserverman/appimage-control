@@ -23,7 +23,8 @@ jobs:
             gtk4 libadwaita \
             pkgconf \
             xorg-server-xvfb \
-            desktop-file-utils appstream
+            desktop-file-utils appstream \
+            gettext
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
@@ -45,6 +46,10 @@ jobs:
         # README "CLI surface" section must list exactly the flags that
         # print_help() accepts (scripts/verify-cli-doc-sync.sh, static grep).
         run: sh scripts/verify-cli-doc-sync.sh
+      - name: Translation template up to date
+        # po/appimage-control.pot must hold exactly the strings the GUI passes to
+        # tr/trc/ntr; the i18n unit tests then check every po/*.po against it.
+        run: sh scripts/update-po.sh --check
       - name: Desktop file validate
         run: desktop-file-validate data/io.github.sureserverman.AppImageControl.desktop
       - name: AppStream validate

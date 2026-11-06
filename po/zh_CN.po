@@ -1,0 +1,1267 @@
+# Chinese translations for appimage-control package.
+# Copyright (C) 2026 THE appimage-control'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the appimage-control package.
+# Machine translation (Claude), 2026. Not yet reviewed by a native speaker.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: appimage-control\n"
+"Report-Msgid-Bugs-To: https://github.com/sureserverman/appimage-control/"
+"issues\n"
+"POT-Creation-Date: 2026-11-06 10:27+0000\n"
+"PO-Revision-Date: 2026-11-06 10:15+0000\n"
+"Last-Translator: Machine translation (Claude), not yet reviewed by a native "
+"speaker\n"
+"Language-Team: none\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: crates/gui/src/actions.rs:73
+msgid "Update All Installed"
+msgstr "更新所有已安装项"
+
+#: crates/gui/src/actions.rs:74
+msgid "Seed Settings…"
+msgstr "预置设置…"
+
+#: crates/gui/src/actions.rs:75
+msgid "Record Seed Pack…"
+msgstr "录制预置包…"
+
+#: crates/gui/src/actions.rs:79
+msgid "Repair Launchers"
+msgstr "修复启动器"
+
+#: crates/gui/src/actions.rs:80
+msgid "Back Up…"
+msgstr "备份…"
+
+#: crates/gui/src/actions.rs:81 crates/gui/src/preferences.rs:479
+msgid "Restore…"
+msgstr "恢复…"
+
+#: crates/gui/src/actions.rs:85
+msgid "Clean Download Cache"
+msgstr "清理下载缓存"
+
+#: crates/gui/src/actions.rs:86
+msgid "Remove All Instances…"
+msgstr "移除所有实例…"
+
+#: crates/gui/src/actions.rs:87
+msgid "Purge Everything…"
+msgstr "彻底清除全部…"
+
+#: crates/gui/src/actions.rs:91 crates/gui/src/main.rs:328
+#: crates/gui/src/preferences.rs:53 crates/gui/src/preferences.rs:139
+msgid "Preferences"
+msgstr "首选项"
+
+#: crates/gui/src/actions.rs:92 crates/gui/src/main.rs:335
+msgid "Keyboard Shortcuts"
+msgstr "键盘快捷键"
+
+#: crates/gui/src/actions.rs:93
+msgid "About AppImage Control"
+msgstr "关于 AppImage Control"
+
+#: crates/gui/src/dialogs.rs:116 crates/gui/src/dialogs.rs:649
+#: crates/gui/src/record_dialog.rs:232 crates/gui/src/record_dialog.rs:335
+#: crates/gui/src/seed_dialog.rs:458 crates/gui/src/seed_dialog.rs:520
+msgid "_Cancel"
+msgstr "取消(_C)"
+
+#: crates/gui/src/dialogs.rs:165 crates/gui/src/dialogs.rs:513
+#: crates/gui/src/dialogs.rs:514 crates/gui/src/dialogs.rs:515
+#: crates/gui/src/dialogs.rs:516
+msgid "Activity log"
+msgstr "活动日志"
+
+#: crates/gui/src/dialogs.rs:236
+msgid "{count} line"
+msgid_plural "{count} lines"
+msgstr[0] "{count} 行"
+
+#: crates/gui/src/dialogs.rs:240 crates/gui/src/dialogs.rs:522
+msgid "{count} error"
+msgid_plural "{count} errors"
+msgstr[0] "{count} 个错误"
+
+#: crates/gui/src/dialogs.rs:254
+msgid "Wrap"
+msgstr "换行"
+
+#: crates/gui/src/dialogs.rs:255
+msgid "Wrap long lines"
+msgstr "长行自动换行"
+
+#: crates/gui/src/dialogs.rs:259
+msgid "Copy"
+msgstr "复制"
+
+#: crates/gui/src/dialogs.rs:260
+msgid "Copy log to clipboard"
+msgstr "复制日志到剪贴板"
+
+#: crates/gui/src/dialogs.rs:264
+msgid "Save…"
+msgstr "保存…"
+
+#: crates/gui/src/dialogs.rs:265
+msgid "Save log to a file"
+msgstr "将日志保存到文件"
+
+#: crates/gui/src/dialogs.rs:342
+msgid "Save activity log"
+msgstr "保存活动日志"
+
+#: crates/gui/src/dialogs.rs:344 crates/gui/src/record_dialog.rs:637
+msgid "Save"
+msgstr "保存"
+
+#: crates/gui/src/dialogs.rs:345 crates/gui/src/dialogs.rs:580
+#: crates/gui/src/record_dialog.rs:638
+msgid "Cancel"
+msgstr "取消"
+
+#: crates/gui/src/dialogs.rs:378
+msgid "_Close"
+msgstr "关闭(_C)"
+
+#: crates/gui/src/dialogs.rs:442
+msgid "Success"
+msgstr "成功"
+
+#: crates/gui/src/dialogs.rs:443
+msgid "Warnings"
+msgstr "警告"
+
+#: crates/gui/src/dialogs.rs:444
+msgid "Errors"
+msgstr "错误"
+
+#: crates/gui/src/dialogs.rs:445
+msgid "Info"
+msgstr "信息"
+
+#: crates/gui/src/dialogs.rs:529
+msgid "{count} warning"
+msgid_plural "{count} warnings"
+msgstr[0] "{count} 个警告"
+
+#: crates/gui/src/dialogs.rs:537
+msgid "{count} success"
+msgid_plural "{count} successes"
+msgstr[0] "{count} 项成功"
+
+#: crates/gui/src/dialogs.rs:556
+msgid "{count} successful step"
+msgid_plural "{count} successful steps"
+msgstr[0] "{count} 个成功步骤"
+
+#: crates/gui/src/dialogs.rs:563
+msgid "{count} log line"
+msgid_plural "{count} log lines"
+msgstr[0] "{count} 行日志"
+
+#: crates/gui/src/dialogs.rs:579
+msgid "Select"
+msgstr "选择"
+
+#: crates/gui/src/dialogs.rs:627 crates/gui/src/preferences.rs:455
+msgid "Migrate legacy directories"
+msgstr "迁移旧版目录"
+
+#: crates/gui/src/dialogs.rs:629
+msgid ""
+"Choose how to handle destination conflicts when a managed slot is already "
+"occupied."
+msgstr "选择当受管槽位已被占用时如何处理目标冲突。"
+
+#: crates/gui/src/dialogs.rs:637
+msgid ""
+"This strategy is applied uniformly to every conflict in the run. The "
+"migration can be cancelled after this dialog."
+msgstr "此策略将统一应用于本次运行中的所有冲突。关闭此对话框后仍可取消迁移。"
+
+#: crates/gui/src/dialogs.rs:650
+msgid "Replace existing"
+msgstr "替换现有项"
+
+#: crates/gui/src/dialogs.rs:651
+msgid "Add as new instance"
+msgstr "添加为新实例"
+
+#: crates/gui/src/dialogs.rs:652
+msgid "Skip conflicting"
+msgstr "跳过冲突项"
+
+#: crates/gui/src/main.rs:111
+msgctxt "category"
+msgid "AI Tools"
+msgstr "AI 工具"
+
+#: crates/gui/src/main.rs:112
+msgctxt "category"
+msgid "Messengers"
+msgstr "即时通讯"
+
+#: crates/gui/src/main.rs:113
+msgctxt "category"
+msgid "Notes"
+msgstr "笔记"
+
+#: crates/gui/src/main.rs:114
+msgctxt "category"
+msgid "Security"
+msgstr "安全"
+
+#: crates/gui/src/main.rs:115
+msgctxt "category"
+msgid "Wallets"
+msgstr "钱包"
+
+#: crates/gui/src/main.rs:116
+msgctxt "category"
+msgid "Other"
+msgstr "其他"
+
+#: crates/gui/src/main.rs:126
+msgid "{size} GB"
+msgstr "{size} GB"
+
+#: crates/gui/src/main.rs:128 crates/gui/src/main.rs:130
+msgid "{size} MB"
+msgstr "{size} MB"
+
+#: crates/gui/src/main.rs:172
+msgid "single instance"
+msgstr "单实例"
+
+#. TRANSLATORS: a status badge on an app card: an update is available.
+#: crates/gui/src/main.rs:187
+msgctxt "status badge"
+msgid "Update"
+msgstr "可更新"
+
+#: crates/gui/src/main.rs:189
+msgid "An upstream update is available"
+msgstr "上游有可用更新"
+
+#: crates/gui/src/main.rs:191
+msgid "Installed"
+msgstr "已安装"
+
+#. TRANSLATORS: {version} is an app version, like "v2.8.1".
+#: crates/gui/src/main.rs:195
+msgid "{version} installed"
+msgstr "已安装 {version}"
+
+#: crates/gui/src/main.rs:196
+msgid "Instances installed"
+msgstr "已安装实例"
+
+#: crates/gui/src/main.rs:200 crates/gui/src/main.rs:844
+msgid "Available"
+msgstr "可安装"
+
+#: crates/gui/src/main.rs:202
+msgid "Nothing installed yet"
+msgstr "尚未安装任何实例"
+
+#: crates/gui/src/main.rs:207
+msgid "no instances"
+msgstr "无实例"
+
+#: crates/gui/src/main.rs:209 crates/gui/src/main.rs:1217
+msgid "{count} instance"
+msgid_plural "{count} instances"
+msgstr[0] "{count} 个实例"
+
+#: crates/gui/src/main.rs:232
+msgid "Remove an instance"
+msgstr "移除一个实例"
+
+#: crates/gui/src/main.rs:253
+msgid "You can't use more than one instance of {app}."
+msgid_plural "You can't use more than {count} instances of {app}."
+msgstr[0] "{app} 最多只能使用 {count} 个实例。"
+
+#: crates/gui/src/main.rs:262
+msgid "Maximum instances reached"
+msgstr "已达到实例数上限"
+
+#: crates/gui/src/main.rs:265
+msgid "Add an instance"
+msgstr "添加一个实例"
+
+#: crates/gui/src/main.rs:327
+msgid "Update all installed"
+msgstr "更新所有已安装项"
+
+#: crates/gui/src/main.rs:329
+msgid "Keyboard shortcuts"
+msgstr "键盘快捷键"
+
+#: crates/gui/src/main.rs:330
+msgid "Reload catalog"
+msgstr "重新加载清单"
+
+#: crates/gui/src/main.rs:331
+msgid "Close window"
+msgstr "关闭窗口"
+
+#: crates/gui/src/main.rs:336
+msgid "Close"
+msgstr "关闭"
+
+#: crates/gui/src/main.rs:353
+msgid ""
+"Manage a catalog of apps and the number of isolated AppImage instances to "
+"keep for each."
+msgstr "管理应用清单，以及为每个应用保留的隔离 AppImage 实例数量。"
+
+#. TRANSLATORS: put your name here, one per line, to be credited in the About window.
+#: crates/gui/src/main.rs:356
+msgid "translator-credits"
+msgstr "机器翻译，尚未审校"
+
+#: crates/gui/src/main.rs:369
+msgid ""
+"The app could not determine your home directory, so managed installs cannot "
+"be used."
+msgstr "本应用无法确定您的主目录，因此无法使用受管安装。"
+
+#: crates/gui/src/main.rs:454 crates/gui/src/main.rs:675
+msgid "Main Menu"
+msgstr "主菜单"
+
+#: crates/gui/src/main.rs:467
+msgid ""
+"No catalog loaded — load one first.\n"
+"Use the Reload button or Open Catalog… to recover.\n"
+msgstr ""
+"未加载清单——请先加载一个清单。\n"
+"使用“重新加载”按钮或“打开清单…”来恢复。\n"
+
+#: crates/gui/src/main.rs:505
+msgid "No catalog loaded"
+msgstr "未加载清单"
+
+#: crates/gui/src/main.rs:507
+msgid ""
+"AppImage Control couldn’t find an application catalog. Open one, or set "
+"APPIMAGE_CONTROL_CATALOG to a catalog file."
+msgstr ""
+"AppImage Control 找不到应用清单。请打开一个清单，或将 "
+"APPIMAGE_CONTROL_CATALOG 设为某个清单文件。"
+
+#: crates/gui/src/main.rs:520
+msgid ""
+"Search order:\n"
+"  1. APPIMAGE_CONTROL_CATALOG environment variable\n"
+"  2. data/catalog.json above a dev build (cargo target/ dir only)\n"
+"  3. /app/share/, /usr/share/appimage-control/catalog.json\n"
+"  4. catalog compiled into this build"
+msgstr ""
+"搜索顺序：\n"
+"  1. APPIMAGE_CONTROL_CATALOG 环境变量\n"
+"  2. 开发构建上层目录中的 data/catalog.json（仅限 cargo target/ 目录）\n"
+"  3. /app/share/、/usr/share/appimage-control/catalog.json\n"
+"  4. 编译进此构建的清单"
+
+#: crates/gui/src/main.rs:537
+msgid "Open Catalog…"
+msgstr "打开清单…"
+
+#: crates/gui/src/main.rs:539 crates/gui/src/preferences.rs:426
+msgid "Reload"
+msgstr "重新加载"
+
+#: crates/gui/src/main.rs:553 crates/gui/src/main.rs:1834
+msgid "Choose catalog.json"
+msgstr "选择 catalog.json"
+
+#. TRANSLATORS: filter buttons above the app grid: show all apps, installed apps,
+#. or apps with an update.
+#: crates/gui/src/main.rs:650
+msgctxt "filter"
+msgid "All"
+msgstr "全部"
+
+#: crates/gui/src/main.rs:651
+msgctxt "filter"
+msgid "Installed"
+msgstr "已安装"
+
+#: crates/gui/src/main.rs:652
+msgctxt "filter"
+msgid "Updates"
+msgstr "可更新"
+
+#: crates/gui/src/main.rs:669
+msgid "Search"
+msgstr "搜索"
+
+#: crates/gui/src/main.rs:682 crates/gui/src/main.rs:941
+msgid "Apply"
+msgstr "应用"
+
+#: crates/gui/src/main.rs:683
+msgid "Apply pending instance count changes"
+msgstr "应用待处理的实例数量更改"
+
+#: crates/gui/src/main.rs:690
+msgid "Update all"
+msgstr "全部更新"
+
+#: crates/gui/src/main.rs:693
+msgid ""
+"Update installed instances: skips when already at the newest known version "
+"(catalog and GitHub releases/latest). Otherwise runs appimageupdatetool, "
+"then downloads the catalog AppImage or—if GitHub’s latest tag is newer than "
+"the catalog URL—a matching .AppImage from that release."
+msgstr ""
+"更新已安装的实例：已是已知最新版本（清单及 GitHub releases/latest）时跳过。否"
+"则运行 appimageupdatetool，然后下载清单中的 AppImage；若 GitHub 的最新标签比"
+"清单 URL 更新，则从该发布版下载匹配的 .AppImage。"
+
+#: crates/gui/src/main.rs:727 crates/gui/src/status_text.rs:148
+msgid "All changes applied"
+msgstr "所有更改已应用"
+
+#: crates/gui/src/main.rs:734 crates/gui/src/status_text.rs:149
+msgid "Nothing pending — you're up to date"
+msgstr "没有待处理的更改——已是最新"
+
+#. TRANSLATORS: the Apply button, with the number of apps it will change.
+#: crates/gui/src/main.rs:939
+msgid "Apply ({count})"
+msgstr "应用（{count}）"
+
+#: crates/gui/src/main.rs:948
+msgid "{count} app changing"
+msgid_plural "{count} apps changing"
+msgstr[0] "{count} 个应用待更改"
+
+#: crates/gui/src/main.rs:958
+msgid "+{count} instance"
+msgid_plural "+{count} instances"
+msgstr[0] "+{count} 个实例"
+
+#: crates/gui/src/main.rs:966
+msgid "−{count} instance"
+msgid_plural "−{count} instances"
+msgstr[0] "−{count} 个实例"
+
+#: crates/gui/src/main.rs:1208
+msgid "instance {number}"
+msgstr "实例 {number}"
+
+#: crates/gui/src/main.rs:1212
+msgid "instances {first}–{last}"
+msgstr "实例 {first}–{last}"
+
+#: crates/gui/src/main.rs:1238
+msgid "Remove instance data?"
+msgstr "移除实例数据？"
+
+#: crates/gui/src/main.rs:1239
+msgid ""
+"Lowering the instance count will permanently delete the home directory data "
+"for the removed instances. This cannot be undone."
+msgstr "减少实例数量将永久删除被移除实例的主目录数据。此操作无法撤销。"
+
+#: crates/gui/src/main.rs:1241
+msgid "Remove and Apply"
+msgstr "移除并应用"
+
+#: crates/gui/src/main.rs:1274 crates/gui/src/main.rs:1275
+#: crates/gui/src/main.rs:1391
+msgid "Working…"
+msgstr "正在处理…"
+
+#: crates/gui/src/main.rs:1365
+msgid "Apply interrupted."
+msgstr "应用已中断。"
+
+#: crates/gui/src/main.rs:1395
+msgid "Working… (0 of {total})"
+msgstr "正在处理…（0/{total}）"
+
+#: crates/gui/src/main.rs:1476
+msgid "Working… ({done}/{total}): {app}"
+msgstr "正在处理…（{done}/{total}）：{app}"
+
+#: crates/gui/src/main.rs:1543 crates/gui/src/main.rs:1544
+#: crates/gui/src/main.rs:1660
+msgid "Updating…"
+msgstr "正在更新…"
+
+#: crates/gui/src/main.rs:1639
+msgid "Update interrupted."
+msgstr "更新已中断。"
+
+#: crates/gui/src/main.rs:1663
+msgid "Updating… ({done}/{total})"
+msgstr "正在更新…（{done}/{total}）"
+
+#: crates/gui/src/main.rs:1732
+msgid "Install without verification?"
+msgstr "不经验证直接安装？"
+
+#: crates/gui/src/main.rs:1733
+msgid ""
+"No published sha256 is available to check these downloads, so they were not "
+"installed. Install them anyway only if you trust where they come from."
+msgstr ""
+"没有已发布的 sha256 可用于校验这些下载，因此未安装它们。仅当您信任其来源时才"
+"继续安装。"
+
+#: crates/gui/src/main.rs:1735
+msgid "Install unverified"
+msgstr "安装未验证项"
+
+#: crates/gui/src/main.rs:1797
+msgid "{count} app"
+msgid_plural "{count} apps"
+msgstr[0] "{count} 个应用"
+
+#: crates/gui/src/main.rs:1800
+msgid "{count} installed"
+msgstr "已安装 {count} 个"
+
+#: crates/gui/src/main.rs:1868 crates/gui/src/main.rs:2437
+#: crates/gui/src/main.rs:2516 crates/gui/src/main.rs:2596
+#: crates/gui/src/main.rs:2673 crates/gui/src/main.rs:2791
+#: crates/gui/src/main.rs:2821 crates/gui/src/main.rs:2830
+#: crates/gui/src/main.rs:2900
+msgid "Ready"
+msgstr "就绪"
+
+#: crates/gui/src/main.rs:1901 crates/gui/src/main.rs:2095
+msgid "Seed packs not loaded"
+msgstr "未加载预置包"
+
+#: crates/gui/src/main.rs:1917
+msgid "Some seed packs were skipped"
+msgstr "部分预置包已被跳过"
+
+#: crates/gui/src/main.rs:1937
+msgid "No supported installs"
+msgstr "没有受支持的安装"
+
+#: crates/gui/src/main.rs:1938
+msgid "There are no installed Feather or Electrum instances to seed."
+msgstr "没有可预置的已安装 Feather 或 Electrum 实例。"
+
+#: crates/gui/src/main.rs:1969 crates/gui/src/main.rs:1970
+#: crates/gui/src/main.rs:2030
+msgid "Seeding settings…"
+msgstr "正在预置设置…"
+
+#: crates/gui/src/main.rs:2011
+msgid "Seed settings interrupted."
+msgstr "预置设置已中断。"
+
+#: crates/gui/src/main.rs:2061
+msgid "Seeding settings… ({done}/{total})"
+msgstr "正在预置设置…（{done}/{total}）"
+
+#: crates/gui/src/main.rs:2126
+msgid "No installed apps"
+msgstr "没有已安装的应用"
+
+#: crates/gui/src/main.rs:2127
+msgid "Install at least one app instance before recording a seed pack."
+msgstr "录制预置包之前，请至少安装一个应用实例。"
+
+#: crates/gui/src/main.rs:2145 crates/gui/src/main.rs:2146
+msgid "Capturing baseline…"
+msgstr "正在捕获基线…"
+
+#: crates/gui/src/main.rs:2165
+msgid "App “{app}” is not in the catalog."
+msgstr "应用“{app}”不在清单中。"
+
+#: crates/gui/src/main.rs:2229
+msgid "Baseline capture interrupted."
+msgstr "基线捕获已中断。"
+
+#: crates/gui/src/main.rs:2253
+msgid "Baseline capture failed."
+msgstr "基线捕获失败。"
+
+#: crates/gui/src/main.rs:2254
+msgid "Baseline capture failed"
+msgstr "基线捕获失败"
+
+#: crates/gui/src/main.rs:2283
+msgid "Baseline captured — configure the app, then diff."
+msgstr "已捕获基线——请配置应用，然后比较更改。"
+
+#: crates/gui/src/main.rs:2299
+msgid "No settings changed."
+msgstr "没有设置被更改。"
+
+#: crates/gui/src/main.rs:2302
+msgid "No changes to record"
+msgstr "没有可录制的更改"
+
+#: crates/gui/src/main.rs:2303
+msgid "The config is unchanged from the baseline — nothing to capture."
+msgstr "配置与基线相比没有变化——没有可捕获的内容。"
+
+#: crates/gui/src/main.rs:2313
+msgid "No keys selected."
+msgstr "未选择任何键。"
+
+#: crates/gui/src/main.rs:2329
+msgid "Seed pack written."
+msgstr "预置包已写入。"
+
+#: crates/gui/src/main.rs:2332
+msgid "Seed pack written"
+msgstr "预置包已写入"
+
+#: crates/gui/src/main.rs:2335
+msgid "Wrote {count} key to {path}"
+msgid_plural "Wrote {count} keys to {path}"
+msgstr[0] "已将 {count} 个键写入 {path}"
+
+#: crates/gui/src/main.rs:2344
+msgid "This pack is NOT signed — review it before distributing."
+msgstr "此预置包未签名——分发前请先审查。"
+
+#: crates/gui/src/main.rs:2349
+msgid "Could not write pack"
+msgstr "无法写入预置包"
+
+#: crates/gui/src/main.rs:2360
+msgid "Could not read current config"
+msgstr "无法读取当前配置"
+
+#: crates/gui/src/main.rs:2401
+msgid "Clean installs?"
+msgstr "清理安装？"
+
+#: crates/gui/src/main.rs:2402
+msgid ""
+"Remove installed catalog instances and their managed launchers and icons. "
+"The download cache is kept, so reinstalling is fast."
+msgstr ""
+"移除已安装的清单实例及其受管启动器和图标。下载缓存会保留，因此重新安装会很"
+"快。"
+
+#: crates/gui/src/main.rs:2407 crates/gui/src/preferences.rs:434
+msgid "Clean"
+msgstr "清理"
+
+#: crates/gui/src/main.rs:2416 crates/gui/src/main.rs:2417
+msgid "Cleaning…"
+msgstr "正在清理…"
+
+#: crates/gui/src/main.rs:2445
+msgid "Clean interrupted."
+msgstr "清理已中断。"
+
+#: crates/gui/src/main.rs:2479
+msgid "Purge all manager state?"
+msgstr "彻底清除所有管理器状态？"
+
+#: crates/gui/src/main.rs:2480
+msgid ""
+"This removes every install, the download cache, managed launchers, and icon "
+"tiles owned by AppImage Control. App data inside instance home dirs is also "
+"removed."
+msgstr ""
+"这将移除 AppImage Control 拥有的所有安装、下载缓存、受管启动器和图标磁贴。实"
+"例主目录中的应用数据也会被移除。"
+
+#: crates/gui/src/main.rs:2486
+msgid "Purge state"
+msgstr "彻底清除状态"
+
+#: crates/gui/src/main.rs:2495 crates/gui/src/main.rs:2496
+msgid "Purging…"
+msgstr "正在彻底清除…"
+
+#: crates/gui/src/main.rs:2524
+msgid "Purge interrupted."
+msgstr "彻底清除已中断。"
+
+#: crates/gui/src/main.rs:2575 crates/gui/src/main.rs:2576
+msgid "Migrating…"
+msgstr "正在迁移…"
+
+#: crates/gui/src/main.rs:2604
+msgid "Migration interrupted."
+msgstr "迁移已中断。"
+
+#: crates/gui/src/main.rs:2645
+msgid "Choose backup archive destination"
+msgstr "选择备份归档的保存位置"
+
+#: crates/gui/src/main.rs:2654 crates/gui/src/main.rs:2655
+msgid "Backing up…"
+msgstr "正在备份…"
+
+#: crates/gui/src/main.rs:2681
+msgid "Backup interrupted."
+msgstr "备份已中断。"
+
+#: crates/gui/src/main.rs:2718
+msgid "Choose backup archive to restore"
+msgstr "选择要恢复的备份归档"
+
+#: crates/gui/src/main.rs:2727 crates/gui/src/main.rs:2728
+msgid "Restoring…"
+msgstr "正在恢复…"
+
+#: crates/gui/src/main.rs:2767
+msgid "Overwrite existing managed state?"
+msgstr "覆盖现有的受管状态？"
+
+#: crates/gui/src/main.rs:2768
+msgid ""
+"Managed state already exists. Force restore and overwrite manager-owned "
+"state?"
+msgstr "受管状态已存在。是否强制恢复并覆盖管理器拥有的状态？"
+
+#: crates/gui/src/main.rs:2770
+msgid "Overwrite"
+msgstr "覆盖"
+
+#: crates/gui/src/main.rs:2772 crates/gui/src/main.rs:2773
+msgid "Restoring (forced)…"
+msgstr "正在恢复（强制）…"
+
+#: crates/gui/src/main.rs:2799 crates/gui/src/main.rs:2839
+msgid "Restore interrupted."
+msgstr "恢复已中断。"
+
+#: crates/gui/src/main.rs:2881 crates/gui/src/main.rs:2882
+msgid "Updating seed packs…"
+msgstr "正在更新预置包…"
+
+#: crates/gui/src/main.rs:2908
+msgid "Update seed packs interrupted."
+msgstr "更新预置包已中断。"
+
+#: crates/gui/src/preferences.rs:31
+msgid "data/catalog.json (auto-detected) · built-in fallback"
+msgstr "data/catalog.json（自动检测）· 内置后备"
+
+#: crates/gui/src/preferences.rs:70 crates/gui/src/preferences.rs:113
+msgid "General"
+msgstr "常规"
+
+#: crates/gui/src/preferences.rs:76
+msgid "Storage"
+msgstr "存储"
+
+#: crates/gui/src/preferences.rs:82
+msgid "Network"
+msgstr "网络"
+
+#: crates/gui/src/preferences.rs:88
+msgid "Backup"
+msgstr "备份"
+
+#: crates/gui/src/preferences.rs:205
+msgid "APPEARANCE"
+msgstr "外观"
+
+#: crates/gui/src/preferences.rs:210
+msgid "Theme"
+msgstr "主题"
+
+#: crates/gui/src/preferences.rs:211
+msgid "Follow the system, or force a mode"
+msgstr "跟随系统，或强制使用某种模式"
+
+#: crates/gui/src/preferences.rs:216
+msgid "System"
+msgstr "系统"
+
+#: crates/gui/src/preferences.rs:217
+msgid "Light"
+msgstr "浅色"
+
+#: crates/gui/src/preferences.rs:218
+msgid "Dark"
+msgstr "深色"
+
+#: crates/gui/src/preferences.rs:252
+msgid "Compact rows"
+msgstr "紧凑行"
+
+#: crates/gui/src/preferences.rs:253
+msgid "Tighter launcher grid (applies on reload)"
+msgstr "更紧凑的启动器网格（重新加载后生效）"
+
+#: crates/gui/src/preferences.rs:260
+msgid "CATALOG"
+msgstr "清单"
+
+#: crates/gui/src/preferences.rs:263
+msgid "Catalog file"
+msgstr "清单文件"
+
+#: crates/gui/src/preferences.rs:267
+msgid "Open…"
+msgstr "打开…"
+
+#: crates/gui/src/preferences.rs:279
+msgid "Reload on focus"
+msgstr "获得焦点时重新加载"
+
+#: crates/gui/src/preferences.rs:280
+msgid "Re-scan the catalog when the window regains focus"
+msgstr "窗口重新获得焦点时重新扫描清单"
+
+#: crates/gui/src/preferences.rs:287
+msgid "ON LAUNCH"
+msgstr "启动时"
+
+#: crates/gui/src/preferences.rs:290
+msgid "Check for updates"
+msgstr "检查更新"
+
+#: crates/gui/src/preferences.rs:291
+msgid "Flag apps with a newer upstream release"
+msgstr "标记上游有更新版本的应用"
+
+#: crates/gui/src/preferences.rs:298
+msgid "Repair launchers automatically"
+msgstr "自动修复启动器"
+
+#: crates/gui/src/preferences.rs:299
+msgid "Recreate any missing .desktop files"
+msgstr "重新创建缺失的 .desktop 文件"
+
+#: crates/gui/src/preferences.rs:311
+msgid "DOWNLOADS"
+msgstr "下载"
+
+#: crates/gui/src/preferences.rs:316
+msgid "Direct (no proxy)"
+msgstr "直连（无代理）"
+
+#: crates/gui/src/preferences.rs:316
+msgid "System proxy (Tor)"
+msgstr "系统代理（Tor）"
+
+#: crates/gui/src/preferences.rs:318
+msgid "Route through"
+msgstr "下载途径"
+
+#: crates/gui/src/preferences.rs:319
+msgid "Where AppImage downloads are sent"
+msgstr "AppImage 下载所经由的网络路径"
+
+#: crates/gui/src/preferences.rs:342
+msgid "Verify checksums &amp; signatures"
+msgstr "验证校验和与签名"
+
+#: crates/gui/src/preferences.rs:343
+msgid "Refuse a download that fails verification"
+msgstr "拒绝未通过验证的下载"
+
+#: crates/gui/src/preferences.rs:358
+msgid "Concurrent downloads"
+msgstr "并发下载数"
+
+#: crates/gui/src/preferences.rs:359
+msgid "Lower is gentler over Tor"
+msgstr "数值越低，对 Tor 网络越友好"
+
+#: crates/gui/src/preferences.rs:373
+msgid "SEEDING"
+msgstr "预置"
+
+#: crates/gui/src/preferences.rs:377
+msgid "Auto-seed new instances"
+msgstr "自动预置新实例"
+
+#: crates/gui/src/preferences.rs:378
+msgid "Seed settings right after creating an instance"
+msgstr "创建实例后立即预置设置"
+
+#: crates/gui/src/preferences.rs:387
+msgctxt "headless runner"
+msgid "Auto"
+msgstr "自动"
+
+#: crates/gui/src/preferences.rs:392
+msgid "Headless runner"
+msgstr "无头运行器"
+
+#: crates/gui/src/preferences.rs:419
+msgid "MAINTENANCE"
+msgstr "维护"
+
+#: crates/gui/src/preferences.rs:423
+msgid "Reload catalog now"
+msgstr "立即重新加载清单"
+
+#: crates/gui/src/preferences.rs:424
+msgid "Re-scan and rebuild the list"
+msgstr "重新扫描并重建列表"
+
+#: crates/gui/src/preferences.rs:431
+msgid "Clean download cache"
+msgstr "清理下载缓存"
+
+#: crates/gui/src/preferences.rs:432
+msgid "Delete cached AppImage downloads"
+msgstr "删除已缓存的 AppImage 下载"
+
+#: crates/gui/src/preferences.rs:439
+msgid "Update seed packs"
+msgstr "更新预置包"
+
+#: crates/gui/src/preferences.rs:440
+msgid "Fetch the latest signed seed-pack tarball"
+msgstr "获取最新的已签名预置包压缩包"
+
+#: crates/gui/src/preferences.rs:442
+msgid "Update"
+msgstr "更新"
+
+#: crates/gui/src/preferences.rs:447
+msgid "Show seed packs"
+msgstr "显示预置包"
+
+#: crates/gui/src/preferences.rs:448
+msgid "List loaded seed packs and their sources"
+msgstr "列出已加载的预置包及其来源"
+
+#: crates/gui/src/preferences.rs:450
+msgid "Show"
+msgstr "显示"
+
+#: crates/gui/src/preferences.rs:456
+msgid "Import old portable dirs into managed instances"
+msgstr "将旧的便携目录导入为受管实例"
+
+#: crates/gui/src/preferences.rs:458
+msgid "Migrate"
+msgstr "迁移"
+
+#: crates/gui/src/preferences.rs:467
+msgid "MANAGER STATE"
+msgstr "管理器状态"
+
+#: crates/gui/src/preferences.rs:471
+msgid "Back up…"
+msgstr "备份…"
+
+#: crates/gui/src/preferences.rs:472
+msgid "Archive manager state to a file"
+msgstr "将管理器状态归档到文件"
+
+#: crates/gui/src/preferences.rs:474
+msgid "Back Up"
+msgstr "备份"
+
+#: crates/gui/src/preferences.rs:480
+msgid "Restore manager state from an archive"
+msgstr "从归档恢复管理器状态"
+
+#: crates/gui/src/preferences.rs:482
+msgid "Restore"
+msgstr "恢复"
+
+#: crates/gui/src/record_dialog.rs:32 crates/gui/src/record_dialog.rs:153
+#: crates/gui/src/record_dialog.rs:300 crates/gui/src/record_dialog.rs:392
+msgid "Record Seed Pack"
+msgstr "录制预置包"
+
+#: crates/gui/src/record_dialog.rs:85
+msgctxt "wizard step"
+msgid "Baseline"
+msgstr "基线"
+
+#: crates/gui/src/record_dialog.rs:86
+msgctxt "wizard step"
+msgid "Configure"
+msgstr "配置"
+
+#: crates/gui/src/record_dialog.rs:87
+msgctxt "wizard step"
+msgid "Review"
+msgstr "审查"
+
+#: crates/gui/src/record_dialog.rs:171
+msgid "Record a seed pack"
+msgstr "录制预置包"
+
+#: crates/gui/src/record_dialog.rs:196
+msgid "App"
+msgstr "应用"
+
+#: crates/gui/src/record_dialog.rs:202
+msgid "Instance"
+msgstr "实例"
+
+#: crates/gui/src/record_dialog.rs:209
+msgid "auto-detected — leave blank to detect at capture time"
+msgstr "自动检测——留空则在捕获时检测"
+
+#: crates/gui/src/record_dialog.rs:215
+msgid "Config path"
+msgstr "配置路径"
+
+#: crates/gui/src/record_dialog.rs:234
+msgid "_Capture baseline"
+msgstr "捕获基线(_C)"
+
+#: crates/gui/src/record_dialog.rs:317
+msgid "Baseline captured"
+msgstr "已捕获基线"
+
+#: crates/gui/src/record_dialog.rs:326
+msgid ""
+"Now launch {app} (instance {number}), change the settings you want the pack "
+"to carry, then quit the app. When it has fully exited, click “Diff "
+"changes”.\n"
+"\n"
+"Launch it with the button below, or from your normal launcher."
+msgstr ""
+"现在启动 {app}（实例 {number}），更改您希望预置包携带的设置，然后退出该应用。"
+"待其完全退出后，点击“比较更改”。\n"
+"\n"
+"可使用下方按钮启动，或通过您常用的启动器启动。"
+
+#: crates/gui/src/record_dialog.rs:338
+msgid "_Launch app"
+msgstr "启动应用(_L)"
+
+#: crates/gui/src/record_dialog.rs:339
+msgid "_Diff changes"
+msgstr "比较更改(_D)"
+
+#: crates/gui/src/record_dialog.rs:411
+msgid "Choose which changes to record"
+msgstr "选择要录制的更改"
+
+#: crates/gui/src/record_dialog.rs:418
+msgid "diffed"
+msgstr "已比较"
+
+#: crates/gui/src/record_dialog.rs:426
+msgid ""
+"{added} added · {changed} changed · {removed} removed · {unchanged} unchanged"
+msgstr "新增 {added} · 更改 {changed} · 移除 {removed} · 未变 {unchanged}"
+
+#: crates/gui/src/record_dialog.rs:445
+msgid "Changed keys"
+msgstr "已更改的键"
+
+#: crates/gui/src/record_dialog.rs:470
+msgid "new: {value}"
+msgstr "新值：{value}"
+
+#: crates/gui/src/record_dialog.rs:490
+msgid "removed — a static pack cannot delete keys (not recorded)"
+msgstr "已移除——静态预置包无法删除键（不录制）"
+
+#: crates/gui/src/record_dialog.rs:510
+msgid "unsigned"
+msgstr "未签名"
+
+#: crates/gui/src/record_dialog.rs:516
+msgid "Saved as a static-only pack to your per-user seeds dir."
+msgstr "已作为纯静态预置包保存到您的用户预置目录。"
+
+#: crates/gui/src/record_dialog.rs:527
+msgid "_Back"
+msgstr "返回(_B)"
+
+#: crates/gui/src/record_dialog.rs:528
+msgid "_Save pack"
+msgstr "保存预置包(_S)"
+
+#: crates/gui/src/record_dialog.rs:634
+msgid "Save seed pack"
+msgstr "保存预置包"
+
+#: crates/gui/src/seed_dialog.rs:46
+msgid "Writes each app's first-run settings"
+msgstr "写入各应用的首次运行设置"
+
+#: crates/gui/src/seed_dialog.rs:73
+msgid "APPS TO SEED"
+msgstr "要预置的应用"
+
+#: crates/gui/src/seed_dialog.rs:76
+msgid "SAVED CONFIGURATIONS"
+msgstr "已保存的配置"
+
+#: crates/gui/src/seed_dialog.rs:129 crates/gui/src/seed_dialog.rs:137
+msgid "Seed Settings"
+msgstr "预置设置"
+
+#: crates/gui/src/seed_dialog.rs:200
+msgid "{count} installed instance"
+msgid_plural "{count} installed instances"
+msgstr[0] "{count} 个已安装实例"
+
+#: crates/gui/src/seed_dialog.rs:241
+msgid "Supported"
+msgstr "受支持"
+
+#: crates/gui/src/seed_dialog.rs:244
+msgid "No instances"
+msgstr "无实例"
+
+#: crates/gui/src/seed_dialog.rs:305
+msgid "+ Save current…"
+msgstr "+ 保存当前配置…"
+
+#: crates/gui/src/seed_dialog.rs:346
+msgid "Could not save form"
+msgstr "无法保存表单"
+
+#: crates/gui/src/seed_dialog.rs:348
+msgid "Invalid name"
+msgstr "名称无效"
+
+#: crates/gui/src/seed_dialog.rs:390
+msgid "Delete this saved configuration"
+msgstr "删除此已保存的配置"
+
+#: crates/gui/src/seed_dialog.rs:415
+msgid "Could not load saved form"
+msgstr "无法加载已保存的表单"
+
+#: crates/gui/src/seed_dialog.rs:430
+msgid "Could not delete form"
+msgstr "无法删除表单"
+
+#: crates/gui/src/seed_dialog.rs:464 crates/gui/src/seed_dialog.rs:487
+msgid "Seed {count} app"
+msgid_plural "Seed {count} apps"
+msgstr[0] "预置 {count} 个应用"
+
+#: crates/gui/src/seed_dialog.rs:492
+msgid "{count} app selected"
+msgid_plural "{count} apps selected"
+msgstr[0] "已选择 {count} 个应用"
+
+#: crates/gui/src/seed_dialog.rs:510
+msgid "Save configuration"
+msgstr "保存配置"
+
+#: crates/gui/src/seed_dialog.rs:511
+msgid "Name this configuration for later recall."
+msgstr "为此配置命名，以便日后调用。"
+
+#: crates/gui/src/seed_dialog.rs:516
+msgid "e.g. weekday-feather"
+msgstr "例如 weekday-feather"
+
+#: crates/gui/src/seed_dialog.rs:521
+msgid "_Save"
+msgstr "保存(_S)"
+
+#: crates/gui/src/seed_dialog.rs:555
+msgid "_OK"
+msgstr "确定(_O)"
+
+#: crates/gui/src/status_text.rs:10
+msgid "No installed instances to update."
+msgstr "没有可更新的已安装实例。"
+
+#: crates/gui/src/status_text.rs:16
+msgid ""
+"{failed} failed, {updated} updated, {unchanged} unchanged, {skipped} skipped "
+"as already catalog (see log)."
+msgstr ""
+"{failed} 个失败，{updated} 个已更新，{unchanged} 个未变，{skipped} 个因已是清"
+"单版本而跳过（参见日志）。"
+
+#: crates/gui/src/status_text.rs:28
+msgid "Updated {count} instance"
+msgid_plural "Updated {count} instances"
+msgstr[0] "已更新 {count} 个实例"
+
+#: crates/gui/src/status_text.rs:36
+msgid "{count} unchanged after update"
+msgstr "更新后 {count} 个未变"
+
+#: crates/gui/src/status_text.rs:42
+msgid "{count} skipped (already catalog)"
+msgstr "跳过 {count} 个（已是清单版本）"
+
+#: crates/gui/src/status_text.rs:50
+msgid ""
+"{skipped} skipped (already catalog); {checked} checked with no binary change."
+msgstr ""
+"跳过 {skipped} 个（已是清单版本）；检查 {checked} 个，二进制文件无变化。"
+
+#: crates/gui/src/status_text.rs:60
+msgid "The {count} instance already matched the catalog (nothing to fetch)."
+msgid_plural ""
+"All {count} instances already matched the catalog (nothing to fetch)."
+msgstr[0] "全部 {count} 个实例已与清单一致（无需获取）。"
+
+#: crates/gui/src/status_text.rs:69
+msgid "Checked {count} instance; no AppImage replacement was needed."
+msgid_plural "Checked {count} instances; no AppImage replacement was needed."
+msgstr[0] "已检查 {count} 个实例；无需替换 AppImage。"
+
+#: crates/gui/src/status_text.rs:80
+msgid "{failed} failed, {seeded} completed."
+msgstr "{failed} 个失败，{seeded} 个已完成。"
+
+#: crates/gui/src/status_text.rs:86
+msgid "Seeded {count} instance."
+msgid_plural "Seeded {count} instances."
+msgstr[0] "已预置 {count} 个实例。"
+
+#: crates/gui/src/status_text.rs:93
+msgid "No supported installed instances to seed."
+msgstr "没有可预置的受支持已安装实例。"
+
+#: crates/gui/src/status_text.rs:112
+msgid "{count} app failed"
+msgid_plural "{count} apps failed"
+msgstr[0] "{count} 个应用失败"
+
+#: crates/gui/src/status_text.rs:119
+msgid "{count} instance NOT seeded"
+msgid_plural "{count} instances NOT seeded"
+msgstr[0] "{count} 个实例未预置"
+
+#: crates/gui/src/status_text.rs:127
+msgid "Applied."
+msgstr "已应用。"
+
+#: crates/gui/src/status_text.rs:129 crates/gui/src/status_text.rs:133
+#: crates/gui/src/status_text.rs:137
+msgid "Applied — {problems} (see the activity log)"
+msgstr "已应用——{problems}（参见活动日志）"
+
+#: crates/gui/src/status_text.rs:155
+msgid "Last Apply: {count} app not installed"
+msgid_plural "Last Apply: {count} apps not installed"
+msgstr[0] "上次应用：{count} 个应用未安装"
+
+#: crates/gui/src/status_text.rs:161
+msgid "See the activity log for why"
+msgstr "原因请参见活动日志"
+
+#: crates/gui/src/status_text.rs:170
+msgid "Add a download_url in the catalog to enable installs."
+msgstr "在清单中添加 download_url 以启用安装。"
+
+#: crates/gui/src/status_text.rs:173
+msgid ""
+"No AppImage URL for this system ({arch}) — installs are disabled for this "
+"app."
+msgstr "没有适用于此系统（{arch}）的 AppImage URL——已禁用此应用的安装。"

@@ -1,5 +1,6 @@
 use std::rc::Rc;
 
+use crate::i18n::tr;
 use gtk::gio;
 use gtk::prelude::*;
 use gtk::{ApplicationWindow, MenuButton};
@@ -69,27 +70,27 @@ pub fn build_actions_menu_button() -> MenuButton {
     let menu = gio::Menu::new();
 
     let g1 = gio::Menu::new();
-    g1.append(Some("Update All Installed"), Some("win.update"));
-    g1.append(Some("Seed Settings…"), Some("win.seed_settings"));
-    g1.append(Some("Record Seed Pack…"), Some("win.record_seed_pack"));
+    g1.append(Some(tr("Update All Installed")), Some("win.update"));
+    g1.append(Some(tr("Seed Settings…")), Some("win.seed_settings"));
+    g1.append(Some(tr("Record Seed Pack…")), Some("win.record_seed_pack"));
     menu.append_section(None, &g1);
 
     let g2 = gio::Menu::new();
-    g2.append(Some("Repair Launchers"), Some("win.repair"));
-    g2.append(Some("Back Up…"), Some("win.backup"));
-    g2.append(Some("Restore…"), Some("win.restore_backup"));
+    g2.append(Some(tr("Repair Launchers")), Some("win.repair"));
+    g2.append(Some(tr("Back Up…")), Some("win.backup"));
+    g2.append(Some(tr("Restore…")), Some("win.restore_backup"));
     menu.append_section(None, &g2);
 
     let g3 = gio::Menu::new();
-    g3.append(Some("Clean Download Cache"), Some("win.clean_cache"));
-    g3.append(Some("Remove All Instances…"), Some("win.clean"));
-    g3.append(Some("Purge Everything…"), Some("win.purge"));
+    g3.append(Some(tr("Clean Download Cache")), Some("win.clean_cache"));
+    g3.append(Some(tr("Remove All Instances…")), Some("win.clean"));
+    g3.append(Some(tr("Purge Everything…")), Some("win.purge"));
     menu.append_section(None, &g3);
 
     let g4 = gio::Menu::new();
-    g4.append(Some("Preferences"), Some("win.preferences"));
-    g4.append(Some("Keyboard Shortcuts"), Some("win.shortcuts"));
-    g4.append(Some("About AppImage Control"), Some("win.about"));
+    g4.append(Some(tr("Preferences")), Some("win.preferences"));
+    g4.append(Some(tr("Keyboard Shortcuts")), Some("win.shortcuts"));
+    g4.append(Some(tr("About AppImage Control")), Some("win.about"));
     menu.append_section(None, &g4);
 
     let b = MenuButton::builder()
