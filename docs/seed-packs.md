@@ -43,28 +43,18 @@ Numbers, booleans, strings, arrays, nested objects — anything
 `serde_json` accepts. Use this for values that don't depend on the
 instance index.
 
-### `proxy_setup` — hand proxy settings to portmux
+### Proxy settings are not seeded
 
-```json
-"proxy_setup": { "app": "feather" }
-```
+Seeding writes no ports, proxy hosts or isolation settings. Set an app's
+proxy outside this app, after seeding.
 
-`app` is a recipe id for `portmux-port configure-app --app`. portmux
-allocates this instance's port and writes the proxy settings into the app's
-config. The pack says nothing about ports, hosts or isolation. Its key is not
-`proxy` because Feather and Electrum both have a config key of that name.
+An older pack may still carry a `proxy_setup` block. It is accepted and
+ignored, so those packs keep loading.
 
-portmux runs before the pack's other keys are written, so a failure leaves the
-first-run config byte-identical. It runs again after them, so its settings win
-over a `static` or `rotation` key of the same name. A pack with no `proxy_setup`
-gets no `configure-app` call, though seeding's pre-flight probe still needs
-portmux. See
-[`docs/integration-portmux-port.md`](integration-portmux-port.md).
-
-The removed `preset` section and `port` verb are refused by name at load time,
-because ignoring them would leave a wallet with no proxy and no warning. That
-document has the migration steps. A refused pack is skipped and the other packs
-still load; seeding the refused pack's app fails with the reason.
+The removed `preset` section and `port` verb are refused by name at load time.
+To migrate, delete the `preset` section and move any non-proxy key to
+`static`. A refused pack is skipped and the other packs still load; seeding
+the refused pack's app fails with the reason.
 
 `config_path` must be a relative path inside the instance directory: an absolute
 path, a `..` component or an empty value refuses the pack the same way.
@@ -80,8 +70,7 @@ One form: `values` rotates through an inline list, indexed by
 }
 ```
 
-(Per-instance ports do not belong here: they are portmux's, through
-`proxy_setup`.)
+(Per-instance ports do not belong here: seeding writes no proxy settings.)
 
 ## Discovery chain
 
@@ -145,7 +134,7 @@ the app as installable. Minimum schema:
 `{appimage}` is substituted at seed time with the AppImage filename.
 The manager will launch the AppImage once under `xvfb-run`, wait for
 the config file to appear at that path, then apply the pack's
-`proxy_setup` / `static` / `rotation` verbs to it.
+`static` / `rotation` verbs to it.
 
 Validate locally before shipping:
 
@@ -186,9 +175,8 @@ appimage-control --record-pack-capture feather --out ./feather.json
 ```
 
 The recorder only emits `static` literals (the added/changed top-level
-keys). It does **not** infer `proxy_setup` or `rotation`. Delete any proxy or
-port values it captured and add `proxy_setup` by hand afterwards, because those
-values are portmux's. Removed keys
+keys). It does **not** infer `rotation`. Delete any proxy or port values it
+captured, because seeding writes no proxy settings. Removed keys
 are reported but not encoded (a `static` pack cannot delete keys). The
 written file is not signed; the signed companion-repo delivery
 (`--update-seed-packs`) stays separate.

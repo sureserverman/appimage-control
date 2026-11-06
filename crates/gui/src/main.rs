@@ -33,8 +33,8 @@ use appimage_control_core::{
     clean_catalog_download_cache, clean_installed_catalog_apps_keep_cache, create_backup_archive,
     diff_configs, discover_config_candidates, discover_migration_candidates,
     fetch_github_release_hints, installed_appimage_size, installed_version_fleet_display,
-    instance_count, list_managed_instance_indices, portmux_port_probe_runtime,
-    purge_appimage_control_state, read_instance_config, reconcile_catalog_install_version_metadata,
+    instance_count, list_managed_instance_indices, purge_appimage_control_state,
+    read_instance_config, reconcile_catalog_install_version_metadata,
     reconcile_instance_count_with_policy, repair_instance_launchers, restore_backup_archive,
     run_portable_dir_migration, save_recording, seed_instance_settings,
     update_all_installed_instances_with_policy, write_pack_to, AppPaths, BackupOptions, Catalog,
@@ -1216,12 +1216,11 @@ fn mount_catalog_view(
             statusbar.set_text("Working…");
 
             let (tx_prog, rx_prog) = mpsc::channel::<(f64, String)>();
-            // (log, seed_failed, helper_missing, unverified): seed_failed = seeding
-            // errors from seed_new_instances_after_reconcile; helper_missing
-            // = instances skipped because portmux-port probe failed; unverified =
+            // (log, seed_failed, apply_failed, unverified): seed_failed = seeding
+            // errors from seed_new_instances_after_reconcile; unverified =
             // apps refused for lack of a published sha256 (offered in a dialog).
             let (tx, rx) =
-                mpsc::channel::<(String, u32, u32, u32, Vec<unverified::UnverifiedApp>)>();
+                mpsc::channel::<(String, u32, u32, Vec<unverified::UnverifiedApp>)>();
             let last_apply_failed_idle = Rc::clone(&last_apply_failed);
 
             let remote_for_idle = Rc::clone(&remote_latest_cache);
@@ -1238,11 +1237,11 @@ fn mount_catalog_view(
                     progress_done.set_text(Some(&label));
                 }
                 match rx.try_recv() {
-                    Ok((log_final, seed_failed, helper_missing, apply_failed, unverified_apps)) => {
+                    Ok((log_final, seed_failed, apply_failed, unverified_apps)) => {
                         last_apply_failed_idle.set(apply_failed);
                         progress_done.set_visible(false);
                         progress_done.set_fraction(0.0);
-                        let not_seeded = seed_failed + helper_missing;
+                        let not_seeded = seed_failed;
                         let display_log = if not_seeded > 0 {
                             format!(
                                 "{log_final}\nWARNING: {not_seeded} instance(s) installed but NOT seeded — see log above"
@@ -1322,18 +1321,10 @@ fn mount_catalog_view(
 
             std::thread::spawn(move || {
                 let mut log = String::new();
-                // Pre-flight cache: `portmux_port_probe_runtime` itself
-                // caches across the whole process, but we also want to
-                // log the install hint *once* even when several apps
-                // each add new instances in the same Apply run.
-                let mut probe_failure_logged: Option<String> = None;
                 // Counts propagated to the idle handler so the status
                 // bar and activity-log dialog can surface seeding failures
                 // visibly rather than leaving the user on a plain "Applied."
                 let mut seed_failed: u32 = 0;
-                // Instances that were installed but skipped at the probe
-                // stage (portmux-port helper not found / not working).
-                let mut helper_missing: u32 = 0;
                 let mut unverified_list: Vec<unverified::UnverifiedApp> = Vec::new();
                 let mut apply_failed: u32 = 0;
                 let n = specs.len();
@@ -1366,70 +1357,32 @@ fn mount_catalog_view(
                             match r {
                                 Ok(rep) => {
                                     if !rep.added.is_empty() {
-                                        // Probe lazily — only when we
-                                        // actually have new instances to
-                                        // seed. Avoids dragging the
-                                        // missing-portmux message in
-                                        // front of users who never
-                                        // touched a seedable app.
-                                        //
-                                        // First failure in this Apply
-                                        // run writes the full install
-                                        // hint; subsequent apps in the
-                                        // same run get a short line
-                                        // pointing back at it.
-                                        let probe_ok = match &probe_failure_logged {
-                                            Some(_) => {
+                                        let preset = SeedPreset::auto_default();
+                                        log.push_str(&format!(
+                                            "{}: auto-seeding {} new instance(s)\n",
+                                            app.id,
+                                            rep.added.len(),
+                                        ));
+                                        match appimage_control_core::seed_new_instances_after_reconcile(
+                                            &paths_t,
+                                            app,
+                                            &rep.added,
+                                            preset,
+                                            &mut |m| {
+                                                log.push_str(m);
+                                                log.push('\n');
+                                            },
+                                        ) {
+                                            Ok(seed_rep) => {
+                                                seed_failed += seed_rep.failed;
+                                            }
+                                            Err(e) => {
                                                 log.push_str(&format!(
-                                                    "{}: auto-seeding skipped — required system helper still unavailable\n",
+                                                    "{}: seeding error: {e}\n",
                                                     app.id
                                                 ));
-                                                helper_missing +=
+                                                seed_failed +=
                                                     rep.added.len() as u32;
-                                                false
-                                            }
-                                            None => match portmux_port_probe_runtime() {
-                                                Ok(_) => true,
-                                                Err(msg) => {
-                                                    log.push_str(&format!(
-                                                        "{}: auto-seeding skipped — required system helper unavailable.\n{msg}\n",
-                                                        app.id
-                                                    ));
-                                                    helper_missing +=
-                                                        rep.added.len() as u32;
-                                                    probe_failure_logged = Some(msg);
-                                                    false
-                                                }
-                                            },
-                                        };
-                                        if probe_ok {
-                                            let preset = SeedPreset::auto_default();
-                                            log.push_str(&format!(
-                                                "{}: auto-seeding {} new instance(s)\n",
-                                                app.id,
-                                                rep.added.len(),
-                                            ));
-                                            match appimage_control_core::seed_new_instances_after_reconcile(
-                                                &paths_t,
-                                                app,
-                                                &rep.added,
-                                                preset,
-                                                &mut |m| {
-                                                    log.push_str(m);
-                                                    log.push('\n');
-                                                },
-                                            ) {
-                                                Ok(seed_rep) => {
-                                                    seed_failed += seed_rep.failed;
-                                                }
-                                                Err(e) => {
-                                                    log.push_str(&format!(
-                                                        "{}: seeding error: {e}\n",
-                                                        app.id
-                                                    ));
-                                                    seed_failed +=
-                                                        rep.added.len() as u32;
-                                                }
                                             }
                                         }
                                     }
@@ -1460,7 +1413,7 @@ fn mount_catalog_view(
                 if log.is_empty() {
                     log.push_str("No changes applied.\n");
                 }
-                let _ = tx.send((log, seed_failed, helper_missing, apply_failed, unverified_list));
+                let _ = tx.send((log, seed_failed, apply_failed, unverified_list));
             });
         }
     });
@@ -1998,16 +1951,6 @@ fn install_window_actions_for_catalog(
                     let mut done = 0u32;
                     if total == 0 {
                         let _ = tx_prog.send((1.0, "Seeding settings…".to_string()));
-                    }
-                    if let Err(msg) = portmux_port_probe_runtime() {
-                        log.push_str(
-                            "Seeding aborted: a required system helper is not available on the host.\n",
-                        );
-                        log.push_str(&msg);
-                        log.push('\n');
-                        failed = total.max(1);
-                        let _ = tx.send((log, seeded, failed));
-                        return;
                     }
                     for app in &catalog_t.apps {
                         if !selected_ids.iter().any(|id| id == &app.id) {

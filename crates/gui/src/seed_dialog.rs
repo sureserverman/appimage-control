@@ -42,7 +42,7 @@ pub fn choose_seed_settings(
 ) -> Option<(SeedPreset, Vec<String>)> {
     let forms_dir = default_seed_forms_dir();
 
-    let dialog = build_dialog_shell(parent, "portmux sets up each app's proxy");
+    let dialog = build_dialog_shell(parent, "Writes each app's first-run settings");
     let area = dialog.content_area();
     area.set_orientation(Orientation::Vertical);
     area.set_spacing(0);

@@ -9,14 +9,13 @@ use appimage_control_core::{
     clean_installed_catalog_apps_keep_cache, create_backup_archive, delete_recording,
     delete_seed_form, diff_configs, discover_config_candidates, discover_migration_candidates,
     fetch_github_release_hints, installed_version_fleet_display, instance_count, list_recordings,
-    list_seed_forms, load_recording, load_seed_form, portmux_port_probe_runtime,
-    parse_app_instance_spec, purge_appimage_control_state, read_instance_config,
-    reconcile_catalog_install_version_metadata, reconcile_instance_count_with_policy,
-    repair_instance_launchers, restore_backup_archive, run_portable_dir_migration, save_recording,
-    save_seed_form, seed_new_instances_after_reconcile, seed_supported_installed_apps,
-    update_all_installed_instances_with_policy, update_seed_packs, user_seeds_dir, write_pack_to,
-    AppPaths, BackupOptions, Catalog, MigrationConflict, MigrationResolution, PackRecording,
-    SavedSeedForm, SeedPackLibrary, SeedPreset,
+    list_seed_forms, load_recording, load_seed_form, parse_app_instance_spec,
+    purge_appimage_control_state, read_instance_config, reconcile_catalog_install_version_metadata,
+    reconcile_instance_count_with_policy, repair_instance_launchers, restore_backup_archive,
+    run_portable_dir_migration, save_recording, save_seed_form, seed_new_instances_after_reconcile,
+    seed_supported_installed_apps, update_all_installed_instances_with_policy, update_seed_packs,
+    user_seeds_dir, write_pack_to, AppPaths, BackupOptions, Catalog, MigrationConflict,
+    MigrationResolution, PackRecording, SavedSeedForm, SeedPackLibrary, SeedPreset,
 };
 
 pub fn want_help(args: &[String]) -> bool {
@@ -58,7 +57,6 @@ When --purge, --clean, or --migrate is present, only one runs: --purge first if 
   --seed-settings TARGETS
                    Seed supported app settings for installed instances. TARGETS is `all`,
                    one app id, or a comma-separated list like `feather,electrum-btc`.
-                   portmux detects the host; no manual switch needed.
   --seed-save NAME Save the current --seed-settings selection under NAME for later recall,
                    then run the seed. Form is stored under
                    ~/.local/share/appimage-control/seed-forms/<NAME>.json. Name must match
@@ -119,11 +117,8 @@ When --purge, --clean, or --migrate is present, only one runs: --purge first if 
   +APP:N           Add N instances of APP (same cap).
   --seed-new       When present alongside +APP/+APP:N/=APP:N ops that add instances, automatically
                    seed settings for each newly added instance after all instance ops complete
-                   (matches the GUI's post-Apply auto-seed behaviour). Requires portmux with its
-                   configure-app command; on probe failure the install hint is printed and newly
-                   added instances are counted as not-seeded, then the command exits with failure
-                   (instances remain installed). --seed-new without any instance-adding op is an
-                   error.
+                   (matches the GUI's post-Apply auto-seed behaviour). --seed-new without any
+                   instance-adding op is an error.
   --allow-unverified
                    With +APP/=APP:N and -update: install a download that has no published sha256
                    to check (no catalog sha256, GitHub publishes no digest, or the lookup failed).
@@ -1724,44 +1719,32 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
         });
     }
 
-    // --seed-new post-loop: probe portmux and seed each newly added instance.
+    // --seed-new post-loop: seed each newly added instance.
     // Only runs when ops didn't already fail (consistent with skip policy).
     if want_seed_new && !any_failed && !seed_new_pending.is_empty() {
-        if let Err(msg) = portmux_port_probe_runtime() {
-            eprintln!("{msg}");
-            any_failed = true;
-            // Count the instances we couldn't seed as a failure tally so the
-            // caller knows the seeding didn't happen even though installs did.
-            let total_unseed: usize = seed_new_pending.iter().map(|(_, v)| v.len()).sum();
-            eprintln!(
-                "Seeding skipped for {} new instance(s): required system helper unavailable.",
-                total_unseed
-            );
-        } else {
-            let preset = SeedPreset::auto_default();
-            for (app_id, new_indices) in &seed_new_pending {
-                if let Some(app) = by_id.get(app_id.as_str()) {
-                    eprintln!(
-                        "{}: auto-seeding {} new instance(s)",
-                        app_id,
-                        new_indices.len()
-                    );
-                    match seed_new_instances_after_reconcile(
-                        &paths,
-                        app,
-                        new_indices,
-                        preset,
-                        &mut |m| eprintln!("{m}"),
-                    ) {
-                        Ok(rep) => {
-                            if rep.failed > 0 {
-                                any_failed = true;
-                            }
-                        }
-                        Err(e) => {
-                            eprintln!("{app_id}: seeding error: {e}");
+        let preset = SeedPreset::auto_default();
+        for (app_id, new_indices) in &seed_new_pending {
+            if let Some(app) = by_id.get(app_id.as_str()) {
+                eprintln!(
+                    "{}: auto-seeding {} new instance(s)",
+                    app_id,
+                    new_indices.len()
+                );
+                match seed_new_instances_after_reconcile(
+                    &paths,
+                    app,
+                    new_indices,
+                    preset,
+                    &mut |m| eprintln!("{m}"),
+                ) {
+                    Ok(rep) => {
+                        if rep.failed > 0 {
                             any_failed = true;
                         }
+                    }
+                    Err(e) => {
+                        eprintln!("{app_id}: seeding error: {e}");
+                        any_failed = true;
                     }
                 }
             }
@@ -1796,16 +1779,6 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
     }
 
     if let Some(targets) = seed_targets {
-        // Pre-flight: bail before the per-instance loop if the host
-        // is missing the required system helper. The seed pipeline
-        // hands all proxy setup to it; without it every
-        // instance would fail with the same install hint. One message
-        // at the top is the right UX.
-        if let Err(msg) = portmux_port_probe_runtime() {
-            eprintln!("{msg}");
-            return Some(glib::ExitCode::FAILURE);
-        }
-
         let preset = SeedPreset::auto_default();
         let selected_ref_storage = targets;
         let selected_ref = selected_ref_storage.as_deref();
@@ -1927,56 +1900,26 @@ mod purge_prompt_tests {
     /// Hermetic environment for end-to-end seed tests:
     /// - pinned HOME + catalog;
     /// - a fake `xvfb-run` so AppImage launches are no-ops;
-    /// - a fake portmux-port helper wired through the documented
-    ///   override env var so the seed pre-flight + per-instance
-    ///   lookups don't depend on an installed system helper;
     /// - optional seed-pack directory override so callers can inject
     ///   synthetic packs without shipping anything in this repo.
-    ///
-    /// The stub helper behaves as `configure-app` does: it writes a proxy key
-    /// into `--config` and prints JSON. Test bodies do not need to know which
-    /// binary is being stubbed — that's the point of the abstraction.
-    ///
-    /// The helper probe is cached per process, and the first test to reach it
-    /// fixes the answer for this whole test binary. A test expecting a probe
-    /// failure therefore goes in `tests/cli_subprocess.rs`.
     fn with_fake_seed_env<T>(
         home: &std::path::Path,
         catalog: &std::path::Path,
         seeds_dir: Option<&std::path::Path>,
         f: impl FnOnce() -> T,
     ) -> T {
-        use appimage_control_core::{ENV_PORT_HELPER_BIN, ENV_SEEDS_DIR};
+        use appimage_control_core::ENV_SEEDS_DIR;
 
         let _g = env_lock().lock().expect("env lock");
         let old_home = std::env::var_os("HOME");
         let old_catalog = std::env::var_os("APPIMAGE_CONTROL_CATALOG");
         let old_path = std::env::var_os("PATH");
-        let old_helper = std::env::var_os(ENV_PORT_HELPER_BIN);
         let old_seeds = std::env::var_os(ENV_SEEDS_DIR);
         let bin = home.join("bin");
         fs::create_dir_all(&bin).expect("bin");
         write_exec(
             &bin.join("xvfb-run"),
             "#!/bin/sh\nshift\nshift\nexec \"$@\"\n",
-        );
-        // Fake portmux-port. Answers the probe (`configure-app --help`) and
-        // writes a proxy key into --config, as the real command does.
-        let helper = bin.join("port-helper");
-        write_exec(
-            &helper,
-            "#!/bin/sh\n\
-             [ \"$1\" = configure-app ] || exit 1\n\
-             [ \"$2\" = --help ] && exit 0\n\
-             CFG=\n\
-             prev=\n\
-             for a in \"$@\"; do [ \"$prev\" = --config ] && CFG=\"$a\"; prev=\"$a\"; done\n\
-             [ -n \"$CFG\" ] || exit 1\n\
-             case \"$*\" in\n  \
-               *--write-only*) ;;\n  \
-               *) printf '{\"proxy\":1,\"socks5Port\":\"9168\"}' > \"$CFG\" ;;\n\
-             esac\n\
-             printf '{\"version\":2}\\n'\n",
         );
         let mut path = bin.as_os_str().to_os_string();
         path.push(":");
@@ -1986,7 +1929,6 @@ mod purge_prompt_tests {
         std::env::set_var("HOME", home);
         std::env::set_var("APPIMAGE_CONTROL_CATALOG", catalog);
         std::env::set_var("PATH", path);
-        std::env::set_var(ENV_PORT_HELPER_BIN, &helper);
         if let Some(sd) = seeds_dir {
             std::env::set_var(ENV_SEEDS_DIR, sd);
         } else {
@@ -2004,10 +1946,6 @@ mod purge_prompt_tests {
         match old_path {
             Some(v) => std::env::set_var("PATH", v),
             None => std::env::remove_var("PATH"),
-        }
-        match old_helper {
-            Some(v) => std::env::set_var(ENV_PORT_HELPER_BIN, v),
-            None => std::env::remove_var(ENV_PORT_HELPER_BIN),
         }
         match old_seeds {
             Some(v) => std::env::set_var(ENV_SEEDS_DIR, v),
@@ -2352,8 +2290,8 @@ mod purge_prompt_tests {
         );
 
         // Curated packs are no longer shipped in this repo (Stage 8).
-        // Inject a synthetic feather-shaped pack: portmux's stub writes the
-        // proxy key and the pack's `static` key lands beside it.
+        // Inject a synthetic feather-shaped pack whose `static` key lands in
+        // the config.
         let seeds_dir = tmp.path().join("seeds");
         fs::create_dir_all(&seeds_dir).expect("seeds dir");
         fs::write(
@@ -2361,8 +2299,7 @@ mod purge_prompt_tests {
             r#"{
                 "config_path": "feather.AppImage.config/feather/settings.json",
                 "first_run_args": [],
-                "static": { "language": "en" },
-                "proxy_setup": { "app": "feather" }
+                "static": { "language": "en" }
             }"#,
         )
         .expect("seed pack");
@@ -2371,7 +2308,6 @@ mod purge_prompt_tests {
         let code = with_fake_seed_env(&home, &catalog, Some(&seeds_dir), || run_cli_ops(&args));
         assert_eq!(code, Some(glib::ExitCode::SUCCESS));
         let body = fs::read_to_string(&cfg).expect("cfg");
-        assert!(body.contains("\"socks5Port\": \"9168\""), "got: {body}");
         assert!(body.contains("\"language\": \"en\""), "got: {body}");
     }
 
@@ -3265,8 +3201,7 @@ mod purge_prompt_tests {
             r#"{
                 "config_path": "feather.AppImage.config/feather/settings.json",
                 "first_run_args": [],
-                "static": { "language": "en" },
-                "proxy_setup": { "app": "feather" }
+                "static": { "language": "en" }
             }"#,
         )
         .expect("seed pack");
@@ -3321,8 +3256,7 @@ mod purge_prompt_tests {
             r#"{
                 "config_path": "feather.AppImage.config/feather/settings.json",
                 "first_run_args": [],
-                "static": { "language": "en" },
-                "proxy_setup": { "app": "feather" }
+                "static": { "language": "en" }
             }"#,
         )
         .expect("seed pack");
@@ -3336,10 +3270,6 @@ mod purge_prompt_tests {
         );
         assert!(dir.exists(), "feather instance dir must exist");
         let body = fs::read_to_string(&cfg).expect("config must exist after seeding");
-        assert!(
-            body.contains("\"socks5Port\": \"9168\""),
-            "config must contain portmux's proxy key, got: {body}"
-        );
         assert!(
             body.contains("\"language\": \"en\""),
             "config must contain the pack's static key, got: {body}"

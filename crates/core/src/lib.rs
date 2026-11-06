@@ -15,7 +15,6 @@ mod integrity;
 mod list;
 mod migrate;
 mod model;
-mod portmux_port;
 mod paths;
 mod reset;
 mod seed;
@@ -72,16 +71,6 @@ pub use migrate::{
     MigrationConflict, MigrationResolution,
 };
 pub use model::InstalledApp;
-/// Neutral alias for the override env var holding a custom path to
-/// the seeding helper. Same string value as
-/// [`ENV_PORTMUX_PORT_BIN`]; the alias exists so test code and
-/// future neutral-naming refactors can reference the override
-/// without naming the underlying tool.
-pub use portmux_port::ENV_PORTMUX_PORT_BIN as ENV_PORT_HELPER_BIN;
-pub use portmux_port::{
-    probe_runtime as portmux_port_probe_runtime, ProbeOutcome as PortmuxPortProbeOutcome,
-    ENV_PORTMUX_PORT_BIN, INSTALL_HINT as PORTMUX_PORT_INSTALL_HINT,
-};
 pub use paths::AppPaths;
 pub use reset::{delete_paths, execute_reset, preview_reset_paths, ResetPreview};
 pub use seed::{

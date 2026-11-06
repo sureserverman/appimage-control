@@ -7,8 +7,7 @@
 //! - Every pack passes the loader's validation, which refuses the removed
 //!   `preset` section and `port` verb by name.
 //! - The three apps we're known to ship (`feather`, `electrum-btc`,
-//!   `electrum-ltc`) declare `proxy_setup`, so portmux writes their
-//!   proxy settings.
+//!   `electrum-ltc`) have packs.
 
 use std::path::PathBuf;
 
@@ -61,7 +60,7 @@ fn companion_seed_packs_parse_and_validate() {
 }
 
 #[test]
-fn companion_packs_declare_proxy_setup() {
+fn companion_packs_cover_the_shipped_apps() {
     let Some(dir) = companion_pack_dir() else {
         eprintln!("skipping: companion seed-pack repo not found");
         return;
@@ -72,12 +71,6 @@ fn companion_packs_declare_proxy_setup() {
     let refused: Vec<_> = lib.refused().collect();
     assert!(refused.is_empty(), "companion packs refused: {refused:?}");
     for id in ["feather", "electrum-btc", "electrum-ltc"] {
-        let pack = lib
-            .get(id)
-            .unwrap_or_else(|| panic!("companion repo has no `{id}` pack"));
-        assert!(
-            pack.proxy_setup.is_some(),
-            "{id} has no proxy_setup, so seeding would leave it with no proxy"
-        );
+        assert!(lib.get(id).is_some(), "companion repo has no `{id}` pack");
     }
 }

@@ -11,7 +11,7 @@ use std::rc::Rc;
 
 use adw::prelude::*;
 
-use appimage_control_core::{portmux_port_probe_runtime, AppPaths, GuiConfig, ThemePref};
+use appimage_control_core::{AppPaths, GuiConfig, ThemePref};
 
 /// Apply a theme preference to the global libadwaita style manager.
 pub fn apply_theme(theme: ThemePref) {
@@ -378,22 +378,6 @@ fn network_page(cfg: &Rc<RefCell<GuiConfig>>, save: &Rc<dyn Fn()>) -> gtk::Widge
         .build();
     bind_switch(&auto_seed, cfg, save, |c, v| c.auto_seed = v);
     seeding.add(&auto_seed);
-
-    // Proxy setup via portmux-port — reflect a real runtime probe.
-    let (port_sub, connected) = match portmux_port_probe_runtime() {
-        Ok(o) => (format!("{} · detected on host", o.invocation), true),
-        Err(_) => ("portmux-port · not detected".to_string(), false),
-    };
-    let ports_row = adw::ActionRow::builder()
-        .title("Proxy setup via")
-        .subtitle(port_sub)
-        .build();
-    let pill = gtk::Label::new(Some(if connected { "connected" } else { "missing" }));
-    pill.add_css_class("ac-status");
-    pill.add_css_class(if connected { "installed" } else { "available" });
-    pill.set_valign(gtk::Align::Center);
-    ports_row.add_suffix(&pill);
-    seeding.add(&ports_row);
 
     let runner_opts = ["Auto", "flatpak-spawn --host xvfb-run", "xvfb-run"];
     let runner_model = gtk::StringList::new(&runner_opts);

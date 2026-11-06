@@ -52,14 +52,6 @@ This repository ships only the **architecture** (loader, interpreter, signature 
   `update-desktop-database`, and `gtk-update-icon-cache`). Install `xvfb` on
   the host, not inside the Flatpak.
 
-- `portmux-port` with its `configure-app` command on the host (shipped by the
-  `portmux` `.deb`). A seed pack that declares `proxy_setup` hands the app's
-  proxy setup to it: portmux picks the port and writes it into the app's config,
-  on both Ubuntu and Whonix-Workstation. See
-  [`docs/integration-portmux-port.md`](docs/integration-portmux-port.md) for the
-  contract, the install hint surfaced when portmux is missing or too old, and how
-  to migrate an older pack.
-
 - Network access to download and run the upstream AppImages at least once.
 
 ### CLI surface
@@ -102,7 +94,7 @@ Seeding flags:
 ```
 --seed-settings TARGETS
                      Seed supported app settings. TARGETS is `all`, one app id, or a comma-
-                     separated list. portmux detects the host; there is no host switch.
+                     separated list. There is no host switch.
 --seed-save NAME     Save the current --seed-settings selection under NAME, then run the seed.
 --seed-load NAME     Load a previously-saved seed form by NAME and run it.
 --seed-list-forms    Print all saved seed-form names and exit.
@@ -148,7 +140,7 @@ appimage-control --update-seed-packs
 The seeding command:
 
 - Runs each AppImage under `xvfb-run` until its config file appears.
-- Hands proxy setup to portmux, which detects the host, and patches that config with the pack's settings.
+- Patches that config with the pack's settings. It writes no proxy settings.
 - Logs per-instance results and a final summary, e.g.  
   `Seed settings summary: 3 seeded, 0 failed, 0 unsupported, 0 missing.`
 
@@ -156,7 +148,7 @@ The seeding command:
 
 - Use the main window to **Apply** instance counts for `feather`, `electrum-btc`, and `electrum-ltc`.
 - Then use the **”Seed Settings…”** entry in the main menu:
-  - Choose which installed supported apps to seed (checkboxes; no host picker — portmux detects the host).
+  - Choose which installed supported apps to seed (checkboxes; no host picker).
   - Optionally save or recall a named app selection via the “Saved configurations” section.
   - Review the full seeding log in the activity dialog.
 - Use **”Record Seed Pack…”** to author a new pack by diffing: pick an installed app/instance, capture a baseline, configure the app by hand, then review the changed keys and save a `static`-only pack (unsigned). See [docs/workflows/recording.md](docs/workflows/recording.md).

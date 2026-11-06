@@ -8,11 +8,9 @@ use std::time::{Duration, Instant};
 use serde_json::{Map, Value};
 
 use crate::catalog::{Catalog, CatalogApp};
-use crate::desktop::desktop_filename_for_instance;
 use crate::error::{Error, Result};
 use crate::host_cmd::host_command;
 use crate::instances::list_instance_indices;
-use crate::portmux_port::{configure_app, rewrite_app_config};
 use crate::paths::AppPaths;
 use crate::seed_pack::{apply_pack, SeedPack, SeedPackLibrary};
 
@@ -266,7 +264,7 @@ pub fn seed_instance_settings_with_recipe(
     seed_until_config(&appimage, &first_run_args, &expected)?;
     // Any failure from here restores the first run's bytes (WF-SEED-001).
     let first_run = fs::read(&expected)?;
-    if let Err(err) = apply_recipe(&recipe, app, instance_index, &expected, on_progress) {
+    if let Err(err) = apply_recipe(&recipe, instance_index, &expected) {
         // Compared first so a config nothing wrote keeps its mtime too.
         if fs::read(&expected).ok().as_ref() != Some(&first_run) {
             if let Err(restore) = fs::write(&expected, &first_run) {
@@ -286,40 +284,10 @@ pub fn seed_instance_settings_with_recipe(
 }
 
 /// Write one instance's seeded config. The app is already stopped.
-///
-/// portmux runs before the pack's write, so a failure there touches nothing
-/// in the config. It runs again after, because it owns the proxy settings: a
-/// pack key with the same name as a proxy setting must not silently replace it.
-fn apply_recipe(
-    recipe: &SeedRecipe,
-    app: &CatalogApp,
-    instance_index: u32,
-    config: &Path,
-    on_progress: &mut dyn FnMut(&str),
-) -> Result<()> {
-    // Both calls name this install, so portmux reads and writes its own slot.
-    let desktop_file = desktop_filename_for_instance(&app.id, instance_index);
-    let desktop_id = desktop_file
-        .strip_suffix(".desktop")
-        .unwrap_or(&desktop_file);
-    if let Some(setup) = &recipe.pack.proxy_setup {
-        let done = configure_app(&setup.app, instance_index, config, desktop_id)?;
-        if !done.warnings.is_empty() {
-            on_progress(&format!(
-                "{} instance {}: {}",
-                app.id, instance_index, done.warnings
-            ));
-        }
-        if let Some(action) = &done.manual_action {
-            on_progress(&format!("{} instance {}: {action}", app.id, instance_index));
-        }
-    }
+fn apply_recipe(recipe: &SeedRecipe, instance_index: u32, config: &Path) -> Result<()> {
     let mut map = read_json_object(config)?;
     apply_pack(&recipe.pack, instance_index, &mut map)?;
     write_json_object(config, map)?;
-    if let Some(setup) = &recipe.pack.proxy_setup {
-        rewrite_app_config(&setup.app, instance_index, config, desktop_id)?;
-    }
     Ok(())
 }
 
@@ -1284,7 +1252,7 @@ exec "$@"
             let reported = progress.join("\n");
             for err in [one.unwrap_err().to_string(), reported] {
                 assert!(err.contains("old-wallet.json"), "names the pack: {err}");
-                assert!(err.contains("proxy_setup"), "says how to migrate: {err}");
+                assert!(err.contains("`static`"), "says how to migrate: {err}");
             }
         });
     }
@@ -1808,196 +1776,5 @@ while :; do sleep 0.1; done
                 "progress never logged 'settings seeded'"
             );
         });
-    }
-}
-
-#[cfg(test)]
-mod proxy_setup {
-    use super::tests::{make_seedable_instance, supported_app, with_fake_xvfb};
-    use super::*;
-    use crate::portmux_port::{env_gate, ENV_PORTMUX_PORT_BIN};
-    use std::os::unix::fs::PermissionsExt;
-
-    const APP_ID: &str = "aic-proxy-test-app";
-    const APPIMAGE: &str = "aic-proxy-test-app.AppImage";
-
-    struct Seeded {
-        result: Result<SeedOutcome>,
-        lines: Vec<String>,
-        config: PathBuf,
-        log: PathBuf,
-        _tmp: tempfile::TempDir,
-    }
-
-    /// Seed instance 1 with the given pack body and a stub `portmux-port`
-    /// whose script is `stub`. `$LOG` and `$CFG` are set for the script.
-    fn seed_with(pack_extra: &str, stub: &str) -> Seeded {
-        seed_full("", pack_extra, stub)
-    }
-
-    fn seed_full(static_extra: &str, pack_extra: &str, stub: &str) -> Seeded {
-        let tmp = tempfile::tempdir().unwrap();
-        let rel_cfg = format!("{APPIMAGE}.test/config.json");
-        let seeds = tmp.path().join("seeds");
-        fs::create_dir_all(&seeds).unwrap();
-        fs::write(
-            seeds.join(format!("{APP_ID}.json")),
-            format!(
-                r#"{{"config_path":"{rel_cfg}","static":{{"sentinel":"ran"{static_extra}}}{pack_extra}}}"#
-            ),
-        )
-        .unwrap();
-        let log = tmp.path().join("stub.log");
-        let bin = tmp.path().join("portmux-port");
-        fs::write(
-            &bin,
-            format!(
-                "#!/bin/sh\nLOG='{}'\necho \"$*\" >> \"$LOG\"\nCFG=\"\"\nprev=\"\"\nfor a in \"$@\"; do [ \"$prev\" = --config ] && CFG=\"$a\"; prev=\"$a\"; done\n{stub}\n",
-                log.display()
-            ),
-        )
-        .unwrap();
-        fs::set_permissions(&bin, fs::Permissions::from_mode(0o700)).unwrap();
-
-        let app = supported_app(APP_ID, APPIMAGE);
-        let (paths, _, config) = make_seedable_instance(&tmp, &app, 1, &rel_cfg, false);
-        let mut lines = Vec::new();
-        let xvfb_dir = tmp.path().join("xvfb");
-        let result = with_fake_xvfb(&xvfb_dir, || {
-            let _gate = env_gate().lock().unwrap_or_else(|p| p.into_inner());
-            let prev_seeds = std::env::var_os(ENV_SEEDS);
-            let prev_bin = std::env::var_os(ENV_PORTMUX_PORT_BIN);
-            std::env::set_var(ENV_SEEDS, &seeds);
-            std::env::set_var(ENV_PORTMUX_PORT_BIN, &bin);
-            let out = seed_instance_settings(&paths, &app, 1, SeedPreset::Ubuntu, &mut |s| {
-                lines.push(s.to_string())
-            });
-            for (key, prev) in [(ENV_SEEDS, prev_seeds), (ENV_PORTMUX_PORT_BIN, prev_bin)] {
-                match prev {
-                    Some(v) => std::env::set_var(key, v),
-                    None => std::env::remove_var(key),
-                }
-            }
-            out
-        });
-        Seeded {
-            result,
-            lines,
-            config,
-            log,
-            _tmp: tmp,
-        }
-    }
-
-    const ENV_SEEDS: &str = crate::seed_pack::ENV_SEEDS_DIR;
-    const SETUP: &str = r#","proxy_setup":{"app":"feather"}"#;
-    /// Behaves as portmux's writer does: sets its proxy key and keeps the rest.
-    const WRITER: &str = r#"case "$*" in
-  *--write-only*) sed -i -E 's/"socks5Port": *"[^"]*"/"socks5Port": "9100"/' "$CFG" ;;
-  *) grep -q sentinel "$CFG" && echo PACK-WROTE-FIRST >> "$LOG"
-     printf '{"proxy":1,"socks5Port":"9100"}' > "$CFG" ;;
-esac
-echo '{"version":2,"manual_action":null}'"#;
-
-    #[test]
-    fn configure_app_runs_before_the_pack_write_and_both_sets_of_keys_survive() {
-        let s = seed_with(SETUP, WRITER);
-        assert_eq!(s.result.unwrap(), SeedOutcome::Seeded);
-        let log = fs::read_to_string(&s.log).unwrap();
-        assert!(!log.contains("PACK-WROTE-FIRST"), "order wrong: {log}");
-        let want = format!(
-            "configure-app --app feather --instance 1 --config {} --desktop-app-id appimage-control-{APP_ID}-1 --json-v2",
-            s.config.display()
-        );
-        assert!(log.contains(&want), "argv wrong: {log}");
-        // The rewrite names the same install, or portmux reads another one's slot.
-        let rewrite = format!(
-            "configure-app --app feather --instance 1 --config {} --desktop-app-id appimage-control-{APP_ID}-1 --write-only --json-v2",
-            s.config.display()
-        );
-        assert!(log.contains(&rewrite), "rewrite argv wrong: {log}");
-        let v: Value = serde_json::from_str(&fs::read_to_string(&s.config).unwrap()).unwrap();
-        assert_eq!(v["sentinel"], "ran", "pack key lost");
-        assert_eq!(v["socks5Port"], "9100", "proxy key lost");
-    }
-
-    /// A wallet must not end up off its own port because a pack named the
-    /// same key: the static and the rotation both try.
-    #[test]
-    fn a_pack_key_cannot_replace_a_proxy_setting() {
-        for (static_extra, pack_extra) in [
-            (r#","socks5Port":"1234""#, SETUP.to_string()),
-            (
-                "",
-                format!(r#"{SETUP},"rotation":{{"socks5Port":{{"values":["1234"]}}}}"#),
-            ),
-        ] {
-            let s = seed_full(static_extra, &pack_extra, WRITER);
-            assert_eq!(s.result.unwrap(), SeedOutcome::Seeded);
-            let v: Value = serde_json::from_str(&fs::read_to_string(&s.config).unwrap()).unwrap();
-            assert_eq!(v["socks5Port"], "9100", "pack won: {v}");
-            assert_eq!(v["sentinel"], "ran", "pack key lost: {v}");
-        }
-    }
-
-    /// portmux already wrote, then the last step fails: the first run's bytes
-    /// come back, and the failure is reported.
-    #[test]
-    fn a_failure_after_portmux_wrote_restores_the_first_run_config() {
-        let stub = r#"case "$*" in
-  *--write-only*) echo 'config read-only' 1>&2; exit 3 ;;
-  *) printf '{"proxy":1}' > "$CFG"; echo '{"version":2}' ;;
-esac"#;
-        let s = seed_with(SETUP, stub);
-        let err = s.result.unwrap_err().to_string();
-        assert!(err.contains("config read-only"), "got: {err}");
-        assert_eq!(fs::read_to_string(&s.config).unwrap(), "{}");
-    }
-
-    #[test]
-    fn unreadable_helper_output_restores_the_first_run_config() {
-        let s = seed_with(SETUP, r#"printf '{"proxy":1}' > "$CFG"; echo garbled"#);
-        let err = s.result.unwrap_err().to_string();
-        assert!(err.contains("not JSON"), "got: {err}");
-        assert_eq!(fs::read_to_string(&s.config).unwrap(), "{}");
-    }
-
-    #[test]
-    fn failing_helper_leaves_first_run_config_byte_identical() {
-        let why = "if you were just added to the portmux group, log out and in";
-        let s = seed_with(SETUP, &format!("echo '{why}' 1>&2\nexit 1"));
-        let err = s.result.unwrap_err().to_string();
-        assert!(err.contains(why), "portmux's message lost: {err}");
-        assert_eq!(fs::read_to_string(&s.config).unwrap(), "{}");
-    }
-
-    #[test]
-    fn exhausted_pool_leaves_first_run_config_byte_identical() {
-        let s = seed_with(SETUP, "echo 'pool exhausted 9160-9189' 1>&2\nexit 2");
-        let err = s.result.unwrap_err().to_string();
-        assert!(err.contains("pool exhausted 9160-9189"), "got: {err}");
-        assert_eq!(fs::read_to_string(&s.config).unwrap(), "{}");
-    }
-
-    #[test]
-    fn pack_with_no_proxy_setup_never_spawns_portmux() {
-        let s = seed_with("", "exit 1");
-        assert_eq!(s.result.unwrap(), SeedOutcome::Seeded);
-        assert!(!s.log.exists(), "portmux was spawned");
-        let v: Value = serde_json::from_str(&fs::read_to_string(&s.config).unwrap()).unwrap();
-        assert_eq!(v["sentinel"], "ran");
-    }
-
-    #[test]
-    fn manual_action_and_warnings_reach_the_progress_lines() {
-        let s = seed_with(
-            SETUP,
-            r#"echo 'tor is not listening yet' 1>&2
-echo '{"version":2,"manual_action":"set the port in Telegram"}'"#,
-        );
-        assert_eq!(s.result.unwrap(), SeedOutcome::Seeded);
-        let all = s.lines.join("\n");
-        assert!(all.contains("set the port in Telegram"), "got: {all}");
-        assert!(all.contains("tor is not listening yet"), "got: {all}");
     }
 }

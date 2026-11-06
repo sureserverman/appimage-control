@@ -4,7 +4,6 @@
   "static": {
     "telemetry": false
   },
-  "proxy_setup": { "app": "myapp" },
   "rotation": {
     "color": { "values": ["red", "green", "blue"] }
   }

@@ -15,9 +15,9 @@
 //! - `static`: plain JSON literals merged into the config map.
 //! - `rotation`: a per-instance value indexed by `(instance_index - 1) mod
 //!   N`, drawn from inline `values`.
-//! - `proxy_setup`: names the portmux recipe that points this app at its
-//!   own Tor listener. portmux writes the proxy settings; a pack holds no
-//!   port, proxy host or isolation class.
+//!
+//! Seeding writes no proxy settings; a pack holds no port, proxy host or
+//! isolation class.
 
 use std::collections::BTreeMap;
 use std::ffi::OsStr;
@@ -76,10 +76,11 @@ pub struct SeedPack {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub rotation: BTreeMap<String, RotationValue>,
 
-    /// Names the portmux recipe that writes this app's proxy settings.
-    /// Absent for an app that needs no proxy, and portmux is then never run.
+    /// Accepted-but-ignored legacy `proxy_setup` block. Packs written before
+    /// seeding stopped writing proxy settings still carry it; the field is
+    /// retained so `deny_unknown_fields` does not reject those packs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proxy_setup: Option<ProxySetup>,
+    pub proxy_setup: Option<Value>,
 
     /// Accepted-but-ignored legacy `icons` block. Older on-disk packs (and
     /// the shipped companion packs under installers-linux) still carry an
@@ -90,15 +91,6 @@ pub struct SeedPack {
     /// treats them identically (no current path compares `SeedPack` values).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub icons: Option<Value>,
-}
-
-/// Body of the `proxy_setup` section. Named to avoid colliding with a
-/// config key called `proxy`, which Feather and Electrum both use.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
-pub struct ProxySetup {
-    /// Recipe id passed to `portmux-port configure-app --app`.
-    pub app: String,
 }
 
 /// Parse one pack, refusing the removed `preset` section and `port` verb by
@@ -115,9 +107,8 @@ fn parse_pack(raw: &str) -> std::result::Result<SeedPack, String> {
             None => "uses the removed `preset` section".to_string(),
         };
         return Err(format!(
-            "{what}. portmux now writes proxy settings. Delete the `preset` section, move any \
-             non-proxy key to `static`, and add \"proxy_setup\": {{ \"app\": \"<recipe id>\" }}. \
-             See docs/integration-portmux-port.md"
+            "{what}. Seeding no longer writes proxy settings. Delete the `preset` section and \
+             move any non-proxy key to `static`."
         ));
     }
     serde_json::from_value(value).map_err(|e| e.to_string())
@@ -393,11 +384,6 @@ fn validate_pack(pack: &SeedPack) -> Result<()> {
             pack.config_path
         )));
     }
-    if pack.proxy_setup.as_ref().is_some_and(|p| p.app.is_empty()) {
-        return Err(Error::InvalidPath(
-            "proxy_setup.app must be non-empty".into(),
-        ));
-    }
     for (key, rv) in &pack.rotation {
         match rv {
             RotationValue::Values { values } => {
@@ -417,8 +403,7 @@ fn validate_pack(pack: &SeedPack) -> Result<()> {
 ///
 /// Order of operations is fixed: `static` literals first (so rotation values
 /// can override them on key collisions, though well-formed packs don't
-/// collide), then `rotation`. `proxy_setup` is not applied here: seeding runs
-/// it before this, so the proxy keys portmux wrote are already in `base`.
+/// collide), then `rotation`. A legacy `proxy_setup` block is ignored.
 ///
 /// `instance_index` is 1-based; the rotation index is `(idx - 1) %
 /// values.len()` to match the historical `feather_skin()` behavior in
@@ -469,14 +454,18 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn proxy_setup_section_parses_and_round_trips() {
-        let raw = r#"{"config_path":"x.json","proxy_setup":{"app":"feather"}}"#;
+    fn legacy_proxy_setup_section_is_accepted_and_ignored() {
+        let raw = r#"{"config_path":"x.json","static":{"k":1},"proxy_setup":{"app":"feather"}}"#;
         let lib = SeedPackLibrary::from_pairs(vec![("feather", raw)]).expect("must parse");
         lib.validate().expect("must validate");
         let pack = lib.get("feather").unwrap();
-        assert_eq!(pack.proxy_setup.as_ref().unwrap().app, "feather");
-        let again: SeedPack = serde_json::from_str(&serde_json::to_string(pack).unwrap()).unwrap();
-        assert_eq!(&again, pack);
+        let mut base = Map::new();
+        apply_pack(pack, 1, &mut base).unwrap();
+        assert_eq!(
+            Value::Object(base),
+            json!({"k": 1}),
+            "proxy_setup wrote nothing"
+        );
     }
 
     #[test]
@@ -487,7 +476,7 @@ mod tests {
             .to_string();
         assert!(err.contains("old-wallet"), "names the pack: {err}");
         assert!(err.contains("`preset`"), "names the section: {err}");
-        assert!(err.contains("proxy_setup"), "says how to migrate: {err}");
+        assert!(err.contains("`static`"), "says how to migrate: {err}");
     }
 
     #[test]
@@ -499,7 +488,7 @@ mod tests {
         assert!(err.contains("old-wallet"), "names the pack: {err}");
         assert!(err.contains("`port`"), "names the verb: {err}");
         assert!(err.contains("socks5Port"), "names the key: {err}");
-        assert!(err.contains("proxy_setup"), "says how to migrate: {err}");
+        assert!(err.contains("`static`"), "says how to migrate: {err}");
     }
 
     #[test]
@@ -519,18 +508,7 @@ mod tests {
         );
         let err = lib.refusal_for("old-wallet").expect("refused").to_string();
         assert!(err.contains("old-wallet.json"), "names the file: {err}");
-        assert!(err.contains("proxy_setup"), "says how to migrate: {err}");
-    }
-
-    #[test]
-    fn validate_rejects_empty_proxy_setup_app() {
-        let lib = SeedPackLibrary::from_pairs(vec![(
-            "p",
-            r#"{"config_path":"x","proxy_setup":{"app":""}}"#,
-        )])
-        .unwrap();
-        let err = lib.validate().unwrap_err().to_string();
-        assert!(err.contains("proxy_setup.app"), "got: {err}");
+        assert!(err.contains("`static`"), "says how to migrate: {err}");
     }
 
     #[test]
@@ -568,7 +546,6 @@ mod tests {
             "config_path": "{appimage}.config/feather/settings.json",
             "first_run_args": ["--offline"],
             "static": { "proxy": 1, "torOnlyAllowOnion": true },
-            "proxy_setup": { "app": "feather" },
             "rotation": {
                 "skin":       { "values": ["a","b","c"] }
             }
@@ -576,7 +553,6 @@ mod tests {
         let p: SeedPack = serde_json::from_str(raw).unwrap();
         assert_eq!(p.first_run_args, vec!["--offline"]);
         assert_eq!(p.static_keys.len(), 2);
-        assert_eq!(p.proxy_setup.as_ref().unwrap().app, "feather");
         assert!(matches!(
             p.rotation.get("skin"),
             Some(RotationValue::Values { values }) if values.len() == 3
@@ -910,9 +886,8 @@ mod tests {
     #[test]
     fn rotation_from_preset_array_variant_is_no_longer_a_valid_pack_shape() {
         // The legacy `from_preset_array` rotation variant was retired
-        // together with the `feather_ports` preset-array field; ports are
-        // portmux's now, through `proxy_setup`. Confirm the old shape
-        // fails to parse.
+        // together with the `feather_ports` preset-array field; seeding
+        // writes no ports now. Confirm the old shape fails to parse.
         let raw = r#"{
             "config_path":"x",
             "rotation": {
@@ -962,7 +937,6 @@ mod tests {
             "config_path":"{appimage}.config/feather/settings.json",
             "first_run_args":[],
             "static":{"torOnlyAllowOnion":true,"torPrivacyLevel":2},
-            "proxy_setup":{"app":"feather"},
             "rotation":{
                 "skin":{"values":["Breeze/Light","Breeze/Dark","Breeze/Light"]}
             }
@@ -970,13 +944,11 @@ mod tests {
         let btc = r#"{
             "config_path":"{appimage}.home/.electrum/config",
             "first_run_args":["--offline"],
-            "static":{"oneserver":true,"server":"x.onion:50002:s"},
-            "proxy_setup":{"app":"electrum-btc"}
+            "static":{"oneserver":true,"server":"x.onion:50002:s"}
         }"#;
         let ltc = r#"{
             "config_path":"{appimage}.home/.electrum-ltc/config",
-            "first_run_args":["--offline"],
-            "proxy_setup":{"app":"electrum-ltc"}
+            "first_run_args":["--offline"]
         }"#;
         let lib = SeedPackLibrary::from_pairs(vec![
             ("feather", feather),
