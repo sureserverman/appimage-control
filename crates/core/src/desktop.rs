@@ -201,6 +201,75 @@ fn unquote_exec_arg(exec: &str) -> String {
     out
 }
 
+/// Split a raw `Exec=` value into the program and its arguments, as a launcher would run it.
+/// Field codes (`%f`, `%U`, …) are dropped, `%%` becomes `%`, and the `sh -c` runner written for
+/// a path holding `%` is unwrapped to the path it runs. `None` when the value cannot be parsed
+/// exactly (an unclosed quote, a stray `%`, nothing left), so no partial command is ever run.
+pub fn exec_command_line(raw_exec: &str) -> Option<(String, Vec<String>)> {
+    let value = unescape_desktop_value(raw_exec.trim());
+    let mut words: Vec<String> = Vec::new();
+    let mut chars = value.chars().peekable();
+    loop {
+        while chars.peek().is_some_and(|c| *c == ' ' || *c == '\t') {
+            chars.next();
+        }
+        let Some(&first) = chars.peek() else { break };
+        let mut w = String::new();
+        if first == '"' {
+            chars.next();
+            let mut closed = false;
+            while let Some(c) = chars.next() {
+                match c {
+                    '"' => {
+                        closed = true;
+                        break;
+                    }
+                    '\\' => match chars.next() {
+                        Some(n) if matches!(n, '"' | '`' | '$' | '\\') => w.push(n),
+                        _ => return None,
+                    },
+                    _ => w.push(c),
+                }
+            }
+            if !closed || chars.peek().is_some_and(|c| *c != ' ' && *c != '\t') {
+                return None;
+            }
+        } else {
+            while let Some(&c) = chars.peek() {
+                if c == ' ' || c == '\t' {
+                    break;
+                }
+                if matches!(c, '"' | '\'' | '\\' | '`' | '$') {
+                    return None;
+                }
+                w.push(c);
+                chars.next();
+            }
+        }
+        // `%%` is a literal `%`; any other `%` is a field code. A word that is only a field
+        // code is dropped; one with a field code inside other text is not parsed.
+        let is_field_code = w.len() == 2 && w.starts_with('%') && w != "%%";
+        if is_field_code {
+            continue;
+        }
+        let mut out = String::with_capacity(w.len());
+        let mut wc = w.chars().peekable();
+        while let Some(c) = wc.next() {
+            if c == '%' && wc.next() != Some('%') {
+                return None;
+            }
+            out.push(c);
+        }
+        words.push(out);
+    }
+    if words.len() >= 4 && words[0] == "sh" && words[1] == "-c" && words[2] == r#"exec "$0" "$@""# {
+        words.drain(..3);
+    }
+    let mut it = words.into_iter();
+    let program = it.next().filter(|p| !p.is_empty())?;
+    Some((program, it.collect()))
+}
+
 fn escape_desktop_value(v: &str) -> String {
     v.replace('\\', "\\\\")
         .replace('\n', "\\n")
@@ -405,6 +474,49 @@ mod tests {
             body
         );
         assert!(!body.contains("%U"));
+    }
+
+    #[test]
+    fn launch_instance_exec_command_line_parses_written_launchers() {
+        let ok = |raw: &str| exec_command_line(raw).unwrap();
+        assert_eq!(ok("/a/run.sh %U"), ("/a/run.sh".into(), vec![]));
+        assert_eq!(
+            ok(r#""/a b/run.sh" --x %F"#),
+            ("/a b/run.sh".into(), vec!["--x".to_string()])
+        );
+        assert_eq!(
+            ok("/a/x.AppImage %f %u %F %U"),
+            ("/a/x.AppImage".into(), vec![])
+        );
+        // Every path the writer quotes comes back exactly.
+        for path in [
+            "/o/a b.AppImage",
+            "/o/50%.AppImage",
+            "/o/a$b",
+            "/o/a\"b",
+            "/o/a`b",
+            "/o/a\\b",
+            "/o/a\tb",
+            "/o/a\nb",
+        ] {
+            let body = build_desktop_entry("N", "id", Path::new(path), None);
+            let raw = body
+                .lines()
+                .find_map(|l| l.strip_prefix("Exec="))
+                .unwrap()
+                .to_string();
+            assert_eq!(ok(&raw), (path.to_string(), vec![]), "{raw}");
+        }
+        for bad in [
+            "",
+            "%U",
+            r#""/a/run.sh"#,
+            "/a/run.sh --x=%u",
+            "/a/run.sh $(id)",
+            "/a/run.sh 'q'",
+        ] {
+            assert_eq!(exec_command_line(bad), None, "{bad:?}");
+        }
     }
 
     fn exec_line(path: &str) -> String {

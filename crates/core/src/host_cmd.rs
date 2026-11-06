@@ -22,11 +22,32 @@ pub fn in_flatpak() -> bool {
 /// returned command is `flatpak-spawn --host <program>`, so subsequent `.arg(...)` /
 /// `.args(...)` calls append further arguments to the host-side program.
 pub fn host_command<P: AsRef<OsStr>>(program: P) -> Command {
-    if in_flatpak() {
+    host_command_for(program, in_flatpak())
+}
+
+/// [`host_command`] with the sandbox check passed in, so both shapes are testable.
+pub(crate) fn host_command_for<P: AsRef<OsStr>>(program: P, flatpak: bool) -> Command {
+    if flatpak {
         let mut cmd = Command::new("flatpak-spawn");
         cmd.arg("--host").arg(program);
         cmd
     } else {
         Command::new(program)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn launch_instance_host_command_shapes() {
+        let c = host_command_for("/a/run.sh", false);
+        assert_eq!(c.get_program(), "/a/run.sh");
+        assert_eq!(c.get_args().count(), 0);
+        let c = host_command_for("/a/run.sh", true);
+        assert_eq!(c.get_program(), "flatpak-spawn");
+        let args: Vec<&OsStr> = c.get_args().collect();
+        assert_eq!(args, ["--host", "/a/run.sh"]);
     }
 }

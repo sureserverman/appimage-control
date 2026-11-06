@@ -4,6 +4,7 @@
 use std::collections::HashSet;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
+use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 
 use crate::catalog::{Catalog, CatalogApp, InstanceStrategy};
@@ -17,6 +18,9 @@ use crate::integrity::VerifyPolicy;
 use crate::paths::AppPaths;
 use semver::Version;
 use std::io::Read;
+
+/// Per-instance launch script every instance `.desktop` runs (it sets HOME/PATH, then the AppImage).
+pub(crate) const INSTANCE_LAUNCH_SCRIPT: &str = "appimage-control-launch.sh";
 
 /// Upper bound for instances per catalog app (1-based indices).
 pub const MAX_INSTANCES_PER_APP: u32 = 20;
@@ -1307,7 +1311,7 @@ fn ensure_instance_launcher_script(
 ) -> Result<(std::path::PathBuf, bool)> {
     let dir = paths.instance_dir_for(app, instance_index);
     fs::create_dir_all(&dir)?;
-    let launcher = dir.join("appimage-control-launch.sh");
+    let launcher = dir.join(INSTANCE_LAUNCH_SCRIPT);
 
     let mut content = String::new();
     content.push_str("#!/bin/bash\nset -e\n");
@@ -2249,6 +2253,83 @@ fn best_effort_unmount_portal_doc(instance_dir: &Path, app: &CatalogApp) {
     let _ = host_command("fusermount3")
         .args(["-u", doc.to_string_lossy().as_ref()])
         .status();
+}
+
+/// Start one instance the way its launcher does, without waiting for it.
+///
+/// Reads the instance's `.desktop` `Exec=` and runs it only when its program is this instance's
+/// own launch script (or, for launchers written before the script existed, its own AppImage),
+/// with no arguments after it. Any other program, any extra argument, a missing launcher or an
+/// `Exec` that does not parse exactly is refused with an error naming the app and instance;
+/// nothing runs. Field codes are dropped. This guards against an edited `.desktop` only: whoever
+/// can write the instance folder can rewrite the script itself. Runs on the host from inside a
+/// Flatpak ([`host_command`]; the file check sees the sandbox's view of the same home), in its
+/// own process group so closing a terminal does not end it; the child is reaped on a thread.
+pub fn launch_instance(paths: &AppPaths, app: &CatalogApp, instance_index: u32) -> Result<()> {
+    let refuse = |reason: String| Error::LaunchRefused {
+        app_id: app.id.clone(),
+        index: instance_index,
+        reason,
+    };
+    let launcher = paths
+        .applications_dir()
+        .join(desktop_filename_for_instance(&app.id, instance_index));
+    let raw = fs::read_to_string(&launcher)
+        .map_err(|e| refuse(format!("launcher {}: {e}", launcher.display())))?;
+    let exec = desktop_entry_exec_value(&raw)
+        .ok_or_else(|| refuse(format!("launcher {} has no Exec", launcher.display())))?;
+    let (program, args) = crate::desktop::exec_command_line(&exec)
+        .ok_or_else(|| refuse(format!("cannot parse Exec in {}", launcher.display())))?;
+    let dir = paths.instance_dir_for(app, instance_index);
+    let allowed = [
+        dir.join(INSTANCE_LAUNCH_SCRIPT),
+        dir.join(app.resolved_appimage_filename()),
+    ];
+    if !allowed.iter().any(|p| Path::new(&program) == p) {
+        return Err(refuse(format!(
+            "Exec runs {program}, not this instance's own launcher"
+        )));
+    }
+    // The writer puts nothing after the program but a field code, so an argument left here came
+    // from an edited launcher and could steer the AppImage (`--renderer-cmd-prefix=…`).
+    if !args.is_empty() {
+        return Err(refuse(format!(
+            "Exec passes extra arguments ({}); repair the launchers and try again",
+            args.join(" ")
+        )));
+    }
+    if !Path::new(&program).is_file() {
+        return Err(refuse(format!("{program} is missing")));
+    }
+    let mut child = host_command(&program)
+        .process_group(0)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .map_err(|e| refuse(format!("could not start {program}: {e}")))?;
+    std::thread::spawn(move || {
+        let _ = child.wait();
+    });
+    Ok(())
+}
+
+/// The raw `Exec=` value of the first `[Desktop Entry]` group.
+fn desktop_entry_exec_value(raw: &str) -> Option<String> {
+    let mut in_entry = false;
+    for line in raw.lines() {
+        let line = line.trim();
+        if line.starts_with('[') {
+            in_entry = line == "[Desktop Entry]";
+            continue;
+        }
+        if in_entry {
+            if let Some(v) = line.strip_prefix("Exec=") {
+                return Some(v.to_string());
+            }
+        }
+    }
+    None
 }
 
 pub fn remove_instance(paths: &AppPaths, app: &CatalogApp, instance_index: u32) -> Result<()> {
@@ -4979,5 +5060,163 @@ java-options=-Dcryptomator.ipcSocketPath=@{userhome}/.config/Cryptomator/ipc.soc
             "a concurrent run's fresh staging file is kept"
         );
         assert!(other.exists());
+    }
+
+    fn launch_fixture(tmp: &Path, script_body: &str) -> (AppPaths, CatalogApp) {
+        let paths = AppPaths::new(tmp.to_path_buf()).unwrap();
+        let app = versioned_catalog_app(
+            "launchdemo",
+            "demo.AppImage",
+            "https://example.org/demo.AppImage",
+        );
+        let cache = paths.catalog_cache_dir("launchdemo");
+        fs::create_dir_all(&cache).unwrap();
+        let cached = cache.join("demo.AppImage");
+        fs::write(&cached, format!("#!/bin/sh\n{script_body}\n")).unwrap();
+        fs::set_permissions(&cached, fs::Permissions::from_mode(0o755)).unwrap();
+        install_instance_from_cache(&paths, &app, 1, &cached, true).unwrap();
+        (paths, app)
+    }
+
+    fn wait_for(path: &Path, secs: u64) -> bool {
+        let end = std::time::Instant::now() + std::time::Duration::from_secs(secs);
+        while std::time::Instant::now() < end {
+            if path.exists() {
+                return true;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        false
+    }
+
+    fn launcher_path(paths: &AppPaths, app: &CatalogApp) -> PathBuf {
+        paths
+            .applications_dir()
+            .join(desktop_filename_for_instance(&app.id, 1))
+    }
+
+    fn set_exec(paths: &AppPaths, app: &CatalogApp, exec: &str) {
+        let p = launcher_path(paths, app);
+        let body: String = fs::read_to_string(&p)
+            .unwrap()
+            .lines()
+            .map(|l| {
+                if l.starts_with("Exec=") {
+                    format!("Exec={exec}\n")
+                } else {
+                    format!("{l}\n")
+                }
+            })
+            .collect();
+        fs::write(p, body).unwrap();
+    }
+
+    #[test]
+    fn launch_instance_runs_the_launch_script_detached() {
+        let tmp = tempfile::tempdir().unwrap();
+        let marker = tmp.path().join("launched");
+        let (paths, app) = launch_fixture(
+            tmp.path(),
+            &format!("sleep 3\necho \"$@\" > '{}'", marker.display()),
+        );
+        let exec = fs::read_to_string(launcher_path(&paths, &app)).unwrap();
+        assert!(exec.contains(INSTANCE_LAUNCH_SCRIPT), "{exec}");
+        let t0 = std::time::Instant::now();
+        launch_instance(&paths, &app, 1).unwrap();
+        assert!(t0.elapsed() < std::time::Duration::from_millis(1500));
+        assert!(!marker.exists(), "returned before the child finished");
+        assert!(wait_for(&marker, 8), "the instance ran");
+        // `%U` was dropped, so the AppImage got no stray argument (`echo` writes one newline).
+        let end = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        while fs::read_to_string(&marker).unwrap_or_default().is_empty()
+            && std::time::Instant::now() < end
+        {
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        assert_eq!(fs::read_to_string(&marker).unwrap(), "\n");
+    }
+
+    #[test]
+    fn launch_instance_accepts_an_older_launcher_that_runs_the_appimage() {
+        let tmp = tempfile::tempdir().unwrap();
+        let marker = tmp.path().join("launched");
+        let (paths, app) = launch_fixture(tmp.path(), &format!("touch '{}'", marker.display()));
+        let bin = paths.instance_dir_for(&app, 1).join("demo.AppImage");
+        set_exec(&paths, &app, &format!("{} %U", bin.display()));
+        launch_instance(&paths, &app, 1).unwrap();
+        assert!(wait_for(&marker, 5));
+    }
+
+    #[test]
+    fn launch_instance_refuses_any_other_program() {
+        let tmp = tempfile::tempdir().unwrap();
+        let marker = tmp.path().join("ran");
+        let (paths, app) = launch_fixture(tmp.path(), "true");
+        let other_dir = paths.instance_dir_for(&app, 2);
+        fs::create_dir_all(&other_dir).unwrap();
+        let other = other_dir.join(INSTANCE_LAUNCH_SCRIPT);
+        fs::write(&other, format!("#!/bin/sh\ntouch '{}'\n", marker.display())).unwrap();
+        fs::set_permissions(&other, fs::Permissions::from_mode(0o755)).unwrap();
+        let own = paths.instance_dir_for(&app, 1).join(INSTANCE_LAUNCH_SCRIPT);
+        let touched = tmp.path().join("touched");
+        // The `sh -c` runner as written for a path holding `%` (both escape layers applied).
+        let runner = r#"sh -c "exec \\"\\$0\\" \\"\\$@\\"""#;
+        let dotdot = paths
+            .instance_dir_for(&app, 1)
+            .join("../2")
+            .join(INSTANCE_LAUNCH_SCRIPT);
+        let link = tmp.path().join("link.sh");
+        std::os::unix::fs::symlink(&other, &link).unwrap();
+        for exec in [
+            format!("{} %U", other.display()),
+            format!("/bin/sh {}", other.display()),
+            format!("/usr/bin/touch {}", touched.display()),
+            format!("{runner} {} %U", other.display()),
+            format!("{} %U", dotdot.display()),
+            format!("{} %U", link.display()),
+        ] {
+            set_exec(&paths, &app, &exec);
+            let e = launch_instance(&paths, &app, 1).unwrap_err().to_string();
+            assert!(e.contains("launchdemo") && e.contains("instance 1"), "{e}");
+            assert!(
+                e.contains("not this instance's own launcher"),
+                "{exec}: {e}"
+            );
+        }
+        for exec in [
+            format!(
+                "{} --renderer-cmd-prefix={} %U",
+                own.display(),
+                other.display()
+            ),
+            format!("{runner} {} --gpu-launcher=x", own.display()),
+        ] {
+            set_exec(&paths, &app, &exec);
+            let e = launch_instance(&paths, &app, 1).unwrap_err().to_string();
+            assert!(e.contains("extra arguments"), "{exec}: {e}");
+        }
+        set_exec(&paths, &app, "\"/unclosed");
+        let e = launch_instance(&paths, &app, 1).unwrap_err().to_string();
+        assert!(e.contains("cannot parse Exec"), "{e}");
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        assert!(!marker.exists(), "nothing ran");
+        assert!(!touched.exists(), "nothing ran");
+        // The own script behind the `%` runner is accepted; a removed one is reported.
+        set_exec(&paths, &app, &format!("{runner} {} %U", own.display()));
+        launch_instance(&paths, &app, 1).unwrap();
+        fs::remove_file(&own).unwrap();
+        let e = launch_instance(&paths, &app, 1).unwrap_err().to_string();
+        assert!(e.contains("is missing"), "{e}");
+    }
+
+    #[test]
+    fn launch_instance_missing_launcher_is_an_error() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (paths, app) = launch_fixture(tmp.path(), "true");
+        fs::remove_file(launcher_path(&paths, &app)).unwrap();
+        let e = launch_instance(&paths, &app, 1).unwrap_err().to_string();
+        assert!(e.contains("launchdemo") && e.contains("instance 1"), "{e}");
+        let e = launch_instance(&paths, &app, 7).unwrap_err().to_string();
+        assert!(e.contains("instance 7"), "{e}");
     }
 }

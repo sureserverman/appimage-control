@@ -40,8 +40,8 @@ pub use batch::install_batch;
 pub use catalog::{parse_catalog_json, Catalog, CatalogApp, InstanceStrategy};
 pub use config::{GuiConfig, ThemePref};
 pub use desktop::{
-    app_id_from_appimage_path, build_desktop_entry, parse_desktop_file, parse_desktop_str,
-    DesktopEntry, APP_ID_KEY, DESKTOP_PREFIX, MANAGED_KEY,
+    app_id_from_appimage_path, build_desktop_entry, exec_command_line, parse_desktop_file,
+    parse_desktop_str, DesktopEntry, APP_ID_KEY, DESKTOP_PREFIX, MANAGED_KEY,
 };
 pub use download::download_to_file;
 pub use error::{Error, Result};
@@ -55,7 +55,7 @@ pub use instances::{
     ensure_cached_appimage_with_policy, installed_appimage_size, installed_version_fleet_display,
     installed_version_fleet_has_distinct_recorded_versions, instance_count,
     instance_desktop_display_name, instance_exec_suffix, instance_startup_wm_class,
-    list_instance_indices, list_managed_instance_indices, parse_app_instance_spec,
+    launch_instance, list_instance_indices, list_managed_instance_indices, parse_app_instance_spec,
     purge_appimage_control_state, read_installed_version, read_installed_version_fleet_max_semver,
     read_installed_version_fleet_per_instance_breakdown, read_installed_version_fleet_summary,
     read_instance_recorded_version, reconcile_catalog_install_version_metadata,

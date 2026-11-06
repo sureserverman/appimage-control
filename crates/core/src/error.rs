@@ -25,6 +25,13 @@ pub enum Error {
     #[error("AppImage path missing from desktop entry")]
     MissingExec,
 
+    #[error("{app_id} instance {index}: cannot launch: {reason}")]
+    LaunchRefused {
+        app_id: String,
+        index: u32,
+        reason: String,
+    },
+
     #[error("source does not exist: {0}")]
     SourceMissing(PathBuf),
 
