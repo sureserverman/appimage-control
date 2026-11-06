@@ -7,7 +7,9 @@ use std::path::PathBuf;
 
 use crate::catalog::CatalogApp;
 use crate::desktop::desktop_filename_for_instance;
-use crate::instances::{list_managed_instance_indices, read_instance_recorded_version};
+use crate::instances::{
+    instance_appimage_path, list_managed_instance_indices, read_instance_recorded_version,
+};
 use crate::integrity::{catalog_pin, read_cache_sidecar, CacheSidecar};
 use crate::paths::AppPaths;
 use crate::version_info::github_owner_repo_from_url;
@@ -65,18 +67,28 @@ pub struct AppDetails {
     pub display_name: String,
     pub instances: Vec<InstanceDetails>,
     pub source: UpdateSource,
-    pub verification: Verification,
+    /// How the download in the cache was accepted. This is the cache's state: an instance
+    /// copied from an earlier download may have been accepted differently.
+    pub cache_verification: Verification,
+    /// Set when the install folders could not be read; `instances` is then incomplete and must
+    /// not be shown as "nothing installed".
+    pub listing_error: Option<String>,
 }
 
-/// Read `app`'s details from disk. An app with no instances has an empty list, not an error.
+/// Read `app`'s details from disk. An app with no instances has an empty list, not an error; a
+/// folder that cannot be read sets [`AppDetails::listing_error`].
 pub fn app_details(paths: &AppPaths, app: &CatalogApp) -> AppDetails {
     let filename = app.resolved_appimage_filename();
-    let indices = list_managed_instance_indices(paths, app).unwrap_or_default();
+    let (indices, listing_error) = match list_managed_instance_indices(paths, app) {
+        Ok(v) => (v, None),
+        Err(e) => (Vec::new(), Some(e.to_string())),
+    };
     let instances = indices
         .into_iter()
         .map(|index| {
             let dir = paths.instance_dir_for(app, index);
-            let appimage = dir.join(&filename);
+            let appimage =
+                instance_appimage_path(&dir, &filename).unwrap_or_else(|| dir.join(&filename));
             let launcher = paths
                 .applications_dir()
                 .join(desktop_filename_for_instance(&app.id, index));
@@ -102,22 +114,16 @@ pub fn app_details(paths: &AppPaths, app: &CatalogApp) -> AppDetails {
         display_name: app.display_name_resolved(),
         instances,
         source: update_source(app, std::env::consts::ARCH),
-        verification: verification_from_sidecar(&read_cache_sidecar(
+        cache_verification: verification_from_sidecar(&read_cache_sidecar(
             &paths.catalog_cache_dir(&app.id),
         )),
+        listing_error,
     }
 }
 
 /// Where `app`'s updates come from on `arch`.
 pub fn update_source(app: &CatalogApp, arch: &str) -> UpdateSource {
-    let url = if arch == "aarch64" {
-        app.download_url_aarch64.as_deref()
-    } else {
-        app.download_url.as_deref()
-    }
-    .map(str::trim)
-    .filter(|u| !u.is_empty());
-    let Some(url) = url else {
+    let Some(url) = app.download_url_for_arch(arch) else {
         return UpdateSource::NoDownload;
     };
     if let Some((owner, repo)) = github_owner_repo_from_url(url) {
@@ -242,13 +248,51 @@ mod tests {
     }
 
     #[test]
+    fn app_details_finds_an_appimage_installed_under_an_older_name() {
+        let tmp = tempfile::tempdir().unwrap();
+        let paths = AppPaths::new(tmp.path().to_path_buf()).unwrap();
+        let mut a = app("demo", Some("https://example.org/demo.AppImage"), None);
+        install(&paths, &a, 1, 77);
+        a.appimage_filename = Some("demo-2.0.0.AppImage".into());
+        let d = app_details(&paths, &a);
+        let i1 = &d.instances[0];
+        assert!(
+            i1.appimage_present,
+            "the older file is the instance's AppImage"
+        );
+        assert_eq!(
+            i1.appimage,
+            paths.instance_dir_for(&a, 1).join("demo.AppImage")
+        );
+        assert_eq!(i1.size, Some(77));
+    }
+
+    #[test]
+    fn app_details_unreadable_install_folder_is_reported() {
+        use std::os::unix::fs::PermissionsExt;
+        let tmp = tempfile::tempdir().unwrap();
+        let paths = AppPaths::new(tmp.path().to_path_buf()).unwrap();
+        let a = app("demo", Some("https://example.org/demo.AppImage"), None);
+        install(&paths, &a, 1, 10);
+        let root = paths.apps_root_for_app(&a);
+        fs::set_permissions(&root, fs::Permissions::from_mode(0o000)).unwrap();
+        let readable = fs::read_dir(&root).is_ok(); // true when the tests run as root
+        let d = app_details(&paths, &a);
+        fs::set_permissions(&root, fs::Permissions::from_mode(0o755)).unwrap();
+        if !readable {
+            assert!(d.listing_error.is_some(), "{d:?}");
+        }
+        assert_eq!(app_details(&paths, &a).listing_error, None);
+    }
+
+    #[test]
     fn app_details_no_instances_is_an_empty_list() {
         let tmp = tempfile::tempdir().unwrap();
         let paths = AppPaths::new(tmp.path().to_path_buf()).unwrap();
         let a = app("demo", Some("https://example.org/demo.AppImage"), None);
         let d = app_details(&paths, &a);
         assert!(d.instances.is_empty());
-        assert_eq!(d.verification, Verification::NotChecked);
+        assert_eq!(d.cache_verification, Verification::NotChecked);
     }
 
     #[test]
@@ -283,6 +327,15 @@ mod tests {
             update_source(&app("n", None, None), "x86_64"),
             UpdateSource::NoDownload
         );
+        // Another arch takes whichever URL is set, as installs do.
+        let mut arm_only = app("r", None, None);
+        arm_only.download_url_aarch64 = Some("https://example.org/r.AppImage".into());
+        assert_eq!(
+            update_source(&arm_only, "riscv64"),
+            UpdateSource::UnpinnedUrl {
+                url: "https://example.org/r.AppImage".into()
+            }
+        );
     }
 
     #[test]
@@ -293,7 +346,7 @@ mod tests {
         let cache = paths.catalog_cache_dir("demo");
         fs::create_dir_all(&cache).unwrap();
         assert_eq!(
-            app_details(&paths, &a).verification,
+            app_details(&paths, &a).cache_verification,
             Verification::NotChecked
         );
         for (label, want) in [
@@ -302,11 +355,11 @@ mod tests {
             ("unverified user-allowed", Verification::UnverifiedAllowed),
         ] {
             write_cache_sidecar(&cache, HEX, label).unwrap();
-            assert_eq!(app_details(&paths, &a).verification, want, "{label}");
+            assert_eq!(app_details(&paths, &a).cache_verification, want, "{label}");
         }
         fs::write(cache.join(CACHE_SHA256_FILENAME), b"not a sidecar").unwrap();
         assert_eq!(
-            app_details(&paths, &a).verification,
+            app_details(&paths, &a).cache_verification,
             Verification::Unreadable
         );
         // A label nobody writes is not passed off as verified.
@@ -316,7 +369,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            app_details(&paths, &a).verification,
+            app_details(&paths, &a).cache_verification,
             Verification::Unreadable
         );
     }
@@ -347,7 +400,7 @@ mod tests {
                     a.id
                 );
             }
-            assert_eq!(d.verification, Verification::NotChecked, "{}", a.id);
+            assert_eq!(d.cache_verification, Verification::NotChecked, "{}", a.id);
         }
     }
 }

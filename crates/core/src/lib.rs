@@ -64,7 +64,7 @@ pub use instances::{
     reconcile_instance_version_metadata_if_binary_matches_cache, repair_instance_launchers,
     update_all_installed_instances, update_all_installed_instances_with_policy,
     update_instance_appimage, FleetInstalledDisplay, InstanceUpdateOutcome, ReconcileReport,
-    UpdateAllReport, MAX_INSTANCES_PER_APP,
+    UpdateAllReport, LAUNCH_LOG_FILENAME, MAX_INSTANCES_PER_APP,
 };
 pub use integrity::{
     catalog_pin, download_verified, expected_digest, expected_github_digest, read_cache_sidecar,

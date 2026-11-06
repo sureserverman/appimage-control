@@ -177,6 +177,18 @@ impl CatalogApp {
             || nonempty_url(&self.download_url_aarch64).is_some()
     }
 
+    /// The download URL used on `arch` (`std::env::consts::ARCH` style), by the same rule as
+    /// [`Self::resolved_download_url`]: aarch64 takes `download_url_aarch64`, x86 takes
+    /// `download_url`, any other arch takes whichever is set.
+    pub fn download_url_for_arch(&self, arch: &str) -> Option<&str> {
+        match arch {
+            "aarch64" => nonempty_url(&self.download_url_aarch64),
+            "x86_64" | "x86" => nonempty_url(&self.download_url),
+            _ => nonempty_url(&self.download_url)
+                .or_else(|| nonempty_url(&self.download_url_aarch64)),
+        }
+    }
+
     /// Picks `download_url` vs `download_url_aarch64` based on `std::env::consts::ARCH`.
     pub fn resolved_download_url(&self) -> crate::error::Result<&str> {
         match std::env::consts::ARCH {

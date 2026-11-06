@@ -156,25 +156,32 @@ fn stable_instance_app_id(catalog_id: &str, instance_index: u32) -> String {
 /// True if `instance_dir` has a launchable AppImage: the catalog-expected name, or any `*.AppImage`
 /// (covers catalog URL/filename changes without losing track of installs).
 fn instance_dir_has_usable_appimage(instance_dir: &Path, expected_filename: &str) -> bool {
-    if instance_dir.join(expected_filename).is_file() {
-        return true;
+    instance_appimage_path(instance_dir, expected_filename).is_some()
+}
+
+/// The instance's AppImage: the catalog-expected name when present, else the first `*.AppImage`
+/// by name (an install made before the catalog filename changed). `None` when there is none.
+pub(crate) fn instance_appimage_path(
+    instance_dir: &Path,
+    expected_filename: &str,
+) -> Option<PathBuf> {
+    let exact = instance_dir.join(expected_filename);
+    if exact.is_file() {
+        return Some(exact);
     }
-    let Ok(rd) = fs::read_dir(instance_dir) else {
-        return false;
-    };
-    for ent in rd.flatten() {
-        let p = ent.path();
-        if !p.is_file() {
-            continue;
-        }
-        if p.extension()
-            .and_then(|e| e.to_str())
-            .is_some_and(|e| e.eq_ignore_ascii_case("AppImage"))
-        {
-            return true;
-        }
-    }
-    false
+    let mut found: Vec<PathBuf> = fs::read_dir(instance_dir)
+        .ok()?
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| {
+            p.is_file()
+                && p.extension()
+                    .and_then(|e| e.to_str())
+                    .is_some_and(|e| e.eq_ignore_ascii_case("AppImage"))
+        })
+        .collect();
+    found.sort();
+    found.into_iter().next()
 }
 
 /// List 1-based instance indices under `apps/<id>/<n>/` that contain a usable AppImage.
@@ -2281,10 +2288,14 @@ pub fn launch_instance(paths: &AppPaths, app: &CatalogApp, instance_index: u32) 
     let (program, args) = crate::desktop::exec_command_line(&exec)
         .ok_or_else(|| refuse(format!("cannot parse Exec in {}", launcher.display())))?;
     let dir = paths.instance_dir_for(app, instance_index);
-    let allowed = [
+    let mut allowed = vec![
         dir.join(INSTANCE_LAUNCH_SCRIPT),
         dir.join(app.resolved_appimage_filename()),
     ];
+    allowed.extend(instance_appimage_path(
+        &dir,
+        &app.resolved_appimage_filename(),
+    ));
     if !allowed.iter().any(|p| Path::new(&program) == p) {
         return Err(refuse(format!(
             "Exec runs {program}, not this instance's own launcher"
@@ -2301,17 +2312,35 @@ pub fn launch_instance(paths: &AppPaths, app: &CatalogApp, instance_index: u32) 
     if !Path::new(&program).is_file() {
         return Err(refuse(format!("{program} is missing")));
     }
-    let mut child = host_command(&program)
-        .process_group(0)
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
+    // The app's own output goes to a log beside it, so a launch that dies at once can be read
+    // about; without a writable folder it is dropped, as a desktop launch would drop it.
+    let log = dir.join(LAUNCH_LOG_FILENAME);
+    let (out, err) = match fs::File::create(&log).and_then(|f| Ok((f.try_clone()?, f))) {
+        Ok((o, e)) => (std::process::Stdio::from(o), std::process::Stdio::from(e)),
+        Err(_) => (std::process::Stdio::null(), std::process::Stdio::null()),
+    };
+    let mut child = launch_command(&program, crate::host_cmd::in_flatpak())
+        .stdout(out)
+        .stderr(err)
         .spawn()
         .map_err(|e| refuse(format!("could not start {program}: {e}")))?;
-    std::thread::spawn(move || {
-        let _ = child.wait();
-    });
+    let _ = std::thread::Builder::new()
+        .name("launch-reaper".into())
+        .spawn(move || {
+            let _ = child.wait();
+        });
     Ok(())
+}
+
+/// Written in the instance folder by [`launch_instance`]: the launched app's stdout and stderr.
+pub const LAUNCH_LOG_FILENAME: &str = ".appimage-control-launch.log";
+
+/// The command [`launch_instance`] runs: on the host from inside a Flatpak, in its own process
+/// group, with no input.
+fn launch_command(program: &str, flatpak: bool) -> std::process::Command {
+    let mut c = crate::host_cmd::host_command_for(program, flatpak);
+    c.process_group(0).stdin(std::process::Stdio::null());
+    c
 }
 
 /// The raw `Exec=` value of the first `[Desktop Entry]` group.
@@ -5134,6 +5163,50 @@ java-options=-Dcryptomator.ipcSocketPath=@{userhome}/.config/Cryptomator/ipc.soc
             std::thread::sleep(std::time::Duration::from_millis(20));
         }
         assert_eq!(fs::read_to_string(&marker).unwrap(), "\n");
+    }
+
+    #[test]
+    fn launch_instance_command_runs_on_the_host_inside_flatpak() {
+        let c = launch_command("/i/1/appimage-control-launch.sh", false);
+        assert_eq!(c.get_program(), "/i/1/appimage-control-launch.sh");
+        assert_eq!(c.get_args().count(), 0);
+        let c = launch_command("/i/1/appimage-control-launch.sh", true);
+        assert_eq!(c.get_program(), "flatpak-spawn");
+        let args: Vec<_> = c.get_args().collect();
+        assert_eq!(args, ["--host", "/i/1/appimage-control-launch.sh"]);
+    }
+
+    #[test]
+    fn launch_instance_writes_the_app_output_to_its_log() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (paths, app) = launch_fixture(tmp.path(), "echo out-line\necho err-line >&2\nexit 3");
+        launch_instance(&paths, &app, 1).unwrap();
+        let log = paths.instance_dir_for(&app, 1).join(LAUNCH_LOG_FILENAME);
+        let end = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while !fs::read_to_string(&log)
+            .unwrap_or_default()
+            .contains("err-line")
+            && std::time::Instant::now() < end
+        {
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        let text = fs::read_to_string(&log).unwrap();
+        assert!(
+            text.contains("out-line") && text.contains("err-line"),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn launch_instance_accepts_an_appimage_under_an_older_name() {
+        let tmp = tempfile::tempdir().unwrap();
+        let marker = tmp.path().join("launched");
+        let (paths, mut app) = launch_fixture(tmp.path(), &format!("touch '{}'", marker.display()));
+        let bin = paths.instance_dir_for(&app, 1).join("demo.AppImage");
+        set_exec(&paths, &app, &format!("{} %U", bin.display()));
+        app.appimage_filename = Some("demo-2.0.0.AppImage".into());
+        launch_instance(&paths, &app, 1).unwrap();
+        assert!(wait_for(&marker, 5));
     }
 
     #[test]

@@ -1,7 +1,9 @@
 //! Which installed apps have a newer release. Shared by the GUI's "Update" badge and the
 //! `--check-updates` login check. Reads versions only: nothing here downloads or installs.
 
-use semver::Version;
+use std::cmp::Ordering;
+
+use semver::{Prerelease, Version};
 
 use crate::catalog::{Catalog, CatalogApp};
 use crate::instances::{
@@ -19,7 +21,7 @@ pub struct AvailableUpdate {
     pub display_name: String,
     /// What is installed, as the card shows it (`2.8.1`, `1.0.0-2.0.0`, `unknown`).
     pub installed: String,
-    /// The newer release, without a leading `v`.
+    /// The newer release, as a plain version (no `v` or `pkg@` prefix).
     pub latest: String,
 }
 
@@ -52,27 +54,30 @@ pub fn latest_known_versions(
         .collect()
 }
 
-/// `app` as an [`AvailableUpdate`] when it is installed and `latest` is newer than what is
-/// installed. `None` for an app with no instances or no known latest version.
+/// `app` as an [`AvailableUpdate`] when it is installed and `latest` is newer than at least one
+/// instance's recorded version, so a lagging instance in a mixed fleet counts.
+///
+/// `None` when nothing is installed, `latest` is unknown, no instance recorded a version (there
+/// is nothing to compare, and a login notice that can never clear is worse than none), the
+/// install cannot be read, or either side is not a version this can order (`latest`,
+/// `nightly`). A doubtful case is never reported.
 pub fn update_available_for(
     paths: &AppPaths,
     app: &CatalogApp,
     latest: Option<&str>,
 ) -> Option<AvailableUpdate> {
-    let latest = latest.map(str::trim).filter(|l| !l.is_empty())?;
+    let latest = normalize_github_release_tag(latest?.trim());
+    let latest_key = version_key(&latest)?;
     let indices = list_managed_instance_indices(paths, app).ok()?;
-    if indices.is_empty() {
-        return None;
-    }
-    let recorded: Vec<String> = indices
+    let behind = indices
         .iter()
         .filter_map(|&i| read_instance_recorded_version(paths, app, i))
-        .collect();
-    let label = installed_version_fleet_display(paths, app).ok()?.label;
-    let all_recorded = recorded.len() == indices.len();
-    if !remote_is_newer(latest, &recorded, all_recorded, &label) {
+        .filter_map(|v| version_key(&normalize_github_release_tag(&v)))
+        .any(|installed| compare_keys(&latest_key, &installed) == Ordering::Greater);
+    if !behind {
         return None;
     }
+    let label = installed_version_fleet_display(paths, app).ok()?.label;
     Some(AvailableUpdate {
         app_id: app.id.clone(),
         display_name: app.display_name_resolved(),
@@ -80,7 +85,7 @@ pub fn update_available_for(
             .strip_prefix("installed ")
             .unwrap_or(&label)
             .to_string(),
-        latest: latest.trim_start_matches('v').to_string(),
+        latest,
     })
 }
 
@@ -101,30 +106,44 @@ pub fn updates_available(
         .collect()
 }
 
-/// When every instance records a semver version and `remote` is semver: newer than the highest
-/// installed one. Otherwise the older best-effort rule (see [`label_differs`]).
-fn remote_is_newer(remote: &str, recorded: &[String], all_recorded: bool, label: &str) -> bool {
-    let parse = |s: &str| Version::parse(&normalize_github_release_tag(s)).ok();
-    if all_recorded && !recorded.is_empty() {
-        if let (Some(r), Some(installed)) = (
-            parse(remote),
-            recorded
-                .iter()
-                .map(|s| parse(s))
-                .collect::<Option<Vec<_>>>(),
-        ) {
-            return installed.iter().all(|v| r > *v);
-        }
+/// An orderable version: its numeric parts plus a semver pre-release (empty for a release).
+/// Semver (build metadata ignored) or, for tags such as `2024.05` or `2.1`, dot-separated
+/// numbers. Anything else is `None`.
+fn version_key(s: &str) -> Option<(Vec<u64>, Prerelease)> {
+    let s = s.trim();
+    if let Ok(v) = Version::parse(s) {
+        return Some((vec![v.major, v.minor, v.patch], v.pre));
     }
-    label_differs(remote, label)
+    let parts = s
+        .split('.')
+        .map(|p| {
+            if !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()) {
+                p.parse::<u64>().ok()
+            } else {
+                None
+            }
+        })
+        .collect::<Option<Vec<u64>>>()?;
+    Some((parts, Prerelease::EMPTY))
 }
 
-/// Best-effort rule for tags that are not semver: the remote tag counts as newer unless the
-/// installed label already contains it. Equal strings are never an update.
-fn label_differs(remote: &str, installed_label: &str) -> bool {
-    let r = remote.trim().trim_start_matches('v');
-    let i = installed_label.trim();
-    !r.is_empty() && !i.is_empty() && r != i && !i.contains(r)
+/// Compare two [`version_key`]s: numbers first (missing parts count as 0), then a release
+/// beats any pre-release of the same numbers.
+fn compare_keys(a: &(Vec<u64>, Prerelease), b: &(Vec<u64>, Prerelease)) -> Ordering {
+    let n = a.0.len().max(b.0.len());
+    let at = |v: &Vec<u64>, i: usize| v.get(i).copied().unwrap_or(0);
+    for i in 0..n {
+        match at(&a.0, i).cmp(&at(&b.0, i)) {
+            Ordering::Equal => {}
+            o => return o,
+        }
+    }
+    match (a.1.is_empty(), b.1.is_empty()) {
+        (true, true) => Ordering::Equal,
+        (true, false) => Ordering::Greater,
+        (false, true) => Ordering::Less,
+        (false, false) => a.1.cmp(&b.1),
+    }
 }
 
 #[cfg(test)]
@@ -220,33 +239,125 @@ mod tests {
     }
 
     #[test]
-    fn update_check_mixed_fleet_compares_with_the_newest_instance() {
+    fn update_check_mixed_fleet_counts_a_lagging_instance() {
         let (_t, paths) = home();
         let a = app("demo", GH);
         install(&paths, &a, 1, Some("1.17.17"));
         install(&paths, &a, 2, Some("1.18.0"));
-        assert_eq!(update_available_for(&paths, &a, Some("1.18.0")), None);
-        let u = update_available_for(&paths, &a, Some("1.18.1")).unwrap();
+        let u = update_available_for(&paths, &a, Some("1.18.0")).unwrap();
         assert_eq!(u.installed, "1.17.17-1.18.0");
+        assert_eq!(update_available_for(&paths, &a, Some("1.17.17")), None);
+        // An instance with no recorded version is skipped, not counted as behind.
+        install(&paths, &a, 3, None);
+        assert_eq!(update_available_for(&paths, &a, Some("1.17.17")), None);
     }
 
-    /// The cases the GUI's old `version_is_newer` handled, for tags that are not semver.
     #[test]
-    fn update_check_non_semver_tags_use_the_label_rule() {
+    fn update_check_no_recorded_version_is_not_listed() {
+        let (_t, paths) = home();
+        let a = app("demo", GH);
+        install(&paths, &a, 1, None);
+        assert_eq!(update_available_for(&paths, &a, Some("v3.0.0")), None);
+    }
+
+    #[test]
+    fn update_check_non_semver_versions_compare_by_number() {
         let (_t, paths) = home();
         let a = app("demo", GH);
         install(&paths, &a, 1, Some("2024.05"));
         assert_eq!(update_available_for(&paths, &a, Some("2024.05")), None);
         assert_eq!(update_available_for(&paths, &a, Some("v2024.05")), None);
-        assert!(update_available_for(&paths, &a, Some("2024.06")).is_some());
-        // No recorded version: the label is "installed unknown", so any tag differs.
+        assert_eq!(update_available_for(&paths, &a, Some("2024.04")), None);
+        assert_eq!(
+            update_available_for(&paths, &a, Some("2024.06"))
+                .unwrap()
+                .latest,
+            "2024.06"
+        );
+        // A two-part tag is not mistaken for part of a longer version.
         let (_t2, paths2) = home();
-        install(&paths2, &a, 1, None);
-        let u = update_available_for(&paths2, &a, Some("v3.0.0")).unwrap();
-        assert_eq!(u.installed, "unknown");
-        assert!(!label_differs("", "installed 1.0"));
-        assert!(!label_differs("v1.0", "installed 1.0"));
-        assert!(label_differs("1.1", "installed 1.0"));
+        install(&paths2, &a, 1, Some("1.2.1"));
+        assert!(update_available_for(&paths2, &a, Some("2.1")).is_some());
+        assert_eq!(update_available_for(&paths2, &a, Some("1.2")), None);
+        // A downgrade is never an update.
+        let (_t3, paths3) = home();
+        install(&paths3, &a, 1, Some("2.0.0"));
+        assert_eq!(update_available_for(&paths3, &a, Some("1.9")), None);
+        // Tags that are not versions are never reported.
+        for tag in ["latest", "nightly", "v2.x", "2.0.0-"] {
+            assert_eq!(update_available_for(&paths3, &a, Some(tag)), None, "{tag}");
+        }
+    }
+
+    #[test]
+    fn update_check_scoped_tags_build_metadata_and_prereleases() {
+        let (_t, paths) = home();
+        let a = app("demo", GH);
+        install(&paths, &a, 1, Some("3.201.21"));
+        assert_eq!(
+            update_available_for(&paths, &a, Some("@standardnotes/desktop@3.201.21")),
+            None
+        );
+        let u = update_available_for(&paths, &a, Some("@standardnotes/desktop@3.201.22")).unwrap();
+        assert_eq!(u.latest, "3.201.22");
+        assert_eq!(
+            update_available_for(&paths, &a, Some("3.201.21+build5")),
+            None
+        );
+        assert_eq!(
+            update_available_for(&paths, &a, Some("3.201.22-rc.1"))
+                .unwrap()
+                .latest,
+            "3.201.22-rc.1"
+        );
+        let (_t2, paths2) = home();
+        install(&paths2, &a, 1, Some("3.0.0-rc.1"));
+        assert!(update_available_for(&paths2, &a, Some("3.0.0")).is_some());
+        assert_eq!(
+            update_available_for(&paths2, &a, Some("3.0.0-beta.1")),
+            None
+        );
+    }
+
+    #[test]
+    fn update_check_pinned_non_github_app() {
+        let (_t, paths) = home();
+        let p = app("p", "https://example.org/dl/p-2.0.0-x86_64.AppImage");
+        install(&paths, &p, 1, Some("1.0.0"));
+        let latest = latest_known_version(&p, None);
+        let u = update_available_for(&paths, &p, latest.as_deref()).unwrap();
+        assert_eq!(
+            (u.installed.as_str(), u.latest.as_str()),
+            ("1.0.0", "2.0.0")
+        );
+        let (_t2, paths2) = home();
+        install(&paths2, &p, 1, Some("2.0.0"));
+        assert_eq!(update_available_for(&paths2, &p, latest.as_deref()), None);
+        let (_t3, paths3) = home();
+        install(&paths3, &p, 1, None);
+        assert_eq!(update_available_for(&paths3, &p, latest.as_deref()), None);
+    }
+
+    #[test]
+    fn update_check_latest_known_versions_keep_catalog_order() {
+        let catalog = Catalog {
+            apps: vec![
+                app("g", GH),
+                app("p", "https://example.org/dl/p-2.0.0-x86_64.AppImage"),
+                app("h", GH),
+            ],
+        };
+        let got = latest_known_versions(
+            &catalog,
+            &[Some("v1.0.0".into()), Some("9.9.9".into()), None],
+        );
+        assert_eq!(
+            got,
+            vec![Some("v1.0.0".to_string()), Some("2.0.0".to_string()), None]
+        );
+        // A short tag list leaves the rest unknown instead of shifting.
+        let got = latest_known_versions(&catalog, &[]);
+        assert_eq!(got, vec![None, Some("2.0.0".to_string()), None]);
     }
 
     #[test]
