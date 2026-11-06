@@ -3,8 +3,13 @@
 //! removal stays on the card tiles and Apply.
 
 use std::path::PathBuf;
+use std::rc::Rc;
 
-use appimage_control_core::{AppDetails, UpdateSource, Verification};
+use adw::prelude::*;
+use appimage_control_core::{
+    app_details, launch_instance, AppDetails, AppPaths, CatalogApp, UpdateSource, Verification,
+};
+use gtk::{gio, Align, Button};
 
 use crate::i18n::{fill, tr};
 
@@ -123,6 +128,128 @@ pub fn verification_text(v: &Verification) -> &'static str {
         Verification::Unreadable => tr("Unknown — the checksum record cannot be read"),
         Verification::NotChecked => tr("Not checked yet"),
     }
+}
+
+/// Show the detail dialog for `app` over `parent`. Reads the app's state now; Launch and
+/// Open folder act on it. Launch failures show a toast whose button opens the full error in
+/// the activity log; the dialog stays open.
+pub fn present_details(
+    parent: &adw::ApplicationWindow,
+    paths: Rc<AppPaths>,
+    app: &CatalogApp,
+    latest: Option<&str>,
+) {
+    let view = details_view(&app_details(&paths, app), latest);
+    // A modal window like Preferences: AdwDialog's content is not exposed to AT-SPI in this
+    // libadwaita (1.9.1), which would leave screen readers and the smoke test with nothing.
+    let dialog = adw::Window::builder()
+        .title(view.title.as_str())
+        .modal(true)
+        .transient_for(parent)
+        .default_width(600)
+        .default_height(520)
+        .build();
+    let toasts = adw::ToastOverlay::new();
+    let page = adw::PreferencesPage::new();
+
+    let about = adw::PreferencesGroup::new();
+    let latest_row = adw::ActionRow::builder()
+        .title(tr("Latest release"))
+        .subtitle(view.latest_line.as_str())
+        .build();
+    let source_row = adw::ActionRow::builder()
+        .title(tr("Updates from"))
+        .subtitle(view.source_line.as_str())
+        .subtitle_selectable(true)
+        .build();
+    if let Some(url) = &view.source_detail {
+        source_row.set_subtitle(&format!("{}\n{url}", view.source_line));
+    }
+    let verify_row = adw::ActionRow::builder()
+        .title(tr("Download check"))
+        .subtitle(view.verification_line.as_str())
+        .build();
+    about.add(&latest_row);
+    about.add(&source_row);
+    about.add(&verify_row);
+    page.add(&about);
+
+    let instances = adw::PreferencesGroup::builder()
+        .title(tr("Instances"))
+        .build();
+    if let Some(text) = &view.empty_text {
+        let row = adw::ActionRow::builder().title(text.as_str()).build();
+        instances.add(&row);
+    }
+    for r in &view.rows {
+        let row = adw::ActionRow::builder()
+            .title(r.title.as_str())
+            .subtitle(r.subtitle.as_str())
+            .subtitle_selectable(true)
+            .build();
+
+        let launch = Button::with_label(tr("Launch"));
+        launch.set_valign(Align::Center);
+        launch.set_sensitive(r.launch_sensitive);
+        launch.set_tooltip_text(r.launch_tooltip.as_deref());
+        {
+            let paths = Rc::clone(&paths);
+            let app = app.clone();
+            let index = r.index;
+            let toasts = toasts.clone();
+            let parent = parent.clone();
+            launch.connect_clicked(move |_| {
+                if let Err(e) = launch_instance(&paths, &app, index) {
+                    let toast = adw::Toast::builder()
+                        .title(fill(
+                            // TRANSLATORS: {app} is an app name, {index} an instance number.
+                            tr("Could not launch {app} #{index}"),
+                            &[("app", &app.display_name_resolved()), ("index", &index)],
+                        ))
+                        .button_label(tr("Show log"))
+                        .timeout(8)
+                        .build();
+                    let log = crate::status_text::apply_error_log_line(&app.id, &e.to_string());
+                    let parent = parent.clone();
+                    toast.connect_button_clicked(move |_| {
+                        let w: gtk::ApplicationWindow = parent.clone().upcast();
+                        crate::dialogs::present_activity_log_dialog(&w, &log);
+                    });
+                    toasts.add_toast(toast);
+                }
+            });
+        }
+
+        let open = Button::with_label(tr("Open folder"));
+        open.set_valign(Align::Center);
+        open.set_sensitive(r.open_sensitive);
+        open.set_tooltip_text(r.open_tooltip.as_deref());
+        {
+            let dir = r.dir.clone();
+            let parent = parent.clone();
+            open.connect_clicked(move |_| {
+                gtk::FileLauncher::new(Some(&gio::File::for_path(&dir))).launch(
+                    Some(&parent),
+                    gio::Cancellable::NONE,
+                    |_| {},
+                );
+            });
+        }
+
+        let buttons = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+        buttons.append(&launch);
+        buttons.append(&open);
+        row.add_suffix(&buttons);
+        instances.add(&row);
+    }
+    page.add(&instances);
+
+    toasts.set_child(Some(&page));
+    let toolbar = adw::ToolbarView::new();
+    toolbar.add_top_bar(&adw::HeaderBar::new());
+    toolbar.set_content(Some(&toasts));
+    dialog.set_content(Some(&toolbar));
+    dialog.present();
 }
 
 #[cfg(test)]

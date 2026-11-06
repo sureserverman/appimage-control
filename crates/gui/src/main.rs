@@ -843,10 +843,38 @@ fn mount_catalog_view(
         titles.append(&name_label);
         titles.append(&subtitle_label);
 
+        // Details: the per-app page (source, check, instances with Launch / Open folder).
+        let details_btn = Button::from_icon_name("info-outline-symbolic");
+        details_btn.add_css_class("flat");
+        details_btn.add_css_class("circular");
+        details_btn.set_valign(gtk::Align::Center);
+        details_btn.set_tooltip_text(Some(tr("Details")));
+        details_btn.update_property(&[gtk::accessible::Property::Label(&fill(
+            // TRANSLATORS: accessible name of the card's details button; {app} is an app name.
+            tr("Details for {app}"),
+            &[("app", &catalog_app.display_name_resolved())],
+        ))]);
+        {
+            let window = window.clone();
+            let paths = Rc::clone(&paths);
+            let catalog = Rc::clone(&catalog);
+            let remote = Rc::clone(&remote_latest_cache);
+            details_btn.connect_clicked(move |_| {
+                let app = &catalog.apps[app_index];
+                let tag = remote
+                    .borrow()
+                    .get(app_index)
+                    .and_then(|h| h.as_ref().map(|h| h.tag.clone()));
+                let latest = latest_known_version(app, tag.as_deref());
+                details::present_details(&window, Rc::clone(&paths), app, latest.as_deref());
+            });
+        }
+
         let card_head = GtkBox::new(Orientation::Horizontal, 9);
         card_head.append(&icon);
         card_head.append(&titles);
         card_head.append(&status_pill);
+        card_head.append(&details_btn);
 
         // Tiles row + faint right-aligned count.
         let tiles_box = GtkBox::new(Orientation::Horizontal, 5);

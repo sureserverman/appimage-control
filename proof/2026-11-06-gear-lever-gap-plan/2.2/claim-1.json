@@ -1,0 +1,11 @@
+{
+ "created": "2026-11-06T18:28:07+00:00",
+ "fingerprint": "5b653f9a74d70e5b4d20f7b743a7bc1ac9f4926991b4002f97b34718db75514d",
+ "index": 1,
+ "kind": "claim-deviation",
+ "plan": "/mnt/vault/Portfolio/anon-tools/appimage-control/plans/2026-11-06-gear-lever-gap-plan.md",
+ "schema": 2,
+ "task": "2.2",
+ "text": "`scripts/atspi-smoke.py details` on the VM live session (copied over by `/tmp/aic-vm.sh`; launched with `GTK_A11Y=atspi`, an isolated HOME holding one fixture install of `keepassxc`, and `APPIMAGE_CONTROL_CATALOG=/tmp/aic-src/data/catalog.json`). The script clicks the KeePassXC card's details button and asserts: a dialog named \"KeePassXC\" appears; it holds a label containing `#1`; its **Launch** button, once clicked, makes the fixture AppImage (a script that writes `/tmp/aic-launched`) create that marker within 5 s; the **Open folder** button is sensitive. Run: `sh /tmp/aic-vm.sh 'python3 scripts/atspi-smoke.py details'` exits 0",
+ "why": "VM live-session AT-SPI test; prove-claim must not run on the VM. Manual mutant on the VM: Launch handler made to launch instance 999 (always refused) -> 'python3 scripts/atspi-smoke.py details' FAIL: Launch started the instance within 5 s (exit 1); restored -> PASS (exit 0). details-all PASS: 14 details buttons for 14 catalog apps, each dialog opens and closes."
+}
