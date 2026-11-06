@@ -61,6 +61,11 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.4.0" date="2026-11-06">
+      <description>
+        <p>Each app now has a detail page with its versions, sizes, folders and update source, where you can launch a copy or open its folder. A check at login sends a notification when an installed app has a newer release. The Flatpak build is English-only.</p>
+      </description>
+    </release>
     <release version="0.3.0" date="2026-11-05">
       <description>
         <p>Security release.</p>

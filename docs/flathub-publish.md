@@ -169,8 +169,9 @@ These are requirements, not manifest text:
 
 1) **Cut a release that contains the current metadata.** Flathub builds from
    a tag. The metainfo must list that release with its date, and the
-   screenshot it names must exist on the default branch. v0.3.0 predates the
-   screenshot and the English-only switch, so the submission needs a newer tag.
+   screenshots it names must exist on the default branch. v0.4.0 is the
+   first tag with these screenshots and the English-only build, so submit
+   from v0.4.0 or later.
 
 2) **Check the screenshots.** `docs/screenshots/catalog.png`, `details.png`
    and `preferences.png` are referenced from the metainfo through their
