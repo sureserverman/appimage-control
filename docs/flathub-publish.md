@@ -172,21 +172,35 @@ These are requirements, not manifest text:
    screenshot it names must exist on the default branch. v0.3.0 predates the
    screenshot and the English-only switch, so the submission needs a newer tag.
 
-2) **Check the screenshot.** `docs/screenshots/catalog.png` is referenced from
-   the metainfo through its `raw.githubusercontent.com` URL on `main`. Flathub
-   mirrors it at build time. To retake it on a machine with GTK 4, render into
-   a private X server, which avoids compositor screenshot restrictions:
+2) **Check the screenshots.** `docs/screenshots/catalog.png`, `details.png`
+   and `preferences.png` are referenced from the metainfo through their
+   `raw.githubusercontent.com` URLs on `main`. Flathub mirrors them at build
+   time. Each is 1000x700, the largest window size Flathub recommends, and
+   `scripts/check-metainfo-quality.py` checks that size. To retake them on a
+   machine with GTK 4, render into a private X server, which avoids
+   compositor screenshot restrictions:
    ```bash
-   Xvfb :7 -screen 0 1000x760x24 &
-   DISPLAY=:7 GDK_BACKEND=x11 GSK_RENDERER=cairo LANGUAGE=en \
-     dbus-run-session -- appimage-control &
+   Xvfb :7 -screen 0 1000x700x24 &
+   DISPLAY=:7 GDK_BACKEND=x11 GSK_RENDERER=cairo ADW_DEBUG_COLOR_SCHEME=prefer-light \
+     LANGUAGE=en GTK_A11Y=atspi dbus-run-session -- appimage-control &
    # after the icons load:
    W=$(DISPLAY=:7 xdotool search --name "AppImage Control" | tail -1)
-   DISPLAY=:7 xdotool windowmove $W 0 0 windowsize --sync $W 1000 760
+   DISPLAY=:7 xdotool windowmove $W 0 0 windowsize --sync $W 1000 700
    DISPLAY=:7 import -window root docs/screenshots/catalog.png
    ```
-   Use an isolated `HOME` with a few installed instances so the cards show
-   both states.
+   For `details.png`, open a card's details window (its "Details for <app>"
+   button), move it to 0,0 and size it 1000x700 the same way, then capture.
+   For `preferences.png`, open Preferences (`Ctrl+,`, or the window action
+   `org.gtk.Actions.Activate preferences` on
+   `/io/github/sureserverman/AppImageControl/window/1` over the same session
+   bus) and do the same. Use a `HOME` that reads like a real one (the details
+   window shows instance folders), with a few installed instances so the
+   cards show both states. A pinned app with two copies (Mattermost) makes
+   the details window show more than one copy and no GitHub lookup note.
+   `ADW_DEBUG_COLOR_SCHEME=prefer-light` keeps the default light look on a
+   desktop set to dark. A private X server has no window manager, so these
+   shots lack the title bar shadow and rounded corners Flathub asks for:
+   retake them on a desktop with native decorations before submitting.
 
 3) **Run the linter** on your manifest and on the built repo:
    ```bash

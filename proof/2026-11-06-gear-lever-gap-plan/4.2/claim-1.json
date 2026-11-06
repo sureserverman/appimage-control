@@ -1,0 +1,36 @@
+{
+ "baseline": {
+  "elapsed_s": 0.0,
+  "exit": 0,
+  "tail": "OK: metainfo meets the checked quality guidelines"
+ },
+ "break_patch": "diff --git b/data/io.github.sureserverman.AppImageControl.metainfo.xml a/data/io.github.sureserverman.AppImageControl.metainfo.xml\nindex 09d4ed69..e4b66980 100644\n--- b/data/io.github.sureserverman.AppImageControl.metainfo.xml\n+++ a/data/io.github.sureserverman.AppImageControl.metainfo.xml\n@@ -46,17 +46,9 @@\n   <content_rating type=\"oars-1.1\"/>\n   <screenshots>\n     <screenshot type=\"default\">\n-      <caption>Catalog of apps with their installed copies</caption>\n+      <caption>AppImage Control catalog window with installed apps</caption>\n       <image>https://raw.githubusercontent.com/sureserverman/appimage-control/main/docs/screenshots/catalog.png</image>\n     </screenshot>\n-    <screenshot>\n-      <caption>Detail page with each copy's version, size and folder</caption>\n-      <image>https://raw.githubusercontent.com/sureserverman/appimage-control/main/docs/screenshots/details.png</image>\n-    </screenshot>\n-    <screenshot>\n-      <caption>Preferences with the update check at login</caption>\n-      <image>https://raw.githubusercontent.com/sureserverman/appimage-control/main/docs/screenshots/preferences.png</image>\n-    </screenshot>\n   </screenshots>\n   <releases>\n     <release version=\"0.3.0\" date=\"2026-11-05\">\n",
+ "build": null,
+ "created": "2026-11-06T20:51:28+00:00",
+ "fingerprint": "d5e05094c498cd8fd0b3f16cc1d59ec76577f40f6b23e61bda82abcb7b91bb0c",
+ "index": 1,
+ "kind": "claim",
+ "named_break": null,
+ "no_build_reason": "images, metadata and a Python script, nothing to build",
+ "plan": "/mnt/vault/Portfolio/anon-tools/appimage-control/plans/2026-11-06-gear-lever-gap-plan.md",
+ "red": {
+  "elapsed_s": 0.0,
+  "exit": 1,
+  "tail": "FAIL: 1 screenshots, want 3 to 6"
+ },
+ "schema": 2,
+ "shell": "bash",
+ "task": "4.2",
+ "test": "python3 scripts/check-metainfo-quality.py data/io.github.sureserverman.AppImageControl.metainfo.xml",
+ "text": "`for f in catalog details preferences; do identify -format '%w %h\\n' docs/screenshots/$f.png; done` prints `1000 700` three times, and `python3 scripts/check-metainfo-quality.py data/io.github.sureserverman.AppImageControl.metainfo.xml` (extended in this task) also asserts: 3 to 6 screenshots, each with a caption that has no final period, does not start with a digit, and points at a file that exists under `docs/screenshots/`",
+ "touched": [
+  "data/io.github.sureserverman.AppImageControl.metainfo.xml"
+ ],
+ "touched_blobs": {
+  "data/io.github.sureserverman.AppImageControl.metainfo.xml": "09d4ed69a8864241a605e5271b66dde6b5eec6a6"
+ },
+ "witness_blobs": {
+  "data/io.github.sureserverman.AppImageControl.metainfo.xml": "09d4ed69a8864241a605e5271b66dde6b5eec6a6",
+  "scripts/check-metainfo-quality.py": "c0aa3c35d1cba1d8d96df6b82f1fe860b04bf661"
+ }
+}

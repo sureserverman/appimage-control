@@ -46,8 +46,16 @@
   <content_rating type="oars-1.1"/>
   <screenshots>
     <screenshot type="default">
-      <caption>AppImage Control catalog window with installed apps</caption>
+      <caption>Catalog of apps with their installed copies</caption>
       <image>https://raw.githubusercontent.com/sureserverman/appimage-control/main/docs/screenshots/catalog.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Detail page with each copy's version, size and folder</caption>
+      <image>https://raw.githubusercontent.com/sureserverman/appimage-control/main/docs/screenshots/details.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Preferences with the update check at login</caption>
+      <image>https://raw.githubusercontent.com/sureserverman/appimage-control/main/docs/screenshots/preferences.png</image>
     </screenshot>
   </screenshots>
   <releases>
