@@ -17,6 +17,10 @@ use appimage_control_core::{
     user_seeds_dir, write_pack_to, AppPaths, BackupOptions, Catalog, MigrationConflict,
     MigrationResolution, PackRecording, SavedSeedForm, SeedPackLibrary, SeedPreset,
 };
+use appimage_control_core::{
+    fetch_remote_latest_versions, github_owner_repo_from_url, latest_known_versions,
+    list_managed_instance_indices, updates_available, AvailableUpdate,
+};
 
 pub fn want_help(args: &[String]) -> bool {
     args.iter().any(|a| a == "--help" || a == "-h")
@@ -136,6 +140,15 @@ When --purge, --clean, or --migrate is present, only one runs: --purge first if 
                    (appimageupdatetool is used only with --allow-unverified, for an app with no
                    published sha256). Exits non-zero when any instance fails.
   --update         Same as -update
+  --check-updates  Print each installed app that has a newer release as
+                   `<app-id>: <installed> -> <latest>` and exit 0. Reads release versions
+                   only; nothing is downloaded or installed. An app whose lookup failed
+                   (offline, GitHub rate limit) is left out, with one line on stderr. An
+                   unreadable catalog exits 1. Runs on its own: only --notify and --catalog
+                   may go with it.
+  --notify         With --check-updates only: also show one desktop notification naming
+                   the apps with updates (none when there are none). Clicking it opens the
+                   window on the Updates filter. Used by the login autostart entry.
 
 Examples:
 
@@ -165,6 +178,8 @@ Examples:
   appimage-control -feather:2 -update
   appimage-control =session:2
   appimage-control =session:0
+  appimage-control --check-updates
+  appimage-control --check-updates --notify
 "
     );
 }
@@ -785,6 +800,8 @@ const KNOWN_FLAGS: &[&str] = &[
     "--list-pack-recordings",
     "--delete-pack-recording",
     "--update",
+    "--check-updates",
+    "--notify",
     "--yes",
 ];
 
@@ -914,6 +931,136 @@ fn validate_app_specs(
     Ok(())
 }
 
+/// The first argument that may not go with `--check-updates`, if any. The value after
+/// `--catalog` is skipped.
+fn check_updates_companion_violation(args: &[String]) -> Option<&str> {
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--check-updates" | "--notify" => i += 1,
+            "--catalog" => i += 2,
+            other => return Some(other),
+        }
+    }
+    None
+}
+
+/// `--check-updates [--notify]`: lists installed apps with a newer release. Looks up GitHub
+/// releases for installed apps only, and reads versions only: nothing is downloaded (DEC-001).
+/// A failed lookup is never counted as an update. Exit 1 only when the catalog or the home
+/// directory cannot be read, so a login run never fails for a network reason.
+fn run_check_updates(catalog_path: Option<&std::path::Path>, notify: bool) -> glib::ExitCode {
+    let catalog = match Catalog::discover_load(catalog_path) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("{e}");
+            return glib::ExitCode::FAILURE;
+        }
+    };
+    let paths = match AppPaths::from_env() {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("{e}");
+            return glib::ExitCode::FAILURE;
+        }
+    };
+    let installed = Catalog {
+        apps: catalog
+            .apps
+            .iter()
+            .filter(|a| {
+                list_managed_instance_indices(&paths, a)
+                    .map(|v| !v.is_empty())
+                    .unwrap_or(false)
+            })
+            .cloned()
+            .collect(),
+    };
+    let tags = fetch_remote_latest_versions(&installed);
+    let unanswered = installed
+        .apps
+        .iter()
+        .zip(&tags)
+        .filter(|(app, tag)| {
+            tag.is_none()
+                && app
+                    .resolved_download_url()
+                    .ok()
+                    .and_then(github_owner_repo_from_url)
+                    .is_some()
+        })
+        .count();
+    if unanswered > 0 {
+        eprintln!(
+            "check-updates: GitHub did not answer for {unanswered} installed app(s) \
+             (offline or rate-limited); they were not checked."
+        );
+    }
+    let latest = latest_known_versions(&installed, &tags);
+    let updates = updates_available(&paths, &installed, &latest);
+    for u in &updates {
+        println!("{}: {} -> {}", u.app_id, u.installed, u.latest);
+    }
+    if notify && !updates.is_empty() {
+        if let Err(e) = send_updates_notification(&updates) {
+            eprintln!("check-updates: could not show the notification: {e}");
+        }
+    }
+    glib::ExitCode::SUCCESS
+}
+
+/// Notification id: a newer check replaces the previous notice instead of stacking.
+const UPDATES_NOTIFICATION_ID: &str = "updates";
+
+/// Sends the "Updates available" notification as the app (NON_UNIQUE, so it also works while
+/// the window is open). Its default action is `app.show-updates`, which the desktop delivers
+/// by D-Bus-activating the app.
+fn send_updates_notification(updates: &[AvailableUpdate]) -> Result<(), String> {
+    use gtk::gio;
+    use gtk::prelude::*;
+
+    crate::i18n::init();
+    let names: Vec<&str> = updates.iter().map(|u| u.display_name.as_str()).collect();
+    let app = gio::Application::new(Some(crate::APP_ID), gio::ApplicationFlags::NON_UNIQUE);
+    app.register(gio::Cancellable::NONE)
+        .map_err(|e| e.to_string())?;
+    let notification = gio::Notification::new(crate::i18n::tr("Updates available"));
+    notification.set_body(Some(&updates_notification_body(&names)));
+    notification.set_default_action("app.show-updates");
+    app.send_notification(Some(UPDATES_NOTIFICATION_ID), &notification);
+    // The backends queue the D-Bus call; flush so it leaves before the process exits.
+    if let Some(conn) = app.dbus_connection() {
+        conn.flush_sync(gio::Cancellable::NONE)
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Names up to three apps: "A", "A and B", "A, B and C", or "A, B and 2 more".
+fn updates_notification_body(names: &[&str]) -> String {
+    use crate::i18n::{fill, ntr, tr};
+    match names {
+        [] => String::new(),
+        [a] => (*a).to_string(),
+        [a, b] => fill(tr("{first} and {second}"), &[("first", a), ("second", b)]),
+        [a, b, c] => fill(
+            tr("{first}, {second} and {third}"),
+            &[("first", a), ("second", b), ("third", c)],
+        ),
+        [a, b, rest @ ..] => {
+            let more = rest.len() as u64;
+            fill(
+                ntr(
+                    "{first}, {second} and {count} more",
+                    "{first}, {second} and {count} more",
+                    more,
+                ),
+                &[("first", a), ("second", b), ("count", &more)],
+            )
+        }
+    }
+}
+
 /// Run flag-only validation (no catalog required).  Called before catalog
 /// operations that exit early (`--seed-list-forms`, `--list-seed-packs`, etc.)
 /// so a typo like `--updaet` never silently falls through to the GUI.
@@ -963,6 +1110,23 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
                 return Some(glib::ExitCode::FAILURE);
             }
         };
+
+    let check_updates = args.iter().any(|a| a == "--check-updates");
+    let notify = args.iter().any(|a| a == "--notify");
+    if notify && !check_updates {
+        eprintln!("--notify requires --check-updates.");
+        return Some(glib::ExitCode::FAILURE);
+    }
+    if check_updates {
+        if let Some(other) = check_updates_companion_violation(args) {
+            eprintln!(
+                "--check-updates runs on its own (only --notify and --catalog may go with it), \
+                 not with '{other}'."
+            );
+            return Some(glib::ExitCode::FAILURE);
+        }
+        return Some(run_check_updates(catalog_path.as_deref(), notify));
+    }
 
     // Validate --on-conflict value first, then require --migrate coupling.
     if let Some(on_conflict_arg) = args.iter().find(|a| a.starts_with("--on-conflict=")) {
@@ -3301,6 +3465,56 @@ mod purge_prompt_tests {
         assert!(
             err.contains("=APP:N") || err.contains("=session:"),
             "error for `=session` must suggest the =APP:N form, got: {err}"
+        );
+    }
+}
+
+#[cfg(test)]
+mod check_updates_tests {
+    use super::*;
+
+    #[test]
+    fn check_updates_notification_body_names_up_to_three_apps() {
+        assert_eq!(
+            updates_notification_body(&["Feather Wallet"]),
+            "Feather Wallet"
+        );
+        assert_eq!(
+            updates_notification_body(&["Feather Wallet", "Joplin"]),
+            "Feather Wallet and Joplin"
+        );
+        assert_eq!(
+            updates_notification_body(&["Feather Wallet", "Joplin", "Session"]),
+            "Feather Wallet, Joplin and Session"
+        );
+        assert_eq!(
+            updates_notification_body(&["Feather Wallet", "Joplin", "Session", "Zulip"]),
+            "Feather Wallet, Joplin and 2 more"
+        );
+        assert_eq!(
+            updates_notification_body(&["A", "B", "C", "D", "E", "F"]),
+            "A, B and 4 more"
+        );
+    }
+
+    #[test]
+    fn check_updates_companions_are_notify_and_catalog_only() {
+        let a = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert_eq!(
+            check_updates_companion_violation(&a(&["--check-updates", "--notify"])),
+            None
+        );
+        assert_eq!(
+            check_updates_companion_violation(&a(&["--catalog", "/x/c.json", "--check-updates"])),
+            None
+        );
+        assert_eq!(
+            check_updates_companion_violation(&a(&["--check-updates", "+feather"])),
+            Some("+feather")
+        );
+        assert_eq!(
+            check_updates_companion_violation(&a(&["--check-updates", "--update"])),
+            Some("--update")
         );
     }
 }

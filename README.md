@@ -65,6 +65,8 @@ General flags:
 --update-seed-packs  Fetch + verify + install signed seed-pack tarball from the companion repo.
 --repair-launchers   Recreate missing per-instance .desktop launchers and icons.
 -update / --update   Update all installed instances from the catalog URL (sha256-checked); exits non-zero if any instance fails.
+--check-updates      Print `<app-id>: <installed> -> <latest>` for each installed app with a newer release; downloads nothing. Runs on its own.
+--notify             With --check-updates: also show one desktop notification naming those apps (the login autostart entry runs both).
 --clean-cache        Delete the download cache dir.
 --clean              Remove all installed catalog app instances and managed launchers (keeps cache).
 --purge              Remove all installs, cache, and managed launcher files.
@@ -135,6 +137,7 @@ appimage-control =session:0
 appimage-control --repair-launchers --list
 appimage-control --seed-settings feather,electrum-btc --seed-save daily
 appimage-control --update-seed-packs
+appimage-control --check-updates --notify
 ```
 
 The seeding command:

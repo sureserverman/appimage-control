@@ -574,3 +574,171 @@ fn allow_unverified_update_mismatch_fails_the_run() {
     );
     assert!(err.contains("does not match the expected sha256"), "{err}");
 }
+
+// --- --check-updates (login update check) ---------------------------------------------------
+
+/// A catalog with one app whose pinned, non-GitHub URL carries version 2.0.0, so the newest
+/// release is known with no network lookup.
+fn write_pinned_fixture_catalog(path: &Path) {
+    fs::write(
+        path,
+        r#"{
+  "apps": [
+    {
+      "id": "fixture",
+      "display_name": "Fixture",
+      "download_url": "https://example.invalid/releases/fixture-2.0.0.AppImage",
+      "appimage_filename": "fixture.AppImage",
+      "instance_strategy": "electron_class"
+    }
+  ]
+}"#,
+    )
+    .expect("catalog");
+}
+
+/// Instance 1 of `fixture`, recorded at `version`, plus a cached download.
+fn install_pinned_fixture(home: &Path, version: &str) {
+    let inst = home.join(".local/share/appimages/apps/fixture/1");
+    fs::create_dir_all(&inst).expect("instance dir");
+    fs::write(inst.join("fixture.AppImage"), b"#!/bin/sh\n").expect("appimage");
+    fs::write(
+        inst.join(".appimage-control-version"),
+        format!("{version}\n"),
+    )
+    .expect("version");
+    let cache = home.join(".local/share/appimages/cache/fixture");
+    fs::create_dir_all(&cache).expect("cache");
+    fs::write(cache.join("fixture.AppImage"), b"#!/bin/sh\n").expect("cached");
+}
+
+/// Every path under `root` with its length and modification time, sorted.
+fn tree_listing(root: &Path) -> Vec<String> {
+    fn walk(dir: &Path, out: &mut Vec<String>) {
+        let Ok(rd) = fs::read_dir(dir) else { return };
+        for ent in rd.flatten() {
+            let p = ent.path();
+            let meta = fs::symlink_metadata(&p).expect("meta");
+            out.push(format!(
+                "{} {} {:?}",
+                p.display(),
+                meta.len(),
+                meta.modified().ok()
+            ));
+            if meta.is_dir() {
+                walk(&p, out);
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(root, &mut out);
+    out.sort();
+    out
+}
+
+fn run_check_updates(home: &Path, args: &[&str]) -> std::process::Output {
+    Command::new(app_exe().as_os_str())
+        .env("HOME", home)
+        .env_remove("APPIMAGE_CONTROL_CATALOG")
+        .args(args)
+        .output()
+        .expect("spawn --check-updates")
+}
+
+#[test]
+fn check_updates_lists_a_newer_pinned_release_and_writes_nothing() {
+    let tmp = tempfile::tempdir().expect("tmp");
+    let home = tmp.path().join("home");
+    let catalog = tmp.path().join("catalog.json");
+    write_pinned_fixture_catalog(&catalog);
+    install_pinned_fixture(&home, "1.0.0");
+    let before = tree_listing(&home);
+
+    let out = run_check_updates(
+        &home,
+        &["--check-updates", "--catalog", catalog.to_str().unwrap()],
+    );
+
+    assert!(
+        out.status.success(),
+        "stderr={}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&out.stdout),
+        "fixture: 1.0.0 -> 2.0.0\n"
+    );
+    assert_eq!(
+        tree_listing(&home),
+        before,
+        "the check changed files under HOME"
+    );
+}
+
+#[test]
+fn check_updates_prints_nothing_when_current() {
+    let tmp = tempfile::tempdir().expect("tmp");
+    let home = tmp.path().join("home");
+    let catalog = tmp.path().join("catalog.json");
+    write_pinned_fixture_catalog(&catalog);
+    install_pinned_fixture(&home, "2.0.0");
+    let before = tree_listing(&home);
+
+    let out = run_check_updates(
+        &home,
+        &["--check-updates", "--catalog", catalog.to_str().unwrap()],
+    );
+
+    assert!(
+        out.status.success(),
+        "stderr={}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "");
+    assert_eq!(
+        tree_listing(&home),
+        before,
+        "the check changed files under HOME"
+    );
+}
+
+#[test]
+fn check_updates_with_a_missing_catalog_exits_1() {
+    let tmp = tempfile::tempdir().expect("tmp");
+    let home = tmp.path().join("home");
+    fs::create_dir_all(&home).expect("home");
+    let missing = tmp.path().join("no-such-catalog.json");
+
+    let out = run_check_updates(
+        &home,
+        &[
+            "--check-updates",
+            "--notify",
+            "--catalog",
+            missing.to_str().unwrap(),
+        ],
+    );
+
+    assert_eq!(out.status.code(), Some(1));
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        err.contains("no-such-catalog.json") && !err.contains("unknown option"),
+        "unexpected stderr: {err}"
+    );
+}
+
+#[test]
+fn check_updates_notify_needs_check_updates() {
+    let tmp = tempfile::tempdir().expect("tmp");
+    let home = tmp.path().join("home");
+    fs::create_dir_all(&home).expect("home");
+
+    let out = run_check_updates(&home, &["--notify"]);
+
+    assert_eq!(out.status.code(), Some(1));
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        err.contains("--notify requires --check-updates"),
+        "unexpected stderr: {err}"
+    );
+}
