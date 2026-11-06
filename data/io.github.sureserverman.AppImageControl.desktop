@@ -7,4 +7,5 @@ Icon=io.github.sureserverman.AppImageControl
 Terminal=false
 Categories=Utility;
 StartupNotify=true
+DBusActivatable=true
 StartupWMClass=io.github.sureserverman.AppImageControl

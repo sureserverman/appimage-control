@@ -6,6 +6,7 @@ Rust toolchain:
 
     python3 scripts/atspi-smoke.py details       # one app's detail page: Launch, Open folder
     python3 scripts/atspi-smoke.py details-all   # every card has a working details button
+    python3 scripts/atspi-smoke.py activation    # D-Bus activation of app.show-updates
 
 Each mode builds the binaries, makes a throwaway HOME with fixture installs, starts the GUI
 with GTK_A11Y=atspi, checks the result, and stops the GUI. Exit 0 means every check passed.
@@ -14,6 +15,7 @@ Set AIC_DUMP=1 to print the dialog's accessibility tree when the details check r
 
 import json
 import os
+import pwd
 import shutil
 import signal
 import subprocess
@@ -377,9 +379,148 @@ def mode_details_all():
     run_with_gui([], body)
 
 
+APP_ID = "io.github.sureserverman.AppImageControl"
+OBJECT_PATH = "/" + APP_ID.replace(".", "/")
+# The session bus reads service files from the real user's data dir, never a test HOME.
+# $HOME may be a build home (the VM helper sets one), so take the passwd entry.
+REAL_SERVICE = os.path.join(pwd.getpwuid(UID).pw_dir,
+                            f".local/share/dbus-1/services/{APP_ID}.service")
+
+
+def bus_call(dest, path, method, *args, timeout=30):
+    return subprocess.run(["gdbus", "call", "--session", "--timeout", str(timeout), "--dest", dest,
+                           "--object-path", path, "--method", method, *args],
+                          capture_output=True, text=True)
+
+
+def bus_owner_pid():
+    """PID of the process owning the app's bus name, or None."""
+    r = bus_call("org.freedesktop.DBus", "/org/freedesktop/DBus",
+                 "org.freedesktop.DBus.GetConnectionUnixProcessID", APP_ID)
+    if r.returncode != 0:
+        return None
+    return int(r.stdout.strip().strip("(),").split()[-1])
+
+
+def activate_show_updates():
+    """What GNOME Shell does when the update notification is clicked."""
+    r = bus_call(APP_ID, OBJECT_PATH, "org.freedesktop.Application.ActivateAction",
+                 "show-updates", "[]", "{}")
+    if r.returncode != 0:
+        raise Fail(f"ActivateAction show-updates failed: {r.stderr.strip()}")
+
+
+class DevService:
+    """Points the app's D-Bus service file at the dev binary, run on a fixture HOME. Any file
+    already there is put back afterwards."""
+
+    def __init__(self, home):
+        self.home = home
+        self.backup = None
+
+    def __enter__(self):
+        os.makedirs(os.path.dirname(REAL_SERVICE), exist_ok=True)
+        if os.path.exists(REAL_SERVICE):
+            self.backup = REAL_SERVICE + ".aic-smoke-backup"
+            shutil.move(REAL_SERVICE, self.backup)
+        env = gui_env(self.home)
+        keep = ["HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME",
+                "APPIMAGE_CONTROL_CATALOG", "GTK_A11Y", "LANGUAGE", "LANG", "WAYLAND_DISPLAY"]
+        assigns = " ".join(f"{k}={env[k]}" for k in keep)
+        self.log_path = os.path.join(self.home, "gui-stderr.log")
+        with open(REAL_SERVICE, "w") as f:
+            f.write("[D-BUS Service]\n"
+                    f"Name={APP_ID}\n"
+                    f"Exec=/bin/sh -c 'exec env {assigns} {GUI} --gapplication-service "
+                    f"2>>{self.log_path}'\n")
+        subprocess.run(["gdbus", "call", "--session", "--dest", "org.freedesktop.DBus",
+                        "--object-path", "/org/freedesktop/DBus",
+                        "--method", "org.freedesktop.DBus.ReloadConfig"], capture_output=True)
+        return self
+
+    def __exit__(self, *exc):
+        pid = bus_owner_pid()
+        if pid:
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except OSError:
+                pass
+        os.remove(REAL_SERVICE)
+        if self.backup:
+            shutil.move(self.backup, REAL_SERVICE)
+        subprocess.run(["gdbus", "call", "--session", "--dest", "org.freedesktop.DBus",
+                        "--object-path", "/org/freedesktop/DBus",
+                        "--method", "org.freedesktop.DBus.ReloadConfig"], capture_output=True)
+
+
+def is_checked(node):
+    st = node.getState()
+    return st.contains(pyatspi.STATE_CHECKED) or st.contains(pyatspi.STATE_PRESSED)
+
+
+def updates_toggle(root):
+    return wait_for(root, lambda n: role(n) == "toggle button" and name(n) == "Updates",
+                    "the 'Updates' filter toggle")
+
+
+def main_windows(root):
+    return find_all(root, lambda n: role(n) == "frame" and name(n) == "AppImage Control")
+
+
+def wait_checked(node, secs=10):
+    end = time.time() + secs
+    while time.time() < end and not is_checked(node):
+        time.sleep(0.3)
+    return is_checked(node)
+
+
+def mode_activation():
+    home = tempfile.mkdtemp(prefix=HOME_PREFIX)
+    try:
+        fixture_home(home, [])
+        clear_the_way()
+        check(bus_owner_pid() is None, "no instance owns the app's bus name before the call")
+        with DevService(home) as svc:
+            activate_show_updates()
+            end = time.time() + 15
+            pid = None
+            while time.time() < end and pid is None:
+                pid = bus_owner_pid()
+                time.sleep(0.3)
+            check(pid is not None, "D-Bus activation started the app")
+            root = app_root(pid)
+            wait_for(root, lambda n: role(n) == "frame" and name(n) == "AppImage Control",
+                     "the main window")
+            check(True, "a window appears after ActivateAction show-updates")
+            check(wait_checked(updates_toggle(root)), "the 'Updates' filter is on")
+            # The window is already open: switch the filter away, then click again.
+            all_toggle = wait_for(root, lambda n: role(n) == "toggle button" and name(n) == "All",
+                                  "the 'All' filter toggle")
+            click(all_toggle)
+            end = time.time() + 5
+            while time.time() < end and is_checked(updates_toggle(root)):
+                time.sleep(0.3)
+            check(not is_checked(updates_toggle(root)), "the filter moved to 'All'")
+            activate_show_updates()
+            check(bus_owner_pid() == pid, "the open instance handled the second call")
+            check(wait_checked(updates_toggle(root)),
+                  "the open window switches back to 'Updates'")
+            check(len(main_windows(root)) == 1, "still one main window")
+            try:
+                with open(svc.log_path) as f:
+                    crit = [l.rstrip() for l in f if "-CRITICAL" in l]
+            except OSError:
+                crit = []
+            check(not crit, "no GTK/Adwaita CRITICAL messages" + (f": {crit[:3]}" if crit else ""))
+    finally:
+        subprocess.run(["pkill", "-f", "--", home], check=False)
+        shutil.rmtree(home, ignore_errors=True)
+
+
 MODES = {
     "details": mode_details,
     "details-all": mode_details_all,
+    "activation": mode_activation,
 }
 
 

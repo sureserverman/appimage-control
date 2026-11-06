@@ -277,15 +277,23 @@ fn render_card(
     tiles_box.append(&add);
 }
 
+/// True when the session bus started us to deliver an action (a notification click): the
+/// argument goes to GApplication, never to the CLI router.
+fn is_dbus_service_launch(args: &[String]) -> bool {
+    args.len() == 1 && args[0] == "--gapplication-service"
+}
+
 fn main() -> glib::ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    if want_help(&args) {
-        print_help();
-        return glib::ExitCode::SUCCESS;
-    }
-    if has_cli_ops(&args) {
-        if let Some(code) = run_cli_ops(&args) {
-            return code;
+    if !is_dbus_service_launch(&args) {
+        if want_help(&args) {
+            print_help();
+            return glib::ExitCode::SUCCESS;
+        }
+        if has_cli_ops(&args) {
+            if let Some(code) = run_cli_ops(&args) {
+                return code;
+            }
         }
     }
     // Translations are for the GUI only; the CLI above stays English.
@@ -294,7 +302,30 @@ fn main() -> glib::ExitCode {
     install_theme_css();
     let app = adw::Application::builder().application_id(APP_ID).build();
     app.connect_activate(build_ui);
+    // `app.show-updates` — the update notification's default action. D-Bus activation starts
+    // the app without `activate`, so build the window first when none is open.
+    let show_updates = gtk::gio::SimpleAction::new("show-updates", None);
+    show_updates.connect_activate({
+        let app = app.clone();
+        move |_, _| show_updates_view(&app)
+    });
+    app.add_action(&show_updates);
     app.run()
+}
+
+/// Presents the main window with the "Updates" filter on, building it if needed.
+fn show_updates_view(app: &adw::Application) {
+    let main_window = || {
+        app.windows()
+            .into_iter()
+            .find_map(|w| w.downcast::<adw::ApplicationWindow>().ok())
+    };
+    if main_window().is_none() {
+        build_ui(app);
+    }
+    if let Some(w) = main_window() {
+        let _ = WidgetExt::activate_action(&w, "win.show-updates", None);
+    }
 }
 
 /// Loads the small `theme.css` chunk into the default display so the pill rules
@@ -651,6 +682,18 @@ fn mount_catalog_view(
     filter_box.append(&filter_all);
     filter_box.append(&filter_installed);
     filter_box.append(&filter_updates);
+    // `win.show-updates` — reached from `app.show-updates` (the update notification's click).
+    // Re-mounting the view replaces it, so it always drives the current toggle.
+    {
+        let a = gtk::gio::SimpleAction::new("show-updates", None);
+        let toggle = filter_updates.clone();
+        let win = window.clone();
+        a.connect_activate(move |_, _| {
+            toggle.set_active(true);
+            win.present();
+        });
+        window.add_action(&a);
+    }
 
     let header_start = GtkBox::new(Orientation::Horizontal, 12);
     header_start.append(&header_title);

@@ -30,6 +30,7 @@ modules:
       - printf '%s\n' '#!/bin/sh' 'export APPIMAGE_CONTROL_CATALOG=/app/share/appimage-control/catalog.json' 'exec /app/bin/appimage-control-bin "$@"' > /app/bin/appimage-control
       - chmod 755 /app/bin/appimage-control
       - install -Dm644 data/io.github.sureserverman.AppImageControl.desktop /app/share/applications/io.github.sureserverman.AppImageControl.desktop
+      - install -Dm644 data/io.github.sureserverman.AppImageControl.service /app/share/dbus-1/services/io.github.sureserverman.AppImageControl.service
       - install -Dm644 data/io.github.sureserverman.AppImageControl.metainfo.xml /app/share/metainfo/io.github.sureserverman.AppImageControl.metainfo.xml
       - install -Dm644 data/catalog.json /app/share/appimage-control/catalog.json
       # Seed packs are deliberately not bundled in this Flatpak.

@@ -18,3 +18,7 @@ AGENTS.md
 # ===== AI / Design Plans =====
 docs/plans/
 plans/
+
+# Python bytecode
+__pycache__/
+*.pyc
