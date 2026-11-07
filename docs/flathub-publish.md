@@ -176,32 +176,37 @@ These are requirements, not manifest text:
 2) **Check the screenshots.** `docs/screenshots/catalog.png`, `details.png`
    and `preferences.png` are referenced from the metainfo through their
    `raw.githubusercontent.com` URLs on `main`. Flathub mirrors them at build
-   time. Each is 1000x700, the largest window size Flathub recommends, and
-   `scripts/check-metainfo-quality.py` checks that size. To retake them on a
-   machine with GTK 4, render into a private X server, which avoids
-   compositor screenshot restrictions:
+   time. Flathub wants window screenshots with the title bar, shadow and
+   rounded corners, taken with GNOME's window screenshot (Alt+Print), at a
+   window size of 1000x700 or smaller (2000x1400 on HiDPI).
+   `scripts/check-metainfo-quality.py` allows up to 2100x1500, which leaves
+   room for the shadow. To retake them, run the installed Flatpak on a GNOME
+   desktop with demo data and the default look:
    ```bash
-   Xvfb :7 -screen 0 1000x700x24 &
-   DISPLAY=:7 GDK_BACKEND=x11 GSK_RENDERER=cairo ADW_DEBUG_COLOR_SCHEME=prefer-light \
-     LANGUAGE=en GTK_A11Y=atspi dbus-run-session -- appimage-control &
-   # after the icons load:
-   W=$(DISPLAY=:7 xdotool search --name "AppImage Control" | tail -1)
-   DISPLAY=:7 xdotool windowmove $W 0 0 windowsize --sync $W 1000 700
-   DISPLAY=:7 import -window root docs/screenshots/catalog.png
+   ID=io.github.sureserverman.AppImageControl
+   # demo copies go in ~/.var/app/$ID/.local/share/appimages/apps/<id>/<n>/
+   gsettings set org.gnome.desktop.interface font-name 'Adwaita Sans 11'
+   gsettings set org.gnome.desktop.wm.preferences button-layout 'appmenu:close'
+   gsettings set org.gnome.desktop.interface icon-theme 'Adwaita'
+   ARGS=()
+   for d in appimages applications icons; do
+     ARGS+=(--nofilesystem=xdg-data/$d --persist=.local/share/$d)
+   done
+   flatpak run "${ARGS[@]}" --env=LANGUAGE=en \
+     --env=ADW_DEBUG_COLOR_SCHEME=prefer-light --env=ADW_DEBUG_ACCENT_COLOR=blue $ID
    ```
-   For `details.png`, open a card's details window (its "Details for <app>"
-   button), move it to 0,0 and size it 1000x700 the same way, then capture.
-   For `preferences.png`, open Preferences (`Ctrl+,`, or the window action
-   `org.gtk.Actions.Activate preferences` on
-   `/io/github/sureserverman/AppImageControl/window/1` over the same session
-   bus) and do the same. Use a `HOME` that reads like a real one (the details
-   window shows instance folders), with a few installed instances so the
-   cards show both states. A pinned app with two copies (Mattermost) makes
-   the details window show more than one copy and no GitHub lookup note.
-   `ADW_DEBUG_COLOR_SCHEME=prefer-light` keeps the default light look on a
-   desktop set to dark. A private X server has no window manager, so these
-   shots lack the title bar shadow and rounded corners Flathub asks for:
-   retake them on a desktop with native decorations before submitting.
+   Save your own `gsettings` values first and set them back afterwards. The
+   font, window buttons and icons follow the desktop, so these three set
+   GNOME's defaults; the two `ADW_DEBUG_*` variables keep the default light
+   look on a desktop set to dark. The `--nofilesystem` and `--persist` pairs
+   swap your real `~/.local/share` folders for ones inside `~/.var/app/$ID`,
+   so the details window shows normal paths and your real launchers are not
+   touched. Seed a few installed copies so the cards show both states: a
+   pinned app with two copies (Mattermost) makes the details window show
+   more than one copy and no GitHub lookup note. Take `details.png` first,
+   using only the mouse, so no focus outline shows; then the main window
+   (`catalog.png`), then Preferences from the menu button (`preferences.png`).
+   Don't resize or maximize the windows.
 
 3) **Run the linter** on your manifest and on the built repo:
    ```bash

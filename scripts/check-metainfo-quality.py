@@ -16,7 +16,9 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCREENSHOT_DIR = "docs/screenshots/"
 # Screenshot URLs must point at this repo's main branch; the path after it is checked locally.
 SCREENSHOT_URL_PREFIX = "https://raw.githubusercontent.com/sureserverman/appimage-control/main/"
-SCREENSHOT_SIZE = (1000, 700)
+# Flathub caps the window at 1000x700 (2000x1400 on HiDPI). A window screenshot
+# adds the shadow, 50 px a side at 2x, so the image may be up to 2100x1500.
+SCREENSHOT_MAX = (2100, 1500)
 XML_LANG = "{http://www.w3.org/XML/1998/namespace}lang"
 
 
@@ -41,7 +43,7 @@ def png_size(path):
 
 
 def check_image(n, url):
-    """Errors for one screenshot image URL: this repo, docs/screenshots/, a 1000x700 PNG."""
+    """Errors for one screenshot image URL: this repo, docs/screenshots/, a PNG within SCREENSHOT_MAX."""
     rel = url[len(SCREENSHOT_URL_PREFIX):] if url.startswith(SCREENSHOT_URL_PREFIX) else ""
     if not re.fullmatch(re.escape(SCREENSHOT_DIR) + r"[A-Za-z0-9._-]+\.png", rel):
         return [f"screenshot {n} image is not a PNG under {SCREENSHOT_URL_PREFIX}"
@@ -50,9 +52,11 @@ def check_image(n, url):
     if not os.path.isfile(local):
         return [f"screenshot {n} file is missing: {rel}"]
     size = png_size(local)
-    if size != SCREENSHOT_SIZE:
-        return [f"screenshot {n} {rel} is {size}, want "
-                f"{SCREENSHOT_SIZE[0]}x{SCREENSHOT_SIZE[1]} PNG"]
+    if size is None:
+        return [f"screenshot {n} {rel} is not a PNG"]
+    if size[0] > SCREENSHOT_MAX[0] or size[1] > SCREENSHOT_MAX[1]:
+        return [f"screenshot {n} {rel} is {size[0]}x{size[1]}, want at most "
+                f"{SCREENSHOT_MAX[0]}x{SCREENSHOT_MAX[1]}"]
     return []
 
 
