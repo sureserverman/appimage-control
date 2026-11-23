@@ -1966,7 +1966,20 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
                     Some(app) => {
                         let cur = instance_count(&paths, app).unwrap_or(0);
                         let target = cur.saturating_add(n).min(app.max_instances_allowed());
-                        if want_seed_new {
+                        // The reconcile keeps instances 1..=target and removes the rest, so
+                        // with a gap in the numbering a + would delete an instance above it.
+                        let above: Vec<String> = list_managed_instance_indices(&paths, app)
+                            .unwrap_or_default()
+                            .into_iter()
+                            .filter(|&i| i > target)
+                            .map(|i| i.to_string())
+                            .collect();
+                        if !above.is_empty() {
+                            Err(format!(
+                                "{arg} would remove {id} instance {} (the numbering has a gap); nothing changed. Set the count with ={id}:N instead.",
+                                above.join(", ")
+                            ))
+                        } else if want_seed_new {
                             reconcile_instance_count_with_policy(
                                 &paths,
                                 app,
@@ -2822,6 +2835,34 @@ mod purge_prompt_tests {
         fs::write(cache.join("session.AppImage"), b"fake").expect("cached");
         let code = with_test_env(&home, &catalog, || run_cli_ops(&["+session".to_string()]));
         assert_eq!(code, Some(glib::ExitCode::SUCCESS));
+    }
+
+    /// `+APP:N` adds and never removes. With instances 1, 2 and 5, `+feather:1`
+    /// targets a count of 4, and reconciling to 4 would delete instance 5 and its
+    /// data, so it is refused and instance 5 is left as it was.
+    #[test]
+    fn plus_never_removes_an_instance_above_its_target() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let home = tmp.path().join("home");
+        let catalog = tmp.path().join("catalog.json");
+        write_seed_catalog(&catalog);
+        let apps = home.join(".local/share/appimages/apps/feather");
+        for i in [1, 2, 5] {
+            let d = apps.join(i.to_string());
+            fs::create_dir_all(d.join("feather.AppImage.home")).expect("instance");
+            fs::write(d.join("feather.AppImage"), b"fake").expect("appimage");
+            fs::write(d.join("feather.AppImage.home/wallet"), format!("wallet {i}")).expect("wallet");
+        }
+        let cache = home.join(".local/share/appimages/cache/feather");
+        fs::create_dir_all(&cache).expect("cache");
+        fs::write(cache.join("feather.AppImage"), b"fake").expect("cached");
+        let code = with_test_env(&home, &catalog, || run_cli_ops(&["+feather:1".to_string()]));
+        assert_ne!(code, Some(glib::ExitCode::SUCCESS), "a + that would remove an instance must fail");
+        assert_eq!(
+            fs::read_to_string(apps.join("5/feather.AppImage.home/wallet")).ok().as_deref(),
+            Some("wallet 5"),
+            "instance 5 and its data must survive"
+        );
     }
 
     /// `has_cli_ops` returns false for empty args (bare invocation → GUI).

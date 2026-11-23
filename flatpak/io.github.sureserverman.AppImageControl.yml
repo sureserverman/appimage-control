@@ -13,8 +13,9 @@ finish-args:
   - --socket=fallback-x11
   - --share=ipc
   - --device=dri
-  # :create, because Flatpak binds a folder that does not exist yet into the
-  # sandbox's own temporary home instead, and an install there is lost on exit.
+  # :create: Flatpak does not bind a folder that is missing on the host, so the
+  # app's writes there land in the sandbox's tmpfs home and are lost on exit.
+  # Seen for appimages on a fresh account; the other two get it for the same reason.
   - --filesystem=xdg-data/appimages:create
   - --filesystem=xdg-data/applications:create
   - --filesystem=xdg-data/icons:create
