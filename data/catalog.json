@@ -145,7 +145,7 @@
       "category": "Wallets",
       "display_name": "Electrum-LTC",
       "homepage": "https://electrum-ltc.org/",
-      "download_url": "https://electrum-ltc.org/download/electrum-ltc-4.2.2.1-x86_64.AppImage",
+      "download_url": "https://web.archive.org/web/20261020143408id_/https://electrum-ltc.org/download/electrum-ltc-4.2.2.1-x86_64.AppImage",
       "sha256": "8c27621f87a51baf5b3a492696606a5b55c72b6a9804e3baa8f161cd7cc5d8f5",
       "appimage_filename": "el.AppImage",
       "instance_subdir": "eltc",

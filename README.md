@@ -182,7 +182,7 @@ Bundled [`data/catalog.json`](data/catalog.json) tracks **the same upstreams** a
 | Session | Same as `user.sh` / `whonix.sh`: `session-foundation/session-desktop` **v1.17.17** AppImage; launcher adds `--no-sandbox` like your `.desktop` |
 | KeePassXC | GitHub `keepassxreboot/keepassxc` **2.7.12** x86_64 AppImage (verify `.sig` on the release page) |
 | Electrum BTC | Same as scripts: `download.electrum.org` **4.7.2** (official site, not a GitHub asset) |
-| Electrum LTC | Same as scripts: `electrum-ltc.org` **4.2.2.1** |
+| Electrum LTC | `electrum-ltc.org` **4.2.2.1**, from the Wayback Machine's 2026-10-20 capture (the site no longer answers); sha256 pinned |
 
 **Element Desktop:** current [`element-hq/element-desktop` GitHub releases](https://github.com/element-hq/element-desktop/releases) no longer attach a Linux `.AppImage` (only source tarballs/signatures). Use Flatpak from your scripts or add a URL yourself if upstream ships an AppImage elsewhere.
 

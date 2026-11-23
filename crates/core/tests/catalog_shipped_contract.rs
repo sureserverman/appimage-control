@@ -124,3 +124,24 @@ fn feather_pins_the_signed_release_hashes() {
         "feather-2.8.1-arm64.AppImage"
     );
 }
+
+/// electrum-ltc.org no longer answers, so the catalog downloads the Wayback Machine's raw
+/// (`id_`) capture of the same file. The pinned hash is the original's and does not change.
+#[test]
+fn electrum_ltc_downloads_the_archived_hash_pinned_appimage() {
+    let path = common::shipped_catalog_path();
+    let catalog = Catalog::load_from_path(&path).expect("load");
+    let app = catalog
+        .by_id()
+        .get("electrum-ltc")
+        .copied()
+        .expect("electrum-ltc in catalog");
+    assert_eq!(
+        app.download_url.as_deref(),
+        Some("https://web.archive.org/web/20261020143408id_/https://electrum-ltc.org/download/electrum-ltc-4.2.2.1-x86_64.AppImage")
+    );
+    assert_eq!(
+        app.sha256.as_deref(),
+        Some("8c27621f87a51baf5b3a492696606a5b55c72b6a9804e3baa8f161cd7cc5d8f5")
+    );
+}
