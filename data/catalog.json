@@ -7,6 +7,8 @@
       "homepage": "https://featherwallet.org/",
       "download_url": "https://github.com/feather-wallet/feather/releases/download/2.8.1/feather-2.8.1.AppImage",
       "download_url_aarch64": "https://github.com/feather-wallet/feather/releases/download/2.8.1/feather-2.8.1-arm64.AppImage",
+      "sha256": "c5e95c68ea932067c269d9aa6073450326ec845efba2dfe1e71d8de3d89c15f4",
+      "sha256_aarch64": "ed6e8e885539ee2a76e49ef6cbbeda8586959ae5ad30432f102669a83081aecd",
       "appimage_filename": "feather.AppImage",
       "instance_strategy": "qt_x11",
       "desktop_name_template": "Feather Wallet (#{index})",

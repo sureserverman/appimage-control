@@ -101,3 +101,26 @@ fn standard_notes_display_name_fallback_would_work_without_display_name() {
     };
     assert_eq!(app.display_name_resolved(), "standard notes");
 }
+
+/// Feather's GitHub release carries no asset digest, so the catalog pins the hashes from
+/// Feather's PGP-signed list in the 2.8.1 release notes (DEC-001).
+#[test]
+fn feather_pins_the_signed_release_hashes() {
+    let path = common::shipped_catalog_path();
+    let catalog = Catalog::load_from_path(&path).expect("load");
+    let app = catalog
+        .by_id()
+        .get("feather")
+        .copied()
+        .expect("feather in catalog");
+    assert_eq!(
+        app.sha256.as_deref(),
+        Some("c5e95c68ea932067c269d9aa6073450326ec845efba2dfe1e71d8de3d89c15f4"),
+        "feather-2.8.1.AppImage"
+    );
+    assert_eq!(
+        app.sha256_aarch64.as_deref(),
+        Some("ed6e8e885539ee2a76e49ef6cbbeda8586959ae5ad30432f102669a83081aecd"),
+        "feather-2.8.1-arm64.AppImage"
+    );
+}
