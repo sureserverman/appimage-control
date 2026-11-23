@@ -13,9 +13,11 @@ finish-args:
   - --socket=fallback-x11
   - --share=ipc
   - --device=dri
-  - --filesystem=xdg-data/appimages
-  - --filesystem=xdg-data/applications
-  - --filesystem=xdg-data/icons
+  # :create, because Flatpak binds a folder that does not exist yet into the
+  # sandbox's own temporary home instead, and an install there is lost on exit.
+  - --filesystem=xdg-data/appimages:create
+  - --filesystem=xdg-data/applications:create
+  - --filesystem=xdg-data/icons:create
   # Allow `flatpak-spawn --host` so seeding (xvfb-run), AppImage execution,
   # appimageupdatetool, fusermount3, update-desktop-database, and
   # gtk-update-icon-cache run on the host where they actually exist and

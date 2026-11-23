@@ -156,9 +156,12 @@ These are requirements, not manifest text:
   - `--share=network`: catalog, icon and AppImage downloads.
   - `--socket=wayland`, `--socket=fallback-x11`, `--share=ipc`, `--device=dri`:
     the GTK 4 window.
-  - `--filesystem=xdg-data/appimages`, `xdg-data/applications`,
-    `xdg-data/icons`: the managed AppImages and their launchers and icons.
-    The linter grades `xdg-data` access as "explain".
+  - `--filesystem=xdg-data/appimages:create`, `xdg-data/applications:create`,
+    `xdg-data/icons:create`: the managed AppImages and their launchers and
+    icons. The linter grades `xdg-data` access as "explain". `:create` is
+    needed because a fresh account has no `~/.local/share/appimages`: Flatpak
+    does not bind a missing folder, so without it the first install is written
+    inside the sandbox and lost when the app exits.
   - `--talk-name=org.freedesktop.Flatpak`: `flatpak-spawn --host` (rule 5).
     The linter reports it as a warning, not an error.
 - `flathub.json` only if the app must be limited to one architecture.
