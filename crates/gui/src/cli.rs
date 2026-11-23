@@ -1976,8 +1976,9 @@ pub fn run_cli_ops(args: &[String]) -> Option<glib::ExitCode> {
                             .collect();
                         if !above.is_empty() {
                             Err(format!(
-                                "{arg} would remove {id} instance {} (the numbering has a gap); nothing changed. Set the count with ={id}:N instead.",
-                                above.join(", ")
+                                "{arg} would remove {id} instance {}, which lies above the {target} it adds up to; nothing changed. To set the count, use ={id}:N with N at least {}.",
+                                above.join(", "),
+                                above.last().map(String::as_str).unwrap_or("0")
                             ))
                         } else if want_seed_new {
                             reconcile_instance_count_with_policy(
