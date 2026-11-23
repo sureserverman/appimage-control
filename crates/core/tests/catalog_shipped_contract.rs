@@ -5,7 +5,8 @@ mod common;
 use std::fs;
 
 use appimage_control_core::{
-    parse_catalog_json, Catalog, CatalogApp, InstanceStrategy, MAX_INSTANCES_PER_APP,
+    parse_catalog_json, version_from_download_url, Catalog, CatalogApp, InstanceStrategy,
+    MAX_INSTANCES_PER_APP,
 };
 
 fn catalog_has_strategy(catalog: &Catalog, strategy: InstanceStrategy) -> bool {
@@ -143,5 +144,11 @@ fn electrum_ltc_downloads_the_archived_hash_pinned_appimage() {
     assert_eq!(
         app.sha256.as_deref(),
         Some("8c27621f87a51baf5b3a492696606a5b55c72b6a9804e3baa8f161cd7cc5d8f5")
+    );
+    // The capture's timestamp sits in the path, not the file name, so the pinned version
+    // still reads as the release.
+    assert_eq!(
+        version_from_download_url(app.download_url.as_deref().expect("url")).as_deref(),
+        Some("4.2.2.1")
     );
 }

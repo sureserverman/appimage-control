@@ -39,9 +39,10 @@ fn redirect_allowed(first: &reqwest::Url, next: &reqwest::Url) -> bool {
     }
 }
 
-/// The one HTTP client builder for the core crate: fixed user agent, 30 s connect and
-/// overall timeouts, and a redirect policy that only follows hops to https (or loopback
-/// http), at most 10.
+/// The one HTTP client builder for the core crate: fixed user agent, 30 s to connect, 30 s
+/// for the response headers and for each read of the body (the blocking client applies its
+/// timeout per read, so a long download is not cut off while bytes keep arriving), and a
+/// redirect policy that only follows hops to https (or loopback http), at most 10.
 pub(crate) fn http_client() -> reqwest::Result<reqwest::blocking::Client> {
     reqwest::blocking::Client::builder()
         .user_agent(USER_AGENT)
