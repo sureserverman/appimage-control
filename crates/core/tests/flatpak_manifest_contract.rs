@@ -24,10 +24,14 @@ fn filesystem_grants() -> Vec<String> {
 #[test]
 fn manifest_xdg_data_grants_create_their_folders() {
     let grants = filesystem_grants();
-    let xdg: Vec<&String> = grants.iter().filter(|g| g.starts_with("xdg-data/")).collect();
+    let xdg: Vec<&String> = grants
+        .iter()
+        .filter(|g| g.starts_with("xdg-data/"))
+        .collect();
     for folder in ["appimages", "applications", "icons"] {
         assert!(
-            xdg.iter().any(|g| g.split(':').next() == Some(&format!("xdg-data/{folder}"))),
+            xdg.iter()
+                .any(|g| g.split(':').next() == Some(&format!("xdg-data/{folder}"))),
             "the manifest grants xdg-data/{folder}: {grants:?}"
         );
     }

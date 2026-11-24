@@ -2852,15 +2852,25 @@ mod purge_prompt_tests {
             let d = apps.join(i.to_string());
             fs::create_dir_all(d.join("feather.AppImage.home")).expect("instance");
             fs::write(d.join("feather.AppImage"), b"fake").expect("appimage");
-            fs::write(d.join("feather.AppImage.home/wallet"), format!("wallet {i}")).expect("wallet");
+            fs::write(
+                d.join("feather.AppImage.home/wallet"),
+                format!("wallet {i}"),
+            )
+            .expect("wallet");
         }
         let cache = home.join(".local/share/appimages/cache/feather");
         fs::create_dir_all(&cache).expect("cache");
         fs::write(cache.join("feather.AppImage"), b"fake").expect("cached");
         let code = with_test_env(&home, &catalog, || run_cli_ops(&["+feather:1".to_string()]));
-        assert_ne!(code, Some(glib::ExitCode::SUCCESS), "a + that would remove an instance must fail");
+        assert_ne!(
+            code,
+            Some(glib::ExitCode::SUCCESS),
+            "a + that would remove an instance must fail"
+        );
         assert_eq!(
-            fs::read_to_string(apps.join("5/feather.AppImage.home/wallet")).ok().as_deref(),
+            fs::read_to_string(apps.join("5/feather.AppImage.home/wallet"))
+                .ok()
+                .as_deref(),
             Some("wallet 5"),
             "instance 5 and its data must survive"
         );
