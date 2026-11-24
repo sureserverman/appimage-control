@@ -61,6 +61,11 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.4.1" date="2026-11-24">
+      <description>
+        <p>Feather downloads are checked against the hashes in Feather's signed release notes, and Electrum-LTC installs from an archived copy of its release, still checked against its pinned hash. Adding instances with +APP:N no longer removes an instance above the new count. The Flatpak creates its app, launcher and icon folders on first run, so a first install is kept.</p>
+      </description>
+    </release>
     <release version="0.4.0" date="2026-11-06">
       <description>
         <p>Each app now has a detail page with its versions, sizes, folders and update source, where you can launch a copy or open its folder. A check at login sends a notification when an installed app has a newer release. The Flatpak build is English-only.</p>
